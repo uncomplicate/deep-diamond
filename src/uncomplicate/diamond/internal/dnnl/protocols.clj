@@ -8,3 +8,6 @@
 
 (defprotocol Wrappable
   (wrap [this]))
+
+(defprotocol DnnlCloneable
+  (clone [this]))

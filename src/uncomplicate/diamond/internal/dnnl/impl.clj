@@ -8,7 +8,8 @@
   (:import java.nio.ByteBuffer
            [org.bytedeco.javacpp Pointer PointerPointer]
            org.bytedeco.dnnl.global.dnnl
-           [org.bytedeco.dnnl dnnl_engine dnnl_stream]))
+           [org.bytedeco.dnnl dnnl_engine dnnl_stream dnnl_primitive_desc
+            dnnl_primitive dnnl_exec_arg_t]))
 
 (defn error
   ([^long err-code details]
@@ -89,3 +90,62 @@
      (with-check
        (dnnl/dnnl_engine_get_kind eng kind)
        (aget kind 0)))))
+
+;; ===================== Stream ========================================================
+
+(deftype-wrapper Stream dnnl/dnnl_stream_destroy)
+
+(extend-type dnnl_stream
+  Wrappable
+  (wrap [this]
+    (->Stream (volatile! this))))
+
+(defn stream*
+  ([^dnnl_engine eng]
+   (stream* eng dnnl/dnnl_stream_default_flags))
+  ([^dnnl_engine eng ^long flags]
+   (let-release [s (dnnl_stream.)]
+     (with-check
+       (dnnl/dnnl_stream_create s eng flags)
+       s))))
+
+(defn wait* [^dnnl_stream s]
+  (with-check (dnnl/dnnl_stream_wait s) s))
+
+;; ===================== Primitive descriptor ===========================================
+
+(deftype-wrapper PrimitiveDesc dnnl/dnnl_primitive_desc_destroy)
+
+(extend-type dnnl_primitive_desc
+  Wrappable
+  (wrap [this]
+    (->PrimitiveDesc (volatile! this)))
+  DnnlCloneable
+  (clone [this]
+    (let-release [pd (dnnl_primitive_desc.)]
+      (dnnl/dnnl_primitive_desc_clone pd this))))
+
+(defn query-md*
+  ([pd ^long what ^long index]
+   (dnnl/dnnl_primitive_desc_query_md pd what index))
+  ([pd ^long what]
+   (query-md* pd what 0)))
+
+;; ===================== Primitive ======================================================
+
+(deftype-wrapper Primitive dnnl/dnnl_primitive_destroy)
+
+(extend-type dnnl_primitive
+  Wrappable
+  (wrap [this]
+    (->Primitive (volatile! this))))
+
+(defn execute* [s p ^dnnl_exec_arg_t args]
+  (with-check
+    (dnnl/dnnl_primitive_execute p s (.capacity args) (.position args 0))
+    s))
+
+(defn args* [^dnnl_exec_arg_t args ^long i ^long arg-key arg]
+  (doto (.position args i)
+    (.arg arg-key)
+    (.memory arg)))

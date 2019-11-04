@@ -23,3 +23,9 @@
     2 :gpu
     0 :any
     :unknown))
+
+(def ^:const dnnl-stream-flags
+  {:default-order dnnl/dnnl_stream_default_flags
+   :in-order dnnl/dnnl_stream_in_order
+   :out-of-order dnnl/dnnl_stream_out_of_order
+   :default-flags dnnl/dnnl_stream_default_flags})
