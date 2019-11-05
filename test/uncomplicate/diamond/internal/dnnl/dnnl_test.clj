@@ -20,3 +20,24 @@
          (engine 10 :gpu) => (throws ExceptionInfo)
          (engine 0 :gpu) => (throws ExceptionInfo)
          (engine 0 :any) => (throws ExceptionInfo)))
+
+(facts "Memory descriptor by strides."
+       (with-release [strds [120 3 4 5]
+                      dimensions [2 3 4 5]
+                      md (memory-desc dimensions :float strds)]
+         (data-type md) => :float
+         (ndims md) => (count dimensions)
+         (dims md) => dimensions
+         (strides md) => strds
+         (size md) => (* (long (first strds)) (long (first dimensions)) Float/BYTES)
+         (memory-desc [1 1] :f64 [1 1]) => (throws ExceptionInfo)
+         (data-type (memory-desc [1 1])) => :float
+         (strides (memory-desc [2 3])) => [0 0]
+         (strides (memory-desc [2 3] :float :nc)) => [3 1]))
+
+(facts "Basic memory integration."
+       (with-release [eng (engine)
+                      md (memory-desc [2 3 4 5] :float :nchw)
+                      mem (memory eng md)]
+         (instance? ByteBuffer (api/data mem)) => true
+         (capacity (api/data mem)) => 480))

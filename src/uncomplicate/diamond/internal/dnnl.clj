@@ -8,7 +8,7 @@
              [protocols :refer :all]])
   (:import org.bytedeco.javacpp.Pointer
            org.bytedeco.dnnl.global.dnnl
-           [org.bytedeco.dnnl dnnl_engine]))
+           [org.bytedeco.dnnl dnnl_engine dnnl_memory_desc_t]))
 
 ;; ===================== Engine ===============================================
 
@@ -70,3 +70,79 @@
   [strm p args]
   (execute* (extract strm) (extract p) args)
   strm)
+
+;; ===================== Desc =================================================
+
+(defn primitive-kind [desc]
+  (dec-primitive-kind (primitive-kind* desc)))
+
+(defn primitive-desc
+  ([eng desc]
+   (wrap (primitive-desc* desc (extract eng))))
+  ([eng desc hint-pd]
+   (wrap (primitive-desc* desc (extract eng) (extract hint-pd))))
+  ([eng desc hint-pd attr]
+   (wrap (primitive-desc* desc (extract eng) (extract hint-pd) (extract attr)))))
+
+;; ===================== Primitive ============================================
+
+(defn primitive [pd]
+  (wrap (primitive* (extract pd))))
+
+;; ===================== Memory ===============================================
+
+(defn memory-desc
+  ([dims data-type format]
+   (memory-desc* (if (keyword? format)
+                   (enc-keyword dnnl-format format)
+                   (long-array format))
+                 (long-array dims) (enc-keyword dnnl-data-type data-type)))
+  ([dims format]
+   (memory-desc dims :float format))
+  ([dims]
+   (memory-desc dims :float :any)))
+
+(defn submemory-desc
+  ([parent-desc dims offsets]
+   (submemory-desc* (desc parent-desc) (long-array dims) (long-array offsets)))
+  ([parent-desc dim-a]
+   (submemory-desc* (desc parent-desc) dim-a)))
+
+(defn equal-desc? [x y]
+  (= 1 (dnnl/dnnl_memory_desc_equal (desc x) (desc y))))
+
+(defn data-type [mem-desc]
+  (dec-data-type (data-type* (desc mem-desc))))
+
+(defn ndims ^long [mem-desc]
+  (.ndims ^dnnl_memory_desc_t (desc mem-desc)))
+
+(defn dims [mem-desc]
+  (vec (dims* (desc mem-desc))))
+
+(defn size ^long [mem-desc]
+  (dnnl/dnnl_memory_desc_get_size (desc mem-desc)))
+
+(defn strides [mem-desc]
+  (vec (strides* (desc mem-desc))))
+
+(defn memory
+  ([eng mem-desc buf master]
+   (if (<= (size (desc mem-desc)) (capacity buf))
+     (memory* (desc mem-desc) (extract eng) buf master)
+     (dragan-says-ex "The buffer has to be large enough for mem-desc"
+                     {:size (size (desc mem-desc)) :capacity (capacity buf)})))
+  ([eng mem-desc buf]
+   (memory eng mem-desc buf false))
+  ([eng mem-desc]
+   (let-release [buf (direct-buffer (size (desc mem-desc)))]
+     (memory* (desc mem-desc) (extract eng) buf true))))
+
+(defn offset! [mem ^long n]
+  (let [p (ptr mem)]
+    (if (and (<= 0 n) (<= n (.capacity ^Pointer p)))
+      (with-check (dnnl/dnnl_memory_set_data_handle
+                   (extract mem) (.position ^Pointer p n))
+        mem)
+      (dragan-says-ex "There is not enough capacity in the underlying buffer for this offset."
+                      {:n n :requested n :available (.capacity ^Pointer p)}))))

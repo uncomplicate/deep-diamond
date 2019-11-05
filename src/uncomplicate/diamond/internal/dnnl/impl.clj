@@ -9,7 +9,8 @@
            [org.bytedeco.javacpp Pointer PointerPointer]
            org.bytedeco.dnnl.global.dnnl
            [org.bytedeco.dnnl dnnl_engine dnnl_stream dnnl_primitive_desc
-            dnnl_primitive dnnl_exec_arg_t]))
+            dnnl_primitive dnnl_exec_arg_t dnnl_memory_desc_t dnnl_memory
+            dnnl_primitive_desc]))
 
 (defn error
   ([^long err-code details]
@@ -140,6 +141,10 @@
   (wrap [this]
     (->Primitive (volatile! this))))
 
+(defn primitive* [^dnnl_primitive_desc pd]
+  (let-release [p (dnnl_primitive.)]
+    (with-check (dnnl/dnnl_primitive_create p pd) p)))
+
 (defn execute* [s p ^dnnl_exec_arg_t args]
   (with-check
     (dnnl/dnnl_primitive_execute p s (.capacity args) (.position args 0))
@@ -149,3 +154,100 @@
   (doto (.position args i)
     (.arg arg-key)
     (.memory arg)))
+
+;; ===================== Memory =========================================================
+
+(extend-type dnnl_memory_desc_t
+  DescProvider
+  (desc [this]
+    this))
+
+(extend-type java.lang.Long
+  BlockedDesc
+  (memory-desc* [tag dims data-type]
+    (let-release [res (dnnl_memory_desc_t.)]
+      (with-check
+        (dnnl/dnnl_memory_desc_init_by_tag res (alength ^longs dims) ^longs dims
+                                               ^long data-type tag)
+        res))))
+
+(extend-type java.lang.Integer
+  BlockedDesc
+  (memory-desc* [tag dims data-type]
+    (let-release [res (dnnl_memory_desc_t.)]
+      (with-check
+        (dnnl/dnnl_memory_desc_init_by_tag res (alength ^longs dims) ^longs dims
+                                               ^long data-type tag)
+        res))))
+
+(extend-type (class (long-array 0))
+  BlockedDesc
+  (memory-desc* [strides dims data-type]
+    (let-release [res (dnnl_memory_desc_t.)]
+      (with-check
+        (dnnl/dnnl_memory_desc_init_by_strides res (alength ^longs dims) ^longs dims
+                                                   ^long data-type ^longs strides)
+        res))))
+
+(defn data-type* ^long [^dnnl_memory_desc_t mem-desc]
+  (.data_type mem-desc))
+
+(defn dims* ^longs [^dnnl_memory_desc_t mem-desc]
+  (let [dims (long-array (.ndims mem-desc))]
+    (.get (.dims mem-desc) dims)
+    dims))
+
+(defn strides* [^dnnl_memory_desc_t mem-desc]
+  (let [strides (.strides (.format_desc_blocking mem-desc))
+        res (long-array (.ndims mem-desc))]
+    (.get (.position strides 0) res)
+    res))
+
+(defn submemory-desc*
+  ([^dnnl_memory_desc_t parent-desc ^longs dims ^longs offsets]
+   (let-release [res (dnnl_memory_desc_t.)]
+     (with-check
+       (dnnl/dnnl_memory_desc_init_submemory res parent-desc dims offsets)
+       res)))
+  ([^dnnl_memory_desc_t parent-desc ^long n]
+   (let [dims (dims* parent-desc)]
+     (aset dims 0 n)
+     (submemory-desc* parent-desc dims (long-array (alength dims))))))
+
+(deftype MemoryImpl [vmem mem-desc d ^Pointer d-ptr master]
+  Releaseable
+  (release [this]
+    (locking vmem
+      (when-let [mem @vmem]
+        (locking mem
+          (with-check (dnnl/dnnl_memory_destroy mem)
+            (do (vreset! vmem nil)
+                (when master
+                  (release d)
+                  (.deallocate d-ptr))))))))
+  Wrapper
+  (extract [this]
+    @vmem)
+  DescProvider
+  (desc [this]
+    mem-desc)
+  Memory
+  (data [this]
+    (if @vmem d nil))
+  (ptr [this]
+    (if @vmem d-ptr nil)))
+
+(extend-type ByteBuffer
+  PointerCreator
+  (pointer [buf]
+    (Pointer. ^ByteBuffer buf)))
+
+(defn memory* [^dnnl_memory_desc_t desc ^dnnl_engine eng data master]
+  (let-release [mem (dnnl_memory.)
+                data-pointer (pointer data)]
+    (with-check (dnnl/dnnl_memory_create mem desc eng ^Pointer data-pointer)
+      (->MemoryImpl (volatile! mem) desc data data-pointer master))))
+
+(defn get-engine* [^dnnl_memory mem]
+  (let-release [res (dnnl_engine.)]
+    (with-check (dnnl/dnnl_memory_get_engine mem res) res)))
