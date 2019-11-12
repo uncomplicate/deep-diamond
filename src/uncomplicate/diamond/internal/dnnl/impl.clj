@@ -10,7 +10,8 @@
            org.bytedeco.dnnl.global.dnnl
            [org.bytedeco.dnnl dnnl_engine dnnl_stream dnnl_primitive_desc
             dnnl_primitive dnnl_exec_arg_t dnnl_memory_desc_t dnnl_memory
-            dnnl_primitive_desc]))
+            dnnl_primitive_desc const_dnnl_op_desc_t dnnl_primitive_attr
+            dnnl_eltwise_desc_t]))
 
 (defn error
   ([^long err-code details]
@@ -251,3 +252,47 @@
 (defn get-engine* [^dnnl_memory mem]
   (let-release [res (dnnl_engine.)]
     (with-check (dnnl/dnnl_memory_get_engine mem res) res)))
+
+;; ===================== Eltwise  =========================================================
+
+(extend-type const_dnnl_op_desc_t
+  PrimitiveDescCreator
+  (primitive-desc*
+    ([desc eng hint-pd]
+     (let-release [pd (dnnl_primitive_desc.)]
+       (with-check (dnnl/dnnl_primitive_desc_create pd desc nil
+                                                        ^dnnl_engine eng
+                                                        ^dnnl_primitive_desc hint-pd)
+         pd)))
+    ([desc eng hint-pd attr]
+     (let-release [pd (dnnl_primitive_desc.)]
+       (with-check (dnnl/dnnl_primitive_desc_create pd desc
+                                                        ^dnnl_primitive_attr attr
+                                                        ^dnnl_engine eng
+                                                        ^dnnl_primitive_desc hint-pd)
+         pd)))))
+
+(extend-type dnnl_eltwise_desc_t
+  PrimitiveDescCreator
+  (primitive-desc*
+    ([desc eng]
+     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
+    ([desc eng hint-pd]
+     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
+  PrimitiveKind
+  (primitive-kind* [desc]
+    (.primitive_kind desc)))
+
+(defn eltwise-forward-desc* [prop-kind alg-kind mem-desc alpha beta]
+  (let-release [eltw-desc (dnnl_eltwise_desc_t.)]
+    (with-check
+      (dnnl/dnnl_eltwise_forward_desc_init eltw-desc (int prop-kind) (int alg-kind)
+                                               mem-desc (float alpha) (float beta))
+      eltw-desc)))
+
+(defn eltwise-backward-desc* [alg-kind diff-data-desc data-desc alpha beta]
+  (let-release [eltw-desc (dnnl_eltwise_desc_t.)]
+    (with-check
+      (dnnl/dnnl_eltwise_backward_desc_init eltw-desc (int alg-kind) diff-data-desc
+                                                data-desc (float alpha) (float beta))
+      eltw-desc)))

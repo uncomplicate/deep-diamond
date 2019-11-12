@@ -165,3 +165,29 @@
    Byte/TYPE dnnl/dnnl_s8
    :u8 dnnl/dnnl_u8
    :undef dnnl/dnnl_data_type_undef})
+
+(def ^:const dnnl-forward-prop-kind
+  {:training dnnl/dnnl_forward_training
+   :inference dnnl/dnnl_forward_inference
+   :scoring dnnl/dnnl_forward_scoring})
+
+(def ^:const dnnl-backward-prop-kind
+  {:backward dnnl/dnnl_backward
+   :data dnnl/dnnl_backward_data
+   :weights dnnl/dnnl_backward_weights
+   :bias dnnl/dnnl_backward_bias})
+
+(def ^:const dnnl-eltwise-alg-kind
+  {:relu dnnl/dnnl_eltwise_relu
+   :tanh dnnl/dnnl_eltwise_tanh
+   :elu dnnl/dnnl_eltwise_elu
+   :square dnnl/dnnl_eltwise_square
+   :abs dnnl/dnnl_eltwise_abs
+   :sqrt dnnl/dnnl_eltwise_sqrt
+   :linear dnnl/dnnl_eltwise_linear
+   :bounded-relu dnnl/dnnl_eltwise_bounded_relu
+   :soft-relu dnnl/dnnl_eltwise_soft_relu
+   :logistic dnnl/dnnl_eltwise_logistic
+   :sigmoid dnnl/dnnl_eltwise_logistic
+   :exp dnnl/dnnl_eltwise_exp
+   :gelu dnnl/dnnl_eltwise_gelu})

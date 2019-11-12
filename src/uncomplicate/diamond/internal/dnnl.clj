@@ -8,7 +8,7 @@
              [protocols :refer :all]])
   (:import org.bytedeco.javacpp.Pointer
            org.bytedeco.dnnl.global.dnnl
-           [org.bytedeco.dnnl dnnl_engine dnnl_memory_desc_t]))
+           [org.bytedeco.dnnl dnnl_engine dnnl_memory_desc_t dnnl_exec_arg_t]))
 
 ;; ===================== Engine ===============================================
 
@@ -242,3 +242,38 @@
   "Queries the primitive descriptor `pd` for the reference of its workspace."
   [pd]
   (query-md* (extract pd) dnnl/dnnl_query_workspace_md))
+
+;; =================== Etlwise ==================================================
+
+(defn eltwise-fwd-desc
+  ([prop-kind alg-kind mem-desc alpha beta]
+   (eltwise-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                          (enc-keyword dnnl-eltwise-alg-kind alg-kind)
+                          (desc mem-desc) alpha beta))
+  ([prop-kind alg-kind mem-desc]
+   (eltwise-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                          (enc-keyword dnnl-eltwise-alg-kind alg-kind)
+                          (desc mem-desc) 0.0 0.0)))
+
+(defn eltwise-bwd-desc
+  ([alg-kind diff-mem-desc src-desc alpha beta]
+   (eltwise-backward-desc* (enc-keyword dnnl-eltwise-alg-kind alg-kind)
+                           (desc diff-mem-desc) (desc src-desc) alpha beta))
+  ([alg-kind diff-mem-desc src-desc]
+   (eltwise-backward-desc* (enc-keyword dnnl-eltwise-alg-kind alg-kind)
+                           (desc diff-mem-desc) (desc src-desc) 0.0 0.0)))
+
+(defn eltwise-args
+  ([src-and-dst]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src-and-dst))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract src-and-dst))))
+  ([src dst]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))))
+  ([src diff-dst diff-src]
+   (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
+     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src)))))

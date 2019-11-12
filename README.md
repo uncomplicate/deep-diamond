@@ -10,9 +10,9 @@
 
 Deep Diamond is a Clojure library for fast tensors and neural network related computations based on the highly optimized native libraries and computation routines for both CPU and GPU.
 
-## When it will be released?
+## When will it be released?
 
-Soon. Its progress will go along with the [books](https://aiprobook.com
+Soon. Its progress will go along with the [books](https://aiprobook.com)
 
 ## License
 
