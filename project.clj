@@ -4,7 +4,7 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [uncomplicate/commons "0.8.0"]
                  [uncomplicate/neanderthal "0.27.0-SNAPSHOT"]
-                 [org.bytedeco/dnnl-platform "1.1.1-1.5.2-SNAPSHOT"]]
+                 [org.bytedeco/dnnl-platform "1.1.1-1.5.2"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
                              [lein-codox "0.10.6"]]
