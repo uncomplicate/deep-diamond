@@ -110,3 +110,39 @@
          (get-float buf 59) => 0.0
          (get-float buf 60) => 0.0
          (get-float buf 119) => 0.0))
+
+(facts "In-place Sum operation"
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 3 4 5] :float :nchw)
+                      buf (direct-buffer (size md))
+                      src (memory eng md buf)
+                      sum-pd (sum eng 2.0 md)
+                      sum-prim (primitive sum-pd)
+                      sum-args (args src)]
+         (put-float buf 0 -100)
+         (put-float buf 1 20)
+         (execute! s sum-prim sum-args) => s
+         (get-float buf 0) => -200.0
+         (get-float buf 1) => 40.0))
+
+(facts "Out of place Sum operation"
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 3 4 5] :float :nchw)
+                      src0-buf (direct-buffer (size md))
+                      src1-buf (direct-buffer (size md))
+                      dst-buf (direct-buffer (size md))
+                      src0 (memory eng md src0-buf)
+                      src1 (memory eng md src1-buf)
+                      dst (memory eng md dst-buf)
+                      sum-pd (sum eng md 2.0 md 3.0 md)
+                      sum-prim (primitive sum-pd)
+                      sum-args (args dst src0 src1)]
+         (put-float src0-buf 0 -100)
+         (put-float src0-buf 1 20)
+         (put-float src1-buf 0 -1000)
+         (put-float src1-buf 1 200)
+         (execute! s sum-prim sum-args) => s
+         (get-float dst-buf 0) => -3200.0
+         (get-float dst-buf 1) => 640.0))

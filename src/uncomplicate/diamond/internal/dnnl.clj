@@ -297,3 +297,41 @@
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
      (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
      (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src)))))
+
+;; ======================= Sum ============================================================
+
+(defn sum
+  ([eng scale dst]
+   (wrap (sum* (desc dst) (float-array [scale]) (desc dst) (extract eng))))
+  ([eng dst scale src & scale-srcs]
+   (let [srcs (mapv desc (cons src (take-nth 2 (rest scale-srcs))))
+         n (count srcs)]
+     (let-release [s (dnnl_memory_desc_t. n)]
+       (dotimes [i n]
+         (.position s i)
+         (.put s (srcs i)))
+       (wrap (sum* (desc dst)
+                   (float-array (cons scale (take-nth 2 scale-srcs)))
+                   s (extract eng)))))))
+
+(defn args
+  ([src-and-dst]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src-and-dst))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract src-and-dst))))
+  ([dst src]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 1 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src))))
+  ([dst src0 src1]
+   (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 1 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src0))
+     (args* args 2 (inc dnnl/DNNL_ARG_MULTIPLE_SRC) (extract src1))))
+  ([dst src0 src1 & srcs]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 1 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src0))
+     (args* args 2 (inc dnnl/DNNL_ARG_MULTIPLE_SRC) (extract src1))
+     (doall (map #(args* args %2 (extract %1)) srcs (range 3)))
+     args)))

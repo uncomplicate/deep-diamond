@@ -169,7 +169,7 @@
     (let-release [res (dnnl_memory_desc_t.)]
       (with-check
         (dnnl/dnnl_memory_desc_init_by_tag res (alength ^longs dims) ^longs dims
-                                               ^long data-type tag)
+                                           ^long data-type tag)
         res))))
 
 (extend-type java.lang.Integer
@@ -178,7 +178,7 @@
     (let-release [res (dnnl_memory_desc_t.)]
       (with-check
         (dnnl/dnnl_memory_desc_init_by_tag res (alength ^longs dims) ^longs dims
-                                               ^long data-type tag)
+                                           ^long data-type tag)
         res))))
 
 (extend-type (class (long-array 0))
@@ -187,7 +187,7 @@
     (let-release [res (dnnl_memory_desc_t.)]
       (with-check
         (dnnl/dnnl_memory_desc_init_by_strides res (alength ^longs dims) ^longs dims
-                                                   ^long data-type ^longs strides)
+                                               ^long data-type ^longs strides)
         res))))
 
 (defn data-type* ^long [^dnnl_memory_desc_t mem-desc]
@@ -261,15 +261,15 @@
     ([desc eng hint-pd]
      (let-release [pd (dnnl_primitive_desc.)]
        (with-check (dnnl/dnnl_primitive_desc_create pd desc nil
-                                                        ^dnnl_engine eng
-                                                        ^dnnl_primitive_desc hint-pd)
+                                                    ^dnnl_engine eng
+                                                    ^dnnl_primitive_desc hint-pd)
          pd)))
     ([desc eng hint-pd attr]
      (let-release [pd (dnnl_primitive_desc.)]
        (with-check (dnnl/dnnl_primitive_desc_create pd desc
-                                                        ^dnnl_primitive_attr attr
-                                                        ^dnnl_engine eng
-                                                        ^dnnl_primitive_desc hint-pd)
+                                                    ^dnnl_primitive_attr attr
+                                                    ^dnnl_engine eng
+                                                    ^dnnl_primitive_desc hint-pd)
          pd)))))
 
 (extend-type dnnl_eltwise_desc_t
@@ -287,12 +287,21 @@
   (let-release [eltw-desc (dnnl_eltwise_desc_t.)]
     (with-check
       (dnnl/dnnl_eltwise_forward_desc_init eltw-desc (int prop-kind) (int alg-kind)
-                                               mem-desc (float alpha) (float beta))
+                                           mem-desc (float alpha) (float beta))
       eltw-desc)))
 
 (defn eltwise-backward-desc* [alg-kind diff-data-desc data-desc alpha beta]
   (let-release [eltw-desc (dnnl_eltwise_desc_t.)]
     (with-check
       (dnnl/dnnl_eltwise_backward_desc_init eltw-desc (int alg-kind) diff-data-desc
-                                                data-desc (float alpha) (float beta))
+                                            data-desc (float alpha) (float beta))
       eltw-desc)))
+
+;; ======================= Sum ============================================================
+
+(defn sum* [^dnnl_memory_desc_t dst ^floats scales ^dnnl_memory_desc_t src ^dnnl_engine eng]
+  (let-release [pd (dnnl_primitive_desc.)]
+    (with-check
+      (dnnl/dnnl_sum_primitive_desc_create pd dst (alength scales) scales
+                                           (.position src 0) nil eng)
+      pd)))
