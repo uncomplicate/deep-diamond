@@ -246,6 +246,15 @@
 ;; =================== Etlwise ==================================================
 
 (defn eltwise-fwd-desc
+  "Creates a forward descriptor of an operation that is applied to
+  every element of a tensor.
+
+  * `prop-kind`: the kind of propagation: `:inference`, `training`, or `:scoring`
+  (defined in `[[constants/dnnl-forward-prop-kind]]`)
+  * `alg-kind`: operation algorithm, such as `:relu` or `:logistic`
+  (defined in `[[constants/dnnl-eltwise-alg-kind]]`)
+  * `mem-desc`: the descriptor that defines memory layout of the data
+  * `alpha`, and `beta`: optional coefficients, depending on `alg-kind`."
   ([prop-kind alg-kind mem-desc alpha beta]
    (eltwise-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
                           (enc-keyword dnnl-eltwise-alg-kind alg-kind)
@@ -256,14 +265,25 @@
                           (desc mem-desc) 0.0 0.0)))
 
 (defn eltwise-bwd-desc
-  ([alg-kind diff-mem-desc src-desc alpha beta]
+  "Creates a backward descriptor of an operation that is applied to
+  every element of a tensor. Used only during the training.
+
+  * `alg-kind`: operation algorithm, such as `:relu` or `:logistic`
+  (defined in `[[constants/dnnl-eltwise-alg-kind]]`)
+  * `diff-desc`: the source memory descriptor
+  * `src-desc`: the source memory descriptor
+  * `dst-desc`: the destination memory descriptor
+  * `alpha`, and `beta`: optional coefficients, depending on `alg-kind`."
+  ([alg-kind diff-desc src-desc alpha beta]
    (eltwise-backward-desc* (enc-keyword dnnl-eltwise-alg-kind alg-kind)
-                           (desc diff-mem-desc) (desc src-desc) alpha beta))
-  ([alg-kind diff-mem-desc src-desc]
+                           (desc diff-desc) (desc src-desc) alpha beta))
+  ([alg-kind diff-desc src-desc]
    (eltwise-backward-desc* (enc-keyword dnnl-eltwise-alg-kind alg-kind)
-                           (desc diff-mem-desc) (desc src-desc) 0.0 0.0)))
+                           (desc diff-desc) (desc src-desc) 0.0 0.0)))
 
 (defn eltwise-args
+  "Creates DNNL's data structure that holds arguments for elementwise
+  operations."
   ([src-and-dst]
    (let-release [args (dnnl_exec_arg_t. 2)]
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src-and-dst))
