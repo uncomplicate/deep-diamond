@@ -1,3 +1,11 @@
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (ns uncomplicate.diamond.internal.dnnl
   (:require [uncomplicate.commons
              [core :refer [let-release with-release]]
@@ -282,8 +290,8 @@
                            (desc diff-desc) (desc src-desc) 0.0 0.0)))
 
 (defn eltwise-args
-  "Creates DNNL's data structure that holds arguments for elementwise
-  operations."
+  "Creates DNNL's data structure that holds arguments as required by
+  elementwise operations."
   ([src-and-dst]
    (let-release [args (dnnl_exec_arg_t. 2)]
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src-and-dst))
@@ -300,7 +308,26 @@
 
 ;; ======================= Sum ============================================================
 
-(defn sum
+(defn sum!
+  "Scales a single `dst`, or sums scaled entries of more tensors elementwise.
+
+  This operation changes `dst`. All sources and destinations have to be of
+  the same shape.
+
+  `eng`: the computing context engine
+  `scale`: a floating point scale for the first source
+
+  If only a single tensor is provided, computes dst = scale * dst.
+  `dst`: the source and destination tensor
+
+  Otherwise, computes dst = scale * src + scale-srcs[0] * scale-srcs[1] etc.
+  `dst`: the source and destination tensor
+  `src`: the first source tensor
+  `scale-srcs`: a sequence of `scale1,` `src1`, `scale2`, `src2`, etc.
+
+  Example:
+  (sum eng md 2.0 md 3.0 md)
+  "
   ([eng scale dst]
    (wrap (sum* (desc dst) (float-array [scale]) (desc dst) (extract eng))))
   ([eng dst scale src & scale-srcs]
@@ -317,6 +344,8 @@
 ;; ========================= Execution Arguments =======================================
 
 (defn args
+  "Creates DNNL's data structure that holds arguments for various
+  operations that accept one destination and one or multiple sources."
   ([src-and-dst]
    (let-release [args (dnnl_exec_arg_t. 2)]
      (args* args 0 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src-and-dst))
@@ -339,6 +368,8 @@
      args)))
 
 (defn fwd-args
+  "Creates DNNL's data structure that holds arguments as required by
+  forward operations."
   ([src dst]
    (let-release [args (dnnl_exec_arg_t. 2)]
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
@@ -358,6 +389,8 @@
 ;; ========================= Reorder ==================================================
 
 (defn reorder
+  "Copies data across engines, between physical memory formats, keeping the
+  logical structure of the tensor."
   ([input-eng input output-eng output]
    (wrap (reorder* (desc input) (extract input-eng) (desc output) (extract output-eng))))
   ([eng input output]

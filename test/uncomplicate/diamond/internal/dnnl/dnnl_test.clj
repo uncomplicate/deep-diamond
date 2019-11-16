@@ -121,7 +121,7 @@
                       md (memory-desc [2 3 4 5] :float :nchw)
                       buf (direct-buffer (size md))
                       src (memory eng md buf)
-                      sum-pd (sum eng 2.0 md)
+                      sum-pd (sum! eng 2.0 md)
                       sum-prim (primitive sum-pd)
                       sum-args (args src)]
          (put-float buf 0 -100)
@@ -140,7 +140,7 @@
                       src0 (memory eng md src0-buf)
                       src1 (memory eng md src1-buf)
                       dst (memory eng md dst-buf)
-                      sum-pd (sum eng md 2.0 md 3.0 md)
+                      sum-pd (sum! eng md 2.0 md 3.0 md)
                       sum-prim (primitive sum-pd)
                       sum-args (args dst src0 src1)]
          (put-float src0-buf 0 -100)
