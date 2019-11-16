@@ -314,6 +314,8 @@
                    (float-array (cons scale (take-nth 2 scale-srcs)))
                    s (extract eng)))))))
 
+;; ========================= Execution Arguments =======================================
+
 (defn args
   ([src-and-dst]
    (let-release [args (dnnl_exec_arg_t. 2)]
@@ -335,3 +337,28 @@
      (args* args 2 (inc dnnl/DNNL_ARG_MULTIPLE_SRC) (extract src1))
      (doall (map #(args* args %2 (extract %1)) srcs (range 3)))
      args)))
+
+(defn fwd-args
+  ([src dst]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))))
+  ([src dst workspace]
+   (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 2 dnnl/DNNL_ARG_WORKSPACE (extract workspace))))
+  ([src weights bias dst]
+   (let-release [args (dnnl_exec_arg_t. 4)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_WEIGHTS (extract weights))
+     (args* args 2 dnnl/DNNL_ARG_BIAS (extract bias))
+     (args* args 3 dnnl/DNNL_ARG_DST (extract dst)))))
+
+;; ========================= Reorder ==================================================
+
+(defn reorder
+  ([input-eng input output-eng output]
+   (wrap (reorder* (desc input) (extract input-eng) (desc output) (extract output-eng))))
+  ([eng input output]
+   (reorder eng input eng output)))

@@ -305,3 +305,12 @@
       (dnnl/dnnl_sum_primitive_desc_create pd dst (alength scales) scales
                                            (.position src 0) nil eng)
       pd)))
+
+;; ======================= Reorder ========================================================
+
+(defn reorder* [^dnnl_memory_desc_t input ^dnnl_engine input-eng
+                ^dnnl_memory_desc_t output ^dnnl_engine output-eng]
+  (let-release [pd (dnnl_primitive_desc.)]
+    (with-check (dnnl/dnnl_reorder_primitive_desc_create
+                 pd input input-eng output output-eng nil)
+      pd)))

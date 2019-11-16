@@ -3,6 +3,10 @@
             [uncomplicate.commons
              [core :refer [with-release]]
              [utils :refer [capacity direct-buffer put-float get-float]]]
+            [uncomplicate.neanderthal
+             [core :refer [zero nrm2]]
+             [native :refer [fv]]
+             [block :refer [buffer]]]
             [uncomplicate.diamond.internal.dnnl :refer :all]
             [uncomplicate.diamond.internal.dnnl.protocols :as api])
   (:import clojure.lang.ExceptionInfo java.nio.ByteBuffer))
@@ -146,3 +150,35 @@
          (execute! s sum-prim sum-args) => s
          (get-float dst-buf 0) => -3200.0
          (get-float dst-buf 1) => 640.0))
+
+(facts "Reordering memory."
+       (let [dims [2 2 3 2]]
+         (with-release [eng (engine)
+                        s (stream eng)
+                        a-desc (memory-desc dims :float :nchw)
+                        b-desc (memory-desc dims :float :nchw)
+                        c-desc (memory-desc dims :float :nhwc)
+                        reorder-a-c-pd (reorder eng a-desc c-desc)
+                        reorder-a-b-pd (reorder eng a-desc b-desc)
+                        a-vec (fv (range (apply * dims)))
+                        b-vec (zero a-vec)
+                        c-vec (zero a-vec)
+                        a-mem (memory eng a-desc (buffer a-vec))
+                        b-mem (memory eng a-desc (buffer b-vec))
+                        c-mem (memory eng a-desc (buffer c-vec))
+                        reorder-a-c (primitive reorder-a-c-pd)
+                        reorder-a-b (primitive reorder-a-b-pd)
+                        reorder-a-c-args (fwd-args a-mem c-mem)
+                        reorder-a-b-args (fwd-args a-mem b-mem)]
+           (equal-desc? a-desc a-desc) => true
+           (equal-desc? a-desc b-desc) => true
+           (equal-desc? a-desc c-desc) => false
+           (= a-vec c-vec) => false
+           (= (nrm2 a-vec) (nrm2 c-vec)) => false
+           (execute! s reorder-a-c reorder-a-c-args) => s
+           (= a-vec c-vec) => false
+           (= (nrm2 a-vec) (nrm2 c-vec)) => true
+           (= a-vec b-vec) => false
+           (= (nrm2 a-vec) (nrm2 b-vec)) => false
+           (execute! s reorder-a-b reorder-a-b-args) => s
+           (= a-vec b-vec) => true)))
