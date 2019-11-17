@@ -226,3 +226,32 @@
          diff-dst-vec => (fv 2 3 4 5 6 7)
          (execute! s relu-bwd relu-bwd-args) => s
          diff-dst-vec => (fv 0 3 0 0 0 0)))
+
+(facts "Elementwise backward Logistic operation."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-vec (fv [-1 -0.5 0 0.1 0.5 0.7])
+                      src-md (memory-desc [2 3] :float :nc)
+                      src-mem (memory eng src-md (buffer src-vec))
+                      dst-vec (fv 6)
+                      dst-mem (memory eng src-md (buffer dst-vec))
+                      logistic-desc (eltwise-fwd-desc :training :logistic src-md)
+                      logistic-pd (primitive-desc eng logistic-desc)
+                      logistic (primitive logistic-pd)
+                      logistic-args (eltwise-args src-mem dst-mem)
+                      diff-dst-vec (fv [-0.5 -0.2 -0.4 0 0.2 0.3])
+                      diff-dst-desc (memory-desc [2 3] :float :nc)
+                      diff-src-vec (fv 6)
+                      logistic-bwd-desc (eltwise-bwd-desc :logistic diff-dst-desc src-md)
+                      logistic-bwd-pd (primitive-desc eng logistic-bwd-desc logistic-pd)
+                      diff-dst-mem (memory eng (diff-dst-md logistic-bwd-pd) (buffer diff-dst-vec))
+                      diff-src-mem (memory eng (diff-src-md logistic-bwd-pd) (buffer diff-src-vec))
+                      logistic-bwd (primitive logistic-bwd-pd)
+                      logistic-bwd-args (eltwise-args src-mem diff-dst-mem diff-src-mem)]
+         (primitive-kind logistic-desc) => :eltwise
+         (execute! s logistic logistic-args)
+         (execute! s logistic-bwd logistic-bwd-args)
+         (seq dst-vec) => [0.2689414620399475 0.3775406777858734 0.4999999403953552
+                           0.5249791741371155 0.6224592924118042 0.6681877374649048];; this is aL - y
+         diff-src-vec => (fv [-0.09830597043037415 -0.04700074344873428 -0.10000000149011612
+                              0.0 0.047000739723443985 0.06651387363672256])));; this is deltaL
