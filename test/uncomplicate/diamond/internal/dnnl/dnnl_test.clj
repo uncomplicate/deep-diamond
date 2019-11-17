@@ -182,3 +182,47 @@
            (= (nrm2 a-vec) (nrm2 b-vec)) => false
            (execute! s reorder-a-b reorder-a-b-args) => s
            (= a-vec b-vec) => true)))
+
+(facts "Elementwise forward ReLU operation."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 3 4 5] :float :nchw)
+                      buf (direct-buffer (size md))
+                      mem (memory eng md buf)
+                      relu-desc (eltwise-fwd-desc :inference :relu md)
+                      relu-pd (primitive-desc eng relu-desc)
+                      relu (primitive relu-pd)
+                      relu-args (eltwise-args mem)]
+         (primitive-kind relu-desc) => :eltwise
+         (put-float buf 0 -100)
+         (put-float buf 1 20)
+         (execute! s relu relu-args) => s
+         (get-float buf 0) => 0.0
+         (get-float buf 1) => 20.0))
+
+(facts "Elementwise backward ReLU operation."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 3] :float :nc)
+                      buf (direct-buffer (size md))
+                      mem (memory eng md buf)
+                      relu-desc (eltwise-fwd-desc :training :relu md)
+                      relu-pd (primitive-desc eng relu-desc)
+                      relu (primitive relu-pd)
+                      relu-args (eltwise-args mem)
+                      diff-dst-vec (fv (range 2 8))
+                      diff-dst-desc (memory-desc [2 3] :float :nc)
+                      relu-bwd-desc (eltwise-bwd-desc :relu diff-dst-desc md)
+                      relu-bwd-pd (primitive-desc eng relu-bwd-desc relu-pd)
+                      diff-dst-mem (memory eng (diff-dst-md relu-bwd-pd) (buffer diff-dst-vec))
+                      relu-bwd (primitive relu-bwd-pd)
+                      relu-bwd-args (eltwise-args mem diff-dst-mem diff-dst-mem)]
+         (primitive-kind relu-desc) => :eltwise
+         (put-float buf 0 -100)
+         (put-float buf 1 20)
+         (execute! s relu relu-args) => s
+         (get-float buf 0) => 0.0
+         (get-float buf 1) => 20.0
+         diff-dst-vec => (fv 2 3 4 5 6 7)
+         (execute! s relu-bwd relu-bwd-args) => s
+         diff-dst-vec => (fv 0 3 0 0 0 0)))
