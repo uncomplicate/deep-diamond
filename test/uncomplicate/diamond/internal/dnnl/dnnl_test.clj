@@ -255,3 +255,129 @@
                            0.5249791741371155 0.6224592924118042 0.6681877374649048];; this is aL - y
          diff-src-vec => (fv [-0.09830597043037415 -0.04700074344873428 -0.10000000149011612
                               0.0 0.047000739723443985 0.06651387363672256])));; this is deltaL
+
+(facts "Inner product forward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-desc (memory-desc [1 1 3 3] :float :nchw)
+                      weights-desc (memory-desc [2 1 3 3] :float :any)
+                      bias-desc (memory-desc [2] :float :x)
+                      dst-desc (memory-desc [1 2] :float :nc)
+                      ip-desc (inner-product-fwd-desc :inference src-desc weights-desc bias-desc dst-desc)
+                      ip-pd (primitive-desc eng ip-desc)
+                      src-vec (fv (take 9 (range 1 2 0.1)))
+                      src-mem (memory eng (src-md ip-pd) (buffer src-vec))
+                      weights-vec (fv (take 18 (range 0 1 0.02)))
+                      weights-mem (memory eng (weights-md ip-pd) (buffer weights-vec))
+                      bias-vec (fv [0.3 0.7])
+                      bias-mem (memory eng bias-desc (buffer bias-vec))
+                      dst-vec (fv 2)
+                      dst-mem (memory eng (dst-md ip-pd) (buffer dst-vec))
+                      ip (primitive ip-pd)
+                      ip-args (fwd-args src-mem weights-mem bias-mem dst-mem)]
+         (primitive-kind ip-desc) => :inner-product
+         (execute! s ip ip-args) => s
+         dst-vec => (fv [1.428 4.095999717712402])))
+
+(facts "Inner product backward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-desc (memory-desc [2 2] :float :nc)
+                      weights-desc (memory-desc [3 2] :float :any)
+                      bias-desc (memory-desc [3] :float :x)
+                      dst-desc (memory-desc [2 3] :float :nc)
+                      ip-desc (inner-product-fwd-desc :training src-desc weights-desc bias-desc dst-desc)
+                      ip-pd (primitive-desc eng ip-desc)
+                      src-vec (fv [2 3 1 1])
+                      src-mem (memory eng (src-md ip-pd) (buffer src-vec))
+                      weights-vec (fv [0.1 0.2 0.3 0.4 0.5 0.6])
+                      weights-mem (memory eng (weights-md ip-pd) (buffer weights-vec))
+                      bias-vec (fv [1 2 3])
+                      bias-mem (memory eng bias-desc (buffer bias-vec))
+                      dst-vec (fv 6)
+                      dst-mem (memory eng (dst-md ip-pd) (buffer dst-vec))
+                      ip (primitive ip-pd)
+                      ip-args (fwd-args src-mem weights-mem bias-mem dst-mem)
+                      diff-src-desc (memory-desc [2 2] :float :nc)
+                      diff-dst-desc (memory-desc [2 3] :float :nc)
+                      ip-bwd-data-desc (inner-product-bwd-desc diff-src-desc weights-desc diff-dst-desc)
+                      ip-bwd-data-pd (primitive-desc eng ip-bwd-data-desc ip-pd)
+                      diff-src-vec (fv 4)
+                      diff-dst-vec (fv [0.2 0.3 0.8 1 1 1])
+                      diff-src-mem (memory eng (diff-src-md ip-bwd-data-pd) (buffer diff-src-vec))
+                      diff-dst-mem (memory eng (diff-dst-md ip-bwd-data-pd) (buffer diff-dst-vec))
+                      ip-bwd-data (primitive ip-bwd-data-pd)
+                      ip-bwd-data-args (bwd-args diff-dst-mem weights-mem diff-src-mem)
+                      diff-weights-desc (memory-desc [3 2] :float :nc)
+                      diff-bias-desc (memory-desc [3] :float :x)
+                      ip-bwd-weights-desc (inner-product-bwd-desc src-desc diff-weights-desc
+                                                                  diff-bias-desc diff-dst-desc)
+                      ip-bwd-weights-pd (primitive-desc eng ip-bwd-weights-desc ip-pd)
+                      diff-weights-vec (fv [1 0 0 0 0 0])
+                      diff-bias-vec (fv [5 5 5])
+                      diff-weights-mem (memory eng (diff-weights-md ip-bwd-weights-pd)
+                                               (buffer diff-weights-vec))
+                      diff-bias-mem (memory eng diff-bias-desc (buffer diff-bias-vec))
+                      ip-bwd-weights (primitive ip-bwd-weights-pd)
+                      ip-bwd-weights-args (bwd-args src-mem diff-dst-mem
+                                                    diff-weights-mem diff-bias-mem)]
+         (primitive-kind ip-desc) => :inner-product
+         (execute! s ip ip-args) => s
+         dst-vec => (fv 2.4 3.9 5.4 1.5 2.7 3.9)
+         diff-src-vec => (fv 4)
+         (execute! s ip-bwd-data ip-bwd-data-args) => s
+         diff-src-vec => (fv 0.51 0.64000004529953 0.9 1.2)
+         (execute! s ip-bwd-weights ip-bwd-weights-args) => s
+         diff-weights-vec => (fv 1.4 1.6 1.6 1.9000000953674316 2.6 3.4)
+         diff-bias-vec => (fv 1.2 1.3 1.8))
+
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-desc (memory-desc [1 1] :float :nc)
+                      weights-desc (memory-desc [1 1] :float :any)
+                      bias-desc (memory-desc [1] :float :x)
+                      dst-desc (memory-desc [1 1] :float :nc)
+                      ip-desc (inner-product-fwd-desc :training src-desc weights-desc bias-desc dst-desc)
+                      ip-pd (primitive-desc eng ip-desc)
+                      src-vec (fv [-0.5])
+                      src-mem (memory eng (src-md ip-pd) (buffer src-vec))
+                      weights-vec (fv [-0.1])
+                      weights-mem (memory eng (weights-md ip-pd) (buffer weights-vec))
+                      bias-vec (fv [0.2])
+                      bias-mem (memory eng bias-desc (buffer bias-vec))
+                      dst-vec (fv 1)
+                      dst-mem (memory eng (dst-md ip-pd) (buffer dst-vec))
+                      ip (primitive ip-pd)
+                      ip-args (fwd-args src-mem weights-mem bias-mem dst-mem)
+                      diff-src-desc (memory-desc [1 1] :float :nc)
+                      diff-dst-desc (memory-desc [1 1] :float :nc)
+                      ip-bwd-data-desc (inner-product-bwd-desc diff-src-desc weights-desc diff-dst-desc)
+                      ip-bwd-data-pd (primitive-desc eng ip-bwd-data-desc ip-pd)
+                      diff-src-vec (fv 1)
+                      diff-dst-vec (fv [0.4])
+                      diff-src-mem (memory eng (diff-src-md ip-bwd-data-pd) (buffer diff-src-vec))
+                      diff-dst-mem (memory eng (diff-dst-md ip-bwd-data-pd) (buffer diff-dst-vec))
+                      ip-bwd-data (primitive ip-bwd-data-pd)
+                      ip-bwd-data-args (bwd-args diff-dst-mem weights-mem diff-src-mem)
+                      diff-weights-desc (memory-desc [1 1] :float :nc)
+                      diff-bias-desc (memory-desc [1] :float :x)
+                      ip-bwd-weights-desc (inner-product-bwd-desc src-desc diff-weights-desc
+                                                                  diff-bias-desc diff-dst-desc)
+                      ip-bwd-weights-pd (primitive-desc eng ip-bwd-weights-desc ip-pd)
+                      diff-weights-vec (fv [1000])
+                      diff-bias-vec (fv [5000])
+                      diff-weights-mem (memory eng (diff-weights-md ip-bwd-weights-pd)
+                                               (buffer diff-weights-vec))
+                      diff-bias-mem (memory eng diff-bias-desc (buffer diff-bias-vec))
+                      ip-bwd-weights (primitive ip-bwd-weights-pd)
+                      ip-bwd-weights-args (bwd-args src-mem diff-dst-mem
+                                                    diff-weights-mem diff-bias-mem)]
+         (primitive-kind ip-desc) => :inner-product
+         (execute! s ip ip-args) => s
+         dst-vec => (fv 0.25)
+         (execute! s ip-bwd-data ip-bwd-data-args) => s
+         diff-src-vec => (fv -0.04000000283122063)
+         (execute! s ip-bwd-weights ip-bwd-weights-args) => s
+         diff-weights-vec => (fv -0.2)
+         ;;Note that diff-bias is equal to diff-dst
+         diff-bias-vec => (fv 0.4)))

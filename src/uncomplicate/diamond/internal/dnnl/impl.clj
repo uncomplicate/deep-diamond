@@ -19,7 +19,7 @@
            [org.bytedeco.dnnl dnnl_engine dnnl_stream dnnl_primitive_desc
             dnnl_primitive dnnl_exec_arg_t dnnl_memory_desc_t dnnl_memory
             dnnl_primitive_desc const_dnnl_op_desc_t dnnl_primitive_attr
-            dnnl_eltwise_desc_t]))
+            dnnl_eltwise_desc_t dnnl_inner_product_desc_t]))
 
 (defn error
   ([^long err-code details]
@@ -322,3 +322,39 @@
     (with-check (dnnl/dnnl_reorder_primitive_desc_create
                  pd input input-eng output output-eng nil)
       pd)))
+
+;; ======================== Inner Product =======================================================
+
+(extend-type dnnl_inner_product_desc_t
+  PrimitiveDescCreator
+  (primitive-desc*
+    ([desc eng]
+     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
+    ([desc eng hint-pd]
+     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
+  PrimitiveKind
+  (primitive-kind* [desc]
+    (.primitive_kind desc)))
+
+(defn inner-product-forward-desc*
+  [prop-kind src-desc weights-desc bias-desc dst-desc]
+  (let-release [ip-desc (dnnl_inner_product_desc_t.)]
+    (with-check
+      (dnnl/dnnl_inner_product_forward_desc_init ip-desc (int prop-kind)
+                                                     src-desc weights-desc bias-desc dst-desc)
+      ip-desc)))
+
+(defn inner-product-backward-data-desc*
+  [diff-src-desc weights-desc diff-dst-desc]
+  (let-release [ip-desc (dnnl_inner_product_desc_t.)]
+    (with-check
+      (dnnl/dnnl_inner_product_backward_data_desc_init ip-desc diff-src-desc weights-desc diff-dst-desc)
+      ip-desc)))
+
+(defn inner-product-backward-weights-desc*
+  [src-desc diff-weights-desc diff-bias-desc diff-dst-desc]
+  (let-release [ip-desc (dnnl_inner_product_desc_t.)]
+    (with-check
+      (dnnl/dnnl_inner_product_backward_weights_desc_init ip-desc src-desc diff-weights-desc
+                                                              diff-bias-desc diff-dst-desc)
+      ip-desc)))

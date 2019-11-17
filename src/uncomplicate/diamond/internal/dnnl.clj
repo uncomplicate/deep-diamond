@@ -386,6 +386,19 @@
      (args* args 2 dnnl/DNNL_ARG_BIAS (extract bias))
      (args* args 3 dnnl/DNNL_ARG_DST (extract dst)))))
 
+(defn bwd-args
+  ([diff-dst weights diff-src]
+   (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
+     (args* args 1 dnnl/DNNL_ARG_WEIGHTS (extract weights))
+     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))))
+  ([src diff-dst diff-weights diff-bias]
+   (let-release [args (dnnl_exec_arg_t. 4)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
+     (args* args 2 dnnl/DNNL_ARG_DIFF_WEIGHTS (extract diff-weights))
+     (args* args 3 dnnl/DNNL_ARG_DIFF_BIAS (extract diff-bias)))))
+
 ;; ========================= Reorder ==================================================
 
 (defn reorder
@@ -395,3 +408,19 @@
    (wrap (reorder* (desc input) (extract input-eng) (desc output) (extract output-eng))))
   ([eng input output]
    (reorder eng input eng output)))
+
+;; ======================== Inner Product ======================================================
+
+(defn inner-product-fwd-desc
+  "TODO"
+  [prop-kind src-desc weights-desc bias-desc dst-desc]
+  (inner-product-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                               (desc src-desc) (desc weights-desc)
+                               (desc bias-desc) (desc dst-desc)))
+
+(defn inner-product-bwd-desc
+  "TODO"
+  ([diff-src-desc weights-desc diff-dst-desc]
+   (inner-product-backward-data-desc* diff-src-desc weights-desc diff-dst-desc))
+  ([src-desc diff-weights-desc diff-bias-desc diff-dst-desc]
+   (inner-product-backward-weights-desc* src-desc diff-weights-desc diff-bias-desc diff-dst-desc)))
