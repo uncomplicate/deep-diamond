@@ -2,8 +2,9 @@
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory*]]
-            [uncomplicate.diamond.internal.dnnl  :refer [engine stream]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
+            [uncomplicate.diamond.internal.dnnl
+             [core :refer [engine stream]]
+             [factory :refer [dnnl-factory]]]
             [uncomplicate.diamond.tensor-test :refer :all]))
 
 (with-release [eng (engine)

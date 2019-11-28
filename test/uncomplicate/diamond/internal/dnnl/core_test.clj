@@ -1,4 +1,4 @@
-(ns uncomplicate.diamond.internal.dnnl.dnnl-test
+(ns uncomplicate.diamond.internal.dnnl.core-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons
              [core :refer [with-release]]
@@ -7,7 +7,7 @@
              [core :refer [zero nrm2]]
              [native :refer [fv]]
              [block :refer [buffer]]]
-            [uncomplicate.diamond.internal.dnnl :refer :all]
+            [uncomplicate.diamond.internal.core :refer :all]
             [uncomplicate.diamond.internal.dnnl.protocols :as api])
   (:import clojure.lang.ExceptionInfo java.nio.ByteBuffer))
 

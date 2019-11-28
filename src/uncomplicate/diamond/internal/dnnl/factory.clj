@@ -4,9 +4,9 @@
             [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz]]
             [uncomplicate.diamond.internal.protocols
              :refer [TensorFactory FactoryProvider ContextProvider]]
-            [uncomplicate.diamond.internal.dnnl :refer [memory-desc engine stream memory dims]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc]]
+             [core :refer [memory-desc engine stream memory dims]]
              [tensor :refer [dnnl-tensor dnnl-transformer]]]))
 
 (defrecord DnnlFactory [eng strm master]

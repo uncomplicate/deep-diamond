@@ -6,7 +6,6 @@
              [core :refer [asum view transfer! native]]
              [real :refer [entry! entry]]
              [block :refer [buffer]]]
-            [uncomplicate.diamond.internal.protocols :as api]
             [uncomplicate.diamond.tensor :refer :all])
   (:import clojure.lang.ExceptionInfo))
 

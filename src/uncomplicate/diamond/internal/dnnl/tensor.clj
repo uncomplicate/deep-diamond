@@ -13,11 +13,12 @@
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
                      Revert ConnectorCreator connector view-tz]
              :as tz]
-            [uncomplicate.diamond.internal
-             [dnnl :refer [memory-desc dims data-type memory size strides submemory-desc
+            [uncomplicate.diamond.internal.protocols
+             :refer [TensorFactory FactoryProvider ContextProvider factory context]]
+            [uncomplicate.diamond.internal.dnnl
+             [core :refer [memory-desc dims data-type memory size strides submemory-desc
                            equal-desc? execute! reorder primitive fwd-args]]
-             [protocols :refer [TensorFactory FactoryProvider ContextProvider factory context]]]
-            [uncomplicate.diamond.internal.dnnl.protocols :refer [DescProvider desc data ptr]])
+             [protocols :refer [DescProvider desc data ptr]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn]
            uncomplicate.neanderthal.internal.api.Block
