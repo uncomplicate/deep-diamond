@@ -1,3 +1,11 @@
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (ns uncomplicate.diamond.internal.dnnl.tensor
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release]]
@@ -17,7 +25,8 @@
              :refer [TensorFactory FactoryProvider ContextProvider factory context]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
-                           equal-desc? execute! reorder primitive fwd-args]]
+                           equal-desc? execute! reorder primitive fwd-args offset!]]
+             [constants :refer [entry-bytes]]
              [protocols :refer [DescProvider desc data ptr]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn]
@@ -25,7 +34,7 @@
            org.bytedeco.dnnl.dnnl_memory_desc_t
            uncomplicate.diamond.tensor.TensorDescriptorImpl))
 
-(declare ->DnnlTensor dnnl-transformer dnnl-tensor)
+(declare ->DnnlTensor dnnl-transformer dnnl-tensor dnnl-shuffler)
 
 (extend-type java.util.Collection
   DescProvider
@@ -62,6 +71,8 @@
             (let-release [in-tz (dnnl-tensor fact in-desc)]
               (dnnl-transformer (context fact) (flow fact) in-tz (view-tz out-tz)))))))))
 
+;; =================== Transformer ==============================================
+
 (deftype DnnlTransformer [eng strm reorder reorder-args in-tz out-tz]
   Releaseable
   (release [_]
@@ -95,6 +106,61 @@
       (->DnnlTransformer eng strm reorder-prim
                            (fwd-args (buffer in-tz) (buffer out-tz))
                            in-tz out-tz))))
+
+;; =================== Shuffler ==================================================
+
+(deftype DnnlShuffler [eng strm reorder reorder-args
+                         src-submem dst-submem src-tz dst-tz
+                         ^long src-cnt ^long src-stride-n ^long src-entry-width
+                         ^long dst-cnt ^long dst-stride-n ^long dst-entry-width]
+  Releaseable
+  (release [_]
+    (release src-tz)
+    (release dst-tz)
+    (release src-submem)
+    (release dst-submem)
+    (release reorder))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    dst-tz)
+  IFn
+  (invoke [this cols]
+    (.invoke this strm cols))
+  (invoke [_ strm2 cols]
+    (loop [src-n (first cols) cols (rest cols) dst-n 0]
+      (when src-n
+        (if (and (< -1 src-n src-cnt) (< -1 dst-n dst-cnt))
+          (do
+            (offset! src-submem (* src-entry-width src-stride-n (long src-n)))
+            (offset! dst-submem (* dst-entry-width dst-stride-n dst-n))
+            (execute! strm2 reorder reorder-args))
+          (dragan-says-ex "Requested subtensor is outside of bounds."
+                          {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt}))
+        (recur (first cols) (rest cols) (inc dst-n))))
+    dst-tz)
+  ConnectorCreator
+  (connector [this dst-desc]
+    (if (equal-desc? dst-tz dst-desc)
+      this
+      (connector src-tz dst-desc))))
+
+(defn dnnl-shuffler [eng strm src-tz dst-tz]
+  (let-release [src-sub (view-tz src-tz 1)
+                dst-sub (view-tz dst-tz 1)]
+    (with-release [reorder-pd (reorder eng (buffer src-sub) (buffer dst-sub))]
+      (let-release [reorder-prim (primitive reorder-pd)]
+        (->DnnlShuffler eng strm reorder-prim
+                          (fwd-args (buffer src-sub) (buffer dst-sub))
+                          (buffer src-sub) (buffer dst-sub)
+                          (view-tz src-tz) (view-tz dst-tz)
+                          ((dims src-tz) 0)
+                          ((strides src-sub) 0)
+                          (entry-bytes (data-type src-tz))
+                          ((dims dst-tz) 0)
+                          ((strides dst-sub) 0)
+                          (entry-bytes (data-type dst-tz)))))))
 
 ;; ================================ Tensor ======================================
 
@@ -146,15 +212,6 @@
           strides)
          (^long [^long a ^long b ^long c ^long d]
           (+ (* a sa) (* b sb) (* c sc) (* d sd))))))))
-
-(defn dnnl-tensor
-  ([fact neand-fact eng mem-desc]
-   (let [mem-desc (desc mem-desc)
-         tz-mem (memory eng mem-desc)]
-     (->DnnlTensor fact neand-fact eng (offset (strides mem-desc)) true tz-mem)))
-  ([fact mem-desc]
-   (dnnl-tensor fact (factory-by-type (tz/data-type mem-desc))
-                  (context fact) mem-desc)))
 
 (deftype DnnlTensor [fact neand-fact eng offset-fn master tz-mem]
   Object
@@ -227,6 +284,15 @@
       (view-tz in-tz)
       (let-release [out-tz (dnnl-tensor fact neand-fact eng out-desc)]
         (dnnl-transformer eng (flow fact) (view-tz in-tz) out-tz)))))
+
+(defn dnnl-tensor
+  ([fact neand-fact eng mem-desc]
+   (let [mem-desc (desc mem-desc)
+         tz-mem (memory eng mem-desc)]
+     (->DnnlTensor fact neand-fact eng (offset (strides mem-desc)) true tz-mem)))
+  ([fact mem-desc]
+   (dnnl-tensor fact (factory-by-type (tz/data-type mem-desc))
+                (context fact) mem-desc)))
 
 (defmethod transfer! [Object DnnlTensor]
   [source destination]

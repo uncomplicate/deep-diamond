@@ -13,4 +13,5 @@
 (defprotocol TensorFactory
   (create-tensor-desc [this desc] [this shape type format])
   (create-tensor [this desc])
-  (create-transformer [this in out]))
+  (create-transformer [this in out])
+  (create-shuffler [this src dst]))

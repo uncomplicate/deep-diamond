@@ -73,3 +73,44 @@
      (identical? (buffer (output connection)) (buffer tz-y)) => true
      (identical? (buffer (input connection)) (buffer (output connection))) => true
      (entry (view (connection)) 119) => 119.0)))
+
+(defn test-subtensor [factory]
+  (facts "Test subtensors and offsets."
+         (with-release [tz-x (tensor factory [6] :float :x)
+                        sub-x (view-tz tz-x [2])
+                        sub-y (view-tz tz-x (desc [1 3] :nc))
+                        sub-z (view-tz tz-x 4)]
+           (transfer! (range) tz-x)
+           (seq tz-x) => [0.0 1.0 2.0 3.0 4.0 5.0]
+           (seq sub-x) => [0.0 1.0]
+           (seq sub-y) => [0.0 1.0 2.0]
+           (seq sub-z) => [0.0 1.0 2.0 3.0]
+           (uncomplicate.diamond.internal.dnnl.core/offset! (buffer sub-y) Float/BYTES);;TODO generalize
+           (seq sub-y) => [1.0 2.0 3.0]
+           (seq sub-x) => [0.0 1.0]
+           (uncomplicate.diamond.internal.dnnl.core/offset! (buffer sub-z) Float/BYTES)
+           (seq sub-z) => [1.0 2.0 3.0 4.0]
+           (seq sub-x) => [0.0 1.0])))
+
+(defn test-shuffler [factory]
+  (facts "Transform subtensors"
+         (with-release [tz-x (tensor factory [3 2] :float :nc)
+                        tz-y (tensor factory [3 2] :float :cn)
+                        shuff (shuffler tz-x tz-y)]
+           (transfer! (range 1 7) tz-x)
+           (seq tz-x) => [1.0 2.0 3.0 4.0 5.0 6.0]
+           (seq tz-y) => [0.0 0.0 0.0 0.0 0.0 0.0]
+           (shuff [0 2 1])
+           (seq tz-y) => [1.0 5.0 3.0 2.0 6.0 4.0]
+           (shuff [0 2 1 1]) => (throws ExceptionInfo)
+           (shuff [0 2 3]) => (throws ExceptionInfo)
+           (shuff [0 1]) => tz-y)))
+
+(test-tensor *diamond-factory*)
+(test-transformer *diamond-factory*)
+(test-pull-different *diamond-factory*)
+(test-pull-same *diamond-factory*)
+(test-push-different *diamond-factory*)
+(test-push-same *diamond-factory*)
+(test-subtensor *diamond-factory*)
+(test-shuffler *diamond-factory*)

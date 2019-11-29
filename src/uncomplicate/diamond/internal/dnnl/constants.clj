@@ -199,3 +199,13 @@
    :sigmoid dnnl/dnnl_eltwise_logistic
    :exp dnnl/dnnl_eltwise_exp
    :gelu dnnl/dnnl_eltwise_gelu})
+
+(defn entry-bytes ^long [data-type]
+  (case data-type
+    :float Float/BYTES
+    :f16 2
+    :bf16 2
+    :int Integer/BYTES
+    :byte 1
+    :u8 1
+    (dragan-says-ex "unknown data type" {:data-type data-type})))

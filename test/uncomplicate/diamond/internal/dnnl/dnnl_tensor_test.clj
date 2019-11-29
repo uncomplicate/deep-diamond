@@ -16,7 +16,9 @@
   (test-pull-different diamond-factory)
   (test-pull-same diamond-factory)
   (test-push-different diamond-factory)
-  (test-push-same diamond-factory))
+  (test-push-same diamond-factory)
+  (test-subtensor diamond-factory)
+  (test-shuffler diamond-factory))
 
 (with-release [eng (engine)
                strm (stream eng)]
@@ -27,4 +29,6 @@
     (test-pull-different *diamond-factory*)
     (test-pull-same *diamond-factory*)
     (test-push-different *diamond-factory*)
-    (test-push-same *diamond-factory*)))
+    (test-push-same *diamond-factory*)
+    (test-subtensor *diamond-factory*)
+    (test-shuffler *diamond-factory*)))

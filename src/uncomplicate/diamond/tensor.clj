@@ -80,3 +80,6 @@
 
 (defn transformer [x y]
   (api/create-transformer (api/factory x) x y))
+
+(defn shuffler [x y]
+  (api/create-shuffler (api/factory x) x y))
