@@ -9,13 +9,17 @@
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons.core :refer [Releaseable release let-release]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
-            [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz]]
+            [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output]]
             [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory FactoryProvider ContextProvider]]
+             :refer [TensorFactory FactoryProvider ContextProvider CostFactory DnnFactory]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc]]
              [core :refer [memory-desc engine stream memory dims]]
-             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-shuffler]]]))
+             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-shuffler]]
+             [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
+                                      dnnl-inner-product-blueprint dnnl-fc-blueprint
+                                      dnnl-universal-cost quadratic-cost mean-absolute-cost
+                                      dnnl-custom-cost sigmoid-crossentropy-cost]]]))
 
 (defrecord DnnlFactory [eng strm master]
   Releaseable
@@ -43,7 +47,27 @@
   (create-transformer [_ in-tz out-tz]
     (dnnl-transformer eng strm (view-tz in-tz) (view-tz out-tz)))
   (create-shuffler [_ src-tz dst-tz]
-    (dnnl-shuffler eng strm (view-tz src-tz) (view-tz dst-tz))))
+    (dnnl-shuffler eng strm (view-tz src-tz) (view-tz dst-tz)))
+  (create-sum [_ scale dst]
+    (dnnl-sum-blueprint eng strm scale dst))
+  (create-sum [_ dst scale src scale-srcs]
+    (dnnl-sum-blueprint eng strm dst scale src scale-srcs))
+  DnnFactory
+  (activ-blueprint [this src-desc activ alpha beta]
+    (dnnl-activ-blueprint this eng src-desc src-desc activ alpha beta))
+  (inner-product-blueprint [this src-desc dst-desc weights-type]
+    (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
+  (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
+    (dnnl-fc-blueprint this eng src-desc dst-desc activ alpha beta weights-type))
+  CostFactory
+  (quadratic-cost [this prev-layer train-tz]
+    (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost))
+  (mean-absolute-cost [this prev-layer train-tz]
+    (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost))
+  (sigmoid-crossentropy-cost [this prev-layer train-tz]
+    (dnnl-custom-cost eng strm prev-layer train-tz
+                        (partial sigmoid-crossentropy-cost
+                                 ((dims (output prev-layer)) 0)))))
 
 (defn dnnl-factory
   ([eng strm]

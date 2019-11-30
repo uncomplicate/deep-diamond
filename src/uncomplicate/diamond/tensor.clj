@@ -9,7 +9,7 @@
      (try ~@body
           (finally (release *diamond-factory*)))))
 
-;; ====================== Public protocols ==================================================
+;; ====================== Public protocols =====================================
 
 (defprotocol TensorDescriptor
   (shape [tz])
@@ -47,7 +47,7 @@
 (defprotocol ConnectorCreator
   (connector [in out]))
 
-;; ==========================================================================================
+;; =============================================================================
 
 (defrecord TensorDescriptorImpl [shape data-type layout]
   TensorDescriptor

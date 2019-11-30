@@ -7,8 +7,9 @@
              [core :refer [zero nrm2]]
              [native :refer [fv]]
              [block :refer [buffer]]]
-            [uncomplicate.diamond.internal.core :refer :all]
-            [uncomplicate.diamond.internal.dnnl.protocols :as api])
+            [uncomplicate.diamond.internal.dnnl
+             [core :refer :all]
+             [protocols :as api]])
   (:import clojure.lang.ExceptionInfo java.nio.ByteBuffer))
 
 (facts "Engine count tests."
