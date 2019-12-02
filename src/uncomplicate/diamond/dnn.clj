@@ -101,20 +101,35 @@
     (rand-normal! (view (bias layer))))
   network!)
 
+(defn linear-decay
+  [^long t ^long tau ^double eta-0 ^double eta-tau]
+  (let [alpha (min (double (/ t tau)) 1.0)]
+    (+  (* (- 1.0 alpha) eta-0) (* alpha eta-tau))))
+
 (defn sgd-train
   ([network in-shuff out-shuff cost epochs hyperparam]
    (let [indices (range (first (shape (input in-shuff))))
-         batch-size (first (shape (input network)))]
-     (dotimes [n (long epochs)]
-       (let [batches (partition batch-size (shuffle indices))]
-         (doseq [batch batches]
-           (in-shuff batch)
-           (out-shuff batch)
-           (api/forward network hyperparam)
-           (api/forward cost)
-           (api/backward cost)
-           (api/backward network hyperparam))))
+         batch-size (first (shape (input network)))
+         [eta-decay eta-0 eta-tau]
+         (let [eta (first hyperparam)]
+           (cond
+             (number? eta) [linear-decay eta (* 0.01 (double eta))]
+             (sequential? eta) (cons linear-decay eta)
+             :default (cons (constantly nil) eta)))]
+     (dotimes [t (long epochs)]
+       (let [hyperparam (into [t (eta-decay t epochs eta-0 eta-tau)]
+                              (rest hyperparam))]
+         (let [batches (partition batch-size (shuffle indices))]
+           (doseq [batch batches]
+             (in-shuff batch)
+             (out-shuff batch)
+             (api/forward network hyperparam)
+             (api/forward cost)
+             (api/backward cost)
+             (api/backward network hyperparam)))))
      (network)
      (cost)))
   ([network in-shuff out-shuff cost options]
-   (map (fn [[epochs hyperparam]] (sgd-train network in-shuff out-shuff cost epochs hyperparam)) options)))
+   (map (fn [[epochs hyperparam]]
+          (sgd-train network in-shuff out-shuff cost epochs hyperparam))
+        options)))

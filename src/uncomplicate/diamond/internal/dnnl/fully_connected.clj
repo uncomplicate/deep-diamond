@@ -388,7 +388,7 @@
   (backward [this]
     (backward activ)
     this)
-  (backward [this [eta lambda mu nesterov?]]
+  (backward [this [_ eta lambda mu nesterov?]]
     (let [eta-avg (- (/ (double eta) n))]
       (when nesterov? (axpy! (- (double mu)) v w))
       (backward ip)
@@ -446,7 +446,7 @@
     (backward activ)
     this)
   (backward [this [t eta lambda rho1 rho2 epsilon]]
-    (let [t (swap! t inc)
+    (let [t (inc (long t))
           eta (double (or eta 0.001))
           lambda (double (or lambda 0.0))
           rho1 (double (or rho1 0.9))
@@ -612,12 +612,3 @@
                         (view train-tz)
                         cost))))));;TODO see about offsets
 ;; maybe leave output as-is and always copy the subtensor back from output for the computation?
-
-
-;; TODO create input layer that can handle subvectors
-;; it seems that connector already takes into account memory shift, if it exists! good! NO! it does not provide mem!
-;; just implement shift in the first layer! (implemented: offset! does this now.)
-
-;; create output layer that can handle subvectors (done!)
-
-;; diff reorder goes into the opposite direction, and reuses a to store aL-y!
