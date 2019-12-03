@@ -5,6 +5,26 @@
              :refer [NeuralNetwork Backprop forward backward FactoryProvider factory]])
   (:import clojure.lang.IFn))
 
+(defn invoke [f]
+  (f))
+
+(deftype SequentialNetworkInference [forward-layers]
+  Releaseable
+  (release [_]
+    (peek (mapv release forward-layers)))
+  FactoryProvider
+  (factory [_]
+    (factory (peek forward-layers)))
+  NeuralNetwork
+  (layers [_]
+    forward-layers)
+  Transfer
+  (input [_] (input (get forward-layers 0)))
+  (output [_] (output (peek forward-layers)))
+  IFn
+  (invoke [this]
+    (peek (mapv invoke forward-layers))))
+
 (deftype SequentialNetworkTraining [forward-layers last-layer rest-backward-layers]
   Releaseable
   (release [_]
@@ -54,7 +74,11 @@
                                      (first backward-layers)
                                      (rest backward-layers)))))
   (invoke [this input-tz]
-    (.invoke this input-tz :sgd)))
+    (loop [bps (rest layer-blueprints)
+           forward-layers [((first layer-blueprints) input-tz)]]
+      (if (first bps)
+        (recur (rest bps) (conj forward-layers ((first bps) (peek forward-layers))))
+        (->SequentialNetworkInference forward-layers)))))
 
 (defn sequential-network [fact src-desc layers]
   (let-release [layers (reduce (fn [lrs layer-fn]

@@ -85,11 +85,13 @@
 
 (defn train
   ([network cost epochs hyperparam]
-   (dotimes [n epochs]
-     (api/forward network hyperparam)
-     (api/forward cost)
-     (api/backward cost)
-     (api/backward network hyperparam))
+   (let [hyperparam (transient (into [0] hyperparam))]
+     (dotimes [t epochs]
+       (assoc! hyperparam 0 t)
+       (api/forward network hyperparam)
+       (api/forward cost)
+       (api/backward cost)
+       (api/backward network hyperparam)))
    (network)
    (cost))
   ([network cost options]
@@ -115,18 +117,19 @@
            (cond
              (number? eta) [linear-decay eta (* 0.01 (double eta))]
              (sequential? eta) (cons linear-decay eta)
-             :default (cons (constantly nil) eta)))]
+             :default (cons (constantly nil) eta)))
+         hyperparam (transient (into [0 0] (rest hyperparam)))]
      (dotimes [t (long epochs)]
-       (let [hyperparam (into [t (eta-decay t epochs eta-0 eta-tau)]
-                              (rest hyperparam))]
-         (let [batches (partition batch-size (shuffle indices))]
-           (doseq [batch batches]
-             (in-shuff batch)
-             (out-shuff batch)
-             (api/forward network hyperparam)
-             (api/forward cost)
-             (api/backward cost)
-             (api/backward network hyperparam)))))
+       (let [batches (partition batch-size (shuffle indices))]
+         (assoc! hyperparam 0 t)
+         (assoc! hyperparam 1 (eta-decay t epochs eta-0 eta-tau))
+         (doseq [batch batches]
+           (in-shuff batch)
+           (out-shuff batch)
+           (api/forward network hyperparam)
+           (api/forward cost)
+           (api/backward cost)
+           (api/backward network hyperparam))))
      (network)
      (cost)))
   ([network in-shuff out-shuff cost options]
