@@ -14,6 +14,7 @@
   (create-tensor-desc [this desc] [this shape type format])
   (create-tensor [this desc])
   (create-transformer [this in out])
+  (create-batcher [this src dst mb-size])
   (create-shuffler [this src dst])
   (create-sum [this scale dst] [this dst scale src scale-srcs]))
 

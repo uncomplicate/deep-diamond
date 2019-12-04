@@ -81,5 +81,11 @@
 (defn transformer [x y]
   (api/create-transformer (api/factory x) x y))
 
+(defn batcher
+  ([x y]
+   (batcher x y ((shape y) 0)))
+  ([x y ^long mb-size]
+   (api/create-batcher (api/factory x) x y mb-size)))
+
 (defn shuffler [x y]
   (api/create-shuffler (api/factory x) x y))

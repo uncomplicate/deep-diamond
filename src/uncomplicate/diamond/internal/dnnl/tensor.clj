@@ -104,15 +104,73 @@
   (with-release [reorder-pd (reorder eng (buffer in-tz) (buffer out-tz))]
     (let-release [reorder-prim (primitive reorder-pd)]
       (->DnnlTransformer eng strm reorder-prim
-                           (fwd-args (buffer in-tz) (buffer out-tz))
-                           in-tz out-tz))))
+                         (fwd-args (buffer in-tz) (buffer out-tz))
+                         in-tz out-tz))))
 
 ;; =================== Shuffler ==================================================
 
+(deftype DnnlBatcher [eng strm reorder reorder-args
+                      src-submem dst-submem src-tz dst-tz ^long mb-size
+                      ^long src-cnt ^long src-stride-n ^long src-entry-width
+                      ^long dst-cnt ^long dst-stride-n ^long dst-entry-width]
+  Releaseable
+  (release [_]
+    (release src-tz)
+    (release dst-tz)
+    (release src-submem)
+    (release dst-submem)
+    (release reorder))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    dst-tz)
+  IFn
+  (invoke [this src-n]
+    (.invoke this strm src-n 0))
+  (invoke [this src-n dst-n]
+    (.invoke this strm src-n dst-n))
+  (invoke [_ strm2 src-n dst-n]
+    (let [src-n (long src-n)
+          dst-n (long dst-n)]
+      (if (and (< -1 src-n) (< (+ mb-size src-n) src-cnt)
+               (< -1 dst-n) (< (+ mb-size dst-n) dst-cnt))
+        (do
+          (offset! src-submem (* src-entry-width src-stride-n (long src-n)))
+          (offset! dst-submem (* dst-entry-width dst-stride-n dst-n))
+          (execute! strm2 reorder reorder-args))
+        (dragan-says-ex "Requested subtensor is outside of bounds."
+                        {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt
+                         :mb-size mb-size})))
+    dst-tz)
+  ConnectorCreator
+  (connector [this dst-desc]
+    (if (equal-desc? dst-tz dst-desc)
+      this
+      (connector src-tz dst-desc))))
+
+(defn dnnl-batcher [eng strm src-tz dst-tz mb-size]
+  (let [mb-size (min 1 (long mb-size))]
+    (let-release [src-sub (view-tz src-tz mb-size)
+                  dst-sub (view-tz dst-tz mb-size)]
+      (with-release [reorder-pd (reorder eng (buffer src-sub) (buffer dst-sub))]
+        (let-release [reorder-prim (primitive reorder-pd)]
+          (->DnnlBatcher eng strm reorder-prim
+                          (fwd-args (buffer src-sub) (buffer dst-sub))
+                          (buffer src-sub) (buffer dst-sub)
+                          (view-tz src-tz) (view-tz dst-tz)
+                          mb-size
+                          ((dims src-tz) 0) ((strides src-sub) 0)
+                          (entry-bytes (data-type src-tz))
+                          ((dims dst-tz) 0) ((strides dst-sub) 0)
+                          (entry-bytes (data-type dst-tz))))))))
+
+
+;; TODO use batcher
 (deftype DnnlShuffler [eng strm reorder reorder-args
-                         src-submem dst-submem src-tz dst-tz
-                         ^long src-cnt ^long src-stride-n ^long src-entry-width
-                         ^long dst-cnt ^long dst-stride-n ^long dst-entry-width]
+                       src-submem dst-submem src-tz dst-tz
+                       ^long src-cnt ^long src-stride-n ^long src-entry-width
+                       ^long dst-cnt ^long dst-stride-n ^long dst-entry-width]
   Releaseable
   (release [_]
     (release src-tz)
@@ -152,15 +210,16 @@
     (with-release [reorder-pd (reorder eng (buffer src-sub) (buffer dst-sub))]
       (let-release [reorder-prim (primitive reorder-pd)]
         (->DnnlShuffler eng strm reorder-prim
-                          (fwd-args (buffer src-sub) (buffer dst-sub))
-                          (buffer src-sub) (buffer dst-sub)
-                          (view-tz src-tz) (view-tz dst-tz)
-                          ((dims src-tz) 0)
-                          ((strides src-sub) 0)
-                          (entry-bytes (data-type src-tz))
-                          ((dims dst-tz) 0)
-                          ((strides dst-sub) 0)
-                          (entry-bytes (data-type dst-tz)))))))
+                        (fwd-args (buffer src-sub) (buffer dst-sub))
+                        (buffer src-sub) (buffer dst-sub)
+                        (view-tz src-tz) (view-tz dst-tz)
+                        ((dims src-tz) 0)
+                        ((strides src-sub) 0)
+                        (entry-bytes (data-type src-tz))
+                        ((dims dst-tz) 0)
+                        ((strides dst-sub) 0)
+                        (entry-bytes (data-type dst-tz)))))))
+
 
 ;; ================================ Tensor ======================================
 

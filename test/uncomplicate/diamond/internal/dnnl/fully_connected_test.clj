@@ -9,7 +9,7 @@
              [math :as math]]
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor connector transformer
-                             desc revert shape input output view-tz shuffler]]
+                             desc revert shape input output view-tz batcher]]
              [dnn :refer [weights bias sum activation inner-product fully-connected
                           network init! train cost sgd-train]]]
             [uncomplicate.diamond.internal.protocols
@@ -272,10 +272,10 @@
        (with-release [fact (dnnl-factory)
                       x-tz (tensor fact [10000 4] :float :nc)
                       x-mb-tz (tensor fact [100 4] :float :nc)
-                      x-shuff (shuffler x-tz x-mb-tz)
+                      x-shuff (batcher x-tz x-mb-tz)
                       y-tz (tensor fact [10000 1] :float :nc)
                       y-mb-tz (tensor fact [100 1] :float :nc)
-                      y-shuff (shuffler y-tz y-mb-tz)
+                      y-shuff (batcher y-tz y-mb-tz)
                       net-bp (network fact x-mb-tz
                                       [(fully-connected [100 64] :relu)
                                        (fully-connected [100 64] :relu)
@@ -290,10 +290,10 @@
        (with-release [fact (dnnl-factory)
                       x-tz (tensor fact [10000 4] :float :nc)
                       x-mb-tz (tensor fact [100 4] :float :nc)
-                      x-shuff (shuffler x-tz x-mb-tz)
+                      x-shuff (batcher x-tz x-mb-tz)
                       y-tz (tensor fact [10000 1] :float :nc)
                       y-mb-tz (tensor fact [100 1] :float :nc)
-                      y-shuff (shuffler y-tz y-mb-tz)
+                      y-shuff (batcher y-tz y-mb-tz)
                       net-bp (network fact x-mb-tz
                                       [(fully-connected [100 64] :relu)
                                        (fully-connected [100 64] :relu)

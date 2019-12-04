@@ -15,7 +15,7 @@
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc]]
              [core :refer [memory-desc engine stream memory dims]]
-             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-shuffler]]
+             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
                                       dnnl-inner-product-blueprint dnnl-fc-blueprint
                                       dnnl-universal-cost quadratic-cost mean-absolute-cost
@@ -48,6 +48,8 @@
     (dnnl-transformer eng strm (view-tz in-tz) (view-tz out-tz)))
   (create-shuffler [_ src-tz dst-tz]
     (dnnl-shuffler eng strm (view-tz src-tz) (view-tz dst-tz)))
+  (create-batcher [_ src-tz dst-tz mb-size]
+    (dnnl-batcher eng strm (view-tz src-tz) (view-tz dst-tz) mb-size))
   (create-sum [_ scale dst]
     (dnnl-sum-blueprint eng strm scale dst))
   (create-sum [_ dst scale src scale-srcs]

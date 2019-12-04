@@ -3,7 +3,8 @@
             [uncomplicate.neanderthal
              [core :refer [ncols view]]
              [random :refer [rand-normal! rand-uniform! rng-state]]]
-            [uncomplicate.diamond.tensor :refer [*diamond-factory* shape input]]
+            [uncomplicate.diamond.tensor
+             :refer [*diamond-factory* shape input output batcher]]
             [uncomplicate.diamond.internal
              [protocols :as api]
              [network :refer [sequential-network]]]))
@@ -135,4 +136,33 @@
   ([network in-shuff out-shuff cost options]
    (map (fn [[epochs hyperparam]]
           (sgd-train network in-shuff out-shuff cost epochs hyperparam))
+        options)))
+
+(defn sgd-train
+  ([network in-batcher out-batcher cost! epochs hyperparam]
+   (let [b-size (long (first (shape (input in-batcher))))
+         mb-size (long (first (shape (output in-batcher))))
+         mb-count (quot b-size mb-size)
+         [eta-decay eta-0 eta-tau]
+         (let [eta (first hyperparam)]
+           (cond
+             (number? eta) [linear-decay eta (* 0.01 (double eta))]
+             (sequential? eta) (cons linear-decay eta)
+             :default (cons (constantly nil) eta)))
+         hyperparam (transient (into [0 0] (rest hyperparam)))]
+     (dotimes [t (long epochs)]
+       (assoc! hyperparam 0 t)
+       (assoc! hyperparam 1 (eta-decay t epochs eta-0 eta-tau))
+       (dotimes [n mb-count]
+         (in-batcher (* n mb-size))
+         (out-batcher (* n mb-size))
+         (api/forward network hyperparam)
+         (api/forward cost!)
+         (api/backward cost!)
+         (api/backward network hyperparam)))
+     (network)
+     (cost!)))
+  ([network in-batcher out-batcher cost! options]
+   (map (fn [[epochs hyperparam]]
+          (sgd-train network in-batcher out-batcher cost! epochs hyperparam))
         options)))
