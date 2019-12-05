@@ -84,20 +84,6 @@
   ([src-desc layers]
    (network *diamond-factory* src-desc layers)))
 
-(defn train
-  ([network cost epochs hyperparam]
-   (let [hyperparam (transient (into [0] hyperparam))]
-     (dotimes [t epochs]
-       (assoc! hyperparam 0 t)
-       (api/forward network hyperparam)
-       (api/forward cost)
-       (api/backward cost)
-       (api/backward network hyperparam)))
-   (network)
-   (cost))
-  ([network cost options]
-   (map (fn [[epochs hyperparam]] (train network cost epochs hyperparam)) options)))
-
 (defn init! [network!]
   (doseq [layer (api/layers network!)]
     (rand-normal! 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
@@ -109,36 +95,21 @@
   (let [alpha (min (double (/ t tau)) 1.0)]
     (+  (* (- 1.0 alpha) eta-0) (* alpha eta-tau))))
 
-(defn sgd-train
-  ([network in-shuff out-shuff cost epochs hyperparam]
-   (let [indices (range (first (shape (input in-shuff))))
-         batch-size (first (shape (input network)))
-         [eta-decay eta-0 eta-tau]
-         (let [eta (first hyperparam)]
-           (cond
-             (number? eta) [linear-decay eta (* 0.01 (double eta))]
-             (sequential? eta) (cons linear-decay eta)
-             :default (cons (constantly nil) eta)))
-         hyperparam (transient (into [0 0] (rest hyperparam)))]
-     (dotimes [t (long epochs)]
-       (let [batches (partition batch-size (shuffle indices))]
-         (assoc! hyperparam 0 t)
-         (assoc! hyperparam 1 (eta-decay t epochs eta-0 eta-tau))
-         (doseq [batch batches]
-           (in-shuff batch)
-           (out-shuff batch)
-           (api/forward network hyperparam)
-           (api/forward cost)
-           (api/backward cost)
-           (api/backward network hyperparam))))
-     (network)
-     (cost)))
-  ([network in-shuff out-shuff cost options]
+(defn train
+  ([network cost! epochs hyperparam]
+   (let [hyperparam (transient (into [0] hyperparam))]
+     (dotimes [t epochs]
+       (assoc! hyperparam 0 t)
+       (api/forward network hyperparam)
+       (api/forward cost!)
+       (api/backward cost!)
+       (api/backward network hyperparam)))
+   (network)
+   (cost!))
+  ([network cost! options]
    (map (fn [[epochs hyperparam]]
-          (sgd-train network in-shuff out-shuff cost epochs hyperparam))
-        options)))
-
-(defn sgd-train
+          (train network cost! epochs hyperparam))
+        options))
   ([network in-batcher out-batcher cost! epochs hyperparam]
    (let [b-size (long (first (shape (input in-batcher))))
          mb-size (long (first (shape (output in-batcher))))
@@ -164,5 +135,5 @@
      (cost!)))
   ([network in-batcher out-batcher cost! options]
    (map (fn [[epochs hyperparam]]
-          (sgd-train network in-batcher out-batcher cost! epochs hyperparam))
+          (train network in-batcher out-batcher cost! epochs hyperparam))
         options)))

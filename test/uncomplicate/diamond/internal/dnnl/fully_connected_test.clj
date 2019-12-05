@@ -11,7 +11,7 @@
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
              [dnn :refer [weights bias sum activation inner-product fully-connected
-                          network init! train cost sgd-train]]]
+                          network init! train cost train]]]
             [uncomplicate.diamond.internal.protocols
              :refer [diff-bias diff-weights forward backward layers]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]])
@@ -266,9 +266,9 @@
                       quad-cost (cost net y-tz :quadratic)]
          (rand-uniform! (view x-tz))
          (transfer! (map my-fn (cols (view-ge (view x-tz) 4 10000))) (view y-tz))
-         (time (train net quad-cost 20 [0.003 0 0 false])) => (roughly 0.0 0.2)))
+         (time (train net quad-cost 30 [0.003 0 0 false])) => (roughly 0.0 0.2)))
 
-(facts "Stochastic gradient descent"
+(facts "Vanilla stochastic gradient descent"
        (with-release [fact (dnnl-factory)
                       x-tz (tensor fact [10000 4] :float :nc)
                       x-mb-tz (tensor fact [100 4] :float :nc)
@@ -284,9 +284,9 @@
                       quad-cost (cost net y-mb-tz :quadratic)]
          (rand-uniform! (view x-tz))
          (transfer! (map my-fn (cols (view-ge (view x-tz) 4 10000))) (view y-tz))
-         (time (sgd-train net x-shuff y-shuff quad-cost 1 [0.01 0 0 false])) => (roughly 0.0 0.2)))
+         (time (train net x-shuff y-shuff quad-cost 1 [0.01 0 0 false])) => (roughly 0.0 0.2)))
 
-(facts "Adam gradient descent"
+(facts "Adam stochastic gradient descent"
        (with-release [fact (dnnl-factory)
                       x-tz (tensor fact [10000 4] :float :nc)
                       x-mb-tz (tensor fact [100 4] :float :nc)
@@ -302,7 +302,7 @@
                       quad-cost (cost net y-mb-tz :quadratic)]
          (rand-uniform! (view x-tz))
          (transfer! (map my-fn (cols (view-ge (view x-tz) 4 10000))) (view y-tz))
-         (time (sgd-train net x-shuff y-shuff quad-cost 1 [0.01])) => (roughly 0.0 0.2)))
+         (time (train net x-shuff y-shuff quad-cost 1 [0.01])) => (roughly 0.0 0.2)))
 
 #_(facts "Fully connected deep network"
        (with-release [input-tz (tensor [1024 1] :float :nc)
@@ -311,7 +311,9 @@
                                        (fully-connected [1024 349] :logistic)
                                        (fully-connected [1024 4024] :tanh)
                                        (fully-connected [1024 1] :elu)])
-                      net (init! (net-bp input-tz))]
+                      net (init! (net-bp input-tz :sgd))]
          (time (dotimes [i 100]
-                 (forward net [1 0 0 false])
-                 (backward net [1 0 0 false])))))
+                 (forward net [0 1 0 0 false])
+                 (backward net [0 1 0 0 false])))))
+
+;; "Elapsed time: 5917.241476 msecs"

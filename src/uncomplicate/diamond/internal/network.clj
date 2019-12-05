@@ -69,7 +69,9 @@
     (loop [bps (rest layer-blueprints)
            backward-layers [((first layer-blueprints) input-tz false optimization)]]
       (if (first bps)
-        (recur (rest bps) (cons ((first bps) (first backward-layers) true optimization) backward-layers))
+        (recur (rest bps)
+               (cons ((first bps) (first backward-layers) true optimization)
+                     backward-layers))
         (->SequentialNetworkTraining (reverse backward-layers)
                                      (first backward-layers)
                                      (rest backward-layers)))))
