@@ -93,18 +93,40 @@
            (seq sub-x) => [0.0 1.0])))
 
 (defn test-shuffler [factory]
-  (facts "Transform subtensors"
-         (with-release [tz-x (tensor factory [3 2] :float :nc)
+  (facts "shuffler test."
+         (with-release [tz-x (tensor factory [6 2] :float :nc)
                         tz-y (tensor factory [3 2] :float :cn)
                         shuff (shuffler tz-x tz-y)]
-           (transfer! (range 1 7) tz-x)
-           (seq tz-x) => [1.0 2.0 3.0 4.0 5.0 6.0]
+           (transfer! (range 1 13) tz-x)
+           (seq tz-x) => (range 1.0 13.0)
            (seq tz-y) => [0.0 0.0 0.0 0.0 0.0 0.0]
            (shuff [0 2 1])
            (seq tz-y) => [1.0 5.0 3.0 2.0 6.0 4.0]
            (shuff [0 2 1 1]) => (throws ExceptionInfo)
-           (shuff [0 2 3]) => (throws ExceptionInfo)
+           (shuff [0 2 8]) => (throws ExceptionInfo)
            (shuff [0 1]) => tz-y)))
+
+(defn test-batcher [factory]
+  (facts "batcher test."
+         (with-release [tz-x (tensor factory [7 2] :float :nc)
+                        tz-y (tensor factory [3 2] :float :cn)
+                        batch (batcher tz-x tz-y 3)
+                        batch-2 (batcher tz-x tz-y 2)]
+           (transfer! (range 1 15) tz-x)
+           (seq tz-x) => (range 1.0 15.0)
+           (seq tz-y) => (repeat 6 0.0)
+           (batch 0 0) => tz-y
+           (seq tz-y) => [1.0 3.0 5.0 2.0 4.0 6.0]
+           (transfer! (repeat 0) tz-y)
+           (batch 1 0) => tz-y
+           (seq tz-y) => [3.0 5.0 7.0 4.0 6.0 8.0]
+           (transfer! (repeat 0) tz-y)
+           (batch-2 1 1) => tz-y
+           (seq tz-y) => [0.0 3.0 5.0 0.0 4.0 6.0]
+           (batch 8) => (throws ExceptionInfo)
+           (batch 0 -1) => (throws ExceptionInfo)
+           (batch 7 -1) => (throws ExceptionInfo)
+           (batch -1) => (throws ExceptionInfo))))
 
 (test-tensor *diamond-factory*)
 (test-transformer *diamond-factory*)
@@ -114,3 +136,4 @@
 (test-push-same *diamond-factory*)
 (test-subtensor *diamond-factory*)
 (test-shuffler *diamond-factory*)
+(test-batcher *diamond-factory*)

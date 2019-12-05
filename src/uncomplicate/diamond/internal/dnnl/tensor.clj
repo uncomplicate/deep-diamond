@@ -126,6 +126,8 @@
   (output [_]
     dst-tz)
   IFn
+  (invoke [this]
+    (.invoke this strm 0 0))
   (invoke [this src-n]
     (.invoke this strm src-n 0))
   (invoke [this src-n dst-n]
@@ -133,10 +135,10 @@
   (invoke [_ strm2 src-n dst-n]
     (let [src-n (long src-n)
           dst-n (long dst-n)]
-      (if (and (< -1 src-n) (< (+ mb-size src-n) src-cnt)
-               (< -1 dst-n) (< (+ mb-size dst-n) dst-cnt))
+      (if (and (< -1 src-n) (< (+ mb-size src-n) (inc src-cnt))
+               (< -1 dst-n) (< (+ mb-size dst-n) (inc dst-cnt)))
         (do
-          (offset! src-submem (* src-entry-width src-stride-n (long src-n)))
+          (offset! src-submem (* src-entry-width src-stride-n src-n))
           (offset! dst-submem (* dst-entry-width dst-stride-n dst-n))
           (execute! strm2 reorder reorder-args))
         (dragan-says-ex "Requested subtensor is outside of bounds."
@@ -150,7 +152,7 @@
       (connector src-tz dst-desc))))
 
 (defn dnnl-batcher [eng strm src-tz dst-tz mb-size]
-  (let [mb-size (min 1 (long mb-size))]
+  (let [mb-size (max 1 (long mb-size))]
     (let-release [src-sub (view-tz src-tz mb-size)
                   dst-sub (view-tz dst-tz mb-size)]
       (with-release [reorder-pd (reorder eng (buffer src-sub) (buffer dst-sub))]
@@ -327,6 +329,8 @@
     (dims tz-mem))
   (data-type [_]
     (data-type tz-mem))
+  (layout [_]
+    (strides tz-mem))
   TensorContainer
   (view-tz [_]
     (->DnnlTensor fact neand-fact eng offset-fn false tz-mem))
