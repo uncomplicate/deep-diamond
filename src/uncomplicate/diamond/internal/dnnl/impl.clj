@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.dnnl.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release]]
+             [core :refer [Releaseable release let-release with-release Info]]
              [utils :as cu :refer [dragan-says-ex]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -166,11 +166,6 @@
 
 ;; ===================== Memory =========================================================
 
-(extend-type dnnl_memory_desc_t
-  DescProvider
-  (desc [this]
-    this))
-
 (extend-type java.lang.Long
   BlockedDesc
   (memory-desc* [tag dims data-type]
@@ -223,6 +218,18 @@
      (aset dims 0 n)
      (submemory-desc* parent-desc dims (long-array (alength dims))))))
 
+(extend-type dnnl_memory_desc_t
+  Info
+  (info [this]
+    {:class (class this)
+     :device :cpu
+     :shape (vec (dims* this))
+     :data-type (dec-data-type (data-type* this))
+     :strides (vec (strides* this))})
+  DescProvider
+  (desc [this]
+    this))
+
 (deftype MemoryImpl [vmem mem-desc d ^Pointer d-ptr master]
   Releaseable
   (release [this]
@@ -234,6 +241,14 @@
                 (when master
                   (release d)
                   (.deallocate d-ptr))))))))
+  Info
+  (info [x]
+    {:class (class x)
+     :device :cpu
+     :shape (vec (dims* mem-desc))
+     :data-type (dec-data-type (data-type* mem-desc))
+     :offset (.position d-ptr)
+     :strides (vec (strides* mem-desc))})
   Wrapper
   (extract [this]
     @vmem)

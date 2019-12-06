@@ -8,14 +8,15 @@
 
 (ns uncomplicate.diamond.internal.dnnl.tensor
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release]]
+             [core :refer [Releaseable release let-release with-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [transfer!]]
+             [core :refer [transfer! dim]]
              [block :refer [entry-width data-accessor buffer count-entries]]
              [native :refer [factory-by-type]]]
-            [uncomplicate.neanderthal.internal.api :as neand
-             :refer [Viewable view flow]]
+            [uncomplicate.neanderthal.internal
+             [api :as neand :refer [Viewable view flow]]
+             [printing :refer [print-vector]]]
             [uncomplicate.neanderthal.internal.host.buffer-block :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
@@ -25,7 +26,8 @@
              :refer [TensorFactory FactoryProvider ContextProvider factory context]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
-                           equal-desc? execute! reorder primitive fwd-args offset!]]
+                           equal-desc? execute! reorder primitive fwd-args offset!]
+              :as dnnl-core]
              [constants :refer [entry-bytes]]
              [protocols :refer [DescProvider desc data ptr]]])
   (:import org.bytedeco.javacpp.Pointer
@@ -44,7 +46,7 @@
 (extend-type java.util.Map
   DescProvider
   (desc [this]
-    (memory-desc (:shape this) (or (:data-type this) :undef) (or (:data-type this) :undef))))
+    (memory-desc (:shape this) (or (:data-type this) :undef) (or (:layout this) :undef))))
 
 (extend-type TensorDescriptorImpl
   DescProvider
@@ -222,7 +224,7 @@
                 res)))))
        (sequential? sa)
        (offset (long-array sa))
-       :default (ex-info "Offset function can not accept this type of stride collection."
+       :default (ex-info "Offset function cannot accept this type of stride collection."
                          {:type (type sa)})))
     ([^long sa ^long sb]
      (let [strides (long-array [sa sb])]
@@ -257,6 +259,17 @@
       (and (instance? DnnlTensor y) (= (dims tz-mem) (shape y)))
       (= (view x) (view y))
       :default false))
+  (toString [this]
+    (format "#DnnlTensor[%s, shape:%s, strides:%s]"
+            (name (data-type tz-mem)) (dims tz-mem) (strides tz-mem)))
+  Info
+  (info [x]
+    {:entry-type (data-type tz-mem)
+     :class  (class x)
+     :device :cpu
+     :shape (shape x)
+     :strides (strides tz-mem)
+     :offset (dnnl-core/offset tz-mem)})
   Releaseable
   (release [_]
     (if master
@@ -354,3 +367,10 @@
       (transfer! (view source) (view destination))
       destination)
     (dragan-says-ex "You need a specialized transformer to transfer these two MKL-DNN tensors.")))
+
+(defmethod print-method DnnlTensor
+  [^DnnlTensor x ^java.io.Writer w]
+  (.write w (str x))
+  (with-release [view-x (view x)]
+    (when (< 0 (dim view-x))
+      (print-vector w view-x))))

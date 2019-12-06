@@ -1,5 +1,5 @@
 (ns uncomplicate.diamond.tensor
-  (:require [uncomplicate.commons.core :refer [release]]
+  (:require [uncomplicate.commons.core :refer [release Info]]
             [uncomplicate.diamond.internal.protocols :as api]))
 
 (def ^:dynamic *diamond-factory*)
@@ -50,6 +50,13 @@
 ;; =============================================================================
 
 (defrecord TensorDescriptorImpl [shape data-type layout]
+  Info
+  (info [this]
+    {:class (class this)
+     :device :cpu
+     :shape shape
+     :data-type data-type
+     :layout layout})
   TensorDescriptor
   (shape [_]
     shape)

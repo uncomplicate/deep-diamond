@@ -183,6 +183,11 @@
       (dragan-says-ex "There is not enough capacity in the underlying buffer for this offset."
                       {:n n :requested n :available (.capacity ^Pointer p)}))))
 
+(defn offset
+  "Gets the starting position in the buffer that the memory object `mem` controls."
+  [mem]
+  (.position ^Pointer (ptr mem)))
+
 (defn get-engine
   "Returns the engine context of the memory object `mem`."
   [mem]
