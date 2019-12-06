@@ -1,8 +1,9 @@
 (ns uncomplicate.diamond.internal.network
   (:require [uncomplicate.commons.core :refer [Releaseable release let-release]]
+            [uncomplicate.neanderthal.core :refer [transfer!]]
             [uncomplicate.diamond.tensor :refer [Transfer input output]]
             [uncomplicate.diamond.internal.protocols
-             :refer [NeuralNetwork Backprop forward backward FactoryProvider factory]])
+             :refer [NeuralNetwork layers Backprop forward backward FactoryProvider factory]])
   (:import clojure.lang.IFn))
 
 (defn invoke [f]
@@ -66,20 +67,20 @@
     layer-blueprints)
   IFn
   (invoke [_ input-tz optimization]
-    (loop [bps (rest layer-blueprints)
+    (loop [bps (next layer-blueprints)
            backward-layers [((first layer-blueprints) input-tz false optimization)]]
-      (if (first bps)
-        (recur (rest bps)
+      (if bps
+        (recur (next bps)
                (cons ((first bps) (first backward-layers) true optimization)
                      backward-layers))
         (->SequentialNetworkTraining (reverse backward-layers)
                                      (first backward-layers)
                                      (rest backward-layers)))))
   (invoke [this input-tz]
-    (loop [bps (rest layer-blueprints)
+    (loop [bps (next layer-blueprints)
            forward-layers [((first layer-blueprints) input-tz)]]
-      (if (first bps)
-        (recur (rest bps) (conj forward-layers ((first bps) (peek forward-layers))))
+      (if bps
+        (recur (next bps) (conj forward-layers ((first bps) (peek forward-layers))))
         (->SequentialNetworkInference forward-layers)))))
 
 (defn sequential-network [fact src-desc layers]
@@ -88,3 +89,13 @@
                                [((first layers) fact src-desc)]
                                (rest layers))]
     (->SequentialNetworkBlueprint layers)))
+
+(defmethod transfer! [SequentialNetworkInference Object]
+  [source destination]
+  (doall (map transfer! (layers source) (layers destination)))
+  destination)
+
+(defmethod transfer! [SequentialNetworkTraining Object]
+  [source destination]
+  (doall (map transfer! (layers source) (layers destination)))
+  destination)

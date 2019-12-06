@@ -1,7 +1,7 @@
 (ns uncomplicate.diamond.dnn
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
             [uncomplicate.neanderthal
-             [core :refer [ncols view]]
+             [core :refer [ncols view transfer!]]
              [random :refer [rand-normal! rand-uniform! rng-state]]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* shape input output batcher]]
@@ -12,6 +12,11 @@
 (defprotocol Parameters
   (weights [this])
   (bias [this]))
+
+(defn transfer-parameters! [source destination]
+  (transfer! (bias source) (bias destination))
+  (transfer! (weights source) (weights destination))
+  destination)
 
 (defn sum
   ([^double scale dst]
@@ -90,7 +95,7 @@
     (rand-normal! (view (bias layer))))
   network!)
 
-(defn linear-decay
+(defn ^:private linear-decay
   [^long t ^long tau ^double eta-0 ^double eta-tau]
   (let [alpha (min (double (/ t tau)) 1.0)]
     (+  (* (- 1.0 alpha) eta-0) (* alpha eta-tau))))

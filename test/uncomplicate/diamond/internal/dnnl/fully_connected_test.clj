@@ -107,6 +107,19 @@
          (fc) => (output fc)
          (view (connect-output)) => (fv 0.0 0.72999996)))
 
+(facts "Inference layer transfer test."
+       (with-release [fact (dnnl-factory)
+                      input-tz (tensor fact [1 3 2 1] :float :nchw)
+                      fc-bluep (fully-connected fact input-tz [1 2] :relu)
+                      fc (fc-bluep input-tz)
+                      fc-1 (fc-bluep input-tz)
+                      connect-output (connector (output fc) (desc [1 2] :float :nc))]
+         (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
+         (transfer! [-0.1 0.2] (bias fc))
+         (transfer! fc fc-1) => fc-1
+         (bias fc-1) => (bias fc)
+         (weights fc-1) => (weights fc)))
+
 (facts "Fully connected training layer"
        (with-release [fact (dnnl-factory)
                       input-tz (tensor fact [1 3 2 1] :float :nchw)

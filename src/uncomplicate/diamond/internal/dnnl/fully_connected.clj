@@ -3,7 +3,7 @@
              [core :refer [Releaseable release let-release with-release]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [axpy! axpby! view zero dim]]
+             [core :refer [axpy! axpby! view zero dim transfer!]]
              [real :refer [nrm2 asum]]
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
@@ -12,7 +12,7 @@
             [uncomplicate.diamond
              [tensor :as tz
               :refer [Transfer input output connector view-tz revert shape layout]]
-             [dnn :refer [Parameters bias weights]]]
+             [dnn :refer [Parameters bias weights transfer-parameters!]]]
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider FactoryProvider DiffParameters
                      diff-bias diff-weights Backprop forward backward]]
@@ -128,7 +128,7 @@
   ([fact eng src-desc diff-desc activ alpha beta]
    (let [src-desc (desc src-desc)
          diff-desc (desc diff-desc)]
-     (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ src-desc)
+     (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ src-desc alpha beta)
                     eltw-train-desc (eltwise-fwd-desc :training activ src-desc alpha beta)
                     eltw-bwd-desc (eltwise-bwd-desc activ diff-desc src-desc alpha beta)]
        (let-release [eltw-infer-pd (primitive-desc eng eltw-infer-desc)
@@ -612,3 +612,15 @@
                         (view train-tz)
                         cost))))));;TODO see about offsets
 ;; maybe leave output as-is and always copy the subtensor back from output for the computation?
+
+(defmethod transfer! [FullyConnectedInference Object]
+  [source destination]
+  (transfer-parameters! source destination))
+
+(defmethod transfer! [FullyConnectedAdam Object]
+  [source destination]
+  (transfer-parameters! source destination))
+
+(defmethod transfer! [FullyConnectedSGD Object]
+  [source destination]
+  (transfer-parameters! source destination))
