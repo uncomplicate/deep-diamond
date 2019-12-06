@@ -168,60 +168,32 @@
                           (entry-bytes (data-type dst-tz))))))))
 
 
-;; TODO use batcher
-(deftype DnnlShuffler [eng strm reorder reorder-args
-                       src-submem dst-submem src-tz dst-tz
-                       ^long src-cnt ^long src-stride-n ^long src-entry-width
-                       ^long dst-cnt ^long dst-stride-n ^long dst-entry-width]
+(deftype DnnlShuffler [strm batcher]
   Releaseable
   (release [_]
-    (release src-tz)
-    (release dst-tz)
-    (release src-submem)
-    (release dst-submem)
-    (release reorder))
+    (release batcher))
   Transfer
   (input [_]
-    src-tz)
+    (input batcher))
   (output [_]
-    dst-tz)
+    (output batcher))
   IFn
   (invoke [this cols]
     (.invoke this strm cols))
   (invoke [_ strm2 cols]
     (loop [src-n (first cols) cols (rest cols) dst-n 0]
       (when src-n
-        (if (and (< -1 src-n src-cnt) (< -1 dst-n dst-cnt))
-          (do
-            (offset! src-submem (* src-entry-width src-stride-n (long src-n)))
-            (offset! dst-submem (* dst-entry-width dst-stride-n dst-n))
-            (execute! strm2 reorder reorder-args))
-          (dragan-says-ex "Requested subtensor is outside of bounds."
-                          {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt}))
+        (batcher strm2 src-n dst-n)
         (recur (first cols) (rest cols) (inc dst-n))))
-    dst-tz)
+    (output batcher))
   ConnectorCreator
   (connector [this dst-desc]
-    (if (equal-desc? dst-tz dst-desc)
+    (if (equal-desc? (output batcher) dst-desc)
       this
-      (connector src-tz dst-desc))))
+      (connector batcher dst-desc))))
 
 (defn dnnl-shuffler [eng strm src-tz dst-tz]
-  (let-release [src-sub (view-tz src-tz 1)
-                dst-sub (view-tz dst-tz 1)]
-    (with-release [reorder-pd (reorder eng (buffer src-sub) (buffer dst-sub))]
-      (let-release [reorder-prim (primitive reorder-pd)]
-        (->DnnlShuffler eng strm reorder-prim
-                        (fwd-args (buffer src-sub) (buffer dst-sub))
-                        (buffer src-sub) (buffer dst-sub)
-                        (view-tz src-tz) (view-tz dst-tz)
-                        ((dims src-tz) 0)
-                        ((strides src-sub) 0)
-                        (entry-bytes (data-type src-tz))
-                        ((dims dst-tz) 0)
-                        ((strides dst-sub) 0)
-                        (entry-bytes (data-type dst-tz)))))))
-
+  (->DnnlShuffler strm (dnnl-batcher eng strm src-tz dst-tz 1)))
 
 ;; ================================ Tensor ======================================
 
