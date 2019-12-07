@@ -1,6 +1,6 @@
 (ns uncomplicate.diamond.internal.dnnl.fully-connected
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release]]
+             [core :refer [Releaseable release let-release with-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [core :refer [axpy! axpby! view zero dim transfer!]]
@@ -66,6 +66,14 @@
   Releaseable
   (release [_]
     (release eltw-fwd-prim))
+  Info
+  (info [this]
+    {:activation (info bluep :activation)
+     :a (info a-tz)})
+  (info [this info-type]
+    (case info-type
+      :a (info a-tz)
+      (info bluep info-type)))
   Transfer
   (input [_]
     a-tz)
@@ -83,6 +91,16 @@
   (release [_]
     (release eltw-fwd-prim)
     (release eltw-bwd-prim))
+  Info
+  (info [this]
+    {:activation (info bluep :activation)
+     :z (info z-tz)
+     :a (info a-tz)})
+  (info [this info-type]
+    (case info-type
+      :a (info a-tz)
+      :z (info z-tz)
+      (info bluep info-type)))
   Transfer
   (input [_]
     z-tz)
@@ -100,12 +118,19 @@
     (execute! strm eltw-bwd-prim eltw-bwd-args)
     this))
 
-(deftype DnnlActivationBlueprint [fact eltw-infer-pd eltw-train-pd eltw-bwd-pd]
+(deftype DnnlActivationBlueprint [fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd]
   Releaseable
   (release [_]
     (release eltw-infer-pd)
     (release eltw-train-pd)
     (release eltw-bwd-pd))
+  Info
+  (info [this]
+    {:activation activ})
+  (info [this info-type]
+    (case info-type
+      :activation activ
+      nil))
   DescProvider
   (desc [_]
     (dst-md eltw-train-pd))
@@ -134,7 +159,7 @@
        (let-release [eltw-infer-pd (primitive-desc eng eltw-infer-desc)
                      eltw-train-pd (primitive-desc eng eltw-train-desc)
                      eltw-bwd-pd (primitive-desc eng eltw-bwd-desc eltw-train-pd)]
-         (->DnnlActivationBlueprint fact eltw-infer-pd eltw-train-pd eltw-bwd-pd))))))
+         (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd))))))
 
 ;; ================================ Activation =============================================
 
@@ -148,6 +173,17 @@
     (release weights-tz)
     (release dst-tz)
     (release fc-fwd-prim))
+  Info
+  (info [this]
+    {:bias (info bias-tz)
+     :weights (info weights-tz)
+     :dst (info dst-tz)})
+  (info [this info-type]
+    (case info-type
+      :bias (info bias-tz)
+      :weights (info weights-tz)
+      :dst (info dst-tz)
+      nil))
   Transfer
   (input [_]
     (input src-conn))
@@ -189,6 +225,21 @@
     (release weights-conn)
     (release diff-src-conn)
     (release fc-bwd-data-prim))
+  Info
+  (info [this]
+    {:bias (info bias-tz)
+     :weights (info weights-tz)
+     :dst (info dst-tz)
+     :diff-weights (info diff-weights-tz)
+     :diff-bias (info diff-bias-tz)})
+  (info [this info-type]
+    (case info-type
+      :bias (info bias-tz)
+      :weights (info weights-tz)
+      :dst (info dst-tz)
+      :diff-bias (info diff-bias-tz)
+      :diff-weights (info diff-weights-tz)
+      nil))
   Transfer
   (input [_]
     (input src-conn))
@@ -235,6 +286,25 @@
     (release fc-train-pd)
     (release fc-bwd-weights-pd)
     (release fc-bwd-data-pd))
+  Info
+  (info [this]
+    {:bias bias-desc
+     :inference {:weights (weights-md fc-infer-pd)
+                 :src (src-md fc-infer-pd)
+                 :dst (dst-md fc-infer-pd)}
+     :training {:weights (weights-md fc-train-pd)
+                :src (src-md fc-train-pd)
+                :dst (dst-md fc-train-pd)}})
+  (info [this info-type]
+    (case info-type
+      :bias bias-desc
+      :inference {:weights (weights-md fc-infer-pd)
+                  :src (src-md fc-infer-pd)
+                  :dst (dst-md fc-infer-pd)}
+      :training {:weights (weights-md fc-train-pd)
+                 :src (src-md fc-train-pd)
+                 :dst (dst-md fc-train-pd)}
+      nil))
   DescProvider
   (desc [_]
     (dst-md fc-train-pd))
@@ -327,6 +397,14 @@
   (release [_]
     (release ip)
     (release activ))
+  Info
+  (info [x]
+    (assoc (into (info ip) (info activ)) :shape (info bluep :shape)
+           :topology :fc :algorithm :inference))
+  (info [x info-type]
+    (case info-type
+      :topology :fc :algorithm :inference
+      (or (info activ info-type) (info ip info-type) (info bluep info-type))))
   FactoryProvider
   (factory [_]
     fact)
@@ -356,6 +434,15 @@
     (release ip)
     (release activ)
     (release v))
+  Info
+  (info [x]
+    (assoc (into (info ip) (info activ)) :shape (info bluep :shape)
+           :batch n :algorithm :sgd :topology :fc ))
+  (info [x info-type]
+    (case info-type
+      :batch n
+      :algorithm :sgd
+      (or (info activ info-type) (info ip info-type) (info bluep info-type))))
   FactoryProvider
   (factory [_]
     fact)
@@ -414,6 +501,15 @@
     (release s)
     (release r)
     (release w))
+  Info
+  (info [x]
+    (assoc (into (info ip) (info activ)) :shape (info bluep :shape)
+           :batch n :algorithm :adam :topology :fc ))
+  (info [x info-type]
+    (case info-type
+      :batch n
+      :algorithm :adam
+      (or (info activ info-type) (info ip info-type) (info bluep info-type))))
   FactoryProvider
   (factory [_]
     fact)
@@ -474,6 +570,22 @@
   (release [_]
     (release ip-bluep)
     (release activ-bluep))
+  Info
+  (info [x]
+    (assoc (into (info ip) (info activ)) :batch n :algorithm :sgd))
+  (info [x info-type]
+    (case info-type
+      :shape (dims dst-desc)
+      :topology :fc
+      (or (info activ-bluep info-type) (info ip-bluep info-type))))
+  Info
+  (info [x]
+    (assoc (into (info ip-bluep) (info activ-bluep)) :shape (dims dst-desc)))
+  (info [x info-type]
+    (case info-type
+      :shape (dims dst-desc)
+      :topology :fc
+      (or (info activ-bluep info-type) (info ip-bluep info-type))))
   FactoryProvider
   (factory [_]
     fact)

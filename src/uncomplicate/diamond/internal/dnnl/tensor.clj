@@ -265,11 +265,20 @@
   Info
   (info [x]
     {:entry-type (data-type tz-mem)
-     :class  (class x)
+     :class (class x)
      :device :cpu
      :shape (shape x)
      :strides (strides tz-mem)
      :offset (dnnl-core/offset tz-mem)})
+  (info [x info-type]
+    (case info-type
+      :entry-type (data-type tz-mem)
+      :class (class x)
+      :device :cpu
+      :shape (shape x)
+      :strides (strides tz-mem)
+      :offset (dnnl-core/offset tz-mem)
+      nil))
   Releaseable
   (release [_]
     (if master

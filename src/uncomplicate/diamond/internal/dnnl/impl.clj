@@ -226,6 +226,14 @@
      :shape (vec (dims* this))
      :data-type (dec-data-type (data-type* this))
      :strides (vec (strides* this))})
+  (info [this info-type]
+    (case info-type
+      :class (class this)
+      :device :cpu
+      :shape (vec (dims* this))
+      :data-type (dec-data-type (data-type* this))
+      :strides (vec (strides* this))
+      nil))
   DescProvider
   (desc [this]
     this))
@@ -249,6 +257,15 @@
      :data-type (dec-data-type (data-type* mem-desc))
      :offset (.position d-ptr)
      :strides (vec (strides* mem-desc))})
+  (info [x info-type]
+    (case info-type
+      :class (class x)
+      :device :cpu
+      :shape (vec (dims* mem-desc))
+      :data-type (dec-data-type (data-type* mem-desc))
+      :offset (.position d-ptr)
+      :strides (vec (strides* mem-desc))
+      nil))
   Wrapper
   (extract [this]
     @vmem)

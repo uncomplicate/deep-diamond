@@ -1,5 +1,5 @@
 (ns uncomplicate.diamond.internal.network
-  (:require [uncomplicate.commons.core :refer [Releaseable release let-release]]
+  (:require [uncomplicate.commons.core :refer [Releaseable release let-release Info info]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
             [uncomplicate.diamond.tensor :refer [Transfer input output]]
             [uncomplicate.diamond.internal.protocols
@@ -9,7 +9,21 @@
 (defn invoke [f]
   (f))
 
+(defn ^:private layer-info [layer]
+  [(info layer :topology) (:shape (info layer :bias)) (info layer :activation)])
+
 (deftype SequentialNetworkInference [forward-layers]
+  Info
+  (info [x]
+    {:topology :sequential
+     :batch (first (info (first forward-layers) :shape))
+     :layers (mapv layer-info forward-layers)})
+  (info [x info-type]
+    (case info-type
+      :topology :sequential
+      :batch (first (info (first forward-layers) :shape))
+      :layers (mapv layer-info forward-layers)
+      nil))
   Releaseable
   (release [_]
     (peek (mapv release forward-layers)))
@@ -27,6 +41,18 @@
     (peek (mapv invoke forward-layers))))
 
 (deftype SequentialNetworkTraining [forward-layers last-layer rest-backward-layers]
+  Info
+  (info [x]
+    {:topology :sequential
+     :batch (first (info (first forward-layers) :shape))
+     :layers (mapv layer-info forward-layers)})
+  (info [x info-type]
+    (info [x info-type]
+          (case info-type
+            :topology :sequential
+            :batch (first (info (first forward-layers) :shape))
+            :layers (mapv layer-info forward-layers)
+            nil)))
   Releaseable
   (release [_]
     (doseq [l forward-layers] (release l)))
