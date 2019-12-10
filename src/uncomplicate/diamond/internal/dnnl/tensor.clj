@@ -57,6 +57,24 @@
     (connector (desc in-desc) out)))
 
 (extend-type dnnl_memory_desc_t
+  Info
+  (info [this]
+    {:class (class this)
+     :device :cpu
+     :shape (dims this)
+     :data-type (data-type this)
+     :strides (strides this)})
+  (info [this info-type]
+    (case info-type
+      :class (class this)
+      :device :cpu
+      :shape (dims this)
+      :data-type (data-type this)
+      :strides (strides this)
+      nil))
+  DescProvider
+  (desc [this]
+    this)
   TensorDescriptor
   (shape [this]
     (dims this))
@@ -72,6 +90,10 @@
           (let [fact (factory out-tz)]
             (let-release [in-tz (dnnl-tensor fact in-desc)]
               (dnnl-transformer (context fact) (flow fact) in-tz (view-tz out-tz)))))))))
+
+(defmethod print-method dnnl_memory_desc_t
+  [^dnnl_memory_desc_t d ^java.io.Writer w]
+  (.write w (pr-str {:shape (dims d) :data-type (data-type d) :layout (strides d)})))
 
 ;; =================== Transformer ==============================================
 
@@ -109,7 +131,7 @@
                          (fwd-args (buffer in-tz) (buffer out-tz))
                          in-tz out-tz))))
 
-;; =================== Shuffler ==================================================
+;; =================== Batcher ==================================================
 
 (deftype DnnlBatcher [eng strm reorder reorder-args
                       src-submem dst-submem src-tz dst-tz ^long mb-size
@@ -260,11 +282,10 @@
       (= (view x) (view y))
       :default false))
   (toString [this]
-    (format "#DnnlTensor[%s, shape:%s, strides:%s]"
-            (name (data-type tz-mem)) (dims tz-mem) (strides tz-mem)))
+    (pr-str {:shape (dims tz-mem) :data-type (data-type tz-mem) :layout (strides tz-mem)}))
   Info
   (info [x]
-    {:entry-type (data-type tz-mem)
+    {:data-type (data-type tz-mem)
      :class (class x)
      :device :cpu
      :shape (shape x)
@@ -272,7 +293,7 @@
      :offset (dnnl-core/offset tz-mem)})
   (info [x info-type]
     (case info-type
-      :entry-type (data-type tz-mem)
+      :data-type (data-type tz-mem)
       :class (class x)
       :device :cpu
       :shape (shape x)
@@ -351,6 +372,11 @@
    (dnnl-tensor fact (factory-by-type (tz/data-type mem-desc))
                 (context fact) mem-desc)))
 
+(defmethod print-method DnnlTensor
+  [^DnnlTensor x ^java.io.Writer w]
+  (.write w (str x))
+  (print-vector w (view x)))
+
 (defmethod transfer! [Object DnnlTensor]
   [source destination]
   (transfer! source (view destination))
@@ -376,10 +402,3 @@
       (transfer! (view source) (view destination))
       destination)
     (dragan-says-ex "You need a specialized transformer to transfer these two MKL-DNN tensors.")))
-
-(defmethod print-method DnnlTensor
-  [^DnnlTensor x ^java.io.Writer w]
-  (.write w (str x))
-  (with-release [view-x (view x)]
-    (when (< 0 (dim view-x))
-      (print-vector w view-x))))

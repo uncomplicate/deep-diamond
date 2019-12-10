@@ -13,6 +13,17 @@
   [(info layer :topology) (:shape (info layer :bias)) (info layer :activation)])
 
 (deftype SequentialNetworkInference [forward-layers]
+  Releaseable
+  (release [_]
+    (doseq [l forward-layers] (release l))
+    true)
+  Object
+  (hashCode [_]
+    (reduce hash-combine (hash :sequential) forward-layers))
+  (equals [_ n]
+    (and (satisfies? NeuralNetwork n) (= forward-layers (layers n))))
+  (toString [_]
+    (format "[%s]" (apply str forward-layers)))
   Info
   (info [x]
     {:topology :sequential
@@ -24,9 +35,6 @@
       :batch (first (info (first forward-layers) :shape))
       :layers (mapv layer-info forward-layers)
       nil))
-  Releaseable
-  (release [_]
-    (peek (mapv release forward-layers)))
   FactoryProvider
   (factory [_]
     (factory (peek forward-layers)))
@@ -40,7 +48,25 @@
   (invoke [this]
     (peek (mapv invoke forward-layers))))
 
+(defmethod print-method SequentialNetworkInference
+  [nn ^java.io.Writer w]
+  (.write w "\n[\n")
+  (doseq [layer (layers nn)]
+    (.write w (pr-str layer))
+    (.write w "\n"))
+  (.write w "]"))
+
 (deftype SequentialNetworkTraining [forward-layers last-layer rest-backward-layers]
+  Releaseable
+  (release [_]
+    (doseq [l forward-layers] (release l)))
+  Object
+  (hashCode [_]
+    (reduce hash-combine (hash :sequential) forward-layers))
+  (equals [_ n]
+    (and (satisfies? NeuralNetwork n) (= forward-layers (layers n))))
+  (toString [_]
+    (format "[%s]" (apply str forward-layers)))
   Info
   (info [x]
     {:topology :sequential
@@ -53,9 +79,6 @@
             :batch (first (info (first forward-layers) :shape))
             :layers (mapv layer-info forward-layers)
             nil)))
-  Releaseable
-  (release [_]
-    (doseq [l forward-layers] (release l)))
   FactoryProvider
   (factory [_]
     (factory last-layer))
@@ -84,13 +107,29 @@
       (backward layer hyperparam))
     this))
 
+(defmethod print-method SequentialNetworkTraining
+  [nn ^java.io.Writer w]
+  (.write w "\n[\n")
+  (doseq [layer (layers nn)]
+    (.write w (pr-str layer))
+    (.write w "\n"))
+  (.write w "]"))
+
 (deftype SequentialNetworkBlueprint [layer-blueprints]
   Releaseable
   (release [_]
-    (doseq [l layer-blueprints] (release l)))
+    (doseq [l layer-blueprints] (release l))
+    true)
+  Object
+  (hashCode [_]
+    (reduce hash-combine (hash :sequential) layer-blueprints))
+  (equals [_ n]
+    (and (satisfies? NeuralNetwork n) (= layer-blueprints (layers n))))
+  (toString [_]
+    (str layer-blueprints))
   NeuralNetwork
   (layers [_]
-    layer-blueprints)
+    (format "[%s]" (apply str layer-blueprints)))
   IFn
   (invoke [_ input-tz optimization]
     (loop [bps (next layer-blueprints)

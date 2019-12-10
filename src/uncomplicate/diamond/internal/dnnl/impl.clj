@@ -218,26 +218,6 @@
      (aset dims 0 n)
      (submemory-desc* parent-desc dims (long-array (alength dims))))))
 
-(extend-type dnnl_memory_desc_t
-  Info
-  (info [this]
-    {:class (class this)
-     :device :cpu
-     :shape (vec (dims* this))
-     :data-type (dec-data-type (data-type* this))
-     :strides (vec (strides* this))})
-  (info [this info-type]
-    (case info-type
-      :class (class this)
-      :device :cpu
-      :shape (vec (dims* this))
-      :data-type (dec-data-type (data-type* this))
-      :strides (vec (strides* this))
-      nil))
-  DescProvider
-  (desc [this]
-    this))
-
 (deftype MemoryImpl [vmem mem-desc d ^Pointer d-ptr master]
   Releaseable
   (release [this]

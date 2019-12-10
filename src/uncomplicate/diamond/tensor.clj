@@ -19,6 +19,15 @@
 (extend-type java.util.Collection
   TensorDescriptor
   (shape [this]
+    (vec this))
+  (data-type [_]
+    nil)
+  (layout [_]
+    nil))
+
+(extend-type clojure.lang.IPersistentVector
+  TensorDescriptor
+  (shape [this]
     this)
   (data-type [_]
     nil)
@@ -71,7 +80,7 @@
   ([shape layout]
    (desc shape nil layout))
   ([shape]
-   (desc shape nil nil)))
+   (desc (uncomplicate.diamond.tensor/shape shape) nil nil)))
 
 (defn tensor
   ([tz-factory shape type format]

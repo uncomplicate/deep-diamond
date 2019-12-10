@@ -8,14 +8,16 @@
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
              [block :refer [buffer]]]
-            [uncomplicate.neanderthal.internal.api :refer [flow]]
+            [uncomplicate.neanderthal.internal
+             [api :refer [flow]]
+             [printing :refer [print-vector]]]
             [uncomplicate.diamond
              [tensor :as tz
               :refer [Transfer input output connector view-tz revert shape layout]]
              [dnn :refer [Parameters bias weights transfer-parameters!]]]
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider FactoryProvider DiffParameters
-                     diff-bias diff-weights Backprop forward backward]]
+                     diff-bias diff-weights Backprop forward backward blueprint]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all]
@@ -397,6 +399,16 @@
   (release [_]
     (release ip)
     (release activ))
+  Object
+  (hashCode [_]
+    (-> (hash :fc) (hash-combine (info activ :activation))
+        (hash-combine (weights ip)) (hash-combine (bias ip))))
+  (equals [_ layer]
+    (and (satisfies? Parameters layer) (= :fc (info layer :topology))
+         (= (info activ :activation) (info layer :activation))
+         (= (bias ip) (bias layer)) (= (weights ip) (weights layer))))
+  (toString [_]
+    (str bluep))
   Info
   (info [x]
     (assoc (into (info ip) (info activ)) :shape (info bluep :shape)
@@ -426,6 +438,13 @@
     (ip)
     (activ)))
 
+(defmethod print-method FullyConnectedInference
+  [fc ^java.io.Writer w]
+  (let [bluep (blueprint fc)]
+    (.write w (pr-str {:weights (weights fc) :bias (bias fc)
+                       :shape (info bluep :shape)
+                       :topology :fc :activation (info bluep :activation)}))))
+
 (deftype FullyConnectedSGD [fact bluep ip activ ^long n
                             v w diff-weights-vec
                             b diff-bias-vec]
@@ -434,6 +453,16 @@
     (release ip)
     (release activ)
     (release v))
+  Object
+  (hashCode [_]
+    (-> (hash :fc) (hash-combine (info activ :activation))
+        (hash-combine (weights ip)) (hash-combine (bias ip))))
+  (equals [_ layer]
+    (and (satisfies? Parameters layer) (= :fc (info layer :topology))
+         (= (info activ :activation) (info layer :activation))
+         (= (bias ip) (bias layer)) (= (weights ip) (weights layer))))
+  (toString [_]
+    (str bluep))
   Info
   (info [x]
     (assoc (into (info ip) (info activ)) :shape (info bluep :shape)
@@ -491,6 +520,13 @@
                          v w (view (diff-weights ip))
                          (view (bias ip)) (view (diff-bias ip)))))
 
+(defmethod print-method FullyConnectedSGD
+  [fc ^java.io.Writer w]
+  (let [bluep (blueprint fc)]
+    (.write w (pr-str {:weights (weights fc) :bias (bias fc)
+                       :shape (info bluep :shape)
+                       :topology :fc :activation (info bluep :activation)}))))
+
 (deftype FullyConnectedAdam [fact bluep ip activ ^long n
                              s r w g
                              b diff-bias-vec]
@@ -501,6 +537,16 @@
     (release s)
     (release r)
     (release w))
+  Object
+  (hashCode [_]
+    (-> (hash :fc) (hash-combine (info activ :activation))
+        (hash-combine (weights ip)) (hash-combine (bias ip))))
+  (equals [_ layer]
+    (and (satisfies? Parameters layer) (= :fc (info layer :topology))
+         (= (info activ :activation) (info layer :activation))
+         (= (bias ip) (bias layer)) (= (weights ip) (weights layer))))
+  (toString [_]
+    (str bluep))
   Info
   (info [x]
     (assoc (into (info ip) (info activ)) :shape (info bluep :shape)
@@ -565,22 +611,33 @@
     (->FullyConnectedAdam fact bluep ip activ n s r w (view (diff-weights ip))
                           (view (bias ip)) (view (diff-bias ip)))))
 
+(defmethod print-method FullyConnectedAdam
+  [fc ^java.io.Writer w]
+  (let [bluep (blueprint fc)]
+    (.write w (pr-str {:weights (weights fc) :bias (bias fc)
+                       :shape (info bluep :shape)
+                       :topology :fc :activation (info bluep :activation)}))))
+
 (deftype FullyConnectedBlueprint [fact ip-bluep activ-bluep dst-desc]
   Releaseable
   (release [_]
     (release ip-bluep)
     (release activ-bluep))
+  Object
+  (hashCode [_]
+    (-> (hash :fc) (hash-combine activ-bluep) (hash-combine ip-bluep)))
+  (equals [_ other]
+    (and (instance? FullyConnectedBlueprint other)
+         (= activ-bluep (.activ-bluep ^FullyConnectedBlueprint other))
+         (= ip-bluep (.ip-bluep ^FullyConnectedBlueprint other))))
+  (toString [_]
+    (pr-str {:shape (dims dst-desc)
+             :topology :fc
+             :activation (info activ-bluep :activation)}))
   Info
   (info [x]
-    (assoc (into (info ip) (info activ)) :batch n :algorithm :sgd))
-  (info [x info-type]
-    (case info-type
-      :shape (dims dst-desc)
-      :topology :fc
-      (or (info activ-bluep info-type) (info ip-bluep info-type))))
-  Info
-  (info [x]
-    (assoc (into (info ip-bluep) (info activ-bluep)) :shape (dims dst-desc)))
+    (assoc (into (info ip-bluep) (info activ-bluep))
+           :shape (dims dst-desc) :topology :fc))
   (info [x info-type]
     (case info-type
       :shape (dims dst-desc)
