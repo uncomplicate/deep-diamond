@@ -26,8 +26,8 @@
    Supported engine kinds are `:cpu`, `:gpu`, and `:any`. The default kind is `:cpu`.
    Engine has to be `release`d.
 
-  Throws an ExceptionInfo if the `id` does not correspond to a physical device
-  or if `kind` is not supported."
+   Throws an ExceptionInfo if the `id` does not correspond to a physical device
+   or if `kind` is not supported."
   ([^long id kind]
    (wrap (engine* id (enc-keyword dnnl-engine-kind kind))))
   ([^long id]
@@ -45,7 +45,7 @@
    (engine-count* (enc-keyword dnnl-engine-kind kind))))
 
 (defn engine-kind
-  "Returns the kind of an engine as a keyword. Typical values are `:gpu` and `:cpu`.
+  "Returns engine's kind as a keyword. Typical values are `:gpu` and `:cpu`.
 
   Throws an ExceptionInfo if `kind` is not supported."
   ([eng]
@@ -86,7 +86,7 @@
   "Creates an engine-agnostic, logical, description of data, based on dimensions,
   data type and data format.
 
-  `dims` is a Clojure vector of positive numbers representing dimensions in
+  `dims` is a Clojure vector of positive numbers representing dimensions in the
   `:abcdef` format, regardless of the physical layout of dimensions.
   `data-type` is a keyword that specifies one of the supported types of data,
   defined in [[`constants/dnnl-data-type`]] (`:float`, `:int`, etc.)
@@ -112,7 +112,8 @@
    (memory-desc dims :float :any)))
 
 (defn submemory-desc
-  "TODO"
+  "Creates a (sub)memory section of a memory object, using the specified
+  shape `dims`, and `offsets` vectors."
   ([parent-desc dims offsets]
    (submemory-desc* (desc parent-desc) (long-array dims) (long-array offsets)))
   ([parent-desc dim-a]
@@ -196,12 +197,19 @@
 ;; ===================== Desc =================================================
 
 (defn primitive-kind
-  "TODO"
+  "Queries `desc` for the kind of primitive that it describes, returned as
+  keyword.
+
+  Result is one of the keywords defined in [[constants/dec-primitive-kind]],
+  typically `:inner-product`, `:convolution`, `:elementwise`, etc."
   [desc]
   (dec-primitive-kind (primitive-kind* desc)))
 
 (defn primitive-desc
-  "TODO"
+  "Creates a primitive descriptor from the operation descriptor `desc`,
+  optionally using a hint provided by a complementary primitive descriptor
+  `hint-pd` (in case of backward propagation, for example), and additonal
+  optional attribute `attr`."
   ([eng desc]
    (wrap (primitive-desc* desc (extract eng))))
   ([eng desc hint-pd]
@@ -212,47 +220,57 @@
 ;; ===================== Primitive ============================================
 
 (defn primitive
-  "TODO"
+  "Creates a primitive from the primitive descriptor `pd`.
+
+  Primitive encapsulates a pre-generated computation optimized for particular
+  data shapes defined in the primitive descriptor. Usually, such primitive is
+  executed many times with the data of these shapes, while the preparation cost
+  is paid only at the time of creation.
+
+  Primitive is a function with execution context (state). In addition to immutable
+  state such as input and output shape and data type, it could require a mutable
+  temporary work memory buffer that is called scratchpad in DNNL terminology.
+
+  For more info about DNNL's concepts, see
+  [the official DNNL guide](https://intel.github.io/mkl-dnn/dev_guide_basic_concepts.html).
+  "
   [pd]
   (wrap (primitive* (extract pd))))
 
 ;; =================== Query ====================================================
 
 (defn src-md
-  "Queries the primitive descriptor `pd` for the reference of its source."
+  "Queries the primitive descriptor `pd` for the source (input)."
   [pd]
   (query-md* (extract pd) dnnl/dnnl_query_src_md))
 
 (defn diff-src-md
-  "Queries the primitive descriptor `pd` for the reference of the gradient
-  of its source."
+  "Queries the primitive descriptor `pd` for the gradient of the source (input)."
   [pd]
   (query-md* (extract pd) dnnl/dnnl_query_diff_src_md))
 
 (defn weights-md
-  "Queries the primitive descriptor `pd` for the reference of its weights."
+  "Queries the primitive descriptor `pd` for the weights."
   [pd]
   (query-md* (extract pd) dnnl/dnnl_query_weights_md))
 
 (defn diff-weights-md
-  "Queries the primitive descriptor `pd` for the reference of the gradient
-  of its weights."
+  "Queries the primitive descriptor `pd` for the gradient of the weights."
   [pd]
   (query-md* (extract pd) dnnl/dnnl_query_diff_weights_md))
 
 (defn dst-md
-  "Queries the primitive descriptor `pd` for the reference of its destination."
+  "Queries the primitive descriptor `pd` for the destination (output)."
   [pd]
   (query-md* (extract pd) dnnl/dnnl_query_dst_md))
 
 (defn diff-dst-md
-  "Queries the primitive descriptor `pd` for the reference of the gradient
-  of its destination."
+  "Queries the primitive descriptor `pd` for the gradient of the destination (output)."
   [pd]
   (query-md* (extract pd) dnnl/dnnl_query_diff_dst_md))
 
 (defn workspace-md
-  "Queries the primitive descriptor `pd` for the reference of its workspace."
+  "Queries the primitive descriptor `pd` for the workspace (scratchpad)."
   [pd]
   (query-md* (extract pd) dnnl/dnnl_query_workspace_md))
 
@@ -417,14 +435,37 @@
 ;; ======================== Inner Product ======================================================
 
 (defn inner-product-fwd-desc
-  "TODO"
+  "Creates a descriptor for the forward phase of the inner product operation,
+  which computes `dst <- src * weights + bias`.
+
+  `prop-kind`: one of the values defined in [[constants/dnnl-forward-prop-kind]]
+  (`:inference`, `:training`, `:scoring`).
+  `src-desc`: descriptor of the source (input) memory.
+  `weights-desc`: descriptor of the weights memory.
+  `bias-desc`: descriptor of the bias memory.
+  `dst-desc`: descripror of the destination (output) memory.
+  "
   [prop-kind src-desc weights-desc bias-desc dst-desc]
   (inner-product-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
                                (desc src-desc) (desc weights-desc)
                                (desc bias-desc) (desc dst-desc)))
 
 (defn inner-product-bwd-desc
-  "TODO"
+  "Creates a descriptor for the backward phase of the inner product operation,
+  for data (3-arguments) weights (5-arguments) updates.
+
+  - The gradient of data computes `diff-src <- f(weights, diff-dst)`:
+  `diff-src-desc`: descriptor of the source gradient (input) memory.
+  `weights-desc`: descriptor of the weights memory.
+  `diff-dst-desc`: descriptor of the destination gradient (output) memory.
+
+  - The gradient of data computes `diff-weights <- f(diff-dst, src)`,
+  and `diff-bias <- f(diff-dst, src)`:
+  `src-desc`: descriptor of the source (input) memory.
+  `diff-weights-desc`: descriptor of the weights gradient memory.
+  `diff-bias-desc`: descriptor of the bias gradient memory.
+  `diff-dst-desc`: descriptor of the destination gradient (output) memory.
+  "
   ([diff-src-desc weights-desc diff-dst-desc]
    (inner-product-backward-data-desc* diff-src-desc weights-desc diff-dst-desc))
   ([src-desc diff-weights-desc diff-bias-desc diff-dst-desc]

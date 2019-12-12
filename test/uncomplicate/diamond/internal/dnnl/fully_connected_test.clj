@@ -205,9 +205,9 @@
                       input-tz (tensor fact [1 16] :float :nc)
                       train-tz (tensor fact [1 2] :float :nc)
                       net-bp (network fact input-tz
-                                      [(fully-connected [1 64] :relu)
-                                       (fully-connected [1 64] :relu)
-                                       (fully-connected [1 2] :linear)])
+                                      [(fully-connected [64] :relu)
+                                       (fully-connected [64] :relu)
+                                       (fully-connected [2] :linear)])
                       net (init! (net-bp input-tz :sgd))
                       quad-cost (cost net train-tz :quadratic)]
          (transfer! (range 16) input-tz)
@@ -218,8 +218,8 @@
                       input-tz (tensor fact [2 1] :float :nc)
                       train-tz (tensor fact [2 1] :float :nc)
                       net-bp (network fact input-tz
-                                      [(fully-connected [2 1] :linear)
-                                       (fully-connected [2 1] :linear)])
+                                      [(fully-connected [1] :linear)
+                                       (fully-connected [1] :linear)])
                       net (net-bp input-tz :sgd)
                       quad-cost (cost net train-tz :quadratic)]
          (transfer! [-0.5 -0.5] input-tz)
@@ -239,8 +239,8 @@
                       input-tz (tensor fact [2 1] :float :nc)
                       train-tz (tensor fact [2 1] :float :nc)
                       net-bp (network fact input-tz
-                                      [(fully-connected [2 1] :relu)
-                                       (fully-connected [2 1] :linear)])
+                                      [(fully-connected [1] :relu)
+                                       (fully-connected [1] :linear)])
                       net (net-bp input-tz :sgd)
                       quad-cost (cost net train-tz :quadratic)]
          (transfer! [0.25 0.35] train-tz)
@@ -253,9 +253,9 @@
                       input-tz (tensor fact [1 16] :float :nc)
                       train-tz (tensor fact [1 2] :float :nc)
                       net-bp (network fact input-tz
-                                      [(fully-connected [1 64] :relu)
-                                       (fully-connected [1 64] :relu)
-                                       (fully-connected [1 2] :sigmoid)])
+                                      [(fully-connected [64] :relu)
+                                       (fully-connected [64] :relu)
+                                       (fully-connected [2] :sigmoid)])
                       net (init! (net-bp input-tz :sgd))
                       quad-cost (cost net train-tz :sigmoid-crossentropy)]
          (transfer! (range 16) input-tz)
@@ -272,9 +272,9 @@
                       x-tz (tensor fact [10000 4] :float :nc)
                       y-tz (tensor fact [10000 1] :float :nc)
                       net-bp (network fact x-tz
-                                      [(fully-connected [10000 64] :relu) ;;TODO implement (fc [64] :relu)
-                                       (fully-connected [10000 64] :relu)
-                                       (fully-connected [10000 1] :linear)])
+                                      [(fully-connected [64] :relu)
+                                       (fully-connected [64] :relu)
+                                       (fully-connected [1] :linear)])
                       net (init! (net-bp x-tz :sgd))
                       quad-cost (cost net y-tz :quadratic)]
          (rand-uniform! (view x-tz))
@@ -290,9 +290,9 @@
                       y-mb-tz (tensor fact [100 1] :float :nc)
                       y-shuff (batcher y-tz y-mb-tz)
                       net-bp (network fact x-mb-tz
-                                      [(fully-connected [100 64] :relu)
-                                       (fully-connected [100 64] :relu)
-                                       (fully-connected [100 1] :linear)])
+                                      [(fully-connected [64] :relu)
+                                       (fully-connected [64] :relu)
+                                       (fully-connected [1] :linear)])
                       net (init! (net-bp x-mb-tz :sgd))
                       quad-cost (cost net y-mb-tz :quadratic)]
          (rand-uniform! (view x-tz))
@@ -308,9 +308,9 @@
                       y-mb-tz (tensor fact [100 1] :float :nc)
                       y-shuff (batcher y-tz y-mb-tz)
                       net-bp (network fact x-mb-tz
-                                      [(fully-connected [100 64] :relu)
-                                       (fully-connected [100 64] :relu)
-                                       (fully-connected [100 1] :linear)])
+                                      [(fully-connected [64] :relu)
+                                       (fully-connected [64] :relu)
+                                       (fully-connected [1] :linear)])
                       net (init! (net-bp x-mb-tz :adam))
                       quad-cost (cost net y-mb-tz :quadratic)]
          (rand-uniform! (view x-tz))
@@ -320,10 +320,10 @@
 #_(facts "Fully connected deep network"
        (with-release [input-tz (tensor [1024 1] :float :nc)
                       net-bp (network input-tz input-tz
-                                      [(fully-connected [1024 1024] :relu)
-                                       (fully-connected [1024 349] :logistic)
-                                       (fully-connected [1024 4024] :tanh)
-                                       (fully-connected [1024 1] :elu)])
+                                      [(fully-connected [1024] :relu)
+                                       (fully-connected [349] :logistic)
+                                       (fully-connected [4024] :tanh)
+                                       (fully-connected [1] :elu)])
                       net (init! (net-bp input-tz :sgd))]
          (time (dotimes [i 100]
                  (forward net [0 1 0 0 false])

@@ -13,7 +13,8 @@
              [printing :refer [print-vector]]]
             [uncomplicate.diamond
              [tensor :as tz
-              :refer [Transfer input output connector view-tz revert shape layout]]
+              :refer [Transfer input output connector view-tz revert shape layout
+                      TensorDescriptor shape]]
              [dnn :refer [Parameters bias weights transfer-parameters!]]]
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider FactoryProvider DiffParameters
@@ -382,7 +383,7 @@
                                                             bias-desc dst-desc)
                       fc-bwd-weights-desc (inner-product-bwd-desc src-desc weights-desc
                                                                   bias-desc dst-desc)
-                      fc-bwd-data-desc (inner-product-bwd-desc src-desc weights-desc dst-desc)] ;;TODO the order of args is different here and in bwd-args
+                      fc-bwd-data-desc (inner-product-bwd-desc src-desc weights-desc dst-desc)]
          (let-release [fc-infer-pd (primitive-desc eng fc-infer-desc)
                        fc-train-pd (primitive-desc eng fc-train-desc)
                        fc-bwd-weights-pd (primitive-desc eng fc-bwd-weights-desc fc-train-pd)
@@ -652,6 +653,13 @@
   DescProvider
   (desc [_]
     (desc activ-bluep))
+  TensorDescriptor
+  (shape [_]
+    (dims dst-desc))
+  (data-type [_]
+    (tz/data-type dst-desc))
+  (layout [_]
+    (strides dst-desc))
   IFn
   (invoke [this prev-layer]
     (let-release [src-tz (output prev-layer)

@@ -63,9 +63,9 @@
                       y-tz (tensor fact [404 1] :float :nc)
                       y-mb-tz (tensor fact [16 1] :float :nc)
                       net-bp (network fact x-mb-tz
-                                      [(fully-connected [16 64] :relu)
-                                       (fully-connected [16 64] :relu)
-                                       (fully-connected [16 1] :linear)])
+                                      [(fully-connected [64] :relu)
+                                       (fully-connected [64] :relu)
+                                       (fully-connected [1] :linear)])
                       net (init! (net-bp x-mb-tz :adam))
                       net-infer (net-bp x-mb-tz)
                       quad-cost (cost net y-mb-tz :quadratic)

@@ -62,13 +62,15 @@
   ([dst-desc activ args]
    (fn
      ([fact src-desc]
-      (fully-connected fact src-desc dst-desc activ args))
+      (let [dst-desc (into [(get (shape src-desc) 0)] dst-desc)]
+        (fully-connected fact src-desc dst-desc activ args)))
      ([]
       dst-desc)))
   ([dst-desc activ]
    (fn
      ([fact src-desc]
-      (fully-connected fact src-desc dst-desc activ))
+      (let [dst-desc (into [(get (shape src-desc) 0)] dst-desc)]
+        (fully-connected fact src-desc dst-desc activ)))
      ([]
       dst-desc))))
 

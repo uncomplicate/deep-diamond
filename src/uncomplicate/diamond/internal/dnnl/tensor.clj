@@ -57,24 +57,6 @@
     (connector (desc in-desc) out)))
 
 (extend-type dnnl_memory_desc_t
-  Info
-  (info [this]
-    {:class (class this)
-     :device :cpu
-     :shape (dims this)
-     :data-type (data-type this)
-     :strides (strides this)})
-  (info [this info-type]
-    (case info-type
-      :class (class this)
-      :device :cpu
-      :shape (dims this)
-      :data-type (data-type this)
-      :strides (strides this)
-      nil))
-  DescProvider
-  (desc [this]
-    this)
   TensorDescriptor
   (shape [this]
     (dims this))
