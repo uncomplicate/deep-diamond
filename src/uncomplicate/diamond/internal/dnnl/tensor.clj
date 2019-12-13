@@ -46,12 +46,12 @@
 (extend-type java.util.Map
   DescProvider
   (desc [this]
-    (memory-desc (:shape this) (or (:data-type this) :undef) (or (:layout this) :undef))))
+    (memory-desc (:shape this) (or (:data-type this) :undef) (or (layout this) :undef))))
 
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (memory-desc (.shape this) (or (.data-type this) :undef) (or (.layout this) :undef)))
+    (memory-desc (.shape this) (or (.data-type this) :undef) (or (layout this) :undef)))
   ConnectorCreator
   (connector [in-desc out]
     (connector (desc in-desc) out)))
