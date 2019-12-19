@@ -21,8 +21,8 @@
 (defprotocol TensorDescriptor
   "Generic tensor descriptor."
   (shape [tz] "Tensor shape, as a vector ([2 3 4]).")
-  (layout [tz] "Tensor layout, as a keyword. (:nchw)")
-  (data-type [tz] "Data type of tensor entries. (:float) "))
+  (layout [tz] "Tensor layout, as a keyword (:nchw).")
+  (data-type [tz] "Data type of tensor entries (:float)."))
 
 (extend-type java.util.Collection
   TensorDescriptor

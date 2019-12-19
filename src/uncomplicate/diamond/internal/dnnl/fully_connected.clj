@@ -164,7 +164,7 @@
                      eltw-bwd-pd (primitive-desc eng eltw-bwd-desc eltw-train-pd)]
          (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd))))))
 
-;; ================================ Activation =============================================
+;; ================================ Inner Product =============================================
 
 (deftype DnnlInnerProductInference [fact strm bluep
                                     src-conn bias-tz weights-tz dst-tz
@@ -282,6 +282,7 @@
 
 (deftype DnnlInnerProductBlueprint [fact bias-desc fc-infer-pd
                                     fc-train-pd fc-bwd-weights-pd fc-bwd-data-pd]
+  ;; TODO implement equals
   Releaseable
   (release [_]
     (release bias-desc)
