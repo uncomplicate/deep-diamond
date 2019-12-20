@@ -24,7 +24,7 @@
                       fc (fc-bluep input-tz)
                       connect-output (connector (output fc) (desc [1 2] :float :nc))]
          (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
-         (transfer! [-0.1 0.2 0.1 -0.7 0.2 -0.1 -0.7 0.1 -0.1 0.2 0.1 -0.7] (weights fc))
+         (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
          (transfer! [-0.1 0.2] (bias fc))
          (view (output connect-output)) => (fv 0.0 0.0)
          (fc) => (output fc)

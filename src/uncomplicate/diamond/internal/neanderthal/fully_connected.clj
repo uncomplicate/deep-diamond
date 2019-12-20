@@ -1,3 +1,11 @@
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (ns uncomplicate.diamond.internal.neanderthal.fully-connected
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info]]
@@ -164,7 +172,7 @@
 (defn sgd-layer [fact bluep activ-bluep ones prop-diff?
                  a-1 b w a src-conn bias-tz weights-tz a-tz]
   (let-release [z-tz (dnnl-tensor fact (desc a-tz))
-                z (view-ge (view z-tz) (dim b) (ncols a-1))
+                z (trans (view-ge (view z-tz) (ncols a-1) (dim b)))
                 v (zero w)
                 activ (activ-bluep z-tz a-tz)]
     (->FullyConnectedSGD fact bluep ones activ prop-diff?
@@ -215,14 +223,14 @@
                     bias-tz (dnnl-tensor fact bias-desc)
                     weights-tz (dnnl-tensor fact weights-desc)
                     a-tz (dnnl-tensor fact dst-desc)
-                    x (view-ge (view (output src-conn))
-                               (apply * (rest src-shape)) (long (get src-shape 0)))
+                    x (trans (view-ge (view (output src-conn))
+                                      (long (get src-shape 0)) (apply * (rest src-shape))))
                     b (view bias-tz)
                     ones (entry! (vctr x (ncols x)) 1.0)
                     activ (activ-bluep a-tz)]
         (->FullyConnectedInference fact this ones activ x b
-                                   (view-ge (view weights-tz) (dim b) (mrows x))
-                                   (view-ge (view a-tz) (dim b) n)
+                                   (trans (view-ge (view weights-tz) (mrows x) (dim b)))
+                                   (trans (view-ge (view a-tz) n (dim b)))
                                    src-conn bias-tz weights-tz a-tz))))
   (invoke [this prev-layer prop-diff? optimization]
     (let [src-shape (shape src-desc)
@@ -236,11 +244,11 @@
                     bias-tz (dnnl-tensor fact bias-desc)
                     weights-tz (dnnl-tensor fact weights-desc)
                     a-tz (dnnl-tensor fact dst-desc)
-                    x (view-ge (view (output src-conn))
-                               (apply * (rest src-shape)) (long (get src-shape 0)))
+                    x (trans (view-ge (view (output src-conn))
+                                      (long (get src-shape 0)) (apply * (rest src-shape))))
                     b (view bias-tz)
-                    w (view-ge (view weights-tz) (dim b) (mrows x))
-                    a (view-ge (view a-tz) (dim b) (ncols x))
+                    w (trans (view-ge (view weights-tz) (mrows x) (dim b)))
+                    a (trans (view-ge (view a-tz) (ncols x) (dim b)))
                     ones (entry! (vctr x (ncols x)) 1.0)]
         (training-layer fact this activ-bluep ones prop-diff? x b w a
                         src-conn bias-tz weights-tz a-tz))))
