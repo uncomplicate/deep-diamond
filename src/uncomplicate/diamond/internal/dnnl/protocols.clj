@@ -11,12 +11,6 @@
 (defprotocol PointerCreator
   (pointer [this]))
 
-(defprotocol Wrapper
-  (extract [this]))
-
-(defprotocol Wrappable
-  (wrap [this]))
-
 (defprotocol DnnlCloneable
   (clone [this]))
 

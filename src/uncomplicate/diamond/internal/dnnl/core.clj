@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.dnnl.core
   (:require [uncomplicate.commons
-             [core :refer [let-release with-release]]
+             [core :refer [let-release with-release wrap extract]]
              [utils :refer [enc-keyword direct-buffer capacity dragan-says-ex mask]]]
             [uncomplicate.diamond.internal.dnnl
              [impl :refer :all]

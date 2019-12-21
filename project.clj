@@ -6,13 +6,14 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.5.0-SNAPSHOT"
+(defproject uncomplicate/deep-diamond "0.6.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
 
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [uncomplicate/commons "0.8.0"]
+                 [uncomplicate/commons "0.9.0-SNAPSHOT"]
                  [uncomplicate/neanderthal "0.27.0-SNAPSHOT"]
-                 [org.bytedeco/dnnl-platform "1.1.1-1.5.2"]]
+                 [org.bytedeco/dnnl-platform "1.1.1-1.5.2"]
+                 [org.jcuda/jcudnn "10.1.0"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
                              [lein-codox "0.10.6"]]

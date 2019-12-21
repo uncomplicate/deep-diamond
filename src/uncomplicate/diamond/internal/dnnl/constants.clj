@@ -154,17 +154,18 @@
 (defn dec-data-type [^long data-type]
   (case data-type
     3 :float
-    1 :f16
+    1 :half
     2 :bf16
     4 :int
     5 :byte
-    6 :u8
+    6 :uint8
     0 :undef
     (dragan-says-ex "Unknown data type." {:data-type data-type})))
 
 (def ^:const dnnl-data-type
   {:float dnnl/dnnl_f32
    Float/TYPE dnnl/dnnl_f32
+   :half dnnl/dnnl_f16
    :f16 dnnl/dnnl_f16
    :bf16 dnnl/dnnl_bf16
    :int dnnl/dnnl_s32
@@ -172,6 +173,7 @@
    :byte dnnl/dnnl_s8
    Byte/TYPE dnnl/dnnl_s8
    :u8 dnnl/dnnl_u8
+   :uint8 dnnl/dnnl_u8
    :undef dnnl/dnnl_data_type_undef})
 
 (def ^:const dnnl-forward-prop-kind
@@ -203,9 +205,11 @@
 (defn entry-bytes ^long [data-type]
   (case data-type
     :float Float/BYTES
+    :half 2
     :f16 2
     :bf16 2
     :int Integer/BYTES
     :byte 1
     :u8 1
+    :uint8 1
     (dragan-says-ex "unknown data type" {:data-type data-type})))

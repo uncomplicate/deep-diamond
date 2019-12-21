@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons.core :refer [Releaseable release let-release]]
-            [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
+            [uncomplicate.neanderthal.internal.api :refer [FlowProvider]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output]]
             [uncomplicate.diamond.internal.protocols
              :refer [TensorFactory FactoryProvider ContextProvider CostFactory DnnFactory]]
@@ -21,7 +21,7 @@
                                       dnnl-universal-cost quadratic-cost mean-absolute-cost
                                       dnnl-custom-cost sigmoid-crossentropy-cost]]]))
 
-(defrecord DnnlFactory [eng strm master]
+(deftype DnnlFactory [eng strm master]
   Releaseable
   (release [_]
     (when master

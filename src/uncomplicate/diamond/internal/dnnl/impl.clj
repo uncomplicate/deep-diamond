@@ -8,7 +8,8 @@
 
 (ns uncomplicate.diamond.internal.dnnl.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info]]
+             [core :refer [Releaseable release let-release with-release Info
+                           Wrapper Wrappable wrap extract]]
              [utils :as cu :refer [dragan-says-ex]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -21,25 +22,17 @@
             dnnl_primitive_desc const_dnnl_op_desc_t dnnl_primitive_attr
             dnnl_eltwise_desc_t dnnl_inner_product_desc_t]))
 
-(defn error
+(defn dnnl-error
   ([^long err-code details]
    (let [err (dec-status err-code)]
      (ex-info (format "DNNL error %d %s." err-code err)
               {:code err-code :error err :type :dnnl-error :details details})))
   ([err-code]
-   (error err-code nil)))
+   (dnnl-error err-code nil)))
 
 (defmacro with-check
   ([status form]
-   `(cu/with-check error ~status ~form)))
-
-(extend-type nil
-  Wrapper
-  (extract [_]
-    nil)
-  Wrappable
-  (wrap [this]
-    nil))
+   `(cu/with-check dnnl-error ~status ~form)))
 
 (extend-type Pointer
   Releaseable
