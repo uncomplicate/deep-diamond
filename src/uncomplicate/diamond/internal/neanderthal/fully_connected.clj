@@ -144,7 +144,7 @@
   IFn
   (invoke [_]
     (src-conn)
-    (rk! -1.0 b ones (mm! 1.0 w a-1 0.0 z))
+    (rk! 1.0 b ones (mm! 1.0 w a-1 0.0 z))
     (activ))
   Backprop
   (forward [this]
@@ -153,7 +153,7 @@
   (forward [this [_ _ mu nesterov?]]
     (when nesterov? (axpy! mu v w))
     (src-conn)
-    (rk! -1.0 b ones (mm! 1.0 w a-1 0.0 z))
+    (rk! 1.0 b ones (mm! 1.0 w a-1 0.0 z))
     (forward activ)
     this)
   (backward [this]
@@ -176,7 +176,7 @@
                 v (zero w)
                 activ (activ-bluep z-tz a-tz)]
     (->FullyConnectedSGD fact bluep ones activ prop-diff?
-                         v a-1 b w z a
+                         v a-1 b w z
                          src-conn bias-tz weights-tz a-tz)))
 
 (deftype FullyConnectedBlueprint [fact activ-bluep src-desc bias-desc weights-desc dst-desc]
