@@ -16,7 +16,9 @@
              [protocols :refer :all]
              [constants :refer :all]
              [impl :refer :all]])
-  (:import [jcuda.jcudnn JCudnn]))
+  (:import java.lang.Exception
+           jcuda.jcudnn.JCudnn
+           uncomplicate.diamond.internal.cudnn.impl.CUTensorDescriptor))
 
 (defn cudnn-handle [stream]
   (wrap (cudnn-handle* (extract stream))))
@@ -24,18 +26,33 @@
 (defn get-cudnn-stream [handle]
   (wrap (get-cudnn-stream* (extract handle))))
 
-(defn tensor-descriptor []
-  (wrap (tensor-descriptor*)))
+(defn tensor-descriptor [shape data-type layout]
+  (let [d (count shape)
+        dtype (enc-keyword cudnn-data-type data-type)]
+    (let [td (tensor-descriptor*)]
+      (try
+        (wrap (if (keyword? layout)
+                (let [format (enc-keyword cudnn-format layout)]
+                  (if (< 4 d)
+                    (tensor-4d-descriptor* td format dtype shape)
+                    (tensor-nd-descriptor-ex* td format dtype (int-array shape))))
+                (if (= d (count layout))
+                  (if (< 4 d)
+                    (tensor-4d-descriptor-ex* td dtype shape layout)
+                    (tensor-nd-descriptor* td dtype (int-array shape) (int-array layout)))
+                  (dragan-says-ex "Shape and strides must have the same length."
+                                  {:shape shape :strides layout}))))
+        (catch Exception e
+          (with-check cudnn-error
+            (JCudnn/cudnnDestroyTensorDescriptor td)
+            (throw e)))))))
 
-(defn tensor-4d-descriptor [shape data-type format]
-  (if (= 4 (count shape))
-    (let-release [td (wrap (tensor-descriptor*))]
-      (tensor-4d-descriptor* (extract td) (int-array shape)
-                             (enc-keyword cudnn-data-type data-type)
-                             (enc-keyword cudnn-format format))
-      td)
-    (dragan-says-ex "The shape of a 4d tensor descriptor must have 4 entries"
-                    {:shape shape})))
+(defn equal-desc? [td1 td2]
+  (and (instance? CUTensorDescriptor td1) (instance? CUTensorDescriptor td2)
+       (let [td1 ^CUTensorDescriptor td1
+             td2 ^CUTensorDescriptor td2]
+         (and (= (.dims td1) (.dims td2)) (= (.data-type td1) (.data-type td2))
+              (= (.strides td1) (.strides td2))))))
 
 (defn add-tensor [cudnn-handle alpha a beta b]
   (with-check cudnn-error

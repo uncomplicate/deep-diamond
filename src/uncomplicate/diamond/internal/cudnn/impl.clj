@@ -12,7 +12,9 @@
                            Wrapper Wrappable wrap extract]]
              [utils :refer [with-check dragan-says-ex]]]
             [uncomplicate.clojurecuda.internal.impl :refer [native-pointer]]
-            [uncomplicate.diamond.internal.cudnn.protocols :refer :all])
+            [uncomplicate.diamond.internal.cudnn
+             [constants :refer :all]
+             [protocols :refer :all]])
   (:import java.nio.ByteBuffer
            jcuda.runtime.cudaStream_t
            jcuda.driver.CUstream
@@ -68,12 +70,44 @@
 
 ;; =========================== Tensor Descriptor ============================
 
-(deftype-wrapper CUTensorDescriptor JCudnn/cudnnDestroyTensorDescriptor)
+(deftype CUTensorDescriptor [^cudnnTensorDescriptor td dims data-type strides]
+  Object
+  (hashCode [this]
+    (hash (deref td)))
+  (equals [this other]
+    (= @td (extract other)))
+  (toString [this]
+    (format "#CUTensorDescriptor[0x%s]" (Long/toHexString (native-pointer @td))))
+  Wrapper
+  (extract [this]
+    @td)
+  Releaseable
+  (release [this]
+    (locking td
+      (when-let [d @td]
+        (locking d
+          (with-check cudnn-error
+            (JCudnn/cudnnDestroyTensorDescriptor d)
+            (vreset! td nil)))))
+    true))
+
+(defn get-tensor-nd-descriptor* ^long [^cudnnTensorDescriptor td
+                                       ^ints data-type ^ints dims ^ints strides]
+  (let [nbdims (int-array 1)]
+    (with-check cudnn-error
+      (JCudnn/cudnnGetTensorNdDescriptor td (alength dims) data-type nbdims dims strides)
+      (aget nbdims 0))))
 
 (extend-type cudnnTensorDescriptor
   Wrappable
   (wrap [td]
-    (->CUTensorDescriptor (volatile! td))))
+    (let [data-type (int-array 1)
+          dims (int-array JCudnn/CUDNN_DIM_MAX)
+          strides (int-array JCudnn/CUDNN_DIM_MAX)]
+      (let [nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
+        (->CUTensorDescriptor (volatile! td) (vec (take nbdims dims))
+                              (dec-data-type (aget data-type 0))
+                              (vec (take nbdims strides)))))))
 
 (defn tensor-descriptor* []
   (let [res (cudnnTensorDescriptor.)]
@@ -81,9 +115,28 @@
       (JCudnn/cudnnCreateTensorDescriptor res)
       res)))
 
-(defn tensor-4d-descriptor* [^cudnnTensorDescriptor td
-                             ^ints shape ^long data-type ^long format]
+(defn tensor-4d-descriptor*
+  ([^cudnnTensorDescriptor td ^long format ^long data-type shape]
+   (with-check cudnn-error
+     (JCudnn/cudnnSetTensor4dDescriptor
+      td data-type format (get shape 0 0) (get shape 1 1) (get shape 2 1) (get shape 3 1))
+     td)))
+
+(defn tensor-4d-descriptor-ex* [^cudnnTensorDescriptor td ^long data-type shape stride]
   (with-check cudnn-error
-    (JCudnn/cudnnSetTensor4dDescriptor
-     td format data-type (aget shape 0) (aget shape 1) (aget shape 2) (aget shape 3))
+    (JCudnn/cudnnSetTensor4dDescriptorEx
+     td data-type (get shape 0 0) (get shape 1 1) (get shape 2 1) (get shape 3 1)
+     (get stride 0 0) (get stride 1 1) (get stride 2 1) (get stride 3 1))
     td))
+
+(defn tensor-nd-descriptor*
+  ([^cudnnTensorDescriptor td ^long data-type ^ints dims ^ints strides]
+   (with-check cudnn-error
+     (JCudnn/cudnnSetTensorNdDescriptor td data-type (alength dims) dims strides)
+     td)))
+
+(defn tensor-nd-descriptor-ex*
+  ([^cudnnTensorDescriptor td ^long format ^long data-type ^ints dims]
+   (with-check cudnn-error
+     (JCudnn/cudnnSetTensorNdDescriptorEx td format data-type (alength dims) dims)
+     td)))

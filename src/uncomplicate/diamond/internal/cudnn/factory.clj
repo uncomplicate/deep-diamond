@@ -1,3 +1,11 @@
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (ns uncomplicate.diamond.internal.cudnn.factory
   (:require [uncomplicate.commons.core :refer [Releaseable release let-release]]
             [uncomplicate.clojurecuda.core
@@ -5,7 +13,9 @@
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider]]
             [uncomplicate.diamond.internal.protocols
              :refer [TensorFactory FactoryProvider ContextProvider CostFactory DnnFactory]]
-            [uncomplicate.diamond.internal.cudnn.core :refer [cudnn-handle get-cudnn-stream]])
+            [uncomplicate.diamond.internal.cudnn
+             [protocols :refer [desc]]
+             [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (deftype CUDnnFactory [ctx hstream handle master]
@@ -28,10 +38,10 @@
   (context [_]
     ctx)
   TensorFactory
-  (create-tensor-desc [this dims dtype format]
-    )
+  (create-tensor-desc [this shape dtype format]
+    (tensor-descriptor shape dtype format))
   (create-tensor-desc [this tz-desc]
-    )
+    (desc tz-desc))
   (create-tensor [this tensor-desc]
     )
   (create-transformer [_ in-tz out-tz]

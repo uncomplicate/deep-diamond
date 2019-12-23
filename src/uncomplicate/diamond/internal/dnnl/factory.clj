@@ -38,8 +38,8 @@
   (context [_]
     eng)
   TensorFactory
-  (create-tensor-desc [this dims dtype format]
-    (memory-desc dims dtype format))
+  (create-tensor-desc [this shape dtype format]
+    (memory-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
     (desc tz-desc))
   (create-tensor [this tensor-desc]
