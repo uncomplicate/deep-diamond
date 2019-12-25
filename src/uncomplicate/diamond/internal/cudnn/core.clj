@@ -54,6 +54,11 @@
          (and (= (.dims td1) (.dims td2)) (= (.data-type td1) (.data-type td2))
               (= (.strides td1) (.strides td2))))))
 
+(defn size
+  "Queries the tensor descriptor for its dimensions."
+  ^long [td]
+  (size* (extract td)))
+
 (defn add-tensor [cudnn-handle alpha a beta b]
   (with-check cudnn-error
     (JCudnn/cudnnAddTensor cudnn-handle (ptr alpha) (desc a) (extract (buffer a))

@@ -10,15 +10,17 @@
   (:require [uncomplicate.commons.core :refer [Releaseable release let-release]]
             [uncomplicate.clojurecuda.core
              :refer [init device context current-context stream default-stream in-context]]
+            [uncomplicate.neanderthal.cuda :refer [cuda-float]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider]]
             [uncomplicate.diamond.internal.protocols
              :refer [TensorFactory FactoryProvider ContextProvider CostFactory DnnFactory]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [desc]]
-             [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor]]])
+             [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor]]
+             [tensor :refer [cudnn-tensor]]])
   (:import jcuda.jcudnn.JCudnn))
 
-(deftype CUDnnFactory [ctx hstream handle master]
+(deftype CUDnnFactory [ctx hstream handle master neand-fact]
   Releaseable
   (release [_]
     (in-context ctx
@@ -43,7 +45,7 @@
   (create-tensor-desc [this tz-desc]
     (desc tz-desc))
   (create-tensor [this tensor-desc]
-    )
+    (cudnn-tensor this neand-fact tensor-desc))
   (create-transformer [_ in-tz out-tz]
     )
   (create-shuffler [_ src-tz dst-tz]
@@ -84,5 +86,6 @@
      (in-context
       ctx
       (let-release [hstream (stream)
-                    handle (cudnn-handle hstream)]
-        (->CUDnnFactory (current-context) hstream handle true))))))
+                    handle (cudnn-handle hstream)
+                    neand-float (cuda-float ctx hstream)]
+        (->CUDnnFactory ctx hstream handle true neand-float))))))

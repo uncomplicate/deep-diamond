@@ -12,6 +12,7 @@
                            Wrapper Wrappable wrap extract]]
              [utils :refer [with-check dragan-says-ex]]]
             [uncomplicate.clojurecuda.internal.impl :refer [native-pointer]]
+            [uncomplicate.diamond.tensor :refer [TensorDescriptor]]
             [uncomplicate.diamond.internal.cudnn
              [constants :refer :all]
              [protocols :refer :all]])
@@ -81,6 +82,9 @@
   Wrapper
   (extract [this]
     @td)
+  DescProvider
+  (desc [this]
+    this)
   Releaseable
   (release [this]
     (locking td
@@ -140,3 +144,10 @@
    (with-check cudnn-error
      (JCudnn/cudnnSetTensorNdDescriptorEx td format data-type (alength dims) dims)
      td)))
+
+(defn size*
+  "Queries the tensor descriptor for its dimensions."
+  ^long [td]
+  (let [res (long-array 1)]
+    (with-check cudnn-error
+      (JCudnn/cudnnGetTensorSizeInBytes td res) (aget res 0))))

@@ -232,6 +232,7 @@
     this))
 
 (deftype MemoryImpl [vmem mem-desc d ^Pointer d-ptr master]
+  ;;TODO implement hash, equals, print.
   Releaseable
   (release [this]
     (locking vmem
