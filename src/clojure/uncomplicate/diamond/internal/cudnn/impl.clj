@@ -151,3 +151,24 @@
   (let [res (long-array 1)]
     (with-check cudnn-error
       (JCudnn/cudnnGetTensorSizeInBytes td res) (aget res 0))))
+
+;;TODO wait for bugfix in JCuda 10.2
+#_(defn set-tensor* [cudnn-handle td buf-ptr value-buf]
+  (with-check cudnn-error
+    (JCudnn/cudnnSetTensor cudnn-handle td buf-ptr value-buf)
+    cudnn-handle))
+
+(defn add-tensor* [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
+  (with-check cudnn-error
+    (JCudnn/cudnnAddTensor cudnn-handle alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-handle))
+
+(defn transform-tensor* [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
+  (with-check cudnn-error
+    (JCudnn/cudnnTransformTensor cudnn-handle alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-handle))
+
+(defn scale-tensor* [cudnn-handle td buf alpha]
+  (with-check cudnn-error
+    (JCudnn/cudnnScaleTensor cudnn-handle td buf alpha)
+    cudnn-handle))

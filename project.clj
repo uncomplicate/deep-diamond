@@ -13,7 +13,7 @@
                  [uncomplicate/commons "0.9.0-SNAPSHOT"]
                  [uncomplicate/neanderthal "0.27.0-SNAPSHOT"]
                  [org.bytedeco/dnnl-platform "1.1.1-1.5.2"]
-                 [org.jcuda/jcudnn "10.1.0"]]
+                 [org.jcuda/jcudnn "10.1.1"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
                              [lein-codox "0.10.6"]]
@@ -38,4 +38,5 @@
                        #_"-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"
                        #_"--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"]
 
-  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
+  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
+  :source-paths ["src/clojure" "src/device"])

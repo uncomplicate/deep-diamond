@@ -8,9 +8,9 @@
 
 (ns uncomplicate.diamond.internal.cudnn.core
   (:require [uncomplicate.commons
-             [core :refer [let-release wrap extract]]
+             [core :refer [let-release with-release wrap extract]]
              [utils :refer [dragan-says-ex with-check enc-keyword]]]
-            [uncomplicate.clojurecuda.internal.protocols :refer [ptr]]
+            [uncomplicate.clojurecuda.internal.protocols :refer [ptr with-offset]]
             [uncomplicate.neanderthal.block :refer [buffer]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer :all]
@@ -54,13 +54,51 @@
          (and (= (.dims td1) (.dims td2)) (= (.data-type td1) (.data-type td2))
               (= (.strides td1) (.strides td2))))))
 
+(defn data-type
+  "Returns the data type of a tensor descriptor."
+  [td]
+  (.data-type ^CUTensorDescriptor (desc td)))
+
+(defn dims
+  "Returns the dimensions of a tensor descriptor."
+  [td]
+  (.dims ^CUTensorDescriptor (desc td)))
+
+(defn ndims
+  "Returns the number of dimensions of a tensor descriptor."
+  ^long [td]
+  (count (dims td)))
+
 (defn size
-  "Queries the tensor descriptor for its dimensions."
+  "Returns the size of a tensor descriptor."
   ^long [td]
   (size* (extract td)))
 
-(defn add-tensor [cudnn-handle alpha a beta b]
-  (with-check cudnn-error
-    (JCudnn/cudnnAddTensor cudnn-handle (ptr alpha) (desc a) (extract (buffer a))
-                           (ptr beta) (desc b) (extract (buffer b)))
-    b))
+(defn strides
+  "Queries the strides of a tensor descriptor."
+  [td]
+  (.strides ^CUTensorDescriptor (desc td)))
+
+(defn add-tensor
+  [cudnn-handle alpha desc-x buf-x ofst-x beta desc-y buf-y ofst-y]
+  (add-tensor* (extract cudnn-handle)
+               (ptr alpha) (extract (desc desc-x)) (with-offset buf-x ofst-x)
+               (ptr beta) (extract (desc desc-y)) (with-offset buf-y ofst-y))
+  cudnn-handle
+  [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
+  (add-tensor* (extract cudnn-handle)
+               (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+               (ptr beta) (extract (desc desc-y)) (extract buf-y))
+  cudnn-handle)
+
+(defn transform-tensor
+  ([cudnn-handle alpha desc-x buf-x ofst-x beta desc-y buf-y ofst-y]
+   (transform-tensor* (extract cudnn-handle)
+                      (ptr alpha) (extract (desc desc-x)) (with-offset buf-x ofst-x)
+                      (ptr beta) (extract (desc desc-y)) (with-offset buf-y ofst-y))
+   cudnn-handle)
+  ([cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
+   (transform-tensor* (extract cudnn-handle)
+                      (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                      (ptr beta) (extract (desc desc-y)) (extract buf-y))
+   cudnn-handle))

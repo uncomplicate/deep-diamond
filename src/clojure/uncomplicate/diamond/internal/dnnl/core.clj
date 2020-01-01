@@ -131,17 +131,17 @@
     (or (= x y) (= 1 (dnnl/dnnl_memory_desc_equal x y)))))
 
 (defn data-type
-  "Queries the data type of a memory descriptor"
+  "Queries the data type of a memory descriptor."
   [mem-desc]
   (dec-data-type (data-type* (desc mem-desc))))
 
 (defn ndims
-  "Queries the number of dimensions of a memory descriptor"
+  "Queries the number of dimensions of a memory descriptor."
   ^long [mem-desc]
   (.ndims ^dnnl_memory_desc_t (desc mem-desc)))
 
 (defn dims
-  "Queries the dimensions of a memory descriptor"
+  "Queries the dimensions of a memory descriptor."
   [mem-desc]
   (vec (dims* (desc mem-desc))))
 

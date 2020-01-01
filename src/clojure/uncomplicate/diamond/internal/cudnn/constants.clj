@@ -49,3 +49,19 @@
    :u8 cudnnDataType/CUDNN_DATA_UINT8
    :uit8x4 cudnnDataType/CUDNN_DATA_UINT8x4
    :int8x32 cudnnDataType/CUDNN_DATA_INT8x32})
+
+(defn data-type-width ^long [data-type]
+  (case data-type
+    :float 4
+    :double 8
+    :half 2
+    :byte 1
+    :int8 1
+    :int 4
+    :int8x4 4
+    :uint8 1
+    :u8 1
+    :uit8x4 4
+    :int8x32 32
+    (dragan-says-ex "This data type is not supported by cuDNN. Please use another "
+                    {:data-type data-type})))

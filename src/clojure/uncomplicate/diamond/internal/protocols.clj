@@ -8,6 +8,9 @@
 (defprotocol ContextProvider
   (context [_]))
 
+(defprotocol DataAccessorProvider
+  (data-accessor ^DataAccessor [this dtype]))
+
 ;; ===================== Tensor ========================================
 
 (defprotocol TensorFactory
@@ -16,7 +19,8 @@
   (create-transformer [this in out])
   (create-batcher [this src dst mb-size])
   (create-shuffler [this src dst])
-  (create-sum [this scale dst] [this dst scale src scale-srcs]))
+  (create-sum [this scale dst] [this dst scale src scale-srcs])
+  (tensor-engine [this tdesc]))
 
 ;; =================== DNN ============================================
 
