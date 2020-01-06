@@ -127,13 +127,3 @@
            (batch 0 -1) => (throws ExceptionInfo)
            (batch 7 -1) => (throws ExceptionInfo)
            (batch -1) => (throws ExceptionInfo))))
-
-(test-tensor *diamond-factory*)
-(test-transformer *diamond-factory*)
-(test-pull-different *diamond-factory*)
-(test-pull-same *diamond-factory*)
-(test-push-different *diamond-factory*)
-(test-push-same *diamond-factory*)
-(test-subtensor *diamond-factory*)
-(test-shuffler *diamond-factory*)
-(test-batcher *diamond-factory*)

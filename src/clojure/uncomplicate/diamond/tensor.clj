@@ -4,8 +4,7 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.diamond.internal.protocols :as api]))
 
-(def ^:dynamic *diamond-factory*
-  "The binding of the backend tensor factory. By default, bound to [[internal/dnnl/DnnlFactory]]")
+(def ^:dynamic *diamond-factory* nil)
 
 (defmacro with-diamond
   "Dynamically binds a factory created by `factory-fn` with provided parameters
@@ -137,14 +136,14 @@
   "
   ([tz-factory shape type format]
    (if (sequential? shape)
-     (let [fact (api/factory tz-factory)]
-       (api/create-tensor fact (api/create-tensor-desc fact shape type format)))
+     (let [fact (api/diamond-factory tz-factory)]
+       (api/create-tensor fact (api/create-tensor-desc fact shape type format) false))
      (dragan-says-ex "Tensor shape has to be sequential." {:shape (class shape)})))
   ([shape type format]
    (tensor *diamond-factory* shape type format))
   ([tz-factory desc]
-   (let [fact (api/factory tz-factory)]
-     (api/create-tensor fact (api/create-tensor-desc fact desc) )))
+   (let [fact (api/diamond-factory tz-factory)]
+     (api/create-tensor fact (api/create-tensor-desc fact desc) false)))
   ([desc]
    (tensor *diamond-factory* desc)))
 
@@ -170,7 +169,7 @@
   [   0.00    3.00    1.00    ⋯      2.00    5.00 ]
   "
   [x y]
-  (api/create-transformer (api/factory x) x y))
+  (api/create-transformer (api/diamond-factory x) x y))
 
 (defn batcher
   "Creates a function that can transfer mini-batches of tensor `x`
@@ -200,7 +199,7 @@
   ([x y]
    (batcher x y ((shape y) 0)))
   ([x y ^long mb-size]
-   (api/create-batcher (api/factory x) x y mb-size)))
+   (api/create-batcher (api/diamond-factory x) x y mb-size)))
 
 (defn shuffler
   "Creates a function that can transfer randomly selected columns
@@ -229,4 +228,4 @@
   [   3.00    4.00    5.00 ]
   "
   [x y]
-  (api/create-shuffler (api/factory x) x y))
+  (api/create-shuffler (api/diamond-factory x) x y))

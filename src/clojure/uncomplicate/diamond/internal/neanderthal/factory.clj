@@ -13,7 +13,7 @@
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output]]
             [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory FactoryProvider ContextProvider CostFactory DnnFactory]]
+             :refer [TensorFactory DiamondFactoryProvider ContextProvider CostFactory DnnFactory]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc]]
              [core :refer [memory-desc engine stream memory dims]]
@@ -32,8 +32,8 @@
       (release strm)
       (release eng))
     true)
-  FactoryProvider
-  (factory [this]
+  DiamondFactoryProvider
+  (diamond-factory [this]
     this)
   FlowProvider
   (flow [_]
@@ -46,7 +46,7 @@
     (memory-desc dims dtype format))
   (create-tensor-desc [this tz-desc]
     (desc tz-desc))
-  (create-tensor [this tensor-desc]
+  (create-tensor [this tensor-desc _]
     (dnnl-tensor this tensor-desc))
   (create-transformer [_ in-tz out-tz]
     (dnnl-transformer eng strm (view-tz in-tz) (view-tz out-tz)))

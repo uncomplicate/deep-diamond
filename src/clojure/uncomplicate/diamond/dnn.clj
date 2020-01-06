@@ -27,26 +27,26 @@
      (api/create-sum fact (api/create-tensor-desc fact dst)
                      scale (api/create-tensor-desc fact src) nil)))
   ([fact dst scale src & scales-srcs]
-   (api/create-sum (api/factory fact) (api/create-tensor-desc fact dst)
+   (api/create-sum (api/diamond-factory fact) (api/create-tensor-desc fact dst)
                    scale (api/create-tensor-desc fact src)
                    (map #(if (number? %) % (api/create-tensor-desc fact %))
                         scales-srcs))))
 
 (defn activation
   ([fact src-desc activ alpha beta]
-   (api/activ-blueprint (api/factory fact) src-desc activ alpha beta))
+   (api/activ-blueprint (api/diamond-factory fact) src-desc activ alpha beta))
   ([fact src-desc activ alpha]
-   (api/activ-blueprint (api/factory fact) src-desc activ alpha 0.0))
+   (api/activ-blueprint (api/diamond-factory fact) src-desc activ alpha 0.0))
   ([fact src-desc activ]
-   (api/activ-blueprint (api/factory fact) src-desc activ 0.0 0.0))
+   (api/activ-blueprint (api/diamond-factory fact) src-desc activ 0.0 0.0))
   ([src-desc activ]
    (api/activ-blueprint *diamond-factory* src-desc activ 0.0 0.0)))
 
 (defn inner-product
   ([fact src-desc dst-desc weights-type]
-   (api/inner-product-blueprint (api/factory fact) src-desc dst-desc weights-type))
+   (api/inner-product-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type))
   ([fact src-desc dst-desc]
-   (api/inner-product-blueprint (api/factory fact) src-desc dst-desc nil))
+   (api/inner-product-blueprint (api/diamond-factory fact) src-desc dst-desc nil))
   ([src-desc dst-desc]
    (api/inner-product-blueprint *diamond-factory* src-desc dst-desc nil)))
 
@@ -54,10 +54,10 @@
   ([fact src-desc dst-desc activ args]
    (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
          beta (or (:beta args) 0.0)]
-     (api/fc-blueprint (api/factory fact) src-desc dst-desc
+     (api/fc-blueprint (api/diamond-factory fact) src-desc dst-desc
                        activ alpha beta (:weights-type args))))
   ([fact src-desc dst-desc activ]
-   (api/fc-blueprint (api/factory fact) src-desc dst-desc activ
+   (api/fc-blueprint (api/diamond-factory fact) src-desc dst-desc activ
                      (if (= activ :linear) 1.0 0.0) 0.0 nil))
   ([dst-desc activ args]
    (fn
@@ -81,13 +81,13 @@
       :mean-absolute api/mean-absolute-cost
       :sigmoid-crossentropy api/sigmoid-crossentropy-cost
       (dragan-says-ex "This cost function is not supported." {:cost cost}))
-    (api/factory layer) layer train-tz))
+    (api/diamond-factory layer) layer train-tz))
   ([layer train-tz]
-   (api/quadratic-cost (api/factory layer) layer train-tz)))
+   (api/quadratic-cost (api/diamond-factory layer) layer train-tz)))
 
 (defn network
   ([fact src-desc layers]
-   (sequential-network (api/factory fact) src-desc layers))
+   (sequential-network (api/diamond-factory fact) src-desc layers))
   ([src-desc layers]
    (network *diamond-factory* src-desc layers)))
 

@@ -1,21 +1,23 @@
 (ns uncomplicate.diamond.internal.protocols)
 
+(declare default-diamond-factory)
+
 ;; ===================== General ========================================
 
-(defprotocol FactoryProvider
-  (factory [_]))
+(defprotocol DiamondFactoryProvider
+  (diamond-factory [_]))
 
 (defprotocol ContextProvider
   (context [_]))
 
-(defprotocol DataAccessorProvider
-  (data-accessor ^DataAccessor [this dtype]))
+(defprotocol NeanderthalFactoryProvider
+  (neanderthal-factory [this dtype]))
 
 ;; ===================== Tensor ========================================
 
 (defprotocol TensorFactory
   (create-tensor-desc [this desc] [this shape type format])
-  (create-tensor [this desc])
+  (create-tensor [this desc init])
   (create-transformer [this in out])
   (create-batcher [this src dst mb-size])
   (create-shuffler [this src dst])

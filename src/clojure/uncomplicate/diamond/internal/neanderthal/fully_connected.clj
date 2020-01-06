@@ -26,7 +26,7 @@
                       TensorDescriptor shape]]
              [dnn :refer [Parameters bias weights transfer-parameters!]]]
             [uncomplicate.diamond.internal.protocols
-             :refer [BlueprintProvider FactoryProvider DiffParameters
+             :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
                      diff-bias diff-weights Backprop forward backward blueprint]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -70,8 +70,8 @@
       :weights (info weights-tz)
       :dst (info dst-tz)
       (or (info activ info-type) (info bluep info-type))))
-  FactoryProvider
-  (factory [_]
+  DiamondFactoryProvider
+  (diamond-factory [_]
     fact)
   BlueprintProvider
   (blueprint [_]
@@ -125,8 +125,8 @@
       :weights (info weights-tz)
       :dst (info dst-tz)
       (or (info activ info-type) (info bluep info-type))))
-  FactoryProvider
-  (factory [_]
+  DiamondFactoryProvider
+  (diamond-factory [_]
     fact)
   BlueprintProvider
   (blueprint [_]
@@ -199,8 +199,8 @@
     "TODO")
   (info [x info-type]
     "TODO")
-  FactoryProvider
-  (factory [_]
+  DiamondFactoryProvider
+  (diamond-factory [_]
     fact)
   BlueprintProvider
   (blueprint [this]

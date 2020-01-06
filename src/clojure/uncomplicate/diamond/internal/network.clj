@@ -3,7 +3,8 @@
             [uncomplicate.neanderthal.core :refer [transfer!]]
             [uncomplicate.diamond.tensor :refer [Transfer input output]]
             [uncomplicate.diamond.internal.protocols
-             :refer [NeuralNetwork layers Backprop forward backward FactoryProvider factory]])
+             :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
+                     diamond-factory]])
   (:import clojure.lang.IFn))
 
 (defn invoke [f]
@@ -35,9 +36,9 @@
       :batch (first (info (first forward-layers) :shape))
       :layers (mapv layer-info forward-layers)
       nil))
-  FactoryProvider
-  (factory [_]
-    (factory (peek forward-layers)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    (diamond-factory (peek forward-layers)))
   NeuralNetwork
   (layers [_]
     forward-layers)
@@ -79,9 +80,9 @@
             :batch (first (info (first forward-layers) :shape))
             :layers (mapv layer-info forward-layers)
             nil)))
-  FactoryProvider
-  (factory [_]
-    (factory last-layer))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    (diamond-factory last-layer))
   NeuralNetwork
   (layers [_]
     forward-layers)

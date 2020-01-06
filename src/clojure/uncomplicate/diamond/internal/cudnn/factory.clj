@@ -16,19 +16,17 @@
              [core :refer :all]
              [toolbox :refer [read-int]]]
             [uncomplicate.neanderthal
-             [cuda :refer [cuda-float]]
-             [block :refer [buffer offset data-accessor wrap-prim]]]
+             [cuda :refer [cuda-float cuda-double]]
+             [block :refer [buffer offset]]]
             [uncomplicate.neanderthal.internal.api
-             :refer [FlowProvider BlockEngine Blas BlasPlus]]
+             :refer [FlowProvider BlockEngine Blas BlasPlus engine set-all]]
             [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory FactoryProvider ContextProvider DataAccessorProvider
-                     CostFactory DnnFactory]]
-            [uncomplicate.neanderthal.internal.device.cublock
-             :refer [cu-float-accessor cu-double-accessor cu-int-accessor cu-long-accessor]]
+             :refer [TensorFactory DiamondFactoryProvider ContextProvider
+                     NeanderthalFactoryProvider CostFactory DnnFactory]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [desc]]
-             [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor ndims dims strides
-                           transform-tensor add-tensor]]
+             [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
+                           ndims dims strides transform-tensor add-tensor]]
              [tensor :refer [cudnn-tensor]]])
   (:import jcuda.jcudnn.JCudnn))
 
@@ -119,7 +117,8 @@
       (launch! set-kernel (grid-3d (or n 1) (or c 1) (or h 1)) hstream
                (parameters (int (or n 0)) (int (or c 1)) (int (or d 1)) (int (or h 1)) (int (or w 1))
                            value (buffer x) (int (offset x))
-                           (int (or nx 0)) (int (or cx 0)) (int (or dx 0)) (int (or hx 0)) (int (or wx 0)))))))
+                           (int (or nx 0)) (int (or cx 0)) (int (or dx 0)) (int (or hx 0)) (int (or wx 0))))
+      x)))
 
 (deftype FloatTensorEngine [handle modl hstream]
   BlockEngine
@@ -128,16 +127,19 @@
   Blas
   (copy [_ x y]
     (transform-tensor handle (float 1.0) x (buffer x) (* (offset y) Float/BYTES)
-                      (float 0.0) y (buffer y) (* (offset y) Float/BYTES)))
+                      (float 0.0) y (buffer y) (* (offset y) Float/BYTES))
+    y)
   (axpy [_ alpha x y]
     (add-tensor handle (float alpha) x (buffer x) (* (offset y) Float/BYTES)
-                (float 1.0) y (buffer y) (* (offset y) Float/BYTES)))
+                (float 1.0) y (buffer y) (* (offset y) Float/BYTES))
+    y)
   BlasPlus
   (set-all [_ value x]
     (tensor-set modl hstream x (float value)))
   (axpby [_ alpha x beta y]
     (add-tensor handle (float alpha) x (buffer x) (* (offset y) Float/BYTES)
-                (float beta) y (buffer y) (* (offset y) Float/BYTES))))
+                (float beta) y (buffer y) (* (offset y) Float/BYTES))
+    y))
 
 (deftype DoubleTensorEngine [handle modl hstream]
   BlockEngine
@@ -146,16 +148,19 @@
   Blas
   (copy [_ x y]
     (transform-tensor handle (double 1.0) x (buffer x) (* (offset y) Double/BYTES)
-                      (double 0.0) y (buffer y) (* (offset y) Double/BYTES)))
+                      (double 0.0) y (buffer y) (* (offset y) Double/BYTES))
+    y)
   (axpy [_ alpha x y]
     (add-tensor handle (double alpha) x (buffer x) (* (offset y) Double/BYTES)
-                (double 1.0) y (buffer y) (* (offset y) Double/BYTES)))
+                (double 1.0) y (buffer y) (* (offset y) Double/BYTES))
+    y)
   BlasPlus
   (set-all [_ value x]
     (tensor-set modl hstream x (double value)))
   (axpby [_ alpha x beta y]
     (add-tensor handle (double alpha) x (buffer x) (* (offset y) Double/BYTES)
-                (double beta) y (buffer y) (* (offset y) Double/BYTES))))
+                (double beta) y (buffer y) (* (offset y) Double/BYTES))
+    y))
 
 (deftype IntTensorEngine [handle modl hstream]
   BlockEngine
@@ -164,16 +169,19 @@
   Blas
   (copy [_ x y]
     (transform-tensor handle (int 1.0) x (buffer x) (* (offset y) Integer/BYTES)
-                      (int 0.0) y (buffer y) (* (offset y) Integer/BYTES)))
+                      (int 0.0) y (buffer y) (* (offset y) Integer/BYTES))
+    y)
   (axpy [_ alpha x y]
     (add-tensor handle (int alpha) x (buffer x) (* (offset y) Integer/BYTES)
-                (int 1.0) y (buffer y) (* (offset y) Integer/BYTES)))
+                (int 1.0) y (buffer y) (* (offset y) Integer/BYTES))
+    y)
   BlasPlus
   (set-all [_ value x]
     (tensor-set modl hstream x (int value)))
   (axpby [_ alpha x beta y]
     (add-tensor handle (int alpha) x (buffer x) (* (offset y) Integer/BYTES)
-                (int beta) y (buffer y) (* (offset y) Integer/BYTES))))
+                (int beta) y (buffer y) (* (offset y) Integer/BYTES))
+    y))
 
 (deftype LongTensorEngine [handle modl hstream]
   BlockEngine
@@ -182,34 +190,37 @@
   Blas
   (copy [_ x y]
     (transform-tensor handle (long 1.0) x (buffer x) (* (offset y) Long/BYTES)
-                      (long 0.0) y (buffer y) (* (offset y) Long/BYTES)))
+                      (long 0.0) y (buffer y) (* (offset y) Long/BYTES))
+    y)
   (axpy [_ alpha x y]
     (add-tensor handle (long alpha) x (buffer x) (* (offset y) Long/BYTES)
-                (long 1.0) y (buffer y) (* (offset y) Long/BYTES)))
+                (long 1.0) y (buffer y) (* (offset y) Long/BYTES))
+    y)
   BlasPlus
   (set-all [_ value x]
     (tensor-set modl hstream x (long value)))
   (axpby [_ alpha x beta y]
     (add-tensor handle (long alpha) x (buffer x) (* (offset y) Long/BYTES)
-                (long beta) y (buffer y) (* (offset y) Long/BYTES))))
+                (long beta) y (buffer y) (* (offset y) Long/BYTES))
+    y))
 
 (deftype CUDnnFactory [ctx hstream handle master
-                       data-accessors tensor-engines]
+                       neand-facts tensor-engines]
   Releaseable
   (release [_]
     (in-context ctx
                 (release handle)
                 (doseq [eng (vals tensor-engines)]
                   (release eng))
-                (doseq [accessor (vals data-accessors)]
-                  (release accessor))
+                (doseq [neand-fact (vals neand-facts)]
+                  (release neand-fact))
                 (when master
                   (when-not (= default-stream hstream)
                     (release hstream))
                   (release ctx)))
     true)
-  FactoryProvider
-  (factory [this]
+  DiamondFactoryProvider
+  (diamond-factory [this]
     this)
   FlowProvider
   (flow [_]
@@ -217,16 +228,19 @@
   ContextProvider
   (context [_]
     ctx)
-  DataAccessorProvider
-  (data-accessor [_ dtype]
-    (get data-accessors dtype nil))
+  NeanderthalFactoryProvider
+  (neanderthal-factory [_ dtype]
+    (get neand-facts dtype nil))
   TensorFactory
   (create-tensor-desc [this shape dtype format]
     (tensor-descriptor shape dtype format))
   (create-tensor-desc [this tz-desc]
     (desc tz-desc))
-  (create-tensor [this tensor-desc]
-    (cudnn-tensor this tensor-desc))
+  (create-tensor [this tensor-desc init]
+    (let-release [res (cudnn-tensor this tensor-desc)]
+      (when init
+        (set-all (engine res) 0 res))
+      res))
   (create-transformer [_ in-tz out-tz]
     )
   (create-shuffler [_ src-tz dst-tz]
@@ -238,7 +252,7 @@
   (create-sum [_ dst scale src scale-srcs]
     )
   (tensor-engine [this dtype]
-    (get tensor-engines dtype))
+    (get tensor-engines dtype nil))
   DnnFactory
   (activ-blueprint [this src-desc activ alpha beta]
     )
@@ -269,19 +283,20 @@
      (let-release [float-modl (create-module src "float")
                    double-modl (create-module src "double")
                    int-modl (create-module src "int")
-                   long-modl (create-module src "long")float-accessor (cu-float-accessor ctx hstream)
-                   double-accessor (cu-double-accessor ctx hstream)
-                   int-accessor (cu-int-accessor ctx hstream)
-                   long-accessor (cu-long-accessor ctx hstream)
+                   long-modl (create-module src "long")
+                   float-fact (cuda-float ctx hstream)
+                   double-fact (cuda-double ctx hstream)
+                   int-fact nil  ;;TODO
+                   long-fact nil ;;TODO
                    float-engine (->FloatTensorEngine handle float-modl hstream)
                    double-engine (->DoubleTensorEngine handle double-modl hstream)
                    int-engine (->IntTensorEngine handle int-modl hstream)
                    long-engine (->LongTensorEngine handle long-modl hstream)]
        (->CUDnnFactory ctx hstream handle master
-                       {:float float-accessor
-                        :double double-accessor
-                        :int int-accessor
-                        :long long-accessor}
+                       {:float float-fact
+                        :double double-fact
+                        :int int-fact
+                        :long long-fact}
                        {:float float-engine
                         :double double-engine
                         :int int-engine

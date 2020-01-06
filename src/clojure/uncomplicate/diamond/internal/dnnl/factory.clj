@@ -8,10 +8,12 @@
 
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons.core :refer [Releaseable release let-release]]
+            [uncomplicate.neanderthal.native :refer [factory-by-type]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output]]
             [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory FactoryProvider ContextProvider CostFactory DnnFactory]]
+             :refer [TensorFactory DiamondFactoryProvider ContextProvider CostFactory
+                     DnnFactory NeanderthalFactoryProvider]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc]]
              [core :refer [memory-desc engine stream memory dims]]
@@ -28,8 +30,8 @@
       (release strm)
       (release eng))
     true)
-  FactoryProvider
-  (factory [this]
+  DiamondFactoryProvider
+  (diamond-factory [this]
     this)
   FlowProvider
   (flow [_]
@@ -37,12 +39,15 @@
   ContextProvider
   (context [_]
     eng)
+  NeanderthalFactoryProvider
+  (neanderthal-factory [_ dtype]
+    (factory-by-type dtype))
   TensorFactory
   (create-tensor-desc [this shape dtype format]
     (memory-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
     (desc tz-desc))
-  (create-tensor [this tensor-desc]
+  (create-tensor [this tensor-desc _]
     (dnnl-tensor this tensor-desc))
   (create-transformer [_ in-tz out-tz]
     (dnnl-transformer eng strm (view-tz in-tz) (view-tz out-tz)))
@@ -54,6 +59,8 @@
     (dnnl-sum-blueprint eng strm scale dst))
   (create-sum [_ dst scale src scale-srcs]
     (dnnl-sum-blueprint eng strm dst scale src scale-srcs))
+  (tensor-engine [this dtype]
+    "TODO")
   DnnFactory
   (activ-blueprint [this src-desc activ alpha beta]
     (dnnl-activ-blueprint this eng src-desc src-desc activ alpha beta))
@@ -77,6 +84,3 @@
   ([]
    (let-release [eng (engine)]
      (->DnnlFactory eng (stream eng) true))))
-
-(alter-var-root #'uncomplicate.diamond.tensor/*diamond-factory*
-                (constantly (dnnl-factory)))
