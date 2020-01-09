@@ -3,8 +3,7 @@
             [uncomplicate.commons
              [core :refer [with-release]]]
             [uncomplicate.neanderthal
-             [core :refer [asum view transfer! native]]
-             [real :refer [entry! entry]]
+             [core :refer [asum view transfer! native entry entry!]]
              [block :refer [buffer]]]
             [uncomplicate.diamond.tensor :refer :all])
   (:import clojure.lang.ExceptionInfo))
@@ -13,8 +12,8 @@
   (facts
    "Basic tensor tests"
    (with-release [tz (tensor factory [2 3 4 5] :float :nchw)]
-     (asum (view tz)) => 0.0
-     (asum (entry! (view tz) 1)) => 120.0
+     (asum tz) => 0.0
+     (asum (entry! tz 1)) => 120.0
      (shape tz) => [2 3 4 5])))
 
 (defn test-transformer [factory]
@@ -23,12 +22,12 @@
    (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
                   tz-y (tensor factory [2 3 4 5] :float :nhwc)
                   transform (transformer tz-x tz-y)]
-     (entry (native (transfer! (range) (view tz-x))) 119) => 119.0
-     (entry (native (view tz-y)) 119) => 0.0
+     (entry (view (native (transfer! (range) tz-x))) 119) => 119.0
+     (entry (view (native tz-y)) 119) => 0.0
      (buffer (input transform)) => (buffer tz-x)
      (buffer (output transform)) => (buffer tz-y)
      (transform) => tz-y
-     (entry (native (view tz-y)) 119) => 119.0)))
+     (entry (view (native tz-y)) 119) => 119.0)))
 
 (defn test-pull-different [factory]
   (facts
@@ -36,7 +35,7 @@
    (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
                   tz-y-desc (desc [2 3 4 5] :float :nhwc)
                   connection (connector tz-x tz-y-desc)]
-     (entry (transfer! (range) (view tz-x)) 119) => 119.0
+     (entry (view (transfer! (range) tz-x)) 119) => 119.0
      (identical? (buffer (input connection)) (buffer tz-x)) => true
      (identical? (buffer (input connection)) (buffer (output connection))) => false
      (entry (view (connection)) 119) => 119.0)))
@@ -47,7 +46,7 @@
    (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
                   tz-y-desc (desc [2 3 4 5] :float :nchw)
                   connection (connector tz-x tz-y-desc)]
-     (entry (transfer! (range) (view tz-x)) 119) => 119.0
+     (entry (view (transfer! (range) tz-x)) 119) => 119.0
      (identical? (buffer (input connection)) (buffer tz-x)) => true
      (identical? (buffer (input connection)) (buffer (output connection))) => true
      (entry (view (connection)) 119) => 119.0)))

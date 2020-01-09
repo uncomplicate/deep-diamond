@@ -18,7 +18,7 @@
             [uncomplicate.neanderthal.internal
              [api :refer [Viewable view flow equals-block compatible? set-all MemoryContext
                           EngineProvider Container DataAccessorProvider FactoryProvider
-                          native-factory zero raw host]]
+                          native-factory zero raw host factory]]
              [printing :refer [print-vector]]]
             [uncomplicate.neanderthal.internal.device.cublock :refer [cu-block-vector]]
             [uncomplicate.diamond.tensor
@@ -184,7 +184,7 @@
         (dragan-says-ex "Strided tensors cannot be viewed as vectors."))))
   MemoryContext
   (compatible? [_ y]
-    (instance? CUDnnTensor y))
+    (and (instance? CUDnnTensor y) (compatible? neand-fact (factory y))))
   (fits? [_ y]
     (= (.dims cu-desc) (shape y)))
   (device [_]
