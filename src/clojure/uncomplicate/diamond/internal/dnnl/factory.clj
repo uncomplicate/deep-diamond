@@ -74,10 +74,10 @@
       ~y)))
 
 (defmacro tensor-scal [method alpha x]
- `(do
-    (check-contiguous ~x)
-    (~method (.dim ~x) ~alpha (data (.buffer ~x)) (.offset ~x) 1)
-    ~x))
+  `(do
+     (check-contiguous ~x)
+     (~method (.dim ~x) ~alpha (data (.buffer ~x)) (.offset ~x) 1)
+     ~x))
 
 (defmacro tensor-math
   ([method a y]
@@ -316,8 +316,8 @@
     (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost))
   (sigmoid-crossentropy-cost [this prev-layer train-tz]
     (dnnl-custom-cost eng strm prev-layer train-tz
-                        (partial sigmoid-crossentropy-cost
-                                 ((dims (output prev-layer)) 0)))))
+                      (partial sigmoid-crossentropy-cost
+                               ((dims (output prev-layer)) 0)))))
 
 (defn dnnl-factory
   ([eng strm]

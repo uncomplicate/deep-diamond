@@ -10,7 +10,8 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.clojurecuda.core :refer [memcpy-host!]]
+            [uncomplicate.clojurecuda.core :refer [memcpy-host! mem-alloc]]
+            [uncomplicate.clojurecuda.internal.protocols :as cuda]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim vctr]]
              [block :refer [entry-width buffer data-accessor count-entries create-data-source]]
@@ -98,7 +99,7 @@
   [^CUTensorDescriptor d ^java.io.Writer w]
   (.write w (pr-str {:shape (.dims d) :data-type (.data-type d) :layout (.strides d)})))
 
-(deftype CUDnnTensor [diamond-fact neand-fact eng master buf ofst ^CUTensorDescriptor cu-desc]
+(deftype CUDnnTensor [diamond-fact eng vect-view master buf ofst ^CUTensorDescriptor cu-desc]
   Object
   (hashCode [x]
     (-> (hash :CUDnnTensor) (hash-combine (hash cu-desc))))
@@ -106,11 +107,10 @@
     (cond
       (nil? y) false
       (identical? x y) true
-      (and (instance? CUDnnTensor y) (equal-desc? cu-desc (desc y))
-           (compatible? neand-fact y))
+      (and (instance? CUDnnTensor y) (equal-desc? cu-desc (desc y)))
       (equals-block eng x y)
       :default false))
-  (toString [this];;TODO
+  (toString [this]
     (pr-str {:shape (.dims cu-desc) :data-type (.data-type cu-desc) :layout (.strides cu-desc)}))
   Info
   (info [x]
@@ -147,10 +147,10 @@
     diamond-fact)
   FactoryProvider
   (factory [_]
-    neand-fact)
+    (factory vect-view))
   DataAccessorProvider
   (data-accessor [_]
-    (data-accessor neand-fact))
+    (data-accessor vect-view))
   Container
   (raw [_]
     (cudnn-tensor diamond-fact cu-desc false))
@@ -174,17 +174,13 @@
     (dragan-says-ex "Tensors do not have a single stride. You're doing something wrong."))
   (isContiguous [_]
     (= (size cu-desc)
-       (apply * (entry-width (data-accessor neand-fact)) (.dims cu-desc))))
+       (apply * (entry-width (data-accessor vect-view)) (.dims cu-desc))))
   Viewable
   (view [_]
-    (let [ewidth (entry-width (data-accessor neand-fact))
-          n (apply * (.dims cu-desc))]
-      (if (= (* (long n) ewidth) (size cu-desc))
-        (cu-block-vector neand-fact false buf n ofst 1)
-        (dragan-says-ex "Strided tensors cannot be viewed as vectors."))))
+    vect-view)
   MemoryContext
   (compatible? [_ y]
-    (and (instance? CUDnnTensor y) (compatible? neand-fact (factory y))))
+    (and (instance? CUDnnTensor y) (compatible? vect-view (view y))))
   (fits? [_ y]
     (= (.dims cu-desc) (shape y)))
   (device [_]
@@ -229,7 +225,7 @@
     (.strides cu-desc))
   TensorContainer
   (view-tz [_]
-    (->CUDnnTensor diamond-fact neand-fact eng false buf ofst cu-desc))
+    (->CUDnnTensor diamond-fact vect-view eng false buf ofst cu-desc))
   #_(view-tz [_ sub];;TODO
       (let-release [sub-desc (if (number? sub)
                                (submemory-desc tz-mem sub)
@@ -245,18 +241,18 @@
           (dnnl-transformer eng (flow fact) (view-tz in-tz) out-tz)))))
 
 (defn cudnn-tensor
-  ([diamond-fact neand-fact master buf tdesc]
-   (let [n (apply * (shape tdesc))
-         buf-cnt (count-entries (data-accessor neand-fact) buf)]
-     (if (and (<= 0 n buf-cnt))
-       (->CUDnnTensor diamond-fact neand-fact
-                      (tensor-engine diamond-fact (data-type tdesc))
-                      master buf 0 tdesc)
-       (throw (ex-info "Insufficient buffer size." {:size n :buffer-size buf-cnt})))))
+  ([diamond-fact master buf tdesc]
+   (let [neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
+         tz-cnt (apply * (shape tdesc))]
+     (if (<= 0 (size tdesc) (cuda/size buf))
+       (let-release [vect-view (cu-block-vector neand-fact false buf tz-cnt 0 1)]
+         (->CUDnnTensor diamond-fact vect-view
+                        (tensor-engine diamond-fact (data-type tdesc))
+                        master buf 0 tdesc))
+       (throw (ex-info "Insufficient buffer size." {:size (size tdesc) :buffer-size (cuda/size buf)})))))
   ([diamond-fact tdesc]
-   (let [neand-fact (neanderthal-factory diamond-fact (data-type tdesc))]
-     (let-release [buf (create-data-source neand-fact (apply * (shape tdesc)))]
-       (cudnn-tensor diamond-fact neand-fact true buf tdesc)))))
+   (let-release [buf (mem-alloc (max 1 (size tdesc)))]
+     (cudnn-tensor diamond-fact true buf tdesc))))
 
 (defmethod print-method CUDnnTensor;;TODO see about printing entries...
   [^CUDnnTensor x ^java.io.Writer w]

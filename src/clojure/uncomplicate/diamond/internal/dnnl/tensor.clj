@@ -382,6 +382,8 @@
     tz-mem)
   (offset [_]
     (dnnl-core/offset tz-mem))
+  (stride [_]
+    (dragan-says-ex "Tensors do not have a single stride. You're doing something wrong."))
   (isContiguous [_]
     (= (size tz-mem)
        (apply * (entry-width (data-accessor neand-fact)) (dims tz-mem)) ))
