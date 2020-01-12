@@ -140,112 +140,112 @@
     y)
   VectorMath
   (sqr [_ a y]
-    (tensor-math MKL/vdSqr ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsSqr ^DnnlTensor a ^DnnlTensor y))
   (mul [_ a b y]
-    (tensor-math MKL/vdMul ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsMul ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (div [_ a b y]
-    (tensor-math MKL/vdDiv ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsDiv ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (inv [_ a y]
-    (tensor-math MKL/vdInv ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsInv ^DnnlTensor a ^DnnlTensor y))
   (abs [_ a y]
-    (tensor-math MKL/vdAbs ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsAbs ^DnnlTensor a ^DnnlTensor y))
   (linear-frac [_ a b scalea shifta scaleb shiftb y]
-    (tensor-linear-frac MKL/vdLinearFrac ^DnnlTensor a ^DnnlTensor b
+    (tensor-linear-frac MKL/vsLinearFrac ^DnnlTensor a ^DnnlTensor b
                         scalea shifta scaleb shiftb ^DnnlTensor y))
   (fmod [_ a b y]
-    (tensor-math MKL/vdFmod ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsFmod ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (frem [_ a b y]
-    (tensor-math MKL/vdRemainder ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsRemainder ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (sqrt [_ a y]
-    (tensor-math MKL/vdSqrt ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsSqrt ^DnnlTensor a ^DnnlTensor y))
   (inv-sqrt [_ a y]
-    (tensor-math MKL/vdInvSqrt ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsInvSqrt ^DnnlTensor a ^DnnlTensor y))
   (cbrt [_ a y]
-    (tensor-math MKL/vdCbrt ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsCbrt ^DnnlTensor a ^DnnlTensor y))
   (inv-cbrt [_ a y]
-    (tensor-math MKL/vdInvCbrt ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsInvCbrt ^DnnlTensor a ^DnnlTensor y))
   (pow2o3 [_ a y]
-    (tensor-math MKL/vdPow2o3 ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsPow2o3 ^DnnlTensor a ^DnnlTensor y))
   (pow3o2 [_ a y]
-    (tensor-math MKL/vdPow3o2 ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsPow3o2 ^DnnlTensor a ^DnnlTensor y))
   (pow [_ a b y]
-    (tensor-math MKL/vdPow ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsPow ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (powx [_ a b y]
-    (tensor-powx MKL/vdPowx ^DnnlTensor a b ^DnnlTensor y))
+    (tensor-powx MKL/vsPowx ^DnnlTensor a b ^DnnlTensor y))
   (hypot [_ a b y]
-    (tensor-math MKL/vdHypot ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsHypot ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (exp [_ a y]
-    (tensor-math MKL/vdExp ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsExp ^DnnlTensor a ^DnnlTensor y))
   (expm1 [_ a y]
-    (tensor-math MKL/vdExpm1 ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsExpm1 ^DnnlTensor a ^DnnlTensor y))
   (log [_ a y]
-    (tensor-math MKL/vdLn ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsLn ^DnnlTensor a ^DnnlTensor y))
   (log10 [_ a y]
-    (tensor-math MKL/vdLog10 ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsLog10 ^DnnlTensor a ^DnnlTensor y))
   (sin [_ a y]
-    (tensor-math MKL/vdSin ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsSin ^DnnlTensor a ^DnnlTensor y))
   (cos [_ a y]
-    (tensor-math MKL/vdCos ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsCos ^DnnlTensor a ^DnnlTensor y))
   (tan [_ a y]
-    (tensor-math MKL/vdTan ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsTan ^DnnlTensor a ^DnnlTensor y))
   (sincos [_ a y z]
-    (tensor-math MKL/vdSinCos ^DnnlTensor a ^DnnlTensor y ^DnnlTensor z))
+    (tensor-math MKL/vsSinCos ^DnnlTensor a ^DnnlTensor y ^DnnlTensor z))
   (asin [_ a y]
-    (tensor-math MKL/vdAsin ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsAsin ^DnnlTensor a ^DnnlTensor y))
   (acos [_ a y]
-    (tensor-math MKL/vdAcos ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsAcos ^DnnlTensor a ^DnnlTensor y))
   (atan [_ a y]
-    (tensor-math MKL/vdAtan ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsAtan ^DnnlTensor a ^DnnlTensor y))
   (atan2 [_ a b y]
-    (tensor-math MKL/vdAtan2 ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsAtan2 ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (sinh [_ a y]
-    (tensor-math MKL/vdSinh ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsSinh ^DnnlTensor a ^DnnlTensor y))
   (cosh [_ a y]
-    (tensor-math MKL/vdCosh ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsCosh ^DnnlTensor a ^DnnlTensor y))
   (tanh [_ a y]
-    (tensor-math MKL/vdTanh ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsTanh ^DnnlTensor a ^DnnlTensor y))
   (asinh [_ a y]
-    (tensor-math MKL/vdAsinh ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsAsinh ^DnnlTensor a ^DnnlTensor y))
   (acosh [_ a y]
-    (tensor-math MKL/vdAcosh ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsAcosh ^DnnlTensor a ^DnnlTensor y))
   (atanh [_ a y]
-    (tensor-math MKL/vdAtanh ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsAtanh ^DnnlTensor a ^DnnlTensor y))
   (erf [_ a y]
-    (tensor-math MKL/vdErf ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsErf ^DnnlTensor a ^DnnlTensor y))
   (erfc [_ a y]
-    (tensor-math MKL/vdErfc ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsErfc ^DnnlTensor a ^DnnlTensor y))
   (erf-inv [_ a y]
-    (tensor-math MKL/vdErfInv ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsErfInv ^DnnlTensor a ^DnnlTensor y))
   (erfc-inv [_ a y]
-    (tensor-math MKL/vdErfcInv ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsErfcInv ^DnnlTensor a ^DnnlTensor y))
   (cdf-norm [_ a y]
-    (tensor-math MKL/vdCdfNorm ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsCdfNorm ^DnnlTensor a ^DnnlTensor y))
   (cdf-norm-inv [_ a y]
-    (tensor-math MKL/vdCdfNormInv ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsCdfNormInv ^DnnlTensor a ^DnnlTensor y))
   (gamma [_ a y]
-    (tensor-math MKL/vdGamma ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsGamma ^DnnlTensor a ^DnnlTensor y))
   (lgamma [_ a y]
-    (tensor-math MKL/vdLGamma ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsLGamma ^DnnlTensor a ^DnnlTensor y))
   (expint1 [_ a y]
-    (tensor-math MKL/vdExpInt1 ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsExpInt1 ^DnnlTensor a ^DnnlTensor y))
   (floor [_ a y]
-    (tensor-math MKL/vdFloor ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsFloor ^DnnlTensor a ^DnnlTensor y))
   (fceil [_ a y]
-    (tensor-math MKL/vdCeil ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsCeil ^DnnlTensor a ^DnnlTensor y))
   (trunc [_ a y]
-    (tensor-math MKL/vdTrunc ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsTrunc ^DnnlTensor a ^DnnlTensor y))
   (round [_ a y]
-    (tensor-math MKL/vdRound ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsRound ^DnnlTensor a ^DnnlTensor y))
   (modf [_ a y z]
-    (tensor-math MKL/vdModf ^DnnlTensor a ^DnnlTensor y ^DnnlTensor z))
+    (tensor-math MKL/vsModf ^DnnlTensor a ^DnnlTensor y ^DnnlTensor z))
   (frac [_ a y]
-    (tensor-math MKL/vdFrac ^DnnlTensor a ^DnnlTensor y))
+    (tensor-math MKL/vsFrac ^DnnlTensor a ^DnnlTensor y))
   (fmin [_ a b y]
-    (tensor-math MKL/vdFmin ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsFmin ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (fmax [_ a b y]
-    (tensor-math MKL/vdFmax ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsFmax ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (copy-sign [_ a b y]
-    (tensor-math MKL/vdCopySign ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
+    (tensor-math MKL/vsCopySign ^DnnlTensor a ^DnnlTensor b ^DnnlTensor y))
   (sigmoid [this a y]
     (dragan-says-ex INEFFICIENT_OPERATION_MSG))
   (ramp [this a y]
