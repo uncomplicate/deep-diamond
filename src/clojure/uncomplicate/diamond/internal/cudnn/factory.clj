@@ -18,8 +18,7 @@
             [uncomplicate.neanderthal
              [cuda :refer [cuda-float cuda-double]]
              [block :refer [buffer offset]]]
-            [uncomplicate.neanderthal.internal.api
-             :refer [FlowProvider BlockEngine Blas BlasPlus engine set-all]]
+            [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
             [uncomplicate.diamond.internal.protocols
              :refer [TensorFactory DiamondFactoryProvider ContextProvider
                      NeanderthalFactoryProvider CostFactory DnnFactory]]
@@ -28,7 +27,25 @@
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
                            ndims dims strides transform-tensor add-tensor]]
              [tensor :refer [cudnn-tensor]]])
-  (:import jcuda.jcudnn.JCudnn))
+  (:import jcuda.jcudnn.JCudnn
+           uncomplicate.neanderthal.internal.api.Block))
+
+(def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
+  "This operation would be inefficient because it does not use cuDNN capabilities.
+  Please use dedicated tensor operations.")
+
+(defn check-contiguous
+  ([^Block x]
+   (when-not (.isContiguous x)
+     (dragan-says-ex "Neanderthal API is supported only on contiguous tensors. Please use a copy."
+                     {:strides (strides ~x)})))
+  ([^Block x ^Block y]
+   (check-contiguous x)
+   (check-contiguous y))
+  ([^Block x ^Block y ^Block z]
+   (check-contiguous x)
+   (check-contiguous y)
+   (check-contiguous z)))
 
 (defn ^:private tensor-1d-equals [modl hstream x y]
   (with-release [equals-kernel (function modl "tensor_1d_equals")
@@ -120,89 +137,202 @@
                            (int (or nx 0)) (int (or cx 0)) (int (or dx 0)) (int (or hx 0)) (int (or wx 0))))
       x)))
 
-(deftype FloatTensorEngine [cudnn-hdl modl hstream]
-  BlockEngine
-  (equals-block [_ x y]
-    (tensor-equals modl hstream x y))
-  Blas
-  (copy [_ x y]
-    (transform-tensor cudnn-hdl (float 1.0) x (buffer x) (* (offset y) Float/BYTES)
-                      (float 0.0) y (buffer y) (* (offset y) Float/BYTES))
-    y)
-  (axpy [_ alpha x y]
-    (add-tensor cudnn-hdl (float alpha) x (buffer x) (* (offset y) Float/BYTES)
-                (float 1.0) y (buffer y) (* (offset y) Float/BYTES))
-    y)
-  BlasPlus
-  (set-all [_ value x]
-    (tensor-set modl hstream x (float value)))
-  (axpby [_ alpha x beta y]
-    (add-tensor cudnn-hdl (float alpha) x (buffer x) (* (offset y) Float/BYTES)
-                (float beta) y (buffer y) (* (offset y) Float/BYTES))
-    y))
+(defn tensor-method
+  ([method x]
+   (let [vx (view x)]
+     (check-contiguous x)
+     (method (engine vx) vx)))
+  ([method x y]
+   (let [vx (view x)]
+     (check-contiguous x)
+     (check-contiguous y)
+     (method (engine vx) vx (view y))))
+  ([method x y z]
+   (let [vx (view x)]
+     (check-contiguous x)
+     (check-contiguous y)
+     (check-contiguous z)
+     (method (engine vx) vx (view y) (view z)))))
 
-(deftype DoubleTensorEngine [cudnn-hdl modl hstream]
-  BlockEngine
-  (equals-block [_ x y]
-    (tensor-equals modl hstream x y))
-  Blas
-  (copy [_ x y]
-    (transform-tensor cudnn-hdl (double 1.0) x (buffer x) (* (offset y) Double/BYTES)
-                      (double 0.0) y (buffer y) (* (offset y) Double/BYTES))
-    y)
-  (axpy [_ alpha x y]
-    (add-tensor cudnn-hdl (double alpha) x (buffer x) (* (offset y) Double/BYTES)
-                (double 1.0) y (buffer y) (* (offset y) Double/BYTES))
-    y)
-  BlasPlus
-  (set-all [_ value x]
-    (tensor-set modl hstream x (double value)))
-  (axpby [_ alpha x beta y]
-    (add-tensor cudnn-hdl (double alpha) x (buffer x) (* (offset y) Double/BYTES)
-                (double beta) y (buffer y) (* (offset y) Double/BYTES))
-    y))
+(defn tensor-math
+  ([method a y]
+   (let [va (view a)]
+     (check-contiguous a)
+     (check-contiguous y)
+     (method (engine va) va (view y))
+     y))
+  ([method a b y]
+   (let [va (view a)]
+     (check-contiguous a)
+     (check-contiguous b)
+     (check-contiguous y)
+     (method (engine va) va (view b) (view y))
+     y)))
 
-(deftype IntTensorEngine [cudnn-hdl modl hstream]
+(deftype TensorEngine [cudnn-hdl modl hstream cast ^long byte-cnt]
   BlockEngine
   (equals-block [_ x y]
     (tensor-equals modl hstream x y))
   Blas
   (copy [_ x y]
-    (transform-tensor cudnn-hdl (int 1.0) x (buffer x) (* (offset y) Integer/BYTES)
-                      (int 0.0) y (buffer y) (* (offset y) Integer/BYTES))
+    (transform-tensor cudnn-hdl (cast 1.0) x (buffer x) (* (offset y) byte-cnt)
+                      (cast 0.0) y (buffer y) (* (offset y) byte-cnt))
     y)
   (axpy [_ alpha x y]
-    (add-tensor cudnn-hdl (int alpha) x (buffer x) (* (offset y) Integer/BYTES)
-                (int 1.0) y (buffer y) (* (offset y) Integer/BYTES))
+    (add-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
+                (cast 1.0) y (buffer y) (* (offset y) byte-cnt))
     y)
+  (swap [_ x y]
+    (tensor-method swap x y)
+    x)
+  (asum [_ x]
+    (tensor-method asum x))
+  (nrm1 [_ x]
+    (tensor-method nrm1 x))
+  (nrm2 [_ x]
+    (tensor-method nrm2 x))
+  (nrmi [this x]
+    (tensor-method nrmi x))
+  (scal [_ alpha x]
+    (let [vx (view x)]
+      (check-contiguous x)
+      (scal (engine vx) alpha vx))
+    x)
   BlasPlus
+  (amax [_ x]
+    (tensor-method amax x))
+  (sum [_ x]
+    (tensor-method sum x))
   (set-all [_ value x]
-    (tensor-set modl hstream x (int value)))
+    (tensor-set modl hstream x (cast value)))
   (axpby [_ alpha x beta y]
-    (add-tensor cudnn-hdl (int alpha) x (buffer x) (* (offset y) Integer/BYTES)
-                (int beta) y (buffer y) (* (offset y) Integer/BYTES))
-    y))
-
-(deftype LongTensorEngine [cudnn-hdl modl hstream]
-  BlockEngine
-  (equals-block [_ x y]
-    (tensor-equals modl hstream x y))
-  Blas
-  (copy [_ x y]
-    (transform-tensor cudnn-hdl (long 1.0) x (buffer x) (* (offset y) Long/BYTES)
-                      (long 0.0) y (buffer y) (* (offset y) Long/BYTES))
+    (add-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
+                (cast beta) y (buffer y) (* (offset y) byte-cnt))
     y)
-  (axpy [_ alpha x y]
-    (add-tensor cudnn-hdl (long alpha) x (buffer x) (* (offset y) Long/BYTES)
-                (long 1.0) y (buffer y) (* (offset y) Long/BYTES))
+  VectorMath
+  (sqr [_ a y]
+    (tensor-math sqr a y))
+  (mul [_ a b y]
+    (tensor-math mul a b y))
+  (div [_ a b y]
+    (tensor-math div a b y))
+  (inv [_ a y]
+    (tensor-math inv a y))
+  (abs [_ a y]
+    (tensor-math abs a y))
+  (linear-frac [_ a b scalea shifta scaleb shiftb y]
+    (let [va (view a)]
+      (linear-frac (engine va) va (view b) scalea shifta scaleb shiftb (view y))
+      y))
+  (fmod [_ a b y]
+    (tensor-math fmod a b y)
+    a)
+  (frem [_ a b y]
+    (tensor-math frem a b y))
+  (sqrt [_ a y]
+    (tensor-math sqrt a y))
+  (inv-sqrt [_ a y]
+    (tensor-math inv-sqrt a y))
+  (cbrt [_ a y]
+    (tensor-math cbrt a y))
+  (inv-cbrt [_ a y]
+    (tensor-math inv-cbrt a y))
+  (pow2o3 [_ a y]
+    (tensor-math pow2o3 a y))
+  (pow3o2 [_ a y]
+    (tensor-math pow3o2 a y))
+  (pow [_ a b y]
+    (tensor-math pow a b y))
+  (powx [_ a b y]
+    (powx (engine (view a)) (view a) b (view y))
     y)
-  BlasPlus
-  (set-all [_ value x]
-    (tensor-set modl hstream x (long value)))
-  (axpby [_ alpha x beta y]
-    (add-tensor cudnn-hdl (long alpha) x (buffer x) (* (offset y) Long/BYTES)
-                (long beta) y (buffer y) (* (offset y) Long/BYTES))
-    y))
+  (hypot [_ a b y]
+    (tensor-math hypot a b y))
+  (exp [_ a y]
+    (tensor-math exp a y))
+  (expm1 [_ a y]
+    (tensor-math expm1 a y))
+  (log [_ a y]
+    (tensor-math log a y))
+  (log10 [_ a y]
+    (tensor-math log10 a y))
+  (sin [_ a y]
+    (tensor-math sin a y))
+  (cos [_ a y]
+    (tensor-math cos a y))
+  (tan [_ a y]
+    (tensor-math tan a y))
+  (sincos [_ a y z]
+    (tensor-math sincos a y z))
+  (asin [_ a y]
+    (tensor-math asin a y))
+  (acos [_ a y]
+    (tensor-math acos a y))
+  (atan [_ a y]
+    (tensor-math atan a y))
+  (atan2 [_ a b y]
+    (tensor-math atan a b y))
+  (sinh [_ a y]
+    (tensor-math sinh a y))
+  (cosh [_ a y]
+    (tensor-math cosh a y))
+  (tanh [_ a y]
+    (tensor-math tanh a y))
+  (asinh [_ a y]
+    (tensor-math asinh a y))
+  (acosh [_ a y]
+    (tensor-math acosh a y))
+  (atanh [_ a y]
+    (tensor-math atanh a y))
+  (erf [_ a y]
+    (tensor-math erf a y))
+  (erfc [_ a y]
+    (tensor-math erfc a y))
+  (erf-inv [_ a y]
+    (tensor-math erf-inv a y))
+  (erfc-inv [_ a y]
+    (tensor-math erfc-inv a y))
+  (cdf-norm [_ a y]
+    (tensor-math cdf-norm a y))
+  (cdf-norm-inv [_ a y]
+    (tensor-math cdf-norm-inv a y))
+  (gamma [_ a y]
+    (tensor-math gamma a y))
+  (lgamma [_ a y]
+    (tensor-math lgamma a y))
+  (expint1 [_ a y]
+    (tensor-math expint1 a y))
+  (floor [_ a y]
+    (tensor-math floor a y))
+  (fceil [_ a y]
+    (tensor-math fceil a y))
+  (trunc [_ a y]
+    (tensor-math trunc a y))
+  (round [_ a y]
+    (tensor-math round a y))
+  (modf [_ a y z]
+    (tensor-math modf a y z))
+  (frac [_ a y]
+    (tensor-math frac a y))
+  (fmin [_ a b y]
+    (tensor-math fmin a y))
+  (fmax [_ a b y]
+    (tensor-math fmax a y))
+  (copy-sign [_ a b y]
+    (tensor-math copy-sign a b y))
+  (sigmoid [this a y]
+    (dragan-says-ex INEFFICIENT_OPERATION_MSG))
+  (ramp [this a y]
+    (dragan-says-ex INEFFICIENT_OPERATION_MSG))
+  (relu [this alpha a y]
+    (dragan-says-ex INEFFICIENT_OPERATION_MSG))
+  (elu [this alpha a y]
+    (dragan-says-ex INEFFICIENT_OPERATION_MSG))
+  RandomNumberGenerator
+  (rand-uniform [_ rng-stream lower upper x]
+    (rand-uniform (engine (view x)) rng-stream lower upper (view x)))
+  (rand-normal [_ rng-stream mu sigma x]
+    (rand-normal (engine (view x)) rng-stream mu sigma (view x))))
 
 (deftype CUDnnFactory [ctx hstream cudnn-hdl master
                        neand-facts tensor-engines]
@@ -288,10 +418,10 @@
                    double-fact (cuda-double ctx hstream)
                    int-fact nil  ;;TODO
                    long-fact nil ;;TODO
-                   float-engine (->FloatTensorEngine cudnn-hdl float-modl hstream)
-                   double-engine (->DoubleTensorEngine cudnn-hdl double-modl hstream)
-                   int-engine (->IntTensorEngine cudnn-hdl int-modl hstream)
-                   long-engine (->LongTensorEngine cudnn-hdl long-modl hstream)]
+                   float-engine (->TensorEngine cudnn-hdl float-modl hstream float Float/BYTES)
+                   double-engine (->TensorEngine cudnn-hdl double-modl hstream double Double/BYTES)
+                   int-engine (->TensorEngine cudnn-hdl int-modl hstream int Integer/BYTES)
+                   long-engine (->TensorEngine cudnn-hdl long-modl hstream long Long/BYTES)]
        (->CUDnnFactory ctx hstream cudnn-hdl master
                        {:float float-fact
                         :double double-fact

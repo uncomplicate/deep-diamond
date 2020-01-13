@@ -225,7 +225,7 @@
     (.strides cu-desc))
   TensorContainer
   (view-tz [_]
-    (->CUDnnTensor diamond-fact vect-view eng false buf ofst cu-desc))
+    (->CUDnnTensor diamond-fact eng vect-view false buf ofst cu-desc))
   #_(view-tz [_ sub];;TODO
       (let-release [sub-desc (if (number? sub)
                                (submemory-desc tz-mem sub)
@@ -246,9 +246,9 @@
          tz-cnt (apply * (shape tdesc))]
      (if (<= 0 (size tdesc) (cuda/size buf))
        (let-release [vect-view (cu-block-vector neand-fact false buf tz-cnt 0 1)]
-         (->CUDnnTensor diamond-fact vect-view
+         (->CUDnnTensor diamond-fact
                         (tensor-engine diamond-fact (data-type tdesc))
-                        master buf 0 tdesc))
+                        vect-view master buf 0 tdesc))
        (throw (ex-info "Insufficient buffer size." {:size (size tdesc) :buffer-size (cuda/size buf)})))))
   ([diamond-fact tdesc]
    (let-release [buf (mem-alloc (max 1 (size tdesc)))]
