@@ -8,6 +8,7 @@
 (with-diamond cudnn-factory []
 
   (test-tensor *diamond-factory*)
+  (test-create-tensor *diamond-factory*)
   #_(test-transformer *diamond-factory*)
   #_(test-pull-different *diamond-factory*)
   #_(test-pull-same *diamond-factory*)

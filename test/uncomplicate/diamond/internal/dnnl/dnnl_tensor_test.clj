@@ -12,6 +12,7 @@
                diamond-factory (dnnl-factory eng strm)]
 
   (test-tensor diamond-factory)
+  (test-create-tensor diamond-factory)
   (test-transformer diamond-factory)
   (test-pull-different diamond-factory)
   (test-pull-same diamond-factory)
@@ -25,6 +26,7 @@
   (with-diamond dnnl-factory [eng strm]
 
     (test-tensor *diamond-factory*)
+    (test-create-tensor *diamond-factory*)
     (test-transformer *diamond-factory*)
     (test-pull-different *diamond-factory*)
     (test-pull-same *diamond-factory*)

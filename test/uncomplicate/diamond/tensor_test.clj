@@ -3,7 +3,7 @@
             [uncomplicate.commons
              [core :refer [with-release]]]
             [uncomplicate.neanderthal
-             [core :refer [asum view transfer! native entry entry!]]
+             [core :refer [asum view transfer! native entry entry! dim]]
              [block :refer [buffer]]]
             [uncomplicate.diamond.tensor :refer :all])
   (:import clojure.lang.ExceptionInfo))
@@ -15,6 +15,12 @@
      (asum tz) => 0.0
      (asum (entry! tz 1)) => 120.0
      (shape tz) => [2 3 4 5])))
+
+(defn test-create-tensor [fact]
+  (facts
+   "Basic tensor creation tests."
+   (with-release [t0 (tensor fact [1 1 1 1] :float :nchw)]
+     (dim t0) => 1)))
 
 (defn test-transformer [factory]
   (facts

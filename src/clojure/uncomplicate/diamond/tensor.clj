@@ -84,7 +84,10 @@
   (data-type [_]
     data-type)
   (layout [_]
-    format))
+    format)
+  ConnectorCreator
+  (connector [in-desc out]
+    (connector (api/create-tensor-desc (api/diamond-factory out) in-desc) out)))
 
 (defn desc
   "Creates a general, technology-agnostic, tensor descriptor.

@@ -63,10 +63,7 @@
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (memory-desc (.shape this) (or (.data-type this) :undef) (or (layout this) :undef)))
-  ConnectorCreator
-  (connector [in-desc out]
-    (connector (desc in-desc) out)))
+    (memory-desc (.shape this) (or (.data-type this) :undef) (or (layout this) :undef))))
 
 (extend-type dnnl_memory_desc_t
   TensorDescriptor

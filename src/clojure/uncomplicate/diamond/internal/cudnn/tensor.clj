@@ -71,10 +71,7 @@
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (tensor-descriptor (.shape this) (or (.data-type this) :float) (or (layout this) :nchw)))
-  ConnectorCreator
-  (connector [in-desc out]
-    (connector (desc in-desc) out)))
+    (tensor-descriptor (.shape this) (or (.data-type this) :float) (or (layout this) :nchw))))
 
 (extend-type CUTensorDescriptor
   TensorDescriptor
