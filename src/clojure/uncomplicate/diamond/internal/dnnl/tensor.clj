@@ -16,7 +16,8 @@
              [block :refer [entry-width data-accessor buffer count-entries]]]
             [uncomplicate.neanderthal.internal
              [api :refer [Viewable view flow FactoryProvider EngineProvider DataAccessorProvider
-                          Container raw copy MemoryContext set-all compatible? factory]]
+                          Container raw copy MemoryContext set-all compatible? factory
+                          native-factory]]
              [printing :refer [print-vector]]]
             [uncomplicate.neanderthal.internal.host.buffer-block :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
@@ -25,7 +26,7 @@
              :as tz]
             [uncomplicate.diamond.internal.protocols
              :refer [TensorFactory DiamondFactoryProvider ContextProvider diamond-factory context
-                     create-tensor neanderthal-factory tensor-engine]]
+                     create-tensor neanderthal-factory tensor-engine native-diamond-factory]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
                            equal-desc? execute! reorder primitive fwd-args offset! ndims]
@@ -309,9 +310,13 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     diamond-fact)
+  (native-diamond-factory [_]
+    (native-diamond-factory diamond-fact))
   FactoryProvider
   (factory [_]
     neand-fact)
+  (native-factory [_]
+    (native-factory neand-fact))
   DataAccessorProvider
   (data-accessor [_]
     (data-accessor neand-fact))
@@ -342,7 +347,7 @@
     (seq (view this)))
   MemoryContext
   (compatible? [_ y]
-    (and (instance? DnnlTensor y) (compatible? neand-fact (factory y))))
+    (compatible? neand-fact (factory y)))
   (fits? [_ y]
     (= (dims tz-mem) (shape y)))
   (device [_]
@@ -441,6 +446,14 @@
   (.write w (str x))
   (print-vector w (view x)))
 
+(defmethod transfer! [DnnlTensor DnnlTensor]
+  [source destination]
+  (if (equal-desc? (buffer source) (buffer destination))
+    (do
+      (transfer! (view source) (view destination))
+      destination)
+    (dragan-says-ex "You need a specialized transformer to transfer these two MKL-DNN tensors.")))
+
 (defmethod transfer! [Object DnnlTensor]
   [source destination]
   (transfer! source (view destination))
@@ -458,11 +471,3 @@
 (defmethod transfer! [DnnlTransformer Object]
   [source destination]
   (transfer! (view (output source)) destination))
-
-(defmethod transfer! [DnnlTensor DnnlTensor]
-  [source destination]
-  (if (equal-desc? (buffer source) (buffer destination))
-    (do
-      (transfer! (view source) (view destination))
-      destination)
-    (dragan-says-ex "You need a specialized transformer to transfer these two MKL-DNN tensors.")))

@@ -5,7 +5,8 @@
 ;; ===================== General ========================================
 
 (defprotocol DiamondFactoryProvider
-  (diamond-factory [_]))
+  (diamond-factory [_])
+  (native-diamond-factory [_]))
 
 (defprotocol ContextProvider
   (context [_]))

@@ -19,16 +19,18 @@
              [cuda :refer [cuda-float cuda-double]]
              [block :refer [buffer offset]]]
             [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider ContextProvider
-                     NeanderthalFactoryProvider CostFactory DnnFactory]]
+            [uncomplicate.diamond.tensor :refer [shape data-type layout]]
+            [uncomplicate.diamond.internal
+             [protocols :refer [TensorFactory DiamondFactoryProvider ContextProvider
+                                NeanderthalFactoryProvider CostFactory DnnFactory]]
+             [utils :refer [check-contiguous]]]
+            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [desc]]
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
                            ndims dims strides transform-tensor add-tensor]]
              [tensor :refer [cudnn-tensor]]])
-  (:import jcuda.jcudnn.JCudnn
-           uncomplicate.neanderthal.internal.api.Block))
+  (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
   "This operation would be inefficient because it does not use cuDNN capabilities.
@@ -37,19 +39,6 @@
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the CUDA platform.
 Please contribute towards making it possible, or use on of the supported types.")
-
-(defn check-contiguous
-  ([^Block x]
-   (when-not (.isContiguous x)
-     (dragan-says-ex "Neanderthal API is supported only on contiguous tensors. Please use a copy."
-                     {:strides (strides ~x)})))
-  ([^Block x ^Block y]
-   (check-contiguous x)
-   (check-contiguous y))
-  ([^Block x ^Block y ^Block z]
-   (check-contiguous x)
-   (check-contiguous y)
-   (check-contiguous z)))
 
 (defn ^:private tensor-1d-equals [modl hstream x y]
   (with-release [equals-kernel (function modl "tensor_1d_equals")
@@ -339,6 +328,7 @@ Please contribute towards making it possible, or use on of the supported types."
     (rand-normal (engine (view x)) rng-stream mu sigma (view x))))
 
 (deftype CUDnnFactory [ctx hstream cudnn-hdl master
+                       native-diamond-fact
                        neand-facts tensor-engines]
   Releaseable
   (release [_]
@@ -356,6 +346,8 @@ Please contribute towards making it possible, or use on of the supported types."
   DiamondFactoryProvider
   (diamond-factory [this]
     this)
+  (native-diamond-factory [_]
+    native-diamond-fact)
   FlowProvider
   (flow [_]
     hstream)
@@ -370,7 +362,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor-desc [this shape dtype format]
     (tensor-descriptor shape dtype format))
   (create-tensor-desc [this tz-desc]
-    (desc tz-desc))
+    (tensor-descriptor (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
   (create-tensor [this tensor-desc init]
     (let-release [res (cudnn-tensor this tensor-desc)]
       (when init
@@ -420,6 +412,7 @@ Please contribute towards making it possible, or use on of the supported types."
                    double-modl (create-module src "double")
                    int-modl (create-module src "int")
                    long-modl (create-module src "long")
+                   native-diamond-fact (dnnl-factory)
                    float-fact (cuda-float ctx hstream)
                    double-fact (cuda-double ctx hstream)
                    int-fact nil  ;;TODO
@@ -429,6 +422,7 @@ Please contribute towards making it possible, or use on of the supported types."
                    int-engine (->TensorEngine cudnn-hdl int-modl hstream int Integer/BYTES)
                    long-engine (->TensorEngine cudnn-hdl long-modl hstream long Long/BYTES)]
        (->CUDnnFactory ctx hstream cudnn-hdl master
+                       native-diamond-fact
                        {:float float-fact
                         :double double-fact
                         :int int-fact

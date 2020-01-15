@@ -13,22 +13,25 @@
             [uncomplicate.clojurecuda.core :refer [memcpy-host! mem-alloc]]
             [uncomplicate.clojurecuda.internal.protocols :as cuda]
             [uncomplicate.neanderthal
-             [core :refer [transfer! dim vctr]]
+             [core :refer [transfer! dim vctr copy!]]
              [block :refer [entry-width buffer data-accessor count-entries create-data-source]]
              [cuda :refer [factory-by-type]]]
             [uncomplicate.neanderthal.internal
              [api :refer [Viewable view flow equals-block compatible? set-all MemoryContext
                           EngineProvider Container DataAccessorProvider FactoryProvider
-                          native-factory zero raw host factory]]
+                          native-factory zero raw host factory fits?]]
              [printing :refer [print-vector]]]
             [uncomplicate.neanderthal.internal.device.cublock :refer [cu-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout data-type TensorContainer Transfer
                      input output Revert ConnectorCreator connector view-tz]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider ContextProvider create-tensor
-                     diamond-factory context neanderthal-factory tensor-engine]]
-            [uncomplicate.diamond.internal.dnnl.protocols :refer [data]]
+            [uncomplicate.diamond.internal
+             [protocols
+              :refer [TensorFactory DiamondFactoryProvider ContextProvider create-tensor
+                      create-tensor-desc diamond-factory context neanderthal-factory
+                      tensor-engine native-diamond-factory]]
+             [utils :refer [check-contiguous]]]
+            [uncomplicate.diamond.internal.dnnl.protocols :refer [data] :as dnnl]
             [uncomplicate.diamond.internal.cudnn
              [core :refer [tensor-descriptor equal-desc? size]]
              [protocols :refer [DescProvider desc]]])
@@ -42,16 +45,21 @@
   "This operation would be inefficient because it uses memory transfer.
   Please use transfer! to be reminded of that.")
 
+(def ^{:private true :const true} DOES_NOT_FIT_MSG
+  "Source and destination have to fit and be compatible.")
+
 
 (defn ^:private not-available []
   (throw (UnsupportedOperationException. "Not available in CUDA. Please use a host instance.")))
 
 (defn set-tensor! [host cuda]
+  (check-contiguous host cuda)
   (memcpy-host! (data (buffer host)) (buffer cuda)
                 (flow (diamond-factory cuda)))
   cuda)
 
 (defn get-tensor! [cuda host]
+  (check-contiguous host cuda)
   (memcpy-host! (buffer cuda) (data (buffer host))
                 (flow (diamond-factory cuda)))
   host)
@@ -142,9 +150,13 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     diamond-fact)
+  (native-diamond-factory [this]
+    (native-diamond-factory diamond-fact))
   FactoryProvider
   (factory [_]
     (factory vect-view))
+  (native-factory [_]
+    (native-factory vect-view))
   DataAccessorProvider
   (data-accessor [_]
     (data-accessor vect-view))
@@ -152,13 +164,13 @@
   (raw [_]
     (cudnn-tensor diamond-fact cu-desc false))
   (raw [_ fact]
-    (create-tensor fact cu-desc false))
+    (create-tensor fact (create-tensor-desc fact cu-desc) false))
   (zero [x]
     (zero x diamond-fact))
   (zero [_ fact]
     (create-tensor diamond-fact cu-desc true))
   (host [x]
-    (let-release [res (raw x (native-factory diamond-fact))]
+    (let-release [res (raw x (native-diamond-factory diamond-fact))]
       (get-tensor! x res)))
   (native [x]
     (host x))
@@ -177,7 +189,7 @@
     vect-view)
   MemoryContext
   (compatible? [_ y]
-    (and (instance? CUDnnTensor y) (compatible? vect-view (view y))))
+    (compatible? (factory vect-view) (factory y)))
   (fits? [_ y]
     (= (.dims cu-desc) (shape y)))
   (device [_]
@@ -255,10 +267,32 @@
   [^CUDnnTensor x ^java.io.Writer w]
   (.write w (str x)))
 
+(defmethod transfer! [CUDnnTensor CUDnnTensor]
+  [source destination]
+  (copy! source destination))
+
 (defmethod transfer! [DnnlTensor CUDnnTensor]
   [source destination]
-  (set-tensor! source destination))
+  (if (and (= (data-type source) (data-type destination)) (fits? source destination))
+    (set-tensor! source destination)
+    (dragan-says-ex DOES_NOT_FIT_MSG
+                    {:source (dnnl/desc source) :destination (desc destination)
+                     :compatible? (compatible? source destination)})))
 
 (defmethod transfer! [CUDnnTensor DnnlTensor]
   [source destination]
-  (get-tensor! source destination))
+  (if (and (= (data-type source) (data-type destination)) (fits? source destination))
+    (get-tensor! source destination)
+    (dragan-says-ex DOES_NOT_FIT_MSG
+                    {:source (desc source) :destination (dnnl/desc destination)
+                     :compatible? (compatible? source destination)})))
+
+(defmethod transfer! [CUDnnTensor Object]
+  [source destination]
+  (with-release [h (host source)]
+    (transfer! h destination)))
+
+(defmethod transfer! [Object CUDnnTensor]
+  [source destination]
+  (let-release [dest (raw destination (native-diamond-factory destination))]
+    (set-tensor! (transfer! source dest) destination)))

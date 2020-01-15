@@ -22,12 +22,16 @@
 
 (with-release [eng (engine)
                strm (stream eng)
-               diamond-factory (dnnl-factory eng strm)]
+               diamond-factory (dnnl-factory eng strm)
+               eng1 (engine)
+               strm1 (stream eng1)
+               diamond-factory1 (dnnl-factory eng1 strm1)]
 
   (test-tensor diamond-factory)
   (test-create diamond-factory)
   (test-dnnl-create diamond-factory)
   (test-equality diamond-factory)
+  (test-transfer diamond-factory diamond-factory)
   (test-transformer diamond-factory)
   (test-pull-different diamond-factory)
   (test-pull-same diamond-factory)
@@ -44,6 +48,7 @@
     (test-create *diamond-factory*)
     (test-dnnl-create *diamond-factory*)
     (test-equality *diamond-factory*)
+    (test-transfer *diamond-factory* *diamond-factory*)
     (test-transformer *diamond-factory*)
     (test-pull-different *diamond-factory*)
     (test-pull-same *diamond-factory*)

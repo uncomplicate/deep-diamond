@@ -17,7 +17,8 @@
              :refer [FlowProvider Blas BlasPlus sum view factory amax RandomNumberGenerator
                      VectorMath rand-uniform rand-normal]]
             [uncomplicate.neanderthal.internal.host.lapack :refer [with-lapack-check]]
-            [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output layout]]
+            [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output
+                                                 shape data-type layout]]
             [uncomplicate.diamond.internal.protocols
              :refer [TensorFactory DiamondFactoryProvider ContextProvider CostFactory
                      DnnFactory NeanderthalFactoryProvider]]
@@ -278,6 +279,8 @@ Please contribute towards making it possible, or use on of the supported types."
   DiamondFactoryProvider
   (diamond-factory [this]
     this)
+  (native-diamond-factory [this]
+    this)
   FlowProvider
   (flow [_]
     strm)
@@ -291,7 +294,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor-desc [this shape dtype format]
     (memory-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
-    (desc tz-desc))
+    (memory-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
   (create-tensor [this tensor-desc _]
     (dnnl-tensor this tensor-desc))
   (create-transformer [_ in-tz out-tz]
