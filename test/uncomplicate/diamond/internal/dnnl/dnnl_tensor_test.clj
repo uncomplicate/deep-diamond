@@ -1,18 +1,33 @@
 (ns uncomplicate.diamond.internal.dnnl.dnnl-tensor-test
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons.core :refer [with-release]]
-            [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory*]]
+            [uncomplicate.neanderthal.core :refer [dim]]
+            [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [engine stream]]
              [factory :refer [dnnl-factory]]]
-            [uncomplicate.diamond.tensor-test :refer :all]))
+            [uncomplicate.diamond.tensor-test :refer :all])
+  (:import clojure.lang.ExceptionInfo))
+
+(defn test-dnnl-create [fact]
+  (facts
+   "Test DNNL specific constraints."
+   (with-release [t0 (tensor fact [0 1 1 1] :float :nchw)
+                  tnc (tensor fact [2 3] :float :nc)]
+     (dim t0) => 0
+     (dim tnc) => 6
+     (tensor fact [2 3] :double :nc) => (throws ExceptionInfo)
+     (tensor fact [2 3] :int :nc) => (throws ExceptionInfo)
+     (tensor fact [2 3] :long :nc) => (throws ExceptionInfo))))
 
 (with-release [eng (engine)
                strm (stream eng)
                diamond-factory (dnnl-factory eng strm)]
 
   (test-tensor diamond-factory)
-  (test-create-tensor diamond-factory)
+  (test-create diamond-factory)
+  (test-dnnl-create diamond-factory)
+  (test-equality diamond-factory)
   (test-transformer diamond-factory)
   (test-pull-different diamond-factory)
   (test-pull-same diamond-factory)
@@ -26,7 +41,9 @@
   (with-diamond dnnl-factory [eng strm]
 
     (test-tensor *diamond-factory*)
-    (test-create-tensor *diamond-factory*)
+    (test-create *diamond-factory*)
+    (test-dnnl-create *diamond-factory*)
+    (test-equality *diamond-factory*)
     (test-transformer *diamond-factory*)
     (test-pull-different *diamond-factory*)
     (test-pull-same *diamond-factory*)

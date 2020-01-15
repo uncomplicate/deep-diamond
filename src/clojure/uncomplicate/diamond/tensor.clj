@@ -140,13 +140,13 @@
   ([tz-factory shape type format]
    (if (sequential? shape)
      (let [fact (api/diamond-factory tz-factory)]
-       (api/create-tensor fact (api/create-tensor-desc fact shape type format) false))
+       (api/create-tensor fact (api/create-tensor-desc fact shape type format) true))
      (dragan-says-ex "Tensor shape has to be sequential." {:shape (class shape)})))
   ([shape type format]
    (tensor *diamond-factory* shape type format))
   ([tz-factory desc]
    (let [fact (api/diamond-factory tz-factory)]
-     (api/create-tensor fact (api/create-tensor-desc fact desc) false)))
+     (api/create-tensor fact (api/create-tensor-desc fact desc) true)))
   ([desc]
    (tensor *diamond-factory* desc)))
 

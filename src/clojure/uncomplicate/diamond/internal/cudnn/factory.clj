@@ -34,6 +34,10 @@
   "This operation would be inefficient because it does not use cuDNN capabilities.
   Please use dedicated tensor operations.")
 
+(def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
+  "The requested data type is not supported on the CUDA platform.
+Please contribute towards making it possible, or use on of the supported types.")
+
 (defn check-contiguous
   ([^Block x]
    (when-not (.isContiguous x)
@@ -360,7 +364,8 @@
     ctx)
   NeanderthalFactoryProvider
   (neanderthal-factory [_ dtype]
-    (get neand-facts dtype nil))
+    (or (get neand-facts dtype)
+        (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   TensorFactory
   (create-tensor-desc [this shape dtype format]
     (tensor-descriptor shape dtype format))
@@ -382,7 +387,8 @@
   (create-sum [_ dst scale src scale-srcs]
     )
   (tensor-engine [this dtype]
-    (get tensor-engines dtype nil))
+    (or (get tensor-engines dtype)
+        (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   DnnFactory
   (activ-blueprint [this src-desc activ alpha beta]
     )

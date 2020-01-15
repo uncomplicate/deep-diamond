@@ -38,6 +38,10 @@
   "This operation would be inefficient because it does not use DNNL capabilities.
   Please use dedicated tensor operations.")
 
+(def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
+  "The requested data type is not supported on the DNNL platform.
+Please contribute towards making it possible, or use on of the supported types.")
+
 (defmacro tensor-method
   ([method x]
    `(do
@@ -301,7 +305,8 @@
   (create-sum [_ dst scale src scale-srcs]
     (dnnl-sum-blueprint eng strm dst scale src scale-srcs))
   (tensor-engine [this dtype]
-    (get tensor-engines dtype nil))
+    (or (get tensor-engines dtype)
+        (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   DnnFactory
   (activ-blueprint [this src-desc activ alpha beta]
     (dnnl-activ-blueprint this eng src-desc src-desc activ alpha beta))

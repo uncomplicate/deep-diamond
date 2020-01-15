@@ -16,11 +16,31 @@
      (asum (entry! tz 1)) => 120.0
      (shape tz) => [2 3 4 5])))
 
-(defn test-create-tensor [fact]
+(defn test-create [fact]
   (facts
    "Basic tensor creation tests."
-   (with-release [t0 (tensor fact [1 1 1 1] :float :nchw)]
-     (dim t0) => 1)))
+   (with-release [t1 (tensor fact [1 1 1 1] :float :nchw)
+                  td3221 (desc [3 2 2 1] :float :nhwc)
+                  t3221 (tensor fact td3221)]
+     (tensor fact [1 -1 1 1] :float :nchw) => (throws ExceptionInfo)
+     (dim t1) => 1
+     (shape t1) => [1 1 1 1]
+     (layout t1) => [1 1 1 1]
+     (data-type t1) => :float
+     (dim t3221) => 12
+     (layout t3221) => [4 1 2 2])))
+
+(defn test-equality [fact]
+  (facts
+   "Equality and hash code tests."
+   (with-release [x1 (tensor fact [2 1 2 3] :float :nchw)
+                  y1 (tensor fact [2 1 2 3] :float :nchw)
+                  y3 (tensor fact [2 1 2 3] :float :nhwc)
+                  y4 (tensor fact [2 1 2 2] :float :nchw)]
+     (.equals x1 nil) => false
+     (= x1 y1) => true
+     (= x1 y3) => false
+     (= x1 y4) => false)))
 
 (defn test-transformer [factory]
   (facts
