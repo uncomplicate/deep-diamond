@@ -420,7 +420,7 @@
                                           (or (layout sub) (strides tz-mem))))
                   sub-mem (memory (context diamond-fact) sub-desc (data tz-mem) false)
                   shp (dims sub-mem)]
-      (->DnnlTensor diamond-fact neand-fact eng offset-fn (number? sub) sub-mem
+      (->DnnlTensor diamond-fact neand-fact eng offset-fn false sub-mem
                     (first shp) (apply * (rest shp)))))
   ConnectorCreator
   (connector [in-tz out-desc]

@@ -1,10 +1,10 @@
 (ns uncomplicate.diamond.tensor-test
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons
-             [core :refer [with-release]]]
+             [core :refer [with-release release]]]
             [uncomplicate.neanderthal
              [core :refer [asum view transfer! native entry entry! dim]]
-             [block :refer [buffer]]]
+             [block :refer [buffer contiguous?]]]
             [uncomplicate.diamond.tensor :refer :all])
   (:import clojure.lang.ExceptionInfo))
 
@@ -37,26 +37,41 @@
            (.equals x1 nil) => false
            (= x1 y1) => true
            (= x1 y3) => false
-           (= x1 y4) => false)))
+           (= x1 y4) => false
+           (transfer! (range) x1) => (transfer! (range) y1))))
+
+(defn test-release [fact]
+  (let [t1 (tensor fact [2 3 1 1] :float :nchw)]
+    (facts "Release tensor."
+           (release (view-tz t1)) => true
+           (release t1) => true)))
 
 (defn test-transfer [fact0 fact1]
-  (facts
-   "Tensor transfer."
-   (with-release [x1 (tensor fact0 [2 1 2 1] :float :nchw)
-                  x2 (tensor fact0 [2 1 2 1] :float :nchw)
-                  y1 (tensor fact1 [2 1 2 1] :float :nchw)
-                  y2 (tensor fact1 [2 1] :float :nc)]
-     (transfer! (float-array [1 2 3 4]) x1) => x1
-     (seq (transfer! x1 (float-array 4))) => [1.0 2.0 3.0 4.0]
-     (seq (native (transfer! (float-array [4 3 2 1]) x1))) => [4.0 3.0 2.0 1.0]
-     (seq (native (transfer! [10 20 30 40] x1))) => [10.0 20.0 30.0 40.0]
-     (transfer! x1 x2) => x2
-     (seq (native x2)) => [10.0 20.0 30.0 40.0]
-     (transfer! x1 y1) => y1
-     (seq (native y1)) => [10.0 20.0 30.0 40.0]
-     (entry! y1 100) => y1
-     (seq (native (transfer! y1 x1))) => [100.0 100.0 100.0 100.0]
-     (transfer! x2 y2) => (throws ExceptionInfo))))
+  (with-release [x1 (tensor fact0 [2 1 2 1] :float :nchw)
+                 x2 (tensor fact0 [2 1 2 1] :float :nchw)
+                 y1 (tensor fact1 [2 1 2 1] :float :nchw)
+                 y2 (tensor fact1 [2 1] :float :nc)]
+    (facts "Tensor transfer."
+           (transfer! (float-array [1 2 3 4]) x1) => x1
+           (seq (transfer! x1 (float-array 4))) => [1.0 2.0 3.0 4.0]
+           (seq (native (transfer! (float-array [4 3 2 1]) x1))) => [4.0 3.0 2.0 1.0]
+           (seq (native (transfer! [10 20 30 40] x1))) => [10.0 20.0 30.0 40.0]
+           (transfer! x1 x2) => x2
+           (seq (native x2)) => [10.0 20.0 30.0 40.0]
+           (transfer! x1 y1) => y1
+           (seq (native y1)) => [10.0 20.0 30.0 40.0]
+           (entry! y1 100) => y1
+           (seq (native (transfer! y1 x1))) => [100.0 100.0 100.0 100.0]
+           (transfer! x2 y2) => (throws ExceptionInfo))))
+
+(defn test-contiguous [fact]
+  (with-release [x1 (tensor fact [2 3 2 2] :float :nchw)]
+    (facts "Test whether a tensor is contiguous."
+           (contiguous? x1) => true
+           (transfer! (range) x1)
+           (view-tz x1 [2 3 2 2]) => x1
+           (seq (native (view-tz x1 [1 3 2 2]))) => (range 0.0 12.0)
+           (contiguous? x1) => true)))
 
 (defn test-transformer [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)

@@ -116,6 +116,21 @@
          (get-float buf 60) => 0.0
          (get-float buf 119) => 0.0))
 
+(facts "Submemory descriptor with offsets."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 2 4 6] :float :nchw)
+                      buf (direct-buffer (size md))
+                      sub-md (submemory-desc md [1 2 4 6] [0 0 0 0])
+                      sub-mem (memory eng sub-md buf)
+                      relu-desc (eltwise-fwd-desc :inference :relu sub-md)
+                      relu-pd (primitive-desc eng relu-desc)
+                      relu (primitive relu-pd)
+                      relu-args (eltwise-args sub-mem)]
+         (put-float buf 24 -1000)
+         (execute! s relu relu-args) => s
+         (get-float buf 24) => 0.0))
+
 (facts "In-place Sum operation"
        (with-release [eng (engine)
                       s (stream eng)

@@ -116,8 +116,11 @@
   shape `dims`, and `offsets` vectors."
   ([parent-desc dims offsets]
    (submemory-desc* (desc parent-desc) (long-array dims) (long-array offsets)))
-  ([parent-desc dim-a]
-   (submemory-desc* (desc parent-desc) dim-a)))
+  ([parent-desc dim]
+   (if (number? dim)
+     (submemory-desc* (desc parent-desc) dim)
+     (let [ds (long-array dim)]
+       (submemory-desc* (desc parent-desc) ds (long-array (alength ds)))))))
 
 (defn equal-desc?
   "Compares two memory descriptors for logical equality.

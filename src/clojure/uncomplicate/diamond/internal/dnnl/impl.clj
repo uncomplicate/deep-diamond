@@ -241,7 +241,8 @@
             (do (vreset! vmem nil)
                 (when master
                   (release d)
-                  (.deallocate d-ptr))))))))
+                  (.deallocate d-ptr)))))))
+    true)
   Info
   (info [x]
     {:class (class x)
