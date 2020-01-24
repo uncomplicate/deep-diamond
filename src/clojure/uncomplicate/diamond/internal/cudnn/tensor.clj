@@ -33,7 +33,7 @@
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl.protocols :refer [data] :as dnnl]
             [uncomplicate.diamond.internal.cudnn
-             [core :refer [tensor-descriptor equal-desc? size]]
+             [core :refer [tensor-descriptor equal-desc? size dims]]
              [protocols :refer [DescProvider desc]]])
   (:import clojure.lang.IFn
            [uncomplicate.neanderthal.internal.api Block RealChangeable DataAccessor VectorSpace]
@@ -235,13 +235,12 @@
   TensorContainer
   (view-tz [_]
     (->CUDnnTensor diamond-fact eng vect-view false buf ofst cu-desc))
-  #_(view-tz [_ sub];;TODO
-      (let-release [sub-desc (if (number? sub)
-                               (submemory-desc tz-mem sub)
-                               (memory-desc (shape sub) (or (tz/data-type sub) (data-type tz-mem))
-                                            (or (layout sub) (strides tz-mem))))
-                    sub-mem (memory sub-desc (data tz-mem) false)]
-        (->DnnlTensor fact neand-fact eng offset-fn (number? sub) sub-mem)))
+  (view-tz [_ sub]
+    (let-release [sub-desc (if (number? sub)
+                             (tensor-descriptor (into [sub] (rest (dims cu-desc))) (.data-type cu-desc))
+                             (tensor-descriptor (shape sub) (or (data-type sub) (.data-type cu-desc))
+                                                (or (layout sub) (.strides cu-desc))))]
+      (cudnn-tensor diamond-fact false buf sub-desc)))
   ;;ConnectorCreator
   #_(connector [in-tz out-desc];;TODO
       (if (equal-desc? tz-mem out-desc)

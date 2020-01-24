@@ -429,6 +429,8 @@
       (let-release [out-tz (dnnl-tensor diamond-fact neand-fact eng out-desc)]
         (dnnl-transformer (context diamond-fact) (flow diamond-fact) (view-tz in-tz) out-tz)))))
 
+;; TODO create offset! as a separate function, destructive for dnnl, and destructive for CUDA. This is separate from the subtensor function, which returns a clear subtensor.
+
 (defn dnnl-tensor
   ([diamond-fact neand-fact eng mem-desc]
    (let [mem-desc (desc mem-desc)
