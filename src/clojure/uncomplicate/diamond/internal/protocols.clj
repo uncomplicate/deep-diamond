@@ -25,6 +25,9 @@
   (create-sum [this scale dst] [this dst scale src scale-srcs])
   (tensor-engine [this tdesc]))
 
+(defprotocol Offset
+  (offset [tz n-ofst]))
+
 ;; =================== DNN ============================================
 
 (defprotocol DnnFactory

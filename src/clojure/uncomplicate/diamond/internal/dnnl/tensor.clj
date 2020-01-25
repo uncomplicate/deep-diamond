@@ -26,7 +26,8 @@
              :as tz]
             [uncomplicate.diamond.internal.protocols
              :refer [TensorFactory DiamondFactoryProvider ContextProvider diamond-factory context
-                     create-tensor neanderthal-factory tensor-engine native-diamond-factory]]
+                     create-tensor neanderthal-factory tensor-engine native-diamond-factory
+                     Offset]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
                            equal-desc? execute! reorder primitive fwd-args offset! ndims]
@@ -215,7 +216,7 @@
 
 ;; ================================ Tensor ======================================
 
-(let [array? (partial instance? (type (long-array 0)))]
+#_(let [array? (partial instance? (type (long-array 0)))]
   (defn offset
     ([sa]
      (cond
@@ -264,7 +265,7 @@
          (^long [^long a ^long b ^long c ^long d]
           (+ (* a sa) (* b sb) (* c sc) (* d sd))))))))
 
-(deftype DnnlTensor [diamond-fact neand-fact eng offset-fn master tz-mem
+(deftype DnnlTensor [diamond-fact neand-fact eng master tz-mem
                      ^long n ^long c]
   Object
   (hashCode [x]
@@ -412,7 +413,7 @@
     (strides tz-mem))
   TensorContainer
   (view-tz [_]
-    (->DnnlTensor diamond-fact neand-fact eng offset-fn false tz-mem n c))
+    (->DnnlTensor diamond-fact neand-fact eng false tz-mem n c))
   (view-tz [_ sub]
     (let-release [sub-desc (if (number? sub)
                              (submemory-desc tz-mem sub)
@@ -420,8 +421,12 @@
                                           (or (layout sub) (strides tz-mem))))
                   sub-mem (memory (context diamond-fact) sub-desc (data tz-mem) false)
                   shp (dims sub-mem)]
-      (->DnnlTensor diamond-fact neand-fact eng offset-fn false sub-mem
+      (->DnnlTensor diamond-fact neand-fact eng false sub-mem
                     (first shp) (apply * (rest shp)))))
+  Offset
+  (offset [_ n-ofst]
+    (offset! tz-mem (* (long n-ofst) (long (get (strides tz-mem) 0))
+                       (entry-width (data-accessor neand-fact)))))
   ConnectorCreator
   (connector [in-tz out-desc]
     (if (equal-desc? tz-mem out-desc)
@@ -436,8 +441,7 @@
    (let [mem-desc (desc mem-desc)
          tz-mem (memory (context diamond-fact) mem-desc)
          shp (dims mem-desc)]
-     (->DnnlTensor diamond-fact neand-fact eng (offset (strides mem-desc)) true tz-mem
-                   (first shp) (apply * (rest shp)))))
+     (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)))))
   ([diamond-fact mem-desc]
    (let [dtype (tz/data-type mem-desc)]
      (dnnl-tensor diamond-fact (neanderthal-factory diamond-fact dtype)

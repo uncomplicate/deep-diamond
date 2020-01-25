@@ -1,6 +1,6 @@
 (ns uncomplicate.diamond.tensor
   (:require [uncomplicate.commons
-             [core :refer [release Info]]
+             [core :refer [release let-release Info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.diamond.internal.protocols :as api]))
 
@@ -149,6 +149,13 @@
      (api/create-tensor fact (api/create-tensor-desc fact desc) true)))
   ([desc]
    (tensor *diamond-factory* desc)))
+
+(defn offset! [tz ^long n]
+  (api/offset tz n))
+
+(defn offset [tz ^long n]
+  (let-release [tzv (view-tz tz)]
+    (offset! tzv n)))
 
 (defn transformer
   "Creates a function optimized for transferring data from tensor

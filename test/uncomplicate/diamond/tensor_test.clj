@@ -73,6 +73,24 @@
            (seq (native (view-tz x1 [1 3 2 2]))) => (range 0.0 12.0)
            (contiguous? x1) => true)))
 
+(defn test-subtensor [factory]
+  (with-release [tz-x (tensor factory [6] :float [1])
+                 sub-x (view-tz tz-x [2])
+                 sub-y (view-tz tz-x (desc [1 3] [3 1]))
+                 sub-z (view-tz tz-x 4)]
+    (facts "Test subtensors and offsets."
+           (transfer! (range) tz-x)
+           (seq (native tz-x)) => [0.0 1.0 2.0 3.0 4.0 5.0]
+           (seq (native sub-x)) => [0.0 1.0]
+           (seq (native sub-y)) => [0.0 1.0 2.0]
+           (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
+           (offset! sub-y 1)
+           (seq (native sub-y)) => [3.0 4.0 5.0]
+           (seq (native sub-x)) => [0.0 1.0]
+           (offset! sub-z 1)
+           (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
+           (seq (native sub-x)) => [0.0 1.0])))
+
 (defn test-transformer [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
                  tz-y (tensor factory [2 3 4 5] :float :nhwc)
@@ -124,24 +142,6 @@
            (identical? (buffer (output connection)) (buffer tz-y)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => true
            (entry (view (connection)) 119) => 119.0)))
-
-(defn test-subtensor [factory]
-  (with-release [tz-x (tensor factory [6] :float :x)
-                 sub-x (view-tz tz-x [2])
-                 sub-y (view-tz tz-x (desc [1 3] :nc))
-                 sub-z (view-tz tz-x 4)]
-    (facts "Test subtensors and offsets."
-           (transfer! (range) tz-x)
-           (seq tz-x) => [0.0 1.0 2.0 3.0 4.0 5.0]
-           (seq sub-x) => [0.0 1.0]
-           (seq sub-y) => [0.0 1.0 2.0]
-           (seq sub-z) => [0.0 1.0 2.0 3.0]
-           (uncomplicate.diamond.internal.dnnl.core/offset! (buffer sub-y) Float/BYTES);;TODO generalize
-           (seq sub-y) => [1.0 2.0 3.0]
-           (seq sub-x) => [0.0 1.0]
-           (uncomplicate.diamond.internal.dnnl.core/offset! (buffer sub-z) Float/BYTES)
-           (seq sub-z) => [1.0 2.0 3.0 4.0]
-           (seq sub-x) => [0.0 1.0])))
 
 (defn test-shuffler [factory]
   (with-release [tz-x (tensor factory [6 2] :float :nc)
