@@ -78,4 +78,4 @@
 
          (transfer! net net-infer)
          (net-infer)
-         (mean-abs-cost) => (roughly 2.5 0.5)))
+         (mean-abs-cost) => (roughly 2.5 1.0)))

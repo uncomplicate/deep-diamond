@@ -29,7 +29,9 @@
      (sum-xy) => tz-y
      (entry (native (view tz-y)) 119) => 238.0)))
 
-(test-sum *diamond-factory*)
+
+(with-release [fact (dnnl-factory)]
+  (test-sum fact))
 
 (facts "Activation tests"
        (with-release [fact (dnnl-factory)

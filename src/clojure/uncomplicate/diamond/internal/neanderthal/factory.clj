@@ -10,10 +10,12 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.neanderthal.native :refer [factory-by-type]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output]]
             [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider ContextProvider CostFactory DnnFactory]]
+             :refer [TensorFactory DiamondFactoryProvider ContextProvider CostFactory DnnFactory
+                     NeanderthalFactoryProvider]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc]]
              [core :refer [memory-desc engine stream memory dims]]
@@ -21,11 +23,16 @@
              [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
                                       dnnl-inner-product-blueprint dnnl-fc-blueprint
                                       dnnl-universal-cost quadratic-cost mean-absolute-cost
-                                      dnnl-custom-cost sigmoid-crossentropy-cost]]]
+                                      dnnl-custom-cost sigmoid-crossentropy-cost]]
+             [factory :refer [->FloatTensorEngine]]]
             [uncomplicate.diamond.internal.neanderthal.fully-connected
              :refer [neanderthal-fc-blueprint]]))
 
-(defrecord NeanderthalFactory [eng strm master]
+(def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
+  "The requested data type is not supported on the Neanderthal/DNNL platform.
+Please contribute towards making it possible, or use on of the supported types.")
+
+(defrecord NeanderthalFactory [eng strm master tensor-engines]
   Releaseable
   (release [_]
     (when master
@@ -41,6 +48,9 @@
   ContextProvider
   (context [_]
     eng)
+  NeanderthalFactoryProvider
+  (neanderthal-factory [_ dtype]
+    (factory-by-type dtype))
   TensorFactory
   (create-tensor-desc [this dims dtype format]
     (memory-desc dims dtype format))
@@ -58,6 +68,9 @@
     (dnnl-sum-blueprint eng strm scale dst))
   (create-sum [_ dst scale src scale-srcs]
     (dnnl-sum-blueprint eng strm dst scale src scale-srcs))
+  (tensor-engine [this dtype]
+    (or (get tensor-engines dtype)
+        (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   DnnFactory
   (activ-blueprint [this src-desc activ alpha beta]
     (dnnl-activ-blueprint this eng src-desc src-desc activ alpha beta))
@@ -77,7 +90,7 @@
 
 (defn neanderthal-factory
   ([eng strm]
-   (->NeanderthalFactory eng strm false))
+   (->NeanderthalFactory eng strm false {:float (->FloatTensorEngine)}))
   ([]
    (let-release [eng (engine)]
-     (->NeanderthalFactory eng (stream eng) true))))
+     (->NeanderthalFactory eng (stream eng) true {:float (->FloatTensorEngine)}))))

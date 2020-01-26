@@ -424,17 +424,16 @@
       (->DnnlTensor diamond-fact neand-fact eng false sub-mem
                     (first shp) (apply * (rest shp)))))
   Offset
-  (offset [_ n-ofst]
+  (offset [this n-ofst]
     (offset! tz-mem (* (long n-ofst) (long (get (strides tz-mem) 0))
-                       (entry-width (data-accessor neand-fact)))))
+                       (entry-width (data-accessor neand-fact))))
+    this)
   ConnectorCreator
   (connector [in-tz out-desc]
     (if (equal-desc? tz-mem out-desc)
       (view-tz in-tz)
       (let-release [out-tz (dnnl-tensor diamond-fact neand-fact eng out-desc)]
         (dnnl-transformer (context diamond-fact) (flow diamond-fact) (view-tz in-tz) out-tz)))))
-
-;; TODO create offset! as a separate function, destructive for dnnl, and destructive for CUDA. This is separate from the subtensor function, which returns a clear subtensor.
 
 (defn dnnl-tensor
   ([diamond-fact neand-fact eng mem-desc]
