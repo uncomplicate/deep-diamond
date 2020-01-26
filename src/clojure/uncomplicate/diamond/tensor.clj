@@ -151,8 +151,7 @@
    (tensor *diamond-factory* desc)))
 
 (defn offset! [tz ^long n]
-  (api/offset tz n)
-  tz)
+  (api/offset tz n))
 
 (defn offset [tz ^long n]
   (let-release [tzv (view-tz tz)]

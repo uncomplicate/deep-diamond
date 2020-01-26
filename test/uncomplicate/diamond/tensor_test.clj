@@ -84,7 +84,7 @@
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native sub-y)) => [0.0 1.0 2.0]
            (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
-           (seq (native (offset! sub-y 1))) => [3.0 4.0 5.0]
+           (seq (native (view (offset! sub-y 1)))) => [3.0 4.0 5.0]
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native (offset! sub-z 1))) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))

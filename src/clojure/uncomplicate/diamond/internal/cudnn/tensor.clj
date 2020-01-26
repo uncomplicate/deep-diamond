@@ -61,7 +61,7 @@
 
 (defn get-tensor! [cuda host]
   (check-contiguous host cuda)
-  (transfer! (view cuda) (view host)) TODO CONTINUE HERE and see why transfer does not respect offsets
+  (transfer! (view cuda) (view host))
   #_(memcpy-host! (buffer cuda) (data (buffer host))
                 (flow (diamond-factory cuda)))
   host)
@@ -247,8 +247,7 @@
   Offset
   (offset [this n-ofst]
     (check-contiguous this)
-    (let [ofst (* (long n-ofst) (long (get (.strides cu-desc) 0))
-                  (entry-width (data-accessor vect-view)))]
+    (let [ofst (* (long n-ofst) (long (get (.strides cu-desc) 0)))]
       (->CUDnnTensor diamond-fact eng
                      (cu-block-vector (factory vect-view) false buf (dim this) ofst 1)
                      false buf ofst cu-desc)))
