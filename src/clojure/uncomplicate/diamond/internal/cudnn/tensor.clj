@@ -29,7 +29,7 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider ContextProvider create-tensor
                       create-tensor-desc diamond-factory context neanderthal-factory
-                      tensor-engine native-diamond-factory]]
+                      tensor-engine native-diamond-factory Offset]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl.protocols :refer [data] :as dnnl]
             [uncomplicate.diamond.internal.cudnn
@@ -54,13 +54,15 @@
 
 (defn set-tensor! [host cuda]
   (check-contiguous host cuda)
-  (memcpy-host! (data (buffer host)) (buffer cuda)
+  (transfer! (view host) (view cuda))
+  #_(memcpy-host! (data (buffer host)) (buffer cuda)
                 (flow (diamond-factory cuda)))
   cuda)
 
 (defn get-tensor! [cuda host]
   (check-contiguous host cuda)
-  (memcpy-host! (buffer cuda) (data (buffer host))
+  (transfer! (view cuda) (view host)) TODO CONTINUE HERE and see why transfer does not respect offsets
+  #_(memcpy-host! (buffer cuda) (data (buffer host))
                 (flow (diamond-factory cuda)))
   host)
 
@@ -237,10 +239,19 @@
     (->CUDnnTensor diamond-fact eng vect-view false buf ofst cu-desc))
   (view-tz [_ sub]
     (let-release [sub-desc (if (number? sub)
-                             (tensor-descriptor (into [sub] (rest (dims cu-desc))) (.data-type cu-desc))
+                             (tensor-descriptor (into [sub] (rest (dims cu-desc))) (.data-type cu-desc)
+                                                (.strides cu-desc))
                              (tensor-descriptor (shape sub) (or (data-type sub) (.data-type cu-desc))
                                                 (or (layout sub) (.strides cu-desc))))]
       (cudnn-tensor diamond-fact false buf sub-desc)))
+  Offset
+  (offset [this n-ofst]
+    (check-contiguous this)
+    (let [ofst (* (long n-ofst) (long (get (.strides cu-desc) 0))
+                  (entry-width (data-accessor vect-view)))]
+      (->CUDnnTensor diamond-fact eng
+                     (cu-block-vector (factory vect-view) false buf (dim this) ofst 1)
+                     false buf ofst cu-desc)))
   ;;ConnectorCreator
   #_(connector [in-tz out-desc];;TODO
       (if (equal-desc? tz-mem out-desc)

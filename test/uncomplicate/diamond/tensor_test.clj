@@ -74,9 +74,9 @@
            (contiguous? x1) => true)))
 
 (defn test-subtensor [factory]
-  (with-release [tz-x (tensor factory [6] :float [1])
-                 sub-x (view-tz tz-x [2])
-                 sub-y (view-tz tz-x (desc [1 3] [3 1]))
+  (with-release [tz-x (tensor factory [6 1 1 1] :float [1 1 1 1])
+                 sub-x (view-tz tz-x [2 1 1 1])
+                 sub-y (view-tz tz-x (desc [1 3 1 1] [3 1 1 1]))
                  sub-z (view-tz tz-x 4)]
     (facts "Test subtensors and offsets."
            (transfer! (range) tz-x)
@@ -84,11 +84,9 @@
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native sub-y)) => [0.0 1.0 2.0]
            (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
-           (offset! sub-y 1)
-           (seq (native sub-y)) => [3.0 4.0 5.0]
+           (seq (native (offset! sub-y 1))) => [3.0 4.0 5.0]
            (seq (native sub-x)) => [0.0 1.0]
-           (offset! sub-z 1)
-           (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
+           (seq (native (offset! sub-z 1))) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))
 
 (defn test-transformer [factory]
