@@ -50,7 +50,7 @@
   (with-release [x1 (tensor fact0 [2 1 2 1] :float :nchw)
                  x2 (tensor fact0 [2 1 2 1] :float :nchw)
                  y1 (tensor fact1 [2 1 2 1] :float :nchw)
-                 y2 (tensor fact1 [2 1] :float :nc)]
+                 y2 (tensor fact1 [2 1 1 1] :float [1 1 1 1])]
     (facts "Tensor transfer."
            (transfer! (float-array [1 2 3 4]) x1) => x1
            (seq (transfer! x1 (float-array 4))) => [1.0 2.0 3.0 4.0]
@@ -101,6 +101,7 @@
            (buffer (input transform)) => (buffer tz-x)
            (buffer (output transform)) => (buffer tz-y)
            (transform) => tz-y
+           (asum tz-y) => (asum tz-x)
            (entry (view (native tz-y)) 119) => 119.0)))
 
 (defn test-pull-different [factory]

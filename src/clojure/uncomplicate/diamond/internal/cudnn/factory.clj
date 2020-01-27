@@ -19,7 +19,7 @@
              [cuda :refer [cuda-float cuda-double]]
              [block :refer [buffer offset]]]
             [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
-            [uncomplicate.diamond.tensor :refer [shape data-type layout]]
+            [uncomplicate.diamond.tensor :refer [shape data-type layout view-tz]]
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider ContextProvider
                                 NeanderthalFactoryProvider CostFactory DnnFactory]]
@@ -29,7 +29,7 @@
              [protocols :refer [desc]]
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
                            ndims dims strides transform-tensor add-tensor]]
-             [tensor :refer [cudnn-tensor]]])
+             [tensor :refer [cudnn-tensor cudnn-transformer]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -327,7 +327,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (rand-normal [_ rng-stream mu sigma x]
     (rand-normal (engine (view x)) rng-stream mu sigma (view x))))
 
-(deftype CUDnnFactory [ctx hstream cudnn-hdl master
+o(deftype CUDnnFactory [ctx hstream cudnn-hdl master
                        native-diamond-fact
                        neand-facts tensor-engines]
   Releaseable
@@ -369,7 +369,7 @@ Please contribute towards making it possible, or use on of the supported types."
         (set-all (engine res) 0 res))
       res))
   (create-transformer [_ in-tz out-tz]
-    )
+    (cudnn-transformer cudnn-hdl (view-tz in-tz) (view-tz out-tz)))
   (create-shuffler [_ src-tz dst-tz]
     )
   (create-batcher [_ src-tz dst-tz mb-size]

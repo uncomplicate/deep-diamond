@@ -14,7 +14,8 @@
             [uncomplicate.clojurecuda.internal.protocols :as cuda]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim vctr copy!]]
-             [block :refer [entry-width buffer data-accessor count-entries create-data-source]]
+             [block :refer [entry-width buffer data-accessor count-entries create-data-source
+                            offset cast-prim]]
              [cuda :refer [factory-by-type]]]
             [uncomplicate.neanderthal.internal
              [api :refer [Viewable view flow equals-block compatible? set-all MemoryContext
@@ -30,10 +31,10 @@
               :refer [TensorFactory DiamondFactoryProvider ContextProvider create-tensor
                       create-tensor-desc diamond-factory context neanderthal-factory
                       tensor-engine native-diamond-factory Offset]]
-             [utils :refer [check-contiguous]]]
+             [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl.protocols :refer [data] :as dnnl]
             [uncomplicate.diamond.internal.cudnn
-             [core :refer [tensor-descriptor equal-desc? size dims]]
+             [core :refer [tensor-descriptor equal-desc? size dims transform-tensor]]
              [protocols :refer [DescProvider desc]]])
   (:import clojure.lang.IFn
            [uncomplicate.neanderthal.internal.api Block RealChangeable DataAccessor VectorSpace]
@@ -76,12 +77,14 @@
 (extend-type java.util.Map
   DescProvider
   (desc [this]
-    (tensor-descriptor (:shape this) (or (:data-type this) :float) (or (layout this) :nchw))))
+    (tensor-descriptor (:shape this) (or (:data-type this) :float)
+                       (or (layout this) (default-strides (:shape this))))))
 
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (tensor-descriptor (.shape this) (or (.data-type this) :float) (or (layout this) :nchw))))
+    (tensor-descriptor (.shape this) (or (.data-type this) :float)
+                       (or (layout this) (default-strides (.shape this))))))
 
 (extend-type CUTensorDescriptor
   TensorDescriptor
@@ -106,7 +109,44 @@
   [^CUTensorDescriptor d ^java.io.Writer w]
   (.write w (pr-str {:shape (.dims d) :data-type (.data-type d) :layout (.strides d)})))
 
-(deftype CUDnnTensor [diamond-fact eng vect-view master buf ofst ^CUTensorDescriptor cu-desc]
+;; =================== Transformer ==============================================
+
+(deftype CUDnnTransformer [cudnn-hdl in-tz out-tz]
+  Releaseable
+  (release [_]
+    (release in-tz)
+    (release out-tz))
+  Revert
+  (revert [_]
+    (cudnn-transformer cudnn-hdl (view-tz in-tz) (view-tz out-tz)))
+  Transfer
+  (input [_]
+    in-tz)
+  (output [_]
+    out-tz)
+  IFn
+  (invoke [_]
+    (transform-tensor cudnn-hdl
+                      (cast-prim (data-accessor in-tz) 1.0) in-tz (buffer in-tz) (offset in-tz)
+                      (cast-prim (data-accessor out-tz) 0.0) out-tz (buffer out-tz) (offset out-tz))
+    out-tz)
+  (invoke [_ cudnn-hdl2]
+    (transform-tensor cudnn-hdl2
+                      (cast-prim (data-accessor in-tz) 1.0) in-tz (buffer in-tz) (offset in-tz)
+                      (cast-prim (data-accessor out-tz) 0.0) out-tz (buffer out-tz) (offset out-tz))
+    out-tz)
+  ConnectorCreator
+  (connector [this out-desc]
+    (if (equal-desc? out-tz out-desc)
+      this
+      (connector in-tz out-desc))))
+
+(defn cudnn-transformer [cudnn-hdl in-tz out-tz]
+  (->CUDnnTransformer cudnn-hdl in-tz out-tz))
+
+
+(deftype CUDnnTensor [diamond-fact eng vect-view master buf ofst
+                      ^CUTensorDescriptor cu-desc]
   Object
   (hashCode [x]
     (-> (hash :CUDnnTensor) (hash-combine (hash cu-desc))))

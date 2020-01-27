@@ -28,7 +28,7 @@
     (test-transfer *diamond-factory* dnnl-fact)
     (test-contiguous *diamond-factory*)
     (test-subtensor *diamond-factory*)
-    #_(test-transformer *diamond-factory*)
+    (test-transformer *diamond-factory*)
     #_(test-pull-different *diamond-factory*)
     #_(test-pull-same *diamond-factory*)
     #_(test-push-different *diamond-factory*)

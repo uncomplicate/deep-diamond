@@ -80,6 +80,7 @@
   (.strides ^CUTensorDescriptor (desc td)))
 
 (defn add-tensor
+  "TODO: attention: primitive numbers need explicit casting to double, float etc."
   [cudnn-handle alpha desc-x buf-x ofst-x beta desc-y buf-y ofst-y]
   (add-tensor* (extract cudnn-handle)
                (ptr alpha) (extract (desc desc-x)) (with-offset buf-x ofst-x)
