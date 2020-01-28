@@ -109,40 +109,40 @@
                  tz-y-desc (desc [2 3 4 5] :float :nhwc)
                  connection (connector tz-x tz-y-desc)]
     (facts "Tensor pull connector with different destination"
-           (entry (view (transfer! (range) tz-x)) 119) => 119.0
+           (entry (view (native (transfer! (range) tz-x))) 119) => 119.0
            (identical? (buffer (input connection)) (buffer tz-x)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => false
-           (entry (view (connection)) 119) => 119.0)))
+           (entry (native (view (connection))) 119) => 119.0)))
 
 (defn test-pull-same [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
                  tz-y-desc (desc [2 3 4 5] :float :nchw)
                  connection (connector tz-x tz-y-desc)]
     (facts "Tensor pull connector with the same destination"
-           (entry (view (transfer! (range) tz-x)) 119) => 119.0
+           (entry (view (native (transfer! (range) tz-x))) 119) => 119.0
            (identical? (buffer (input connection)) (buffer tz-x)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => true
-           (entry (view (connection)) 119) => 119.0)))
+           (entry (native (view (connection))) 119) => 119.0)))
 
 (defn test-push-different [factory]
   (with-release [tz-y (tensor factory [2 3 4 5] :float :nchw)
                  tz-x-desc (desc [2 3 4 5] :float :nhwc)
                  connection (connector tz-x-desc tz-y)]
     (facts "Tensor push connector with different destination"
-           (entry (transfer! (range) (view (input connection))) 119) => 119.0
+           (entry (native (transfer! (range) (view (input connection)))) 119) => 119.0
            (identical? (buffer (output connection)) (buffer tz-y)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => false
-           (entry (view (connection)) 119) => 119.0)))
+           (entry (native (view (connection))) 119) => 119.0)))
 
 (defn test-push-same [factory]
   (with-release [tz-y (tensor factory [2 3 4 5] :float :nchw)
                  tz-x-desc (desc [2 3 4 5] :float :nchw)
                  connection (connector tz-x-desc tz-y)]
     (facts "Tensor push connector with the same destination"
-           (entry (transfer! (range) (view connection)) 119) => 119.0
+           (entry (native (transfer! (range) (view (input connection)))) 119) => 119.0
            (identical? (buffer (output connection)) (buffer tz-y)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => true
-           (entry (view (connection)) 119) => 119.0)))
+           (entry (native (view (connection))) 119) => 119.0)))
 
 (defn test-shuffler [factory]
   (with-release [tz-x (tensor factory [6 2] :float :nc)

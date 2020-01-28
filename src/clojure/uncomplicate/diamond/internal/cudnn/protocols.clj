@@ -10,3 +10,6 @@
 
 (defprotocol DescProvider
   (desc [this]))
+
+(defprotocol HandleProvider
+  (handle [_]))

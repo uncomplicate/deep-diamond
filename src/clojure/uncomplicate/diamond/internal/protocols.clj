@@ -8,9 +8,6 @@
   (diamond-factory [_])
   (native-diamond-factory [_]))
 
-(defprotocol ContextProvider
-  (context [_]))
-
 (defprotocol NeanderthalFactoryProvider
   (neanderthal-factory [this dtype]))
 

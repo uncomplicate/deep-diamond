@@ -21,15 +21,15 @@
             [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
             [uncomplicate.diamond.tensor :refer [shape data-type layout view-tz]]
             [uncomplicate.diamond.internal
-             [protocols :refer [TensorFactory DiamondFactoryProvider ContextProvider
-                                NeanderthalFactoryProvider CostFactory DnnFactory]]
+             [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
+                                CostFactory DnnFactory]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn
-             [protocols :refer [desc]]
+             [protocols :refer [HandleProvider desc]]
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
                            ndims dims strides transform-tensor add-tensor]]
-             [tensor :refer [cudnn-tensor cudnn-transformer]]])
+             [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -327,7 +327,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (rand-normal [_ rng-stream mu sigma x]
     (rand-normal (engine (view x)) rng-stream mu sigma (view x))))
 
-o(deftype CUDnnFactory [ctx hstream cudnn-hdl master
+(deftype CUDnnFactory [ctx hstream cudnn-hdl master
                        native-diamond-fact
                        neand-facts tensor-engines]
   Releaseable
@@ -351,9 +351,9 @@ o(deftype CUDnnFactory [ctx hstream cudnn-hdl master
   FlowProvider
   (flow [_]
     hstream)
-  ContextProvider
-  (context [_]
-    ctx)
+  HandleProvider
+  (handle [_]
+    cudnn-hdl)
   NeanderthalFactoryProvider
   (neanderthal-factory [_ dtype]
     (or (get neand-facts dtype)
@@ -373,7 +373,7 @@ o(deftype CUDnnFactory [ctx hstream cudnn-hdl master
   (create-shuffler [_ src-tz dst-tz]
     )
   (create-batcher [_ src-tz dst-tz mb-size]
-    )
+    (cudnn-batcher cudnn-hdl src-tz dst-tz mb-size))
   (create-sum [_ scale dst]
     )
   (create-sum [_ dst scale src scale-srcs]

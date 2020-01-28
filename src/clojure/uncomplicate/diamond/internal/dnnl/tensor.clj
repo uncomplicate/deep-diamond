@@ -25,15 +25,14 @@
                      Revert ConnectorCreator connector view-tz]
              :as tz]
             [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider ContextProvider diamond-factory context
-                     create-tensor neanderthal-factory tensor-engine native-diamond-factory
-                     Offset]]
+             :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
+                     neanderthal-factory tensor-engine native-diamond-factory Offset]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
                            equal-desc? execute! reorder primitive fwd-args offset! ndims]
               :as dnnl-core]
              [constants :refer [entry-bytes]]
-             [protocols :refer [DescProvider desc data ptr]]])
+             [protocols :refer [DescProvider desc data ptr dnnl-engine]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn]
            [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable]
@@ -84,7 +83,7 @@
           (view-tz out-tz)
           (let [fact (diamond-factory out-tz)]
             (let-release [in-tz (dnnl-tensor fact in-desc)]
-              (dnnl-transformer (context fact) (flow fact) in-tz (view-tz out-tz)))))))))
+              (dnnl-transformer (dnnl-engine fact) (flow fact) in-tz (view-tz out-tz)))))))))
 
 (defmethod print-method dnnl_memory_desc_t
   [^dnnl_memory_desc_t d ^java.io.Writer w]
@@ -154,8 +153,7 @@
   (invoke [_ strm2 src-n dst-n]
     (let [src-n (long src-n)
           dst-n (long dst-n)]
-      (if (and (< -1 src-n) (< (+ mb-size src-n) (inc src-cnt))
-               (< -1 dst-n) (< (+ mb-size dst-n) (inc dst-cnt)))
+      (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
         (do
           (offset! src-submem (* src-entry-width src-stride-n src-n))
           (offset! dst-submem (* dst-entry-width dst-stride-n dst-n))
@@ -419,7 +417,7 @@
                              (submemory-desc tz-mem sub)
                              (memory-desc (shape sub) (or (tz/data-type sub) (data-type tz-mem))
                                           (or (layout sub) (strides tz-mem))))
-                  sub-mem (memory (context diamond-fact) sub-desc (data tz-mem) false)
+                  sub-mem (memory (dnnl-engine diamond-fact) sub-desc (data tz-mem) false)
                   shp (dims sub-mem)]
       (->DnnlTensor diamond-fact neand-fact eng false sub-mem
                     (first shp) (apply * (rest shp)))))
@@ -433,12 +431,12 @@
     (if (equal-desc? tz-mem out-desc)
       (view-tz in-tz)
       (let-release [out-tz (dnnl-tensor diamond-fact neand-fact eng out-desc)]
-        (dnnl-transformer (context diamond-fact) (flow diamond-fact) (view-tz in-tz) out-tz)))))
+        (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view-tz in-tz) out-tz)))))
 
 (defn dnnl-tensor
   ([diamond-fact neand-fact eng mem-desc]
    (let [mem-desc (desc mem-desc)
-         tz-mem (memory (context diamond-fact) mem-desc)
+         tz-mem (memory (dnnl-engine diamond-fact) mem-desc)
          shp (dims mem-desc)]
      (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)))))
   ([diamond-fact mem-desc]

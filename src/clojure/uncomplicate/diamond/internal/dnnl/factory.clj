@@ -20,10 +20,10 @@
             [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output
                                                  shape data-type layout]]
             [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider ContextProvider CostFactory
-                     DnnFactory NeanderthalFactoryProvider]]
+             :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
+                     NeanderthalFactoryProvider]]
             [uncomplicate.diamond.internal.dnnl
-             [protocols :refer [desc data]]
+             [protocols :refer [desc data DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler
                              check-contiguous]]
@@ -284,8 +284,8 @@ Please contribute towards making it possible, or use on of the supported types."
   FlowProvider
   (flow [_]
     strm)
-  ContextProvider
-  (context [_]
+  DnnlEngineProvider
+  (dnnl-engine [_]
     eng)
   NeanderthalFactoryProvider
   (neanderthal-factory [_ dtype]

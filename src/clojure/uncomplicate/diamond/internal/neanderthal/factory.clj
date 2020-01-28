@@ -14,10 +14,10 @@
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output]]
             [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider ContextProvider CostFactory DnnFactory
+             :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
                      NeanderthalFactoryProvider]]
             [uncomplicate.diamond.internal.dnnl
-             [protocols :refer [desc]]
+             [protocols :refer [desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
@@ -45,8 +45,8 @@ Please contribute towards making it possible, or use on of the supported types."
   FlowProvider
   (flow [_]
     strm)
-  ContextProvider
-  (context [_]
+  DnnlEngineProvider
+  (dnnl-engine [_]
     eng)
   NeanderthalFactoryProvider
   (neanderthal-factory [_ dtype]

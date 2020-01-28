@@ -48,11 +48,13 @@
             (throw e)))))))
 
 (defn equal-desc? [td1 td2]
-  (and (instance? CUTensorDescriptor td1) (instance? CUTensorDescriptor td2)
-       (let [td1 ^CUTensorDescriptor td1
-             td2 ^CUTensorDescriptor td2]
-         (and (= (.dims td1) (.dims td2)) (= (.data-type td1) (.data-type td2))
-              (= (.strides td1) (.strides td2))))))
+  (let [td1 (desc td1)
+        td2 (desc td2)]
+    (and (instance? CUTensorDescriptor td1) (instance? CUTensorDescriptor td2)
+         (let [td1 ^CUTensorDescriptor td1
+               td2 ^CUTensorDescriptor td2]
+           (and (= (.dims td1) (.dims td2)) (= (.data-type td1) (.data-type td2))
+                (= (.strides td1) (.strides td2)))))))
 
 (defn data-type
   "Returns the data type of a tensor descriptor."

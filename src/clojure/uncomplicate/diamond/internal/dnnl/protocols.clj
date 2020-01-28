@@ -29,3 +29,6 @@
 
 (defprotocol PrimitiveDescCreator
   (primitive-desc* [this eng] [this eng hint-pd] [this attr eng hint-pd]))
+
+(defprotocol DnnlEngineProvider
+  (dnnl-engine [_]))

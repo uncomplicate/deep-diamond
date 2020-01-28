@@ -28,14 +28,14 @@
                      input output Revert ConnectorCreator connector view-tz]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [TensorFactory DiamondFactoryProvider ContextProvider create-tensor
-                      create-tensor-desc diamond-factory context neanderthal-factory
-                      tensor-engine native-diamond-factory Offset]]
+              :refer [TensorFactory DiamondFactoryProvider create-tensor create-tensor-desc
+                      diamond-factory neanderthal-factory tensor-engine native-diamond-factory
+                      Offset]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl.protocols :refer [data] :as dnnl]
             [uncomplicate.diamond.internal.cudnn
-             [core :refer [tensor-descriptor equal-desc? size dims transform-tensor]]
-             [protocols :refer [DescProvider desc]]])
+             [core :refer [tensor-descriptor equal-desc? size dims strides transform-tensor]]
+             [protocols :refer [DescProvider desc handle]]])
   (:import clojure.lang.IFn
            [uncomplicate.neanderthal.internal.api Block RealChangeable DataAccessor VectorSpace]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
@@ -57,14 +57,14 @@
   (check-contiguous host cuda)
   (transfer! (view host) (view cuda))
   #_(memcpy-host! (data (buffer host)) (buffer cuda)
-                (flow (diamond-factory cuda)))
+                  (flow (diamond-factory cuda)))
   cuda)
 
 (defn get-tensor! [cuda host]
   (check-contiguous host cuda)
   (transfer! (view cuda) (view host))
   #_(memcpy-host! (buffer cuda) (data (buffer host))
-                (flow (diamond-factory cuda)))
+                  (flow (diamond-factory cuda)))
   host)
 
 (declare ->CUDnnTensor cudnn-transformer cudnn-tensor cudnn-shuffler)
@@ -103,7 +103,7 @@
           (view-tz out-tz)
           (let [fact (diamond-factory out-tz)]
             (let-release [in-tz (cudnn-tensor fact in-desc)]
-              (cudnn-transformer (context fact) (flow fact) in-tz (view-tz out-tz)))))))))
+              (cudnn-transformer (handle fact) in-tz (view-tz out-tz)))))))))
 
 (defmethod print-method CUTensorDescriptor
   [^CUTensorDescriptor d ^java.io.Writer w]
@@ -127,13 +127,17 @@
   IFn
   (invoke [_]
     (transform-tensor cudnn-hdl
-                      (cast-prim (data-accessor in-tz) 1.0) in-tz (buffer in-tz) (offset in-tz)
-                      (cast-prim (data-accessor out-tz) 0.0) out-tz (buffer out-tz) (offset out-tz))
+                      (cast-prim (data-accessor in-tz) 1.0)
+                      in-tz (buffer in-tz) (offset in-tz)
+                      (cast-prim (data-accessor out-tz) 0.0)
+                      out-tz (buffer out-tz) (offset out-tz))
     out-tz)
   (invoke [_ cudnn-hdl2]
     (transform-tensor cudnn-hdl2
-                      (cast-prim (data-accessor in-tz) 1.0) in-tz (buffer in-tz) (offset in-tz)
-                      (cast-prim (data-accessor out-tz) 0.0) out-tz (buffer out-tz) (offset out-tz))
+                      (cast-prim (data-accessor in-tz) 1.0)
+                      in-tz (buffer in-tz) (offset in-tz)
+                      (cast-prim (data-accessor out-tz) 0.0)
+                      out-tz (buffer out-tz) (offset out-tz))
     out-tz)
   ConnectorCreator
   (connector [this out-desc]
@@ -144,6 +148,55 @@
 (defn cudnn-transformer [cudnn-hdl in-tz out-tz]
   (->CUDnnTransformer cudnn-hdl in-tz out-tz))
 
+;; =================== Batcher ==================================================
+
+(deftype CUDnnBatcher [cudnn-hdl src-sub dst-sub src-tz dst-tz ^long mb-size
+                       ^long src-cnt ^long src-stride-n ^long dst-cnt ^long dst-stride-n]
+  Releaseable
+  (release [_]
+    (release src-tz)
+    (release dst-tz)
+    (release src-sub)
+    (release dst-sub))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    dst-tz)
+  IFn
+  (invoke [this]
+    (.invoke this cudnn-hdl 0 0))
+  (invoke [this src-n]
+    (.invoke this cudnn-hdl src-n 0))
+  (invoke [this src-n dst-n]
+    (.invoke this cudnn-hdl src-n dst-n))
+  (invoke [_ cudnn-hdl2 src-n dst-n]
+    (let [src-n (long src-n)
+          dst-n (long dst-n)]
+      (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
+        (transform-tensor cudnn-hdl2
+                          (cast-prim (data-accessor src-sub) 1.0) src-sub (buffer src-sub)
+                          (+ (offset src-sub) (* src-stride-n src-n))
+                          (cast-prim (data-accessor dst-sub) 1.0) dst-sub (buffer dst-sub)
+                          (+ (offset dst-sub) (* dst-stride-n dst-n)))
+        (dragan-says-ex "Requested subtensor is outside of bounds."
+                        {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt
+                         :mb-size mb-size})))
+    dst-tz)
+  ConnectorCreator
+  (connector [this dst-desc]
+    (if (equal-desc? dst-tz dst-desc)
+      this
+      (connector src-tz dst-desc))))
+
+(defn cudnn-batcher [cudnn-hdl src-tz dst-tz mb-size]
+  (let [mb-size (max 1 (long mb-size))]
+    (let-release [src-sub (view-tz src-tz mb-size)
+                  dst-sub (view-tz dst-tz mb-size)]
+      (->CUDnnBatcher cudnn-hdl src-sub dst-sub
+                      (view-tz src-tz) (view-tz dst-tz) mb-size
+                      ((dims src-tz) 0) ((strides src-sub) 0)
+                      ((dims dst-tz) 0) ((strides dst-sub) 0)))))
 
 (deftype CUDnnTensor [diamond-fact eng vect-view master buf ofst
                       ^CUTensorDescriptor cu-desc]
@@ -291,16 +344,17 @@
       (->CUDnnTensor diamond-fact eng
                      (cu-block-vector (factory vect-view) false buf (dim this) ofst 1)
                      false buf ofst cu-desc)))
-  ;;ConnectorCreator
-  #_(connector [in-tz out-desc];;TODO
-      (if (equal-desc? tz-mem out-desc)
-        (view-tz in-tz)
-        (let-release [out-tz (dnnl-tensor fact neand-fact eng out-desc)]
-          (dnnl-transformer eng (flow fact) (view-tz in-tz) out-tz)))))
+  ConnectorCreator
+  (connector [in-tz out-desc]
+    (if (equal-desc? cu-desc out-desc)
+      (view-tz in-tz)
+      (let-release [out-tz (cudnn-tensor diamond-fact out-desc)]
+        (cudnn-transformer (handle diamond-fact) (view-tz in-tz) out-tz)))))
 
 (defn cudnn-tensor
   ([diamond-fact master buf tdesc]
-   (let [neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
+   (let [tdesc (desc tdesc)
+         neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
          tz-cnt (apply * (shape tdesc))]
      (if (<= 0 (size tdesc) (cuda/size buf))
        (let-release [vect-view (cu-block-vector neand-fact false buf tz-cnt 0 1)]
@@ -309,8 +363,9 @@
                         vect-view master buf 0 tdesc))
        (throw (ex-info "Insufficient buffer size." {:size (size tdesc) :buffer-size (cuda/size buf)})))))
   ([diamond-fact tdesc]
-   (let-release [buf (mem-alloc (max 1 (size tdesc)))]
-     (cudnn-tensor diamond-fact true buf tdesc))))
+   (let [tdesc (desc tdesc)]
+     (let-release [buf (mem-alloc (max 1 (size tdesc)))]
+       (cudnn-tensor diamond-fact true buf tdesc)))))
 
 (defmethod print-method CUDnnTensor;;TODO see about printing entries...
   [^CUDnnTensor x ^java.io.Writer w]
