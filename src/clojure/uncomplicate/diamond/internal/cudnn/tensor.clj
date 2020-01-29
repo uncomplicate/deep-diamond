@@ -151,7 +151,8 @@
 ;; =================== Batcher ==================================================
 
 (deftype CUDnnBatcher [cudnn-hdl src-sub dst-sub src-tz dst-tz ^long mb-size
-                       ^long src-cnt ^long src-stride-n ^long dst-cnt ^long dst-stride-n]
+                       ^long src-cnt ^long src-stride-n ^long src-entry-width
+                       ^long dst-cnt ^long dst-stride-n ^long dst-entry-width]
   Releaseable
   (release [_]
     (release src-tz)
@@ -176,9 +177,9 @@
       (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
         (transform-tensor cudnn-hdl2
                           (cast-prim (data-accessor src-sub) 1.0) src-sub (buffer src-sub)
-                          (+ (offset src-sub) (* src-stride-n src-n))
+                          (+ (offset src-sub) (* src-entry-width src-stride-n src-n))
                           (cast-prim (data-accessor dst-sub) 1.0) dst-sub (buffer dst-sub)
-                          (+ (offset dst-sub) (* dst-stride-n dst-n)))
+                          (+ (offset dst-sub) (* dst-entry-width dst-stride-n dst-n)))
         (dragan-says-ex "Requested subtensor is outside of bounds."
                         {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt
                          :mb-size mb-size})))
@@ -195,8 +196,38 @@
                   dst-sub (view-tz dst-tz mb-size)]
       (->CUDnnBatcher cudnn-hdl src-sub dst-sub
                       (view-tz src-tz) (view-tz dst-tz) mb-size
-                      ((dims src-tz) 0) ((strides src-sub) 0)
-                      ((dims dst-tz) 0) ((strides dst-sub) 0)))))
+                      ((dims src-tz) 0) ((strides src-sub) 0) (entry-width (data-accessor src-sub))
+                      ((dims dst-tz) 0) ((strides dst-sub) 0) (entry-width (data-accessor dst-sub))))))
+
+(deftype CUDnnShuffler [cudnn-hdl batcher]
+  Releaseable
+  (release [_]
+    (release batcher))
+  Transfer
+  (input [_]
+    (input batcher))
+  (output [_]
+    (output batcher))
+  IFn
+  (invoke [this cols]
+    (.invoke this cudnn-hdl cols))
+  (invoke [_ cudnn-hdl2 cols]
+    (loop [src-n (first cols) cols (rest cols) dst-n 0]
+      (when src-n
+        (batcher cudnn-hdl src-n dst-n)
+        (recur (first cols) (rest cols) (inc dst-n))))
+    (output batcher))
+  ConnectorCreator
+  (connector [this dst-desc]
+    (if (equal-desc? (output batcher) dst-desc)
+      this
+      (connector batcher dst-desc))))
+
+(defn cudnn-shuffler [cudnn-hdl src-tz dst-tz]
+  (->CUDnnShuffler cudnn-hdl (cudnn-batcher cudnn-hdl src-tz dst-tz 1)))
+
+
+;; ================================ Tensor ======================================
 
 (deftype CUDnnTensor [diamond-fact eng vect-view master buf ofst
                       ^CUTensorDescriptor cu-desc]

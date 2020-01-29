@@ -16,7 +16,7 @@
    (when-not (.isContiguous x)
      (dragan-says-ex "This operation is supported only on contiguous tensors.
 Please use a copy or create a transformer."
-                     {:strides (layout ~x)})))
+                     {:strides (layout x)})))
   ([^Block x ^Block y]
    (check-contiguous x)
    (check-contiguous y))

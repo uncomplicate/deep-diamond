@@ -29,7 +29,7 @@
              [protocols :refer [HandleProvider desc]]
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
                            ndims dims strides transform-tensor add-tensor]]
-             [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher]]])
+             [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -371,7 +371,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-transformer [_ in-tz out-tz]
     (cudnn-transformer cudnn-hdl (view-tz in-tz) (view-tz out-tz)))
   (create-shuffler [_ src-tz dst-tz]
-    )
+    (cudnn-shuffler cudnn-hdl src-tz dst-tz))
   (create-batcher [_ src-tz dst-tz mb-size]
     (cudnn-batcher cudnn-hdl src-tz dst-tz mb-size))
   (create-sum [_ scale dst]

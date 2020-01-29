@@ -33,4 +33,5 @@
     (test-pull-same *diamond-factory*)
     (test-push-different *diamond-factory*)
     (test-push-same *diamond-factory*)
-    #_(test-shuffler *diamond-factory*)))
+    (test-batcher *diamond-factory*)
+    (test-shuffler *diamond-factory*)))

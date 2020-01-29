@@ -175,14 +175,14 @@
       (with-release [reorder-pd (reorder eng (buffer src-sub) (buffer dst-sub))]
         (let-release [reorder-prim (primitive reorder-pd)]
           (->DnnlBatcher eng strm reorder-prim
-                          (fwd-args (buffer src-sub) (buffer dst-sub))
-                          (buffer src-sub) (buffer dst-sub)
-                          (view-tz src-tz) (view-tz dst-tz)
-                          mb-size
-                          ((dims src-tz) 0) ((strides src-sub) 0)
-                          (entry-bytes (data-type src-tz))
-                          ((dims dst-tz) 0) ((strides dst-sub) 0)
-                          (entry-bytes (data-type dst-tz))))))))
+                         (fwd-args (buffer src-sub) (buffer dst-sub))
+                         (buffer src-sub) (buffer dst-sub)
+                         (view-tz src-tz) (view-tz dst-tz)
+                         mb-size
+                         ((dims src-tz) 0) ((strides src-sub) 0)
+                         (entry-bytes (data-type src-tz))
+                         ((dims dst-tz) 0) ((strides dst-sub) 0)
+                         (entry-bytes (data-type dst-tz))))))))
 
 
 (deftype DnnlShuffler [strm batcher]
@@ -215,53 +215,53 @@
 ;; ================================ Tensor ======================================
 
 #_(let [array? (partial instance? (type (long-array 0)))]
-  (defn offset
-    ([sa]
-     (cond
-       (integer? sa)
-       (let [sa (long sa)
-             strides (long-array [sa])]
+    (defn offset
+      ([sa]
+       (cond
+         (integer? sa)
+         (let [sa (long sa)
+               strides (long-array [sa])]
+           (fn
+             (^longs []
+              strides)
+             (^long [^long a]
+              (* a sa))))
+         (array? sa)
+         (let [strides ^longs sa
+               n (alength strides)]
+           (fn
+             (^longs []
+              strides)
+             (^long [^longs indices]
+              (loop [i 0 res 0]
+                (if (< i n)
+                  (recur (inc i) (+ res (* (aget indices i) (aget strides i))))
+                  res)))))
+         (sequential? sa)
+         (offset (long-array sa))
+         :default (ex-info "Offset function cannot accept this type of stride collection."
+                           {:type (type sa)})))
+      ([^long sa ^long sb]
+       (let [strides (long-array [sa sb])]
          (fn
            (^longs []
             strides)
-           (^long [^long a]
-            (* a sa))))
-       (array? sa)
-       (let [strides ^longs sa
-             n (alength strides)]
+           (^long [^long a ^long b]
+            (+ (* a sa) (* b sb))))))
+      ([^long sa ^long sb ^long sc]
+       (let [strides (long-array [sa sb sc])]
          (fn
            (^longs []
             strides)
-           (^long [^longs indices]
-            (loop [i 0 res 0]
-              (if (< i n)
-                (recur (inc i) (+ res (* (aget indices i) (aget strides i))))
-                res)))))
-       (sequential? sa)
-       (offset (long-array sa))
-       :default (ex-info "Offset function cannot accept this type of stride collection."
-                         {:type (type sa)})))
-    ([^long sa ^long sb]
-     (let [strides (long-array [sa sb])]
-       (fn
-         (^longs []
-          strides)
-         (^long [^long a ^long b]
-          (+ (* a sa) (* b sb))))))
-    ([^long sa ^long sb ^long sc]
-     (let [strides (long-array [sa sb sc])]
-       (fn
-         (^longs []
-          strides)
-         (^long [^long a ^long b ^long c]
-          (+ (* a sa) (* b sb) (* c sc))))))
-    ([^long sa ^long sb ^long sc ^long sd]
-     (let [strides (long-array [sa sb sc sd])]
-       (fn
-         (^longs []
-          strides)
-         (^long [^long a ^long b ^long c ^long d]
-          (+ (* a sa) (* b sb) (* c sc) (* d sd))))))))
+           (^long [^long a ^long b ^long c]
+            (+ (* a sa) (* b sb) (* c sc))))))
+      ([^long sa ^long sb ^long sc ^long sd]
+       (let [strides (long-array [sa sb sc sd])]
+         (fn
+           (^longs []
+            strides)
+           (^long [^long a ^long b ^long c ^long d]
+            (+ (* a sa) (* b sb) (* c sc) (* d sd))))))))
 
 (deftype DnnlTensor [diamond-fact neand-fact eng master tz-mem
                      ^long n ^long c]

@@ -94,15 +94,21 @@
 (defn test-transformer [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
                  tz-y (tensor factory [2 3 4 5] :float :nhwc)
-                 transform (transformer tz-x tz-y)]
-    (facts "Tensor transformator"
+                 tz-sub-x (view-tz tz-x [1 3 4 5])
+                 tz-sub-y (view-tz tz-y [1 3 4 5])
+                 transform (transformer tz-x tz-y)
+                 sub-transform (transformer tz-sub-x tz-sub-y)]
+    (facts "Tensor transformer"
            (entry (view (native (transfer! (range) tz-x))) 119) => 119.0
            (entry (view (native tz-y)) 119) => 0.0
            (buffer (input transform)) => (buffer tz-x)
            (buffer (output transform)) => (buffer tz-y)
            (transform) => tz-y
            (asum tz-y) => (asum tz-x)
-           (entry (view (native tz-y)) 119) => 119.0)))
+           (entry (view (native tz-y)) 119) => 119.0
+           (transfer! (range 0 1000 10) tz-x)
+           (sub-transform) => tz-sub-y
+           (entry (view (native tz-y)) 34) => 310.0)))
 
 (defn test-pull-different [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
@@ -145,36 +151,36 @@
            (entry (native (view (connection))) 119) => 119.0)))
 
 (defn test-shuffler [factory]
-  (with-release [tz-x (tensor factory [6 2] :float :nc)
-                 tz-y (tensor factory [3 2] :float :cn)
+  (with-release [tz-x (tensor factory [6 2 1 1] :float [2 1 1 1])
+                 tz-y (tensor factory [3 2 1 1] :float [1 3 1 1])
                  shuff (shuffler tz-x tz-y)]
     (facts "shuffler test."
            (transfer! (range 1 13) tz-x)
-           (seq tz-x) => (range 1.0 13.0)
-           (seq tz-y) => [0.0 0.0 0.0 0.0 0.0 0.0]
+           (seq (native tz-x)) => (range 1.0 13.0)
+           (seq (native tz-y)) => [0.0 0.0 0.0 0.0 0.0 0.0]
            (shuff [0 2 1])
-           (seq tz-y) => [1.0 5.0 3.0 2.0 6.0 4.0]
+           (seq (native tz-y)) => [1.0 5.0 3.0 2.0 6.0 4.0]
            (shuff [0 2 1 1]) => (throws ExceptionInfo)
            (shuff [0 2 8]) => (throws ExceptionInfo)
            (shuff [0 1]) => tz-y)))
 
 (defn test-batcher [factory]
-  (with-release [tz-x (tensor factory [7 2] :float :nc)
-                 tz-y (tensor factory [3 2] :float :cn)
+  (with-release [tz-x (tensor factory [7 2 1 1] :float [2 1 1 1])
+                 tz-y (tensor factory [3 2 1 1] :float [1 3 1 1])
                  batch (batcher tz-x tz-y 3)
                  batch-2 (batcher tz-x tz-y 2)]
     (facts "batcher test."
            (transfer! (range 1 15) tz-x)
-           (seq tz-x) => (range 1.0 15.0)
-           (seq tz-y) => (repeat 6 0.0)
+           (seq (native tz-x)) => (range 1.0 15.0)
+           (seq (native tz-y)) => (repeat 6 0.0)
            (batch 0 0) => tz-y
-           (seq tz-y) => [1.0 3.0 5.0 2.0 4.0 6.0]
+           (seq (native tz-y)) => [1.0 3.0 5.0 2.0 4.0 6.0]
            (transfer! (repeat 0) tz-y)
            (batch 1 0) => tz-y
-           (seq tz-y) => [3.0 5.0 7.0 4.0 6.0 8.0]
+           (seq (native tz-y)) => [3.0 5.0 7.0 4.0 6.0 8.0]
            (transfer! (repeat 0) tz-y)
            (batch-2 1 1) => tz-y
-           (seq tz-y) => [0.0 3.0 5.0 0.0 4.0 6.0]
+           (seq (native tz-y)) => [0.0 3.0 5.0 0.0 4.0 6.0]
            (batch 8) => (throws ExceptionInfo)
            (batch 0 -1) => (throws ExceptionInfo)
            (batch 7 -1) => (throws ExceptionInfo)

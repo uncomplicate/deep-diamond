@@ -40,6 +40,7 @@
   (test-pull-same diamond-factory)
   (test-push-different diamond-factory)
   (test-push-same diamond-factory)
+  (test-batcher diamond-factory)
   (test-shuffler diamond-factory))
 
 (with-release [eng (engine)
@@ -59,4 +60,5 @@
     (test-pull-same *diamond-factory*)
     (test-push-different *diamond-factory*)
     (test-push-same *diamond-factory*)
+    (test-batcher *diamond-factory*)
     (test-shuffler *diamond-factory*)))
