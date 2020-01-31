@@ -305,8 +305,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-batcher eng strm (view-tz src-tz) (view-tz dst-tz) mb-size))
   (create-sum [_ scale dst]
     (dnnl-sum-blueprint eng strm scale dst))
-  (create-sum [_ dst scale src scale-srcs]
-    (dnnl-sum-blueprint eng strm dst scale src scale-srcs))
+  (create-sum [_ scale-src src scale-dst dst]
+    (dnnl-sum-blueprint eng strm scale-src src scale-dst dst))
   (tensor-engine [this dtype]
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))

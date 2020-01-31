@@ -1,3 +1,11 @@
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (ns uncomplicate.diamond.internal.dnnl.core-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons
@@ -145,6 +153,27 @@
          (execute! s sum-prim sum-args) => s
          (get-float buf 0) => -200.0
          (get-float buf 1) => 40.0))
+
+(facts "In-place Sum operation with two sources"
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 3 4 5] :float :nchw)
+                      buf-src (direct-buffer (size md))
+                      src (memory eng md buf-src)
+                      buf-dst (direct-buffer (size md))
+                      dst (memory eng md buf-dst)
+                      sum-pd (sum! eng md 2.0 md 3.0 md)
+                      sum-prim (primitive sum-pd)
+                      sum-args (args dst src dst)]
+         (put-float buf-src 0 -100)
+         (put-float buf-src 1 10)
+         (put-float buf-dst 0 -200)
+         (put-float buf-dst 1 20)
+         (execute! s sum-prim sum-args) => s
+         (get-float buf-src 0) => -100.0
+         (get-float buf-src 1) => 10.0
+         (get-float buf-dst 0) => -800.0
+         (get-float buf-dst 1) => 80.0))
 
 (facts "Out of place Sum operation"
        (with-release [eng (engine)

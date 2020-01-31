@@ -440,7 +440,7 @@
          shp (dims mem-desc)]
      (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)))))
   ([diamond-fact mem-desc]
-   (let [dtype (tz/data-type mem-desc)]
+   (let [dtype (tz/data-type (desc mem-desc))]
      (dnnl-tensor diamond-fact (neanderthal-factory diamond-fact dtype)
                   (tensor-engine diamond-fact dtype) mem-desc))))
 

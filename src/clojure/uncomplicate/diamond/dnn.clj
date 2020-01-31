@@ -22,15 +22,12 @@
   ([^double scale dst]
    (let [dst (api/create-tensor-desc *diamond-factory* dst)]
      (api/create-sum *diamond-factory* scale dst)))
-  ([dst ^double scale src]
-   (let [fact *diamond-factory*]
-     (api/create-sum fact (api/create-tensor-desc fact dst)
-                     scale (api/create-tensor-desc fact src) nil)))
-  ([fact dst scale src & scales-srcs]
-   (api/create-sum (api/diamond-factory fact) (api/create-tensor-desc fact dst)
-                   scale (api/create-tensor-desc fact src)
-                   (map #(if (number? %) % (api/create-tensor-desc fact %))
-                        scales-srcs))))
+  ([^double scale-src src ^double scale-dst dst]
+   (sum *diamond-factory* scale-src src scale-dst dst))
+  ([fact scale-src src scale-dst dst]
+   (api/create-sum (api/diamond-factory fact)
+                   scale-src src
+                   scale-dst dst)))
 
 (defn activation
   ([fact src-desc activ alpha beta]

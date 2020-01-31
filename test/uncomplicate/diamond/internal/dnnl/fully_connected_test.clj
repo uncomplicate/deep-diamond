@@ -1,3 +1,11 @@
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (ns uncomplicate.diamond.internal.dnnl.fully-connected-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons [core :refer [with-release]]]
@@ -11,24 +19,12 @@
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
              [dnn :refer [weights bias sum activation inner-product fully-connected
-                          network init! train cost train]]]
+                          network init! train cost train]]
+             [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
              :refer [diff-bias diff-weights forward backward layers]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]])
   (:import clojure.lang.ExceptionInfo))
-
-(defn test-sum [factory]
-  (facts
-   "Tensor sum test"
-   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
-                  tz-y (tensor factory [2 3 4 5] :float :nhwc)
-                  sum-bp (sum factory tz-y 2.0 tz-x)
-                  sum-xy (sum-bp tz-y tz-x)]
-     (entry (native (transfer! (range) (view tz-x))) 119) => 119.0
-     (entry (native (view tz-y)) 119) => 0.0
-     (sum-xy) => tz-y
-     (entry (native (view tz-y)) 119) => 238.0)))
-
 
 (with-release [fact (dnnl-factory)]
   (test-sum fact))

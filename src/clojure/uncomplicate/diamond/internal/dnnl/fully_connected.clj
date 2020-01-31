@@ -1,3 +1,11 @@
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
 (ns uncomplicate.diamond.internal.dnnl.fully-connected
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info]]
@@ -41,26 +49,18 @@
   (release [_]
     (release sum-pd))
   IFn
-  (invoke [this src-and-dst]
+  (invoke [_ src-and-dst]
     (let-release [sum-prim (primitive sum-pd)]
       (->DnnlSum strm src-and-dst sum-prim (args (buffer src-and-dst)))))
-  (invoke [this dst src]
+  (invoke [_ src dst]
     (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm dst sum-prim (args (buffer dst) (buffer src)))))
-  (invoke [this dst src0 src1]
-    (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm dst sum-prim
-                 (args (buffer dst) (buffer src0) (buffer src1)))))
-  (invoke [this dst src0 src1 srcs]
-    (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm dst sum-prim
-                 (apply args (buffer dst) (buffer src0) (buffer src1) (map buffer srcs))))))
+      (->DnnlSum strm dst sum-prim (args (buffer dst) (buffer dst) (buffer src))))))
 
 (defn dnnl-sum-blueprint
   ([eng strm scale dst]
    (->DnnlSumBlueprint strm (sum! eng scale dst)))
-  ([eng strm dst scale src scale-srcs]
-   (->DnnlSumBlueprint strm (apply sum! eng dst scale src scale-srcs))))
+  ([eng strm scale-src src scale-dst dst]
+   (->DnnlSumBlueprint strm (sum! eng dst scale-dst dst scale-src src))))
 
 ;; ================================ Activation =============================================
 

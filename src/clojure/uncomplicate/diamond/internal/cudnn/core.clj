@@ -81,6 +81,8 @@
   [td]
   (.strides ^CUTensorDescriptor (desc td)))
 
+;; TODO There seems to be a bug in either cuDNN or JCuda. Instead of with beta,
+;; y is multiplied with beta squared! Equivalent function transform-tensor works correctly!
 (defn add-tensor
   "TODO: attention: primitive numbers need explicit casting to double, float etc."
   [cudnn-handle alpha desc-x buf-x ofst-x beta desc-y buf-y ofst-y]

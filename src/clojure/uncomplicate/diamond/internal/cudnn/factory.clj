@@ -28,8 +28,9 @@
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
-                           ndims dims strides transform-tensor add-tensor]]
-             [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler]]])
+                           ndims dims strides transform-tensor]]
+             [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler]]
+             [fully-connected :refer [cudnn-sum-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -172,8 +173,8 @@ Please contribute towards making it possible, or use on of the supported types."
                       (cast 0.0) y (buffer y) (* (offset y) byte-cnt))
     y)
   (axpy [_ alpha x y]
-    (add-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
-                (cast 1.0) y (buffer y) (* (offset y) byte-cnt))
+    (transform-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
+                      (cast 1.0) y (buffer y) (* (offset y) byte-cnt))
     y)
   (swap [_ x y]
     (tensor-method swap x y)
@@ -199,8 +200,8 @@ Please contribute towards making it possible, or use on of the supported types."
   (set-all [_ value x]
     (tensor-set modl hstream x (cast value)))
   (axpby [_ alpha x beta y]
-    (add-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
-                (cast beta) y (buffer y) (* (offset y) byte-cnt))
+    (transform-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
+                      (cast beta) y (buffer y) (* (offset y) byte-cnt))
     y)
   VectorMath
   (sqr [_ a y]
@@ -374,10 +375,10 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-shuffler cudnn-hdl src-tz dst-tz))
   (create-batcher [_ src-tz dst-tz mb-size]
     (cudnn-batcher cudnn-hdl src-tz dst-tz mb-size))
-  (create-sum [_ scale dst]
-    )
-  (create-sum [_ dst scale src scale-srcs]
-    )
+  (create-sum [_ scale _]
+    (cudnn-sum-blueprint cudnn-hdl scale))
+  (create-sum [_ scale-src _ scale-dst _]
+    (cudnn-sum-blueprint cudnn-hdl scale-src scale-dst))
   (tensor-engine [this dtype]
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
