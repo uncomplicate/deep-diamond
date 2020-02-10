@@ -28,7 +28,7 @@
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
-                           ndims dims strides transform-tensor]]
+                           ndims dims strides transform-tensor set-tensor scale-tensor]]
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler]]
              [fully-connected :refer [cudnn-sum-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
@@ -121,16 +121,6 @@ Please contribute towards making it possible, or use on of the supported types."
         (dragan-says-ex "Equals is supported only up to 5 dimensions." {:shape (dims x)}))
       (= 0 (int (apply * (dims y)))))))
 
-(defn ^:private tensor-set [modl hstream x value]
-  (with-release [set-kernel (function modl "tensor_5d_set")]
-    (let [[n c d h w] (dims x)
-          [nx cx dx hx wx] (strides x)]
-      (launch! set-kernel (grid-3d (or n 1) (or c 1) (or h 1)) hstream
-               (parameters (int (or n 0)) (int (or c 1)) (int (or d 1)) (int (or h 1)) (int (or w 1))
-                           value (buffer x) (int (offset x))
-                           (int (or nx 0)) (int (or cx 0)) (int (or dx 0)) (int (or hx 0)) (int (or wx 0))))
-      x)))
-
 (defn tensor-method
   ([method x]
    (let [vx (view x)]
@@ -188,9 +178,9 @@ Please contribute towards making it possible, or use on of the supported types."
   (nrmi [this x]
     (tensor-method nrmi x))
   (scal [_ alpha x]
-    (let [vx (view x)]
-      (check-contiguous x)
-      (scal (engine vx) alpha vx))
+    (if (= 0 (offset x))
+      (scale-tensor cudnn-hdl (cast alpha) x (buffer x))
+      (scale-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset x) byte-cnt)))
     x)
   BlasPlus
   (amax [_ x]
@@ -198,7 +188,10 @@ Please contribute towards making it possible, or use on of the supported types."
   (sum [_ x]
     (tensor-method sum x))
   (set-all [_ value x]
-    (tensor-set modl hstream x (cast value)))
+    (if (= 0 (offset x))
+      (set-tensor cudnn-hdl x (buffer x) (cast value))
+      (set-tensor cudnn-hdl x (buffer x) (* (offset x) byte-cnt) (cast value)))
+    x)
   (axpby [_ alpha x beta y]
     (transform-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
                       (cast beta) y (buffer y) (* (offset y) byte-cnt))

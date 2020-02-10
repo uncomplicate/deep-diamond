@@ -152,10 +152,9 @@
     (with-check cudnn-error
       (JCudnn/cudnnGetTensorSizeInBytes td res) (aget res 0))))
 
-;;TODO wait for bugfix in JCuda 10.2
-#_(defn set-tensor* [cudnn-handle td buf-ptr value-buf]
+(defn set-tensor* [cudnn-handle td buf value]
   (with-check cudnn-error
-    (JCudnn/cudnnSetTensor cudnn-handle td buf-ptr value-buf)
+    (JCudnn/cudnnSetTensor cudnn-handle td buf value)
     cudnn-handle))
 
 (defn add-tensor* [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]

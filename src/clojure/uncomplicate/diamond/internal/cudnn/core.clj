@@ -81,20 +81,40 @@
   [td]
   (.strides ^CUTensorDescriptor (desc td)))
 
+(defn set-tensor
+  "TODO: attention: primitive numbers need explicit casting to double, float etc."
+  ([cudnn-handle desc-x buf-x ofst-x value]
+   (set-tensor* (extract cudnn-handle)
+                (extract (desc desc-x)) (with-offset buf-x ofst-x) (ptr value))
+   cudnn-handle)
+  ([cudnn-handle desc-x buf-x value]
+   (set-tensor* (extract cudnn-handle) (extract (desc desc-x)) (extract buf-x) (ptr value))
+   cudnn-handle))
+
+(defn scale-tensor
+  "TODO: attention: primitive numbers need explicit casting to double, float etc."
+  ([cudnn-handle alpha desc-x buf-x ofst-x]
+   (scale-tensor* (extract cudnn-handle)
+                  (extract (desc desc-x)) (with-offset buf-x ofst-x) (ptr alpha))
+   cudnn-handle)
+  ([cudnn-handle alpha desc-x buf-x]
+   (scale-tensor* (extract cudnn-handle) (extract (desc desc-x)) (extract buf-x) (ptr alpha))
+   cudnn-handle))
+
 ;; TODO There seems to be a bug in either cuDNN or JCuda. Instead of with beta,
 ;; y is multiplied with beta squared! Equivalent function transform-tensor works correctly!
 (defn add-tensor
   "TODO: attention: primitive numbers need explicit casting to double, float etc."
-  [cudnn-handle alpha desc-x buf-x ofst-x beta desc-y buf-y ofst-y]
-  (add-tensor* (extract cudnn-handle)
-               (ptr alpha) (extract (desc desc-x)) (with-offset buf-x ofst-x)
-               (ptr beta) (extract (desc desc-y)) (with-offset buf-y ofst-y))
-  cudnn-handle
-  [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
-  (add-tensor* (extract cudnn-handle)
-               (ptr alpha) (extract (desc desc-x)) (extract buf-x)
-               (ptr beta) (extract (desc desc-y)) (extract buf-y))
-  cudnn-handle)
+  ([cudnn-handle alpha desc-x buf-x ofst-x beta desc-y buf-y ofst-y]
+   (add-tensor* (extract cudnn-handle)
+                (ptr alpha) (extract (desc desc-x)) (with-offset buf-x ofst-x)
+                (ptr beta) (extract (desc desc-y)) (with-offset buf-y ofst-y))
+   cudnn-handle)
+  ([cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
+   (add-tensor* (extract cudnn-handle)
+                (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                (ptr beta) (extract (desc desc-y)) (extract buf-y))
+   cudnn-handle))
 
 (defn transform-tensor
   ([cudnn-handle alpha desc-x buf-x ofst-x beta desc-y buf-y ofst-y]

@@ -340,6 +340,10 @@
   This operation changes `dst`. All sources and destinations have to be of
   the same shape.
 
+  BEWARE: if `dst` and one of the `src`s are identical, this source has to
+  be the first `src` argument, due to how DNNL algorithm works internally,
+  or result would be incorrect!
+
   `eng`: the computing context engine
   `scale`: a floating point scale for the first source
 

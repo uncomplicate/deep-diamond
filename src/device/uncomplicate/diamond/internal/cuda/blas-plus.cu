@@ -98,20 +98,4 @@ extern "C" {
         }
     }
 
-    __global__ void tensor_5d_set (const int n, const int c, const int d, const int h, const int w,
-                                   DTYPE value, DTYPE* x, const int offset_x,
-                                   const int n_x, const int c_x, const int d_x, const int h_x, const int w_x) {
-        const int gid_n = blockIdx.x * blockDim.x + threadIdx.x;
-        const int gid_c = blockIdx.y * blockDim.y + threadIdx.y;
-        const int gid_d = blockIdx.z * blockDim.z + threadIdx.z;
-        const bool valid = (gid_n < n) && (gid_c < c) && (gid_d < d);
-        if (valid) {
-            const int ix = offset_x + gid_n * n_x + gid_c * c_x + gid_d * d_x;
-            for (int i = 0; i < h; i++) {
-                for (int j = 0; j < w; j++) {
-                    x[ix + i * h_x + j * w_x] = value;
-                }
-            };
-        }
-    }
 }
