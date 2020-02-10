@@ -27,8 +27,8 @@
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
-             [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor
-                           ndims dims strides transform-tensor set-tensor scale-tensor]]
+             [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor ndims dims
+                           strides transform-tensor set-tensor scale-tensor add-tensor]]
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler]]
              [fully-connected :refer [cudnn-sum-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
@@ -163,8 +163,8 @@ Please contribute towards making it possible, or use on of the supported types."
                       (cast 0.0) y (buffer y) (* (offset y) byte-cnt))
     y)
   (axpy [_ alpha x y]
-    (transform-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
-                      (cast 1.0) y (buffer y) (* (offset y) byte-cnt))
+    (add-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
+                (cast 1.0) y (buffer y) (* (offset y) byte-cnt))
     y)
   (swap [_ x y]
     (tensor-method swap x y)
@@ -193,8 +193,8 @@ Please contribute towards making it possible, or use on of the supported types."
       (set-tensor cudnn-hdl x (buffer x) (* (offset x) byte-cnt) (cast value)))
     x)
   (axpby [_ alpha x beta y]
-    (transform-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
-                      (cast beta) y (buffer y) (* (offset y) byte-cnt))
+    (add-tensor cudnn-hdl (cast alpha) x (buffer x) (* (offset y) byte-cnt)
+                (cast beta) y (buffer y) (* (offset y) byte-cnt))
     y)
   VectorMath
   (sqr [_ a y]
