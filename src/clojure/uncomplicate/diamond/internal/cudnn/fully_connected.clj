@@ -23,3 +23,30 @@
    (->CUDnnSumBlueprint cudnn-hdl scale 0.0))
   ([cudnn-hdl scale-src scale-dst]
    (->CUDnnSumBlueprint cudnn-hdl scale-src scale-dst)))
+
+;; ================================ Activation =============================================
+
+;;TODO  implement cuDNN activation-related function first, and then use them here.
+
+#_(deftype CUDnnActivationInference [fact cudnn-hdl bluep a-tz
+                                   eltw-fwd-prim eltw-fwd-args]
+  Releaseable
+  (release [_]
+    (release eltw-fwd-prim))
+  Info
+  (info [this]
+    {:activation (info bluep :activation)
+     :a (info a-tz)})
+  (info [this info-type]
+    (case info-type
+      :a (info a-tz)
+      (info bluep info-type)))
+  Transfer
+  (input [_]
+    a-tz)
+  (output [_]
+    a-tz)
+  IFn
+  (invoke [_]
+    (execute! strm eltw-fwd-prim eltw-fwd-args)
+    a-tz))

@@ -8,14 +8,14 @@
 
 (ns uncomplicate.diamond.internal.cudnn.constants
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
-  (:import [jcuda.jcudnn cudnnTensorFormat cudnnDataType]))
+  (:import [jcuda.jcudnn cudnnTensorFormat cudnnDataType cudnnActivationMode]))
 
 (defn dec-format [^long format]
   (case format
     0 :nchw
     1 :nhwc
     2 :nchw-vect-c
-    (dragan-says-ex "This format is not supported by cuDNN. Please use another engine."
+    (dragan-says-ex "This format is not supported by cuDNN. Please find another way to do what you wanted."
                     {:format format})))
 
 (def ^:const cudnn-format
@@ -34,7 +34,7 @@
     6 :uint8
     7 :uint8x4
     8 :int8x32
-    (dragan-says-ex "This data type is not supported by cuDNN. Please use another "
+    (dragan-says-ex "This data type is not supported by cuDNN. Please find another way to do what you wanted."
                     {:data-type data-type})))
 
 (def ^:const cudnn-data-type
@@ -63,5 +63,25 @@
     :u8 1
     :uit8x4 4
     :int8x32 32
-    (dragan-says-ex "This data type is not supported by cuDNN. Please use another "
+    (dragan-says-ex "This data type is not supported by cuDNN. Please find another way to do what you wanted."
                     {:data-type data-type})))
+
+(def ^:const cudnn-activation-mode
+  {:logistic cudnnActivationMode/CUDNN_ACTIVATION_SIGMOID
+   :sigmoid cudnnActivationMode/CUDNN_ACTIVATION_SIGMOID
+   :relu cudnnActivationMode/CUDNN_ACTIVATION_RELU
+   :tanh cudnnActivationMode/CUDNN_ACTIVATION_TANH
+   :clipped-relu cudnnActivationMode/CUDNN_ACTIVATION_CLIPPED_RELU
+   :elu cudnnActivationMode/CUDNN_ACTIVATION_ELU
+   :identity cudnnActivationMode/CUDNN_ACTIVATION_IDENTITY})
+
+(defn dec-activation-mode [^long mode]
+  (case mode
+    0 :logistic
+    1 :relu
+    2 :tanh
+    3 :clipped-relu
+    4 :elu
+    5 :identity
+    (dragan-says-ex "This mode is not supported by cuDNN. Please find another way to do what you wanted."
+                    {:mode mode})))

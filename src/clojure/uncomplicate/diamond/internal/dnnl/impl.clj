@@ -11,6 +11,7 @@
              [core :refer [Releaseable release let-release with-release Info
                            Wrapper Wrappable wrap extract]]
              [utils :as cu :refer [dragan-says-ex]]]
+            [uncomplicate.diamond.internal.utils :refer [deftype-wrapper]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [constants :refer :all]])
@@ -40,31 +41,9 @@
     (.deallocate this)
     true))
 
-(defmacro ^:private deftype-wrapper [name release-method]
-  (let [name-str (str name)]
-    `(deftype ~name [ref#]
-       Object
-       (hashCode [this#]
-         (hash (deref ref#)))
-       (equals [this# other#]
-         (= (deref ref#) (extract other#)))
-       (toString [this#]
-         (format "#%s[%s]" ~name-str (deref ref#)))
-       Wrapper
-       (extract [this#]
-         (deref ref#))
-       Releaseable
-       (release [this#]
-         (locking ref#
-           (when-let [d# (deref ref#)]
-             (locking d#
-               (with-check (~release-method d#) (vreset! ref# nil)))))
-         true))))
-
-
 ;; ===================== Engine ========================================================
 
-(deftype-wrapper Engine dnnl/dnnl_engine_destroy)
+(deftype-wrapper Engine dnnl/dnnl_engine_destroy dnnl-error)
 
 (extend-type dnnl_engine
   Wrappable
@@ -96,7 +75,7 @@
 
 ;; ===================== Stream ========================================================
 
-(deftype-wrapper Stream dnnl/dnnl_stream_destroy)
+(deftype-wrapper Stream dnnl/dnnl_stream_destroy dnnl-error)
 
 (extend-type dnnl_stream
   Wrappable
@@ -117,7 +96,7 @@
 
 ;; ===================== Primitive descriptor ===========================================
 
-(deftype-wrapper PrimitiveDesc dnnl/dnnl_primitive_desc_destroy)
+(deftype-wrapper PrimitiveDesc dnnl/dnnl_primitive_desc_destroy dnnl-error)
 
 (extend-type dnnl_primitive_desc
   Wrappable
@@ -136,7 +115,7 @@
 
 ;; ===================== Primitive ======================================================
 
-(deftype-wrapper Primitive dnnl/dnnl_primitive_destroy)
+(deftype-wrapper Primitive dnnl/dnnl_primitive_destroy dnnl-error)
 
 (extend-type dnnl_primitive
   Wrappable

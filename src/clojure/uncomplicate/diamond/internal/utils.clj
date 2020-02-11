@@ -7,9 +7,32 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.internal.utils
-  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
+  (:require [uncomplicate.commons
+             [core :refer [Wrapper Releaseable extract]]
+             [utils :refer [dragan-says-ex with-check]]]
             [uncomplicate.diamond.tensor :refer [layout]])
   (:import uncomplicate.neanderthal.internal.api.Block))
+
+(defmacro deftype-wrapper [name release-method error]
+  (let [name-str (str name)]
+    `(deftype ~name [ref#]
+       Object
+       (hashCode [this#]
+         (hash (deref ref#)))
+       (equals [this# other#]
+         (= (deref ref#) (extract other#)))
+       (toString [this#]
+         (format "#%s[%s]" ~name-str (deref ref#)))
+       Wrapper
+       (extract [this#]
+         (deref ref#))
+       Releaseable
+       (release [this#]
+         (locking ref#
+           (when-let [d# (deref ref#)]
+             (locking d#
+               (with-check ~error (~release-method d#) (vreset! ref# nil)))))
+         true))))
 
 (defn check-contiguous
   ([^Block x]

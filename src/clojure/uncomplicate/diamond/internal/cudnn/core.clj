@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.cudnn.core
   (:require [uncomplicate.commons
              [core :refer [let-release with-release wrap extract]]
-             [utils :refer [dragan-says-ex with-check enc-keyword]]]
+             [utils :refer [dragan-says-ex enc-keyword]]]
             [uncomplicate.clojurecuda.internal.protocols :refer [ptr with-offset]]
             [uncomplicate.neanderthal.block :refer [buffer]]
             [uncomplicate.diamond.internal.cudnn
@@ -17,7 +17,7 @@
              [constants :refer :all]
              [impl :refer :all]])
   (:import java.lang.Exception
-           jcuda.jcudnn.JCudnn
+           [jcuda.jcudnn JCudnn cudnnNanPropagation]
            uncomplicate.diamond.internal.cudnn.impl.CUTensorDescriptor))
 
 (defn cudnn-handle [stream]
@@ -29,23 +29,19 @@
 (defn tensor-descriptor [shape data-type layout]
   (let [d (count shape)
         dtype (enc-keyword cudnn-data-type data-type)]
-    (let [td (tensor-descriptor*)]
-      (try
-        (wrap (if (keyword? layout)
-                (let [format (enc-keyword cudnn-format layout)]
-                  (if (< 4 d)
-                    (tensor-4d-descriptor* td format dtype shape)
-                    (tensor-nd-descriptor-ex* td format dtype (int-array shape))))
-                (if (= d (count layout))
-                  (if (< 4 d)
-                    (tensor-4d-descriptor-ex* td dtype shape layout)
-                    (tensor-nd-descriptor* td dtype (int-array shape) (int-array layout)))
-                  (dragan-says-ex "Shape and strides must have the same length."
-                                  {:shape shape :strides layout}))))
-        (catch Exception e
-          (with-check cudnn-error
-            (JCudnn/cudnnDestroyTensorDescriptor td)
-            (throw e)))))))
+    (let-release [td (wrap (tensor-descriptor*))]
+      (if (keyword? layout)
+        (let [format (enc-keyword cudnn-format layout)]
+          (if (< 4 d)
+            (tensor-4d-descriptor* (extract td) format dtype shape)
+            (tensor-nd-descriptor-ex* (extract td) format dtype (int-array shape))))
+        (if (= d (count layout))
+          (if (< 4 d)
+            (tensor-4d-descriptor-ex* (extract td) dtype shape layout)
+            (tensor-nd-descriptor* (extract td) dtype (int-array shape) (int-array layout)))
+          (dragan-says-ex "Shape and strides must have the same length."
+                          {:shape shape :strides layout})))
+      td)))
 
 (defn equal-desc? [td1 td2]
   (let [td1 (desc td1)
@@ -125,3 +121,41 @@
                       (ptr alpha) (extract (desc desc-x)) (extract buf-x)
                       (ptr beta) (extract (desc desc-y)) (extract buf-y))
    cudnn-handle))
+
+;; =========================== Activation ============================================
+
+(defn activation-descriptor [mode relu-nan-opt ^double coef]
+  (let-release [ad (wrap (activation-descriptor*))]
+    (activation-descriptor* (extract ad) (enc-keyword cudnn-activation-mode mode)
+                            (if relu-nan-opt
+                              cudnnNanPropagation/CUDNN_PROPAGATE_NAN
+                              cudnnNanPropagation/CUDNN_NOT_PROPAGATE_NAN)
+                            coef)
+    ad))
+
+(defn get-activation-descriptor [ad]
+  (let [mode (int-array 1)
+        relu-nan-opt (int-array 1)
+        coef (double-array 1)]
+    (get-activation-descriptor* (extract ad) mode relu-nan-opt coef)
+    {:mode (dec-activation-mode (aget mode 0))
+     :relu-nan-opt (if (= (aget relu-nan-opt 0) cudnnNanPropagation/CUDNN_PROPAGATE_NAN) true false)
+     :coef (aget coef 0)}))
+
+(defn activation-forward [cudnn-handle ad alpha desc-x buf-x beta desc-y buf-y]
+  (activation-forward* (extract cudnn-handle) (extract ad)
+                       (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                       (ptr beta) (extract (desc desc-y)) (extract buf-y))
+  cudnn-handle)
+
+(defn activation-backward
+  "TODO: why is y even needed?"
+  [cudnn-handle ad
+                           alpha desc-y buf-y desc-dy buf-dy
+                           desc-x buf-x beta desc-dx buf-dx]
+  (activation-backward* (extract cudnn-handle) (extract ad)
+                        (ptr alpha) (extract (desc desc-y)) (extract buf-y)
+                        (extract (desc desc-dy)) (extract buf-dy)
+                        (extract (desc desc-x)) (extract buf-x)
+                        (ptr beta) (extract (desc desc-dx)) (extract buf-dx))
+  cudnn-handle)
