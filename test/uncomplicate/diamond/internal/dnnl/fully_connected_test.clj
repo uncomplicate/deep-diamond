@@ -26,29 +26,6 @@
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]])
   (:import clojure.lang.ExceptionInfo))
 
-(with-release [fact (dnnl-factory)]
-  (test-sum fact))
-
-(facts "Activation tests"
-       (with-release [fact (dnnl-factory)
-                      src-tz (tensor fact [1 3 2 1] :float :nchw)
-                      dst-tz (tensor fact [1 3 2 1] :float :nchw)
-                      activ-bluep (activation fact src-tz :relu)
-                      activ-infer (activ-bluep src-tz)
-                      activ-train (activ-bluep src-tz dst-tz)]
-         (transfer! [-0.5 0 0.2 1 0.3 -0.7] src-tz)
-         (view (activ-infer)) => (fv 0 0 0.2 1.0 0.3 0)
-         (view (input activ-infer)) => (fv 0 0 0.2 1.0 0.3 0)
-         (view (output activ-infer)) => (fv 0 0 0.2 1.0 0.3 0)
-         (transfer! [-0.5 0 0.2 1 0.3 -0.7] src-tz)
-         (forward activ-train)
-         (view (input activ-train)) => (fv -0.5 0 0.2 1 0.3 -0.7)
-         (view (output activ-train)) => (fv 0 0 0.2 1.0 0.3 0)
-         (transfer! [-0.1 0.1 1 2 7 -0.6] dst-tz)
-         (backward activ-train)
-         (view (output activ-train)) => (fv -0.1 0.1 1 2 7 -0.6)
-         (view (input activ-train)) => (fv 0 0 1 2 7.0 0)))
-
 (facts "Inner product tests."
        (with-release [fact (dnnl-factory)
                       src-tz (tensor fact [1 3 2 1] :float :nchw)

@@ -30,7 +30,7 @@
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor ndims dims
                            strides transform-tensor set-tensor scale-tensor add-tensor]]
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler]]
-             [fully-connected :refer [cudnn-sum-blueprint]]])
+             [fully-connected :refer [cudnn-sum-blueprint cudnn-activ-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -376,8 +376,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   DnnFactory
-  (activ-blueprint [this src-desc activ alpha beta]
-    )
+  (activ-blueprint [this _ activ coef _]
+    (cudnn-activ-blueprint this activ coef))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     )
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]

@@ -12,4 +12,5 @@
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (with-release [fact (cudnn-factory)]
-  (test-sum fact))
+  (test-sum fact)
+  (test-activation fact))

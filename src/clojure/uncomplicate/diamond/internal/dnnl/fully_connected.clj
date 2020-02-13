@@ -152,17 +152,16 @@
                                 eltw-fwd-prim eltw-fwd-args
                                 eltw-bwd-prim eltw-bwd-args))))
 
-(defn dnnl-activ-blueprint
-  ([fact eng src-desc diff-desc activ alpha beta]
-   (let [src-desc (desc src-desc)
-         diff-desc (desc diff-desc)]
-     (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ src-desc alpha beta)
-                    eltw-train-desc (eltwise-fwd-desc :training activ src-desc alpha beta)
-                    eltw-bwd-desc (eltwise-bwd-desc activ diff-desc src-desc alpha beta)]
-       (let-release [eltw-infer-pd (primitive-desc eng eltw-infer-desc)
-                     eltw-train-pd (primitive-desc eng eltw-train-desc)
-                     eltw-bwd-pd (primitive-desc eng eltw-bwd-desc eltw-train-pd)]
-         (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd))))))
+(defn dnnl-activ-blueprint [fact eng src-desc diff-desc activ alpha beta]
+  (let [src-desc (desc src-desc)
+        diff-desc (desc diff-desc)]
+    (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ src-desc alpha beta)
+                   eltw-train-desc (eltwise-fwd-desc :training activ src-desc alpha beta)
+                   eltw-bwd-desc (eltwise-bwd-desc activ diff-desc src-desc alpha beta)]
+      (let-release [eltw-infer-pd (primitive-desc eng eltw-infer-desc)
+                    eltw-train-pd (primitive-desc eng eltw-train-desc)
+                    eltw-bwd-pd (primitive-desc eng eltw-bwd-desc eltw-train-pd)]
+        (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd)))))
 
 ;; ================================ Inner Product =============================================
 

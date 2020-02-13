@@ -29,19 +29,23 @@
 (defn tensor-descriptor [shape data-type layout]
   (let [d (count shape)
         dtype (enc-keyword cudnn-data-type data-type)]
-    (let-release [td (wrap (tensor-descriptor*))]
-      (if (keyword? layout)
-        (let [format (enc-keyword cudnn-format layout)]
-          (if (< 4 d)
-            (tensor-4d-descriptor* (extract td) format dtype shape)
-            (tensor-nd-descriptor-ex* (extract td) format dtype (int-array shape))))
-        (if (= d (count layout))
-          (if (< 4 d)
-            (tensor-4d-descriptor-ex* (extract td) dtype shape layout)
-            (tensor-nd-descriptor* (extract td) dtype (int-array shape) (int-array layout)))
-          (dragan-says-ex "Shape and strides must have the same length."
-                          {:shape shape :strides layout})))
-      td)))
+    (let [td (tensor-descriptor*)]
+      (try
+        (wrap
+         (if (keyword? layout)
+           (let [format (enc-keyword cudnn-format layout)]
+             (if (< 4 d)
+               (tensor-4d-descriptor* td format dtype shape)
+               (tensor-nd-descriptor-ex* td format dtype (int-array shape))))
+           (if (= d (count layout))
+             (if (< 4 d)
+               (tensor-4d-descriptor-ex* td dtype shape layout)
+               (tensor-nd-descriptor* td dtype (int-array shape) (int-array layout)))
+             (dragan-says-ex "Shape and strides must have the same length."
+                             {:shape shape :strides layout}))))
+        (catch Exception e
+          (with-check (JCudnn/cudnnDestroyTensorDescriptor td)
+            (throw e)))))))
 
 (defn equal-desc? [td1 td2]
   (let [td1 (desc td1)
