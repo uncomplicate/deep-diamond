@@ -12,7 +12,7 @@
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [uncomplicate/commons "0.9.0"]
                  [uncomplicate/neanderthal "0.27.0"]
-                 [org.bytedeco/dnnl-platform "1.1.1-1.5.2"]
+                 [org.bytedeco/dnnl-platform "1.2.0-1.5.3-SNAPSHOT"]
                  [org.jcuda/jcudnn "10.2.0"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
