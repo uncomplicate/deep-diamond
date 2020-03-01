@@ -1,9 +1,12 @@
 (ns uncomplicate.diamond.internal.cudnn.fully-connected
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release Info info]]
+             [core :refer [Releaseable release let-release with-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [axpby!]]
+             [core :refer [axpby! axpy! view dim]]
+             [real :refer [nrm2 asum]]
+             [math :refer [sqr pow sqrt]]
+             [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
              [block :refer [cast-prim data-accessor buffer]]]
             [uncomplicate.neanderthal.internal
              [api :refer [flow]]
@@ -18,7 +21,9 @@
                      diff-bias diff-weights Backprop forward backward blueprint]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
-             [protocols :refer :all]])
+             [protocols :refer :all]]
+            [uncomplicate.diamond.internal.neanderthal.fully-connected
+             :refer [->FullyConnectedBlueprint]])
   (:import clojure.lang.IFn))
 
 (deftype CUDnnSum [cudnn-hdl scale-src src scale-dst dst]
@@ -126,3 +131,106 @@
 (defn cudnn-activ-blueprint [fact activ coef]
   (let-release [ad (activation-descriptor activ true coef)]
     (->CUDnnActivationBlueprint fact activ ad)))
+
+;; ============================= Fully Connected Layer ================================
+
+(defn cudnn-fc-blueprint [fact src-desc dst-desc activ alpha beta]
+  (let-release [dst-desc (tensor-descriptor (shape dst-desc)
+                                            (or (tz/data-type dst-desc) (tz/data-type src-desc))
+                                            (or (tz/layout dst-desc) :nchw))
+                bias-desc (tensor-descriptor (into [1] (rest (shape dst-desc)))
+                                             (data-type dst-desc)
+                                             (strides dst-desc))
+                weights-desc (tensor-descriptor
+                              [(apply * (shape bias-desc)) (apply * (rest (shape src-desc))) 1 1]
+                              (data-type dst-desc) :nchw)
+                activ-bluep (cudnn-activ-blueprint fact activ alpha)]
+    (->FullyConnectedBlueprint fact activ-bluep src-desc bias-desc weights-desc dst-desc)))
+
+;; ============================= Cost Function ========================================
+
+(deftype UniversalCost [cudnn-hdl prev-layer
+                        connect-output connect-diff
+                        a-y y cost]
+  Releaseable
+  (release [_]
+    (release connect-output)
+    (release connect-diff))
+  Transfer
+  (input [this]
+    (input connect-output))
+  (output [_]
+    (output connect-output))
+  Backprop
+  (forward [this]
+    (connect-output)
+    this)
+  (backward [this]
+    (axpy! -1.0 y a-y)
+    (connect-diff)
+    (backward prev-layer)
+    this)
+  IFn
+  (invoke [_]
+    (connect-output)
+    (axpy! -1.0 y a-y)
+    (cost cudnn-hdl a-y)))
+
+(defn cudnn-universal-cost [cudnn-hdl prev-layer train-tz cost]
+  (let [train-desc (desc train-tz)
+        output-desc (tensor-descriptor (dims (output prev-layer))
+                                       (data-type train-desc) (strides train-desc))]
+    (let-release [connect-output (connector (output prev-layer) output-desc)
+                  connect-diff (revert connect-output)]
+      (->UniversalCost cudnn-hdl prev-layer
+                       connect-output connect-diff
+                       (view (output connect-output)) (view train-tz)
+                       cost))))
+
+(defn quadratic-cost [a-y]
+  (/ (sqr (nrm2 a-y)) (* 2 (dim a-y))))
+
+(defn mean-absolute-cost [a-y]
+  (/ (asum a-y) (dim a-y)))
+
+(defn sigmoid-crossentropy-cost [^long n a y]
+  (with-release [ylna (mul! (log a) y)
+                 y-1 (linear-frac 1.0 y -1.0)]
+    (/ (asum (axpy! -1.0 ylna (mul! y-1 (log! (linear-frac! -1.0 a 1.0))))) n)))
+
+(deftype CustomCost [cudnn-hdl prev-layer
+                     connect-output connect-diff
+                     a y cost]
+  Releaseable
+  (release [_]
+    (release connect-output)
+    (release connect-diff))
+  Transfer
+  (input [this]
+    (input connect-output))
+  (output [_]
+    (output connect-output))
+  Backprop
+  (forward [this]
+    (connect-output)
+    this)
+  (backward [this]
+    (axpy! -1.0 y a)
+    (connect-diff)
+    (backward prev-layer)
+    this)
+  IFn
+  (invoke [_]
+    (connect-output)
+    (cost cudnn-hdl a y)))
+
+(defn cudnn-custom-cost [cudnn-hdl prev-layer train-tz cost]
+  (let [train-desc (desc train-tz)
+        output-desc (tensor-descriptor (dims (output prev-layer))
+                                       (data-type train-desc) (strides train-desc))]
+    (let-release [connect-output (connector (output prev-layer) output-desc)
+                  connect-diff (revert connect-output)]
+      (->CustomCost cudnn-hdl prev-layer
+                    connect-output connect-diff
+                    (view (output connect-output)) (view train-tz)
+                    cost))))

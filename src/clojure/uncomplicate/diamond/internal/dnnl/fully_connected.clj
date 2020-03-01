@@ -684,7 +684,7 @@
     (.invoke this prev-layer prop-diff? :sgd)))
 
 (defn dnnl-fc-blueprint [fact eng src-desc dst-desc activ alpha beta weights-type]
-  (let-release [dst-desc (memory-desc (shape dst-desc)
+  (let-release [dst-desc (memory-desc [(first (shape dst-desc)) (apply * (rest (shape dst-desc)))]
                                       (or (tz/data-type dst-desc) (data-type src-desc))
                                       :nc)
                 ip-bluep (dnnl-inner-product-blueprint fact eng src-desc dst-desc

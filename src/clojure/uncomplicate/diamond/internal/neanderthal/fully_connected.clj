@@ -27,12 +27,9 @@
              [dnn :refer [Parameters bias weights transfer-parameters!]]]
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
-                     diff-bias diff-weights Backprop forward backward blueprint]]
-            [uncomplicate.diamond.internal.dnnl
-             [protocols :refer :all]
-             [core :refer :all]
-             [tensor :refer [dnnl-tensor dnnl-transformer]]
-             [fully-connected :refer [dnnl-activ-blueprint]]])
+                     diff-bias diff-weights Backprop forward backward blueprint
+                     create-tensor activ-blueprint]]
+            [uncomplicate.diamond.internal.dnnl.core :refer [memory-desc data-type]])
   (:import clojure.lang.IFn))
 
 (deftype FullyConnectedInference [fact bluep ones activ
@@ -171,7 +168,7 @@
 
 (defn sgd-layer [fact bluep activ-bluep ones prop-diff?
                  a-1 b w a src-conn bias-tz weights-tz a-tz]
-  (let-release [z-tz (dnnl-tensor fact (desc a-tz))
+  (let-release [z-tz (create-tensor fact a-tz false)
                 z (trans (view-ge (view z-tz) (ncols a-1) (dim b)))
                 v (zero w)
                 activ (activ-bluep z-tz a-tz)]
@@ -191,7 +188,7 @@
          (= activ-bluep (.activ-bluep ^FullyConnectedBlueprint other))
          ));;TODO implement equals
   (toString [_]
-    (pr-str {:shape (dims dst-desc)
+    (pr-str {:shape (shape dst-desc)
              :topology :fc
              :activation (info activ-bluep :activation)}))
   Info
@@ -205,24 +202,24 @@
   BlueprintProvider
   (blueprint [this]
     this)
-  DescProvider
-  (desc [_]
-    (desc activ-bluep))
+  ;; DescProvider
+  ;; (desc [_]
+  ;;   (desc activ-bluep))
   TensorDescriptor
   (shape [_]
-    (dims dst-desc))
+    (shape dst-desc))
   (data-type [_]
     (tz/data-type dst-desc))
   (layout [_]
-    (strides dst-desc))
+    (layout dst-desc))
   IFn
   (invoke [this prev-layer]
     (let [src-shape (shape src-desc)
           n (long (get src-shape 0))]
       (let-release [src-conn (connector (output prev-layer) src-desc)
-                    bias-tz (dnnl-tensor fact bias-desc)
-                    weights-tz (dnnl-tensor fact weights-desc)
-                    a-tz (dnnl-tensor fact dst-desc)
+                    bias-tz (create-tensor fact bias-desc false)
+                    weights-tz (create-tensor fact weights-desc false)
+                    a-tz (create-tensor fact dst-desc false)
                     x (trans (view-ge (view (output src-conn))
                                       (long (get src-shape 0)) (apply * (rest src-shape))))
                     b (view bias-tz)
@@ -241,9 +238,9 @@
                             "This optimization algorithm is not available in Neanderthal backend."
                             {:optimization optimization}))]
       (let-release [src-conn (connector (output prev-layer) src-desc)
-                    bias-tz (dnnl-tensor fact bias-desc)
-                    weights-tz (dnnl-tensor fact weights-desc)
-                    a-tz (dnnl-tensor fact dst-desc)
+                    bias-tz (create-tensor fact bias-desc false)
+                    weights-tz (create-tensor fact weights-desc false)
+                    a-tz (create-tensor fact dst-desc false)
                     x (trans (view-ge (view (output src-conn))
                                       (long (get src-shape 0)) (apply * (rest src-shape))))
                     b (view bias-tz)
@@ -255,12 +252,25 @@
   (invoke [this prev-layer prop-diff?]
     (.invoke this prev-layer prop-diff? :sgd)))
 
-(defn neanderthal-fc-blueprint [fact eng src-desc dst-desc activ alpha beta]
+(defn neanderthal-fc-blueprint [fact src-desc dst-desc activ alpha beta]
   (let-release [dst-desc (memory-desc (shape dst-desc)
-                                      (or (tz/data-type dst-desc) (data-type src-desc))
+                                      (or (tz/data-type dst-desc) (tz/data-type src-desc))
                                       :nc)
-                bias-desc (memory-desc (rest (shape dst-desc)) (data-type dst-desc) :x)
+                bias-desc (memory-desc (rest (shape dst-desc)) (tz/data-type dst-desc) :x)
                 weights-desc (memory-desc (into [(first (shape bias-desc))] (rest (shape src-desc)))
-                                          (data-type dst-desc) :oi)
-                activ-bluep (dnnl-activ-blueprint fact eng dst-desc dst-desc activ alpha beta)]
+                                          (tz/data-type dst-desc) :oi)
+                activ-bluep (activ-blueprint fact dst-desc activ alpha beta)]
     (->FullyConnectedBlueprint fact activ-bluep src-desc bias-desc weights-desc dst-desc)))
+
+
+(defmethod transfer! [FullyConnectedInference Object]
+  [source destination]
+  (transfer-parameters! source destination))
+
+#_(defmethod transfer! [FullyConnectedAdam Object]
+  [source destination]
+  (transfer-parameters! source destination))
+
+(defmethod transfer! [FullyConnectedSGD Object]
+  [source destination]
+  (transfer-parameters! source destination))

@@ -60,3 +60,32 @@
            (take 5 host-dx) => [-1200.0 -1180.0 -1160.0 -1311.0 -1288.0]
            (take 5 host-dy) => (just [(roughly -0.6) (roughly -0.59) (roughly -0.58)
                                       (roughly -0.57) (roughly -0.56)]))))
+
+(with-default
+  (with-release [cudnn-hdl (cudnn-handle default-stream)
+                 add-desc (reduce-tensor-descriptor :add :float)
+                 max-desc (reduce-tensor-descriptor :max :float)
+                 mul-desc (reduce-tensor-descriptor :mul :float)
+                 desc-x (tensor-descriptor [2 3 1 1] :float :nchw)
+                 host-x (float-array [1 2 3 4 5 6])
+                 gpu-x (mem-alloc (size desc-x))
+                 desc-y (tensor-descriptor [1 1 1 1] :float :nchw)
+                 host-y (float-array 1)
+                 gpu-y (mem-alloc (size desc-x))]
+
+    (memcpy-host! host-x gpu-x)
+    (memcpy-host! host-y gpu-y)
+
+    (facts "Reduce tensor."
+           (reduce-tensor cudnn-hdl add-desc (float 3.0) desc-x gpu-x (float 2.0) desc-y gpu-y)
+           => cudnn-hdl
+           (memcpy-host! gpu-x host-x)
+           (memcpy-host! gpu-y host-y)
+           (seq host-x) => [1.0 2.0 3.0 4.0 5.0 6.0]
+           (first host-y) => (* 3.0 (double (apply + host-x)))
+           (reduce-tensor cudnn-hdl max-desc (float 2.5) desc-x gpu-x (float 0.0) desc-y gpu-y)
+           => cudnn-hdl
+           (first (memcpy-host! gpu-y host-y)) => (* 2.5 (double (apply max host-x)))
+           (reduce-tensor cudnn-hdl mul-desc (float 1.5) desc-x gpu-x (float 0.0) desc-y gpu-y)
+           => cudnn-hdl
+           (first (memcpy-host! gpu-y host-y)) => (* 1.5 (double (apply * host-x))))))

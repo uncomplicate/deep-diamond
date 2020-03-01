@@ -10,14 +10,17 @@
   (:require [uncomplicate.commons
              [core :refer [let-release with-release wrap extract]]
              [utils :refer [dragan-says-ex enc-keyword]]]
-            [uncomplicate.clojurecuda.internal.protocols :refer [ptr with-offset]]
+            [uncomplicate.clojurecuda.core :refer [mem-alloc]]
+            [uncomplicate.clojurecuda.internal.protocols
+             :as cuda
+             :refer [ptr with-offset]]
             [uncomplicate.neanderthal.block :refer [buffer]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer :all]
              [constants :refer :all]
              [impl :refer :all]])
   (:import java.lang.Exception
-           [jcuda.jcudnn JCudnn cudnnNanPropagation]
+           [jcuda.jcudnn JCudnn]
            uncomplicate.diamond.internal.cudnn.impl.CUTensorDescriptor))
 
 (defn cudnn-handle [stream]
@@ -128,14 +131,15 @@
 
 ;; =========================== Activation ============================================
 
-(defn activation-descriptor [mode relu-nan-opt ^double coef]
-  (let-release [ad (wrap (activation-descriptor*))]
-    (activation-descriptor* (extract ad) (enc-keyword cudnn-activation-mode mode)
-                            (if relu-nan-opt
-                              cudnnNanPropagation/CUDNN_PROPAGATE_NAN
-                              cudnnNanPropagation/CUDNN_NOT_PROPAGATE_NAN)
-                            coef)
-    ad))
+(defn activation-descriptor
+  ([mode relu-nan-opt ^double coef]
+   (let-release [ad (wrap (activation-descriptor*))]
+     (activation-descriptor* (extract ad) (enc-keyword cudnn-activation-mode mode)
+                             (enc-nan-propagation relu-nan-opt)
+                             coef)
+     ad))
+  ([mode ^double coef]
+   (activation-descriptor mode true coef)))
 
 (defn get-activation-descriptor [ad]
   (let [mode (int-array 1)
@@ -143,7 +147,7 @@
         coef (double-array 1)]
     (get-activation-descriptor* (extract ad) mode relu-nan-opt coef)
     {:mode (dec-activation-mode (aget mode 0))
-     :relu-nan-opt (if (= (aget relu-nan-opt 0) cudnnNanPropagation/CUDNN_PROPAGATE_NAN) true false)
+     :relu-nan-opt (dec-nan-propagation (aget relu-nan-opt 0))
      :coef (aget coef 0)}))
 
 (defn activation-forward [cudnn-handle ad alpha desc-x buf-x beta desc-y buf-y]
@@ -155,11 +159,54 @@
 (defn activation-backward
   "TODO: why is y even needed?"
   [cudnn-handle ad
-                           alpha desc-y buf-y desc-dy buf-dy
-                           desc-x buf-x beta desc-dx buf-dx]
+   alpha desc-y buf-y desc-dy buf-dy
+   desc-x buf-x beta desc-dx buf-dx]
   (activation-backward* (extract cudnn-handle) (extract ad)
                         (ptr alpha) (extract (desc desc-y)) (extract buf-y)
                         (extract (desc desc-dy)) (extract buf-dy)
                         (extract (desc desc-x)) (extract buf-x)
                         (ptr beta) (extract (desc desc-dx)) (extract buf-dx))
   cudnn-handle)
+
+;; ============================ Reduce ==============================================
+
+(defn reduce-tensor-descriptor
+  ([op comp-type nan-opt indices]
+   (let-release [rtd (wrap (reduce-tensor-descriptor*))]
+     (reduce-tensor-descriptor* (extract rtd) (enc-keyword cudnn-reduce-tensor-op op)
+                                (enc-keyword cudnn-data-type comp-type)
+                                (enc-nan-propagation nan-opt)
+                                (enc-keyword cudnn-reduce-tensor-indices indices))
+     rtd))
+  ([op comp-type nan-opt]
+   (let-release [rtd (wrap (reduce-tensor-descriptor*))]
+     (reduce-tensor-descriptor* (extract rtd) (enc-keyword cudnn-reduce-tensor-op op)
+                                (enc-keyword cudnn-data-type comp-type)
+                                (enc-nan-propagation nan-opt))
+     rtd))
+  ([op comp-type]
+   (reduce-tensor-descriptor op comp-type true)))
+
+(defn reduction-indices-size ^long [cudnn-handle rtd desc-x desc-y]
+  (reduction-indices-size* (extract cudnn-handle) (extract rtd)
+                           (extract (desc desc-x)) (extract (desc desc-y))))
+
+(defn reduction-workspace-size ^long [cudnn-handle rtd desc-x desc-y]
+  (reduction-workspace-size* (extract cudnn-handle) (extract rtd)
+                             (extract (desc desc-x)) (extract (desc desc-y))))
+
+(defn reduce-tensor
+  ([cudnn-handle rtd indices workspace alpha desc-x buf-x beta desc-y buf-y]
+   (reduce-tensor* (extract cudnn-handle) (extract rtd)
+                   (extract indices) (cuda/size indices)
+                   (extract workspace) (cuda/size workspace)
+                   (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                   (ptr beta) (extract (desc desc-y)) (extract buf-y))
+   cudnn-handle)
+  ([cudnn-handle rtd alpha desc-x buf-x beta desc-y buf-y]
+   (let [indices-size (reduction-indices-size cudnn-handle rtd desc-x desc-y)
+         workspace-size (reduction-workspace-size cudnn-handle rtd desc-x desc-y)]
+     (let-release [indices (mem-alloc (max 1 indices-size))
+                   workspace (mem-alloc (max 1 workspace-size))]
+       (reduce-tensor cudnn-handle rtd indices workspace
+                      alpha desc-x buf-x beta desc-y buf-y)))))

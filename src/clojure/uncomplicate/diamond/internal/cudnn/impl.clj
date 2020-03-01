@@ -11,7 +11,9 @@
              [core :refer [Releaseable release with-release let-release Info
                            Wrapper Wrappable wrap extract]]
              [utils :as cu :refer [dragan-says-ex]]]
-            [uncomplicate.clojurecuda.internal.impl :refer [native-pointer]]
+            [uncomplicate.clojurecuda.internal
+             [protocols :refer [size]]
+             [impl :refer [native-pointer]]]
             [uncomplicate.diamond.tensor :refer [TensorDescriptor]]
             [uncomplicate.diamond.internal.utils :refer [deftype-wrapper]]
             [uncomplicate.diamond.internal.cudnn
@@ -21,7 +23,8 @@
            jcuda.runtime.cudaStream_t
            jcuda.driver.CUstream
            [jcuda.jcudnn JCudnn cudnnHandle cudnnStatus cudnnTensorDescriptor
-            cudnnActivationDescriptor]))
+            cudnnActivationDescriptor cudnnReduceTensorDescriptor cudnnIndicesType
+            cudnnReduceTensorIndices cudnnReduceTensorOp]))
 
 (defn cudnn-error [^long err-code details]
   (let [err (cudnnStatus/stringFor err-code)]
@@ -158,7 +161,8 @@
 
 ;; ======================= Activation ===================================
 
-(deftype-wrapper CUDnnActivationDescriptor JCudnn/cudnnDestroyActivationDescriptor cudnn-error)
+(deftype-wrapper CUDnnActivationDescriptor
+  JCudnn/cudnnDestroyActivationDescriptor cudnn-error)
 
 (extend-type cudnnActivationDescriptor
   Wrappable
@@ -195,3 +199,59 @@
                                     alpha desc-y buf-y desc-dy buf-dy
                                     desc-x buf-x beta desc-dx buf-dx)
     cudnn-handle))
+
+;; ========================== Reduce ===================================
+
+(deftype-wrapper CUDnnReduceTensorDescriptor
+  JCudnn/cudnnDestroyReduceTensorDescriptor cudnn-error)
+
+(extend-type cudnnReduceTensorDescriptor
+  Wrappable
+  (wrap [rtd]
+    (->CUDnnReduceTensorDescriptor (volatile! rtd))))
+
+(defn reduce-tensor-descriptor*
+  ([]
+   (let [res (cudnnReduceTensorDescriptor.)]
+     (with-check
+       (JCudnn/cudnnCreateReduceTensorDescriptor res)
+       res)))
+  ([^cudnnReduceTensorDescriptor rtd ^long op ^long comp-type ^long nan-opt]
+   (with-check
+     (JCudnn/cudnnSetReduceTensorDescriptor rtd op comp-type nan-opt
+                                            cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_NO_INDICES
+                                            cudnnIndicesType/CUDNN_32BIT_INDICES)
+     rtd))
+  ([^cudnnReduceTensorDescriptor rtd op comp-type nan-opt indices]
+   (let [comp-type (int comp-type)]
+     (with-check
+       (JCudnn/cudnnSetReduceTensorDescriptor
+        rtd (int op) (int comp-type) (int nan-opt)
+        (if (or (= cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_AMAX comp-type)
+                (= cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MAX comp-type)
+                (= cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MIN comp-type))
+          (int indices)
+          cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_NO_INDICES)
+        cudnnIndicesType/CUDNN_32BIT_INDICES)
+       rtd))))
+
+(defn reduce-tensor* [cudnn-handle rtd
+                      indices indices-size workspace workspace-size
+                      alpha desc-x buf-x beta desc-y buf-y]
+  (with-check
+    (JCudnn/cudnnReduceTensor cudnn-handle rtd
+                              indices indices-size workspace workspace-size
+                              alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-handle))
+
+(defn reduction-indices-size* ^long [cudnn-handle rtd desc-x desc-y]
+  (let [size-arr (long-array 1)]
+    (with-check
+      (JCudnn/cudnnGetReductionIndicesSize cudnn-handle rtd desc-x desc-y size-arr)
+      (aget size-arr 0))))
+
+(defn reduction-workspace-size* ^long [cudnn-handle rtd desc-x desc-y]
+  (let [size-arr (long-array 1)]
+    (with-check
+      (JCudnn/cudnnGetReductionWorkspaceSize cudnn-handle rtd desc-x desc-y size-arr)
+      (aget size-arr 0))))

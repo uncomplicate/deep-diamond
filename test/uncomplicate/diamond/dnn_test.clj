@@ -64,3 +64,50 @@
      (backward activ-train)
      (view (output activ-train)) => (vctr src-tz [-0.1 0.1 1 2 7 -0.6])
      (view (input activ-train)) => (vctr src-tz [0 0 1 2 7.0 0]))))
+
+(defn test-fully-connected-inference [fact]
+  (with-release [input-tz (tensor fact [1 6 1 1] :float :nchw)
+                 fc-bluep (fully-connected fact input-tz [1 2 1 1] :relu)
+                 fc (fc-bluep input-tz)]
+    (facts "Fully connected inference layer"
+           (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
+           (transfer! [-0.1 0.2] (bias fc))
+           (view (output fc)) => (vctr (output fc) [0.0 0.0])
+           (fc) => (output fc)
+           (view (output fc)) => (vctr (output fc) [0.0 0.72999996]))))
+
+(defn test-fully-connected-transfer [fact]
+  (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
+                 fc-bluep (fully-connected fact input-tz [1 2 1 1] :relu)
+                 fc (fc-bluep input-tz)
+                 fc-1 (fc-bluep input-tz)
+                 ;;connect-output (connector (output fc) (desc [1 2] :float :nc))
+                 ]
+    (facts "Inference layer transfer test."
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
+           (transfer! [-0.1 0.2] (bias fc))
+           (transfer! fc fc-1) => fc-1
+           (bias fc-1) => (bias fc)
+           (weights fc-1) => (weights fc))))
+
+(defn test-fully-connected-training [fact]
+  (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
+                 fc-bluep (fully-connected fact input-tz [1 2 1 1] :relu)
+                 fc (fc-bluep input-tz false)
+                 train-tz (tensor fact [1 2 1 1] :float :nchw)
+                 fc-output (cost fc train-tz)]
+    (facts "Fully connected training layer"
+           (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
+           (transfer! [-0.1 0.2] (bias fc))
+           (forward fc [nil 1 0 0 false]) => fc
+           (view (output fc)) => (vctr train-tz 0.0 0.7299999594688416)
+           (forward fc-output) => fc-output
+           (transfer! [-0.1 0.8299999594688416] (view train-tz))
+           (backward fc-output)
+           (backward fc) => fc
+           (backward fc [nil 1 0 0 false]) => fc
+           (view input-tz) => (vctr train-tz -0.5 0 0.2 1.0 0.3 -0.69999999)
+           (view (weights fc)) => (vctr train-tz -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7)
+           (view (bias fc)) => (vctr train-tz -0.1 0.2))))

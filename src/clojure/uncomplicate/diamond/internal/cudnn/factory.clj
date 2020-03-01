@@ -19,7 +19,7 @@
              [cuda :refer [cuda-float cuda-double]]
              [block :refer [buffer offset]]]
             [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
-            [uncomplicate.diamond.tensor :refer [shape data-type layout view-tz]]
+            [uncomplicate.diamond.tensor :refer [shape data-type layout view-tz output]]
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
                                 CostFactory DnnFactory]]
@@ -30,7 +30,9 @@
              [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor ndims dims
                            strides transform-tensor set-tensor scale-tensor add-tensor]]
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler]]
-             [fully-connected :refer [cudnn-sum-blueprint cudnn-activ-blueprint]]])
+             [fully-connected :refer [cudnn-sum-blueprint cudnn-activ-blueprint
+                                      cudnn-fc-blueprint cudnn-universal-cost cudnn-custom-cost
+                                      quadratic-cost mean-absolute-cost sigmoid-crossentropy-cost]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -379,16 +381,18 @@ Please contribute towards making it possible, or use on of the supported types."
   (activ-blueprint [this _ activ coef _]
     (cudnn-activ-blueprint this activ coef))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
-    )
-  (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
-    )
+    (dragan-says-ex "cuDNN engine does not implement inner product blueprint."))
+  (fc-blueprint [this src-desc dst-desc activ alpha beta _]
+    (cudnn-fc-blueprint this src-desc dst-desc activ alpha beta))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
-    )
+    (cudnn-universal-cost cudnn-hdl prev-layer train-tz quadratic-cost))
   (mean-absolute-cost [this prev-layer train-tz]
-    )
+    (cudnn-universal-cost cudnn-hdl prev-layer train-tz mean-absolute-cost))
   (sigmoid-crossentropy-cost [this prev-layer train-tz]
-    ))
+    (cudnn-custom-cost cudnn-hdl prev-layer train-tz
+                      (partial sigmoid-crossentropy-cost
+                               ((dims (output prev-layer)) 0)))))
 
 (JCudnn/setExceptionsEnabled false)
 

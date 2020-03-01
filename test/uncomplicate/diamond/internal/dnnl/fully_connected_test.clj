@@ -26,6 +26,13 @@
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]])
   (:import clojure.lang.ExceptionInfo))
 
+(with-release [fact (dnnl-factory)]
+  (test-sum fact)
+  (test-activation fact)
+  (test-fully-connected-inference fact)
+  (test-fully-connected-transfer fact)
+  (test-fully-connected-training fact))
+
 (facts "Inner product tests."
        (with-release [fact (dnnl-factory)
                       src-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -69,7 +76,7 @@
          (view (diff-bias ip-train)) => (view (output ip-train))
          (view (diff-weights ip-train)) => (fv -0.2)))
 
-(facts "Fully connected inference layer"
+#_(facts "Fully connected inference layer"
        (with-release [fact (dnnl-factory)
                       input-tz (tensor fact [1 3 2 1] :float :nchw)
                       fc-bluep (fully-connected fact input-tz [1 2] :relu)
@@ -82,7 +89,7 @@
          (fc) => (output fc)
          (view (connect-output)) => (fv 0.0 0.72999996)))
 
-(facts "Inference layer transfer test."
+#_(facts "Inference layer transfer test."
        (with-release [fact (dnnl-factory)
                       input-tz (tensor fact [1 3 2 1] :float :nchw)
                       fc-bluep (fully-connected fact input-tz [1 2] :relu)
@@ -95,7 +102,7 @@
          (bias fc-1) => (bias fc)
          (weights fc-1) => (weights fc)))
 
-(facts "Fully connected training layer"
+#_(facts "Fully connected training layer"
        (with-release [fact (dnnl-factory)
                       input-tz (tensor fact [1 3 2 1] :float :nchw)
                       fc-bluep (fully-connected fact input-tz [1 2] :relu)

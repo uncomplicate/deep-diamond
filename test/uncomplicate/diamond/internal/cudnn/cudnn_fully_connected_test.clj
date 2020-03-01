@@ -13,4 +13,7 @@
 
 (with-release [fact (cudnn-factory)]
   (test-sum fact)
-  (test-activation fact))
+  (test-activation fact)
+  (test-fully-connected-inference fact)
+  (test-fully-connected-transfer fact)
+  (test-fully-connected-training fact))

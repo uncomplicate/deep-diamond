@@ -77,7 +77,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dragan-says-ex "Neanderthal engine does not implement inner product blueprint."))
   (fc-blueprint [this src-desc dst-desc activ alpha beta _]
-    (neanderthal-fc-blueprint this eng src-desc dst-desc activ alpha beta))
+    (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost))

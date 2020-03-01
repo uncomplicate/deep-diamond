@@ -8,7 +8,17 @@
 
 (ns uncomplicate.diamond.internal.cudnn.constants
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
-  (:import [jcuda.jcudnn cudnnTensorFormat cudnnDataType cudnnActivationMode]))
+  (:import [jcuda.jcudnn cudnnTensorFormat cudnnDataType cudnnActivationMode
+            cudnnReduceTensorOp cudnnReduceTensorIndices cudnnNanPropagation
+            cudnnIndicesType]))
+
+(defn enc-nan-propagation ^long [nan]
+  (if nan
+    cudnnNanPropagation/CUDNN_PROPAGATE_NAN
+    cudnnNanPropagation/CUDNN_NOT_PROPAGATE_NAN))
+
+(defn dec-nan-propagation [^long nan]
+  (if (= cudnnNanPropagation/CUDNN_PROPAGATE_NAN nan) true false))
 
 (defn dec-format [^long format]
   (case format
@@ -85,3 +95,18 @@
     5 :identity
     (dragan-says-ex "This mode is not supported by cuDNN. Please find another way to do what you wanted."
                     {:mode mode})))
+
+(def ^:const cudnn-reduce-tensor-op
+  {:add cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_ADD
+   :amax cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_AMAX
+   :avg cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_AVG
+   :max cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MAX
+   :min cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MIN
+   :mul cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MUL
+   :mul-no-zeros cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MUL_NO_ZEROS
+   :norm1 cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_NORM1
+   :norm2 cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_NORM2})
+
+(def ^:const cudnn-reduce-tensor-indices
+  {:flattened cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_FLATTENED_INDICES
+   :no-indices cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_NO_INDICES})
