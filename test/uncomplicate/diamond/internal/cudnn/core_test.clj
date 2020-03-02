@@ -61,6 +61,22 @@
            (take 5 host-dy) => (just [(roughly -0.6) (roughly -0.59) (roughly -0.58)
                                       (roughly -0.57) (roughly -0.56)]))))
 
+
+(with-default
+  (with-release [cudnn-hdl (cudnn-handle default-stream)
+                 linear-desc (activation-descriptor :linear true 2.0)
+                 desc-x (tensor-descriptor [1 1 1 1] :float [1 1 1 1])
+                 host-x (float-array [3.0])
+                 gpu-x (mem-alloc (size desc-x))
+                 host-y (float-array [50.0])
+                 gpu-y (mem-alloc (size desc-x))]
+
+    (facts "Activation forward linear operation does not support forward and backward operations."
+           (memcpy-host! host-x gpu-x)
+           (memcpy-host! host-y gpu-y)
+           (activation-forward cudnn-hdl linear-desc (float 3.0) desc-x gpu-x (float 2.0) desc-x gpu-y)
+           => (throws clojure.lang.ExceptionInfo))))
+
 (with-default
   (with-release [cudnn-hdl (cudnn-handle default-stream)
                  add-desc (reduce-tensor-descriptor :add :float)

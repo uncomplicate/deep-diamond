@@ -16,4 +16,5 @@
   (test-activation fact)
   (test-fully-connected-inference fact)
   (test-fully-connected-transfer fact)
-  (test-fully-connected-training fact))
+  (test-fully-connected-training fact)
+  (test-fully-connected-layer-1 fact))

@@ -83,7 +83,8 @@
    :tanh cudnnActivationMode/CUDNN_ACTIVATION_TANH
    :clipped-relu cudnnActivationMode/CUDNN_ACTIVATION_CLIPPED_RELU
    :elu cudnnActivationMode/CUDNN_ACTIVATION_ELU
-   :identity cudnnActivationMode/CUDNN_ACTIVATION_IDENTITY})
+   :identity cudnnActivationMode/CUDNN_ACTIVATION_IDENTITY
+   :linear cudnnActivationMode/CUDNN_ACTIVATION_IDENTITY})
 
 (defn dec-activation-mode [^long mode]
   (case mode

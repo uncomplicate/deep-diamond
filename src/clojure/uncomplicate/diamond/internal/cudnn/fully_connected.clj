@@ -3,7 +3,7 @@
              [core :refer [Releaseable release let-release with-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! axpy! view dim]]
+             [core :refer [axpby! axpy! view dim copy!]]
              [real :refer [nrm2 asum]]
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
@@ -16,12 +16,15 @@
               :refer [Transfer input output connector view-tz revert shape layout
                       TensorDescriptor shape]]
              [dnn :refer [Parameters bias weights transfer-parameters!]]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
-                     diff-bias diff-weights Backprop forward backward blueprint]]
+            [uncomplicate.diamond.internal
+             [protocols
+              :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
+                      diff-bias diff-weights Backprop forward backward blueprint]]
+             [utils :refer [default-strides]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
-             [protocols :refer :all]]
+             [protocols :refer :all]
+             [tensor :refer [cudnn-tensor-desc]]]
             [uncomplicate.diamond.internal.neanderthal.fully-connected
              :refer [->FullyConnectedBlueprint]])
   (:import clojure.lang.IFn))
@@ -46,7 +49,7 @@
 
 ;; ================================ Activation =============================================
 
-(deftype CUDnnActivationInference [cudnn-hdl bluep activation-desc a-tz one zero]
+(deftype CUDnnActivationInference [cudnn-hdl bluep activation-desc a-tz one zero linear]
   Releaseable
   (release [_]
     true)
@@ -65,11 +68,12 @@
     a-tz)
   IFn
   (invoke [_]
-    (activation-forward cudnn-hdl activation-desc
-                        one a-tz (buffer a-tz) zero a-tz (buffer a-tz))
+    (when-not linear
+      (activation-forward cudnn-hdl activation-desc
+                          one a-tz (buffer a-tz) zero a-tz (buffer a-tz)))
     a-tz))
 
-(deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero]
+(deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero linear]
   Releaseable
   (release [_]
     true)
@@ -90,21 +94,27 @@
     a-tz)
   IFn
   (invoke [_]
-    (activation-forward cudnn-hdl activation-desc
-                        one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
+    (if-not linear
+      (activation-forward cudnn-hdl activation-desc
+                          one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
+      (copy! z-tz a-tz))
     a-tz)
   Backprop
   (forward [this]
-    (activation-forward cudnn-hdl activation-desc
-                        one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
+    (if-not linear
+      (activation-forward cudnn-hdl activation-desc
+                          one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
+      (copy! z-tz a-tz))
     this)
   (backward [this]
-    (activation-backward cudnn-hdl activation-desc
-                         one a-tz (buffer a-tz) a-tz (buffer a-tz) z-tz (buffer z-tz)
-                         zero z-tz (buffer z-tz))
+    (if-not linear
+      (activation-backward cudnn-hdl activation-desc
+                           one a-tz (buffer a-tz) a-tz (buffer a-tz) z-tz (buffer z-tz)
+                           zero z-tz (buffer z-tz))
+      (copy! a-tz z-tz))
     this))
 
-(deftype CUDnnActivationBlueprint [fact activ ad]
+(deftype CUDnnActivationBlueprint [fact activ ad linear]
   Releaseable
   (release [_]
     true)
@@ -122,30 +132,33 @@
   (invoke [this src-tz]
     (->CUDnnActivationInference (handle fact) this ad src-tz
                                 (cast-prim (data-accessor src-tz) 1.0)
-                                (cast-prim (data-accessor src-tz) 0.0)))
+                                (cast-prim (data-accessor src-tz) 0.0)
+                                linear))
   (invoke [this src-tz dst-tz]
     (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz
                                (cast-prim (data-accessor src-tz) 1.0)
-                               (cast-prim (data-accessor dst-tz) 0.0))))
+                               (cast-prim (data-accessor dst-tz) 0.0)
+                               linear)))
 
 (defn cudnn-activ-blueprint [fact activ coef]
   (let-release [ad (activation-descriptor activ true coef)]
-    (->CUDnnActivationBlueprint fact activ ad)))
+    (->CUDnnActivationBlueprint fact activ ad (#{:linear :identity} activ))))
 
 ;; ============================= Fully Connected Layer ================================
 
 (defn cudnn-fc-blueprint [fact src-desc dst-desc activ alpha beta]
-  (let-release [dst-desc (tensor-descriptor (shape dst-desc)
-                                            (or (tz/data-type dst-desc) (tz/data-type src-desc))
-                                            (or (tz/layout dst-desc) :nchw))
-                bias-desc (tensor-descriptor (into [1] (rest (shape dst-desc)))
-                                             (data-type dst-desc)
-                                             (strides dst-desc))
-                weights-desc (tensor-descriptor
-                              [(apply * (shape bias-desc)) (apply * (rest (shape src-desc))) 1 1]
-                              (data-type dst-desc) :nchw)
-                activ-bluep (cudnn-activ-blueprint fact activ alpha)]
-    (->FullyConnectedBlueprint fact activ-bluep src-desc bias-desc weights-desc dst-desc)))
+  (let [dst-shape (shape dst-desc)
+        weights-shape (vec (cons (dst-shape 1) (rest (shape src-desc))))]
+    (let-release [dst-desc (cudnn-tensor-desc [(dst-shape 0) (apply * (rest dst-shape))]
+                                              (or (tz/data-type dst-desc) (data-type src-desc))
+                                              :nc)
+                  bias-desc (cudnn-tensor-desc [(dst-shape 1)]
+                                               (data-type dst-desc)
+                                               :x)
+                  weights-desc (cudnn-tensor-desc weights-shape (data-type dst-desc)
+                                                  (default-strides weights-shape))
+                  activ-bluep (cudnn-activ-blueprint fact activ alpha)]
+      (->FullyConnectedBlueprint fact activ-bluep src-desc bias-desc weights-desc dst-desc))))
 
 ;; ============================= Cost Function ========================================
 
@@ -178,7 +191,7 @@
 
 (defn cudnn-universal-cost [cudnn-hdl prev-layer train-tz cost]
   (let [train-desc (desc train-tz)
-        output-desc (tensor-descriptor (dims (output prev-layer))
+        output-desc (cudnn-tensor-desc (dims (output prev-layer))
                                        (data-type train-desc) (strides train-desc))]
     (let-release [connect-output (connector (output prev-layer) output-desc)
                   connect-diff (revert connect-output)]
@@ -226,7 +239,7 @@
 
 (defn cudnn-custom-cost [cudnn-hdl prev-layer train-tz cost]
   (let [train-desc (desc train-tz)
-        output-desc (tensor-descriptor (dims (output prev-layer))
+        output-desc (cudnn-tensor-desc (dims (output prev-layer))
                                        (data-type train-desc) (strides train-desc))]
     (let-release [connect-output (connector (output prev-layer) output-desc)
                   connect-diff (revert connect-output)]

@@ -372,7 +372,7 @@
          dst-shape (dims dst-desc)
          dst-type (data-type dst-desc)
          bias-shape [(dst-shape 1)]
-         weights-shape (vec (cons (dst-shape 1) (drop 1 (dims src-desc))))
+         weights-shape (vec (cons (dst-shape 1) (rest (dims src-desc))))
          weights-type (or weights-type dst-type)
          src-desc (desc src-desc)]
      (let-release [bias-desc (memory-desc bias-shape dst-type :x)]

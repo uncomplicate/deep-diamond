@@ -32,10 +32,13 @@
                       diamond-factory neanderthal-factory tensor-engine native-diamond-factory
                       Offset]]
              [utils :refer [check-contiguous default-strides]]]
-            [uncomplicate.diamond.internal.dnnl.protocols :refer [data] :as dnnl]
+            [uncomplicate.diamond.internal.dnnl
+             [protocols :refer [data] :as dnnl]
+             [core :refer [memory-desc]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer [tensor-descriptor equal-desc? size dims strides transform-tensor]]
-             [protocols :refer [DescProvider desc handle]]])
+             [protocols :refer [DescProvider desc handle]]
+             [constants :refer [cudnn-format]]])
   (:import clojure.lang.IFn
            [uncomplicate.neanderthal.internal.api Block RealChangeable DataAccessor VectorSpace]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
@@ -67,23 +70,23 @@
                   (flow (diamond-factory cuda)))
   host)
 
-(declare ->CUDnnTensor cudnn-transformer cudnn-tensor cudnn-shuffler)
+(declare ->CUDnnTensor cudnn-transformer cudnn-tensor cudnn-shuffler cudnn-tensor-desc)
 
 (extend-type java.util.Collection
   DescProvider
   (desc [this]
-    (tensor-descriptor this :float :nchw)))
+    (cudnn-tensor-desc this :float :nchw)))
 
 (extend-type java.util.Map
   DescProvider
   (desc [this]
-    (tensor-descriptor (:shape this) (or (:data-type this) :float)
+    (cudnn-tensor-desc (:shape this) (or (:data-type this) :float)
                        (or (layout this) (default-strides (:shape this))))))
 
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (tensor-descriptor (.shape this) (or (.data-type this) :float)
+    (cudnn-tensor-desc (.shape this) (or (.data-type this) :float)
                        (or (layout this) (default-strides (.shape this))))))
 
 (extend-type CUTensorDescriptor
@@ -108,6 +111,13 @@
 (defmethod print-method CUTensorDescriptor
   [^CUTensorDescriptor d ^java.io.Writer w]
   (.write w (pr-str {:shape (.dims d) :data-type (.data-type d) :layout (.strides d)})))
+
+(defn cudnn-tensor-desc [shape dtype format]
+  (if (or (sequential? format) (cudnn-format format))
+    (tensor-descriptor shape dtype format)
+    (with-release [md (memory-desc shape dtype format)]
+      (let [padding-4 (repeat (- 4 (count shape)) 1)]
+        (tensor-descriptor (into shape padding-4) dtype (into (layout md) padding-4))))))
 
 ;; =================== Transformer ==============================================
 
@@ -363,9 +373,9 @@
     (->CUDnnTensor diamond-fact eng vect-view false buf ofst cu-desc))
   (view-tz [_ sub]
     (let-release [sub-desc (if (number? sub)
-                             (tensor-descriptor (into [sub] (rest (dims cu-desc))) (.data-type cu-desc)
+                             (cudnn-tensor-desc (into [sub] (rest (dims cu-desc))) (.data-type cu-desc)
                                                 (.strides cu-desc))
-                             (tensor-descriptor (shape sub) (or (data-type sub) (.data-type cu-desc))
+                             (cudnn-tensor-desc (shape sub) (or (data-type sub) (.data-type cu-desc))
                                                 (or (layout sub) (.strides cu-desc))))]
       (cudnn-tensor diamond-fact false buf sub-desc)))
   Offset

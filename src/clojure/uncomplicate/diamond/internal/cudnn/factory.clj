@@ -27,9 +27,10 @@
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
-             [core :refer [cudnn-handle get-cudnn-stream tensor-descriptor ndims dims
+             [core :refer [cudnn-handle get-cudnn-stream ndims dims
                            strides transform-tensor set-tensor scale-tensor add-tensor]]
-             [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler]]
+             [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler
+                             cudnn-tensor-desc]]
              [fully-connected :refer [cudnn-sum-blueprint cudnn-activ-blueprint
                                       cudnn-fc-blueprint cudnn-universal-cost cudnn-custom-cost
                                       quadratic-cost mean-absolute-cost sigmoid-crossentropy-cost]]])
@@ -356,9 +357,9 @@ Please contribute towards making it possible, or use on of the supported types."
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   TensorFactory
   (create-tensor-desc [this shape dtype format]
-    (tensor-descriptor shape dtype format))
+    (cudnn-tensor-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
-    (tensor-descriptor (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
+    (cudnn-tensor-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
   (create-tensor [this tensor-desc init]
     (let-release [res (cudnn-tensor this tensor-desc)]
       (when init

@@ -31,7 +31,8 @@
   (test-activation fact)
   (test-fully-connected-inference fact)
   (test-fully-connected-transfer fact)
-  (test-fully-connected-training fact))
+  (test-fully-connected-training fact)
+  (test-fully-connected-layer-1 fact))
 
 (facts "Inner product tests."
        (with-release [fact (dnnl-factory)
@@ -123,7 +124,7 @@
          (view (weights fc)) => (fv -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7)
          (view (bias fc)) => (fv -0.1 0.2)))
 
-(facts "Fully connected layer step by step"
+#_(facts "Fully connected layer step by step"
        (with-release [fact (dnnl-factory)
                       input-tz (tensor fact [1 1] :float :nc)
                       fc-bluep (fully-connected fact input-tz [1 1] :linear)
