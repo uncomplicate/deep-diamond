@@ -17,7 +17,7 @@
              :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
                      NeanderthalFactoryProvider]]
             [uncomplicate.diamond.internal.dnnl
-             [protocols :refer [desc DnnlEngineProvider]]
+             [protocols :refer [DescProvider desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
@@ -26,11 +26,17 @@
                                       dnnl-custom-cost sigmoid-crossentropy-cost]]
              [factory :refer [->FloatTensorEngine]]]
             [uncomplicate.diamond.internal.neanderthal.fully-connected
-             :refer [neanderthal-fc-blueprint]]))
+             :refer [neanderthal-fc-blueprint]])
+  (:import uncomplicate.diamond.internal.neanderthal.fully_connected.FullyConnectedBlueprint))
 
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the Neanderthal/DNNL platform.
 Please contribute towards making it possible, or use on of the supported types.")
+
+(extend-type FullyConnectedBlueprint
+  DescProvider
+  (desc [this]
+    (desc (.activ-bluep this))))
 
 (defrecord NeanderthalFactory [eng strm master tensor-engines]
   Releaseable

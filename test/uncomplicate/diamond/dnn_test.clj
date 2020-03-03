@@ -10,7 +10,9 @@
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
-             [core :refer [entry! entry native transfer! view vctr]]]
+             [core :refer [entry! entry native transfer! view vctr cols view-ge]]
+             [random :refer [rand-uniform!]]
+             [math :as math]]
             [uncomplicate.diamond
              [dnn :refer :all]
              [tensor :refer :all]
@@ -134,3 +136,156 @@
            (entry (native (view input-tz)) 0) => -0.5
            (entry (native (view (weights fc))) 0) => (roughly 0.1)
            (entry (native (view (bias fc))) 0) => (roughly -0.2))))
+
+(defn test-fully-connected-layer-2 [fact]
+  (with-release [input-tz (tensor fact [2 1] :float :nc)
+                 fc1-bluep (fully-connected fact input-tz [2 1] :linear)
+                 fc2-bluep (fully-connected fact fc1-bluep [2 1] :linear)
+                 fc1 (fc1-bluep input-tz true)
+                 fc2 (fc2-bluep fc1 true)
+                 train-tz (tensor fact [2 1] :float :nc)
+                 fc-output (cost fc2 train-tz)]
+    (facts "Fully connected, 2 layers step by step."
+           (transfer! [-0.5 -0.5] input-tz)
+           (transfer! [-0.1 -0.1] (weights fc1))
+           (transfer! [0.2 0.2] (bias fc1))
+           (transfer! [0.8 0.8] (weights fc2))
+           (transfer! [0.5 0.5] (bias fc2))
+           (forward fc1 [nil 1 0 0 false]) => fc1
+           (view (output fc1)) => (vctr train-tz 0.25 0.25)
+           (output fc1) => (input fc2)
+           (forward fc2 [nil 1 0 0 false]) => fc2
+           (view (output fc2)) => (vctr train-tz 0.7 0.7)
+           (forward fc-output) => fc-output
+           (transfer! [0.25 0.25] (view train-tz))
+           (backward fc-output)
+           (backward fc2) => fc2
+           (view (output fc2)) => (vctr train-tz 0.45 0.45)
+           (view (input fc2)) => (vctr train-tz 0.25 0.25)
+           (backward fc2 [nil 1 0 0 false]) => fc2
+           (view (input fc2)) => (vctr train-tz 0.35999998 0.35999998)
+           (view (weights fc2)) => (vctr train-tz [0.6875])
+           (view (bias fc2)) => (vctr train-tz [0.050000012])
+           (backward fc1) => fc1
+           (view (output fc1)) => (vctr train-tz 0.35999998 0.35999998)
+           (backward fc1 [nil 1 0 0 false]) => fc1
+           (view (input fc1)) => (vctr train-tz -0.036 -0.036)
+           (view (weights fc1)) => (vctr train-tz [0.07999999])
+           (view (bias fc1)) => (vctr train-tz [-0.15999998]))))
+
+(defn test-sequential-network-linear [fact]
+  (with-release [input-tz (tensor fact [1 16] :float :nc)
+                 train-tz (tensor fact [1 2] :float :nc)
+                 net-bp (network fact input-tz
+                                 [(fully-connected [64] :relu)
+                                  (fully-connected [64] :relu)
+                                  (fully-connected [2] :linear)])
+                 net (init! (net-bp input-tz :sgd))
+                 quad-cost (cost net train-tz :quadratic)]
+    (facts "Sequential network with linear/quadratic cost."
+           (transfer! (range 16) input-tz)
+           (train net quad-cost 10 [0.01 0 0 false]) => (roughly 0.0 0.0002))))
+
+(defn test-sequential-network-detailed [fact]
+  (with-release [input-tz (tensor fact [2 1] :float :nc)
+                 train-tz (tensor fact [2 1] :float :nc)
+                 net-bp (network fact input-tz
+                                 [(fully-connected [1] :linear)
+                                  (fully-connected [1] :linear)])
+                 net (net-bp input-tz :sgd)
+                 quad-cost (cost net train-tz :quadratic)]
+    (facts "Sequential network step by step."
+           (transfer! [-0.5 -0.5] input-tz)
+           (transfer! [-0.1 -0.1] (weights (first (layers net))))
+           (transfer! [0.2 0.2] (bias (first (layers net))))
+           (transfer! [0.8 0.8] (weights (second (layers net))))
+           (transfer! [0.5 0.5] (bias (second (layers net))))
+           (transfer! [0.25 0.25] train-tz)
+           (train net quad-cost 1 [1 0 0 false]) => 0.056953115582683234
+           (entry (native (view (weights (first (layers net))))) 0) => (roughly 0.08)
+           (entry (native (view (bias (first (layers net))))) 0) => (roughly -0.16)
+           (entry (native (view (weights (second (layers net))))) 0) => 0.6875
+           (entry (native (view (bias (second (layers net))))) 0) => (roughly 0.05))))
+
+(defn test-quadratic-cost [fact]
+  (with-release [input-tz (tensor fact [2 1] :float :nc)
+                 train-tz (tensor fact [2 1] :float :nc)
+                 net-bp (network fact input-tz
+                                 [(fully-connected [1] :relu)
+                                  (fully-connected [1] :linear)])
+                 net (net-bp input-tz :sgd)
+                 quad-cost (cost net train-tz :quadratic)]
+    (facts "Quadratic cost."
+           (transfer! [0.25 0.35] train-tz)
+           (transfer! [0.4 -1.3] (output net))
+           (quad-cost) => 0.6862499438341274
+           (view (output net)) => (vctr train-tz 0.15 -1.64999998))))
+
+(defn test-sequential-network-sigmoid [fact]
+  (facts "Sequential network with sigmoid cross-entropy."
+         (with-release [input-tz (tensor fact [1 16] :float :nc)
+                        train-tz (tensor fact [1 2] :float :nc)
+                        net-bp (network fact input-tz
+                                        [(fully-connected [64] :relu)
+                                         (fully-connected [64] :relu)
+                                         (fully-connected [2] :sigmoid)])
+                        net (init! (net-bp input-tz :sgd))
+                        quad-cost (cost net train-tz :sigmoid-crossentropy)]
+           (transfer! (range 16) input-tz)
+           (train net quad-cost 1000 [0.01 0 0 false]) => (roughly 0.0 0.1))))
+
+(defn my-fn ^double [xs]
+  (+ (math/sin (entry xs 0))
+     (math/cos (entry xs 1))
+     (math/tanh (entry xs 2))
+     (math/sqr (entry xs 3))))
+
+(defn test-gradient-descent [fact]
+  (with-release [x-tz (tensor fact [10000 4] :float :nc)
+                 y-tz (tensor fact [10000 1] :float :nc)
+                 net-bp (network fact x-tz
+                                 [(fully-connected [64] :relu)
+                                  (fully-connected [64] :relu)
+                                  (fully-connected [1] :linear)])
+                 net (init! (net-bp x-tz :sgd))
+                 quad-cost (cost net y-tz :quadratic)]
+    (facts "Gradient descent."
+           (rand-uniform! (view x-tz))
+           (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
+           (time (train net quad-cost 30 [0.003 0 0 false])) => (roughly 0.0 0.2))))
+
+(defn test-stochastic-gradient-descent [fact]
+  (with-release [x-tz (tensor fact [10000 4] :float :nc)
+                 x-mb-tz (tensor fact [100 4] :float :nc)
+                 x-shuff (batcher x-tz x-mb-tz)
+                 y-tz (tensor fact [10000 1] :float :nc)
+                 y-mb-tz (tensor fact [100 1] :float :nc)
+                 y-shuff (batcher y-tz y-mb-tz)
+                 net-bp (network fact x-mb-tz
+                                 [(fully-connected [64] :relu)
+                                  (fully-connected [64] :relu)
+                                  (fully-connected [1] :linear)])
+                 net (init! (net-bp x-mb-tz :sgd))
+                 quad-cost (cost net y-mb-tz :quadratic)]
+    (facts "Vanilla stochastic gradient descent."
+           (rand-uniform! (view x-tz))
+           (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
+           (time (train net x-shuff y-shuff quad-cost 1 [0.01 0 0 false])) => (roughly 0.0 0.2))))
+
+(defn test-adam-gradient-descent [fact]
+  (with-release [x-tz (tensor fact [10000 4] :float :nc)
+                 x-mb-tz (tensor fact [100 4] :float :nc)
+                 x-shuff (batcher x-tz x-mb-tz)
+                 y-tz (tensor fact [10000 1] :float :nc)
+                 y-mb-tz (tensor fact [100 1] :float :nc)
+                 y-shuff (batcher y-tz y-mb-tz)
+                 net-bp (network fact x-mb-tz
+                                 [(fully-connected [64] :relu)
+                                  (fully-connected [64] :relu)
+                                  (fully-connected [1] :linear)])
+                 net (init! (net-bp x-mb-tz :adam))
+                 quad-cost (cost net y-mb-tz :quadratic)]
+    (facts "Stochastic gradient descent with Adam."
+           (rand-uniform! (view x-tz))
+           (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
+           (time (train net x-shuff y-shuff quad-cost 1 [0.01])) => (roughly 0.0 0.2))))

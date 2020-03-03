@@ -386,14 +386,14 @@ Please contribute towards making it possible, or use on of the supported types."
   (fc-blueprint [this src-desc dst-desc activ alpha beta _]
     (cudnn-fc-blueprint this src-desc dst-desc activ alpha beta))
   CostFactory
-  (quadratic-cost [this prev-layer train-tz]
-    (cudnn-universal-cost cudnn-hdl prev-layer train-tz quadratic-cost))
-  (mean-absolute-cost [this prev-layer train-tz]
-    (cudnn-universal-cost cudnn-hdl prev-layer train-tz mean-absolute-cost))
-  (sigmoid-crossentropy-cost [this prev-layer train-tz]
-    (cudnn-custom-cost cudnn-hdl prev-layer train-tz
-                      (partial sigmoid-crossentropy-cost
-                               ((dims (output prev-layer)) 0)))))
+  (quadratic-cost [_ prev-layer train-tz]
+    (cudnn-universal-cost prev-layer train-tz quadratic-cost))
+  (mean-absolute-cost [_ prev-layer train-tz]
+    (cudnn-universal-cost prev-layer train-tz mean-absolute-cost))
+  (sigmoid-crossentropy-cost [_ prev-layer train-tz]
+    (cudnn-custom-cost prev-layer train-tz
+                       (partial sigmoid-crossentropy-cost
+                                ((dims (output prev-layer)) 0)))))
 
 (JCudnn/setExceptionsEnabled false)
 

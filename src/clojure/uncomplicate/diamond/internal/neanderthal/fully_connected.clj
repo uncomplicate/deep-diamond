@@ -12,7 +12,7 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [core :refer [rk! mm! mv! trans axpy! axpby! view view-ge mrows
-                           ncols vctr zero dim transfer!]]
+                           ncols vctr zero dim transfer! raw]]
              [real :refer [entry! nrm2 asum]]
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
@@ -95,8 +95,14 @@
   Releaseable
   (release [_]
     "TODO"
-    (release activ)
-    (release v))
+    (release src-conn)
+    (release bias-tz)
+    (release weights-tz)
+    (release dst-tz)
+    (release v)
+    (release z)
+    (release ones)
+    (release activ))
   Object
   (hashCode [_]
     (-> (hash :fc) (hash-combine (info activ :activation))
@@ -176,6 +182,111 @@
                          v a-1 b w z
                          src-conn bias-tz weights-tz a-tz)))
 
+(deftype FullyConnectedAdam [fact bluep ones activ prop-diff?
+                            g s r a-1 b w z
+                            src-conn bias-tz weights-tz dst-tz]
+  Releaseable
+  (release [_]
+    "TODO"
+    (release src-conn)
+    (release bias-tz)
+    (release weights-tz)
+    (release dst-tz)
+    (release g)
+    (release s)
+    (release r)
+    (release z)
+    (release ones)
+    (release activ))
+  Object
+  (hashCode [_]
+    (-> (hash :fc) (hash-combine (info activ :activation))
+        (hash-combine weights-tz) (hash-combine bias-tz)))
+  (equals [_ layer]
+    (and (satisfies? Parameters layer) (= :fc (info layer :topology))
+         (= (info activ :activation) (info layer :activation))
+         (= bias-tz (bias layer)) (= weights-tz (weights layer))))
+  (toString [_]
+    (str bluep))
+  Info
+  (info [x]
+    (assoc (info activ) :shape (info bluep :shape)
+           :shape (info bluep :shape)
+           :bias (info bias-tz)
+           :weights (info weights-tz)
+           :dst (info dst-tz)
+           :batch (dim ones) :algorithm :adam :topology :fc))
+  (info [x info-type]
+    (case info-type
+      :batch (dim ones) :algorithm :adam :topology :fc
+      :bias (info bias-tz)
+      :weights (info weights-tz)
+      :dst (info dst-tz)
+      (or (info activ info-type) (info bluep info-type))))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  BlueprintProvider
+  (blueprint [_]
+    bluep)
+  Parameters
+  (bias [_]
+    bias-tz)
+  (weights [_]
+    weights-tz)
+  Transfer
+  (input [this]
+    (input src-conn))
+  (output [_]
+    (output activ))
+  IFn
+  (invoke [_]
+    (src-conn)
+    (rk! 1.0 b ones (mm! 1.0 w a-1 0.0 z))
+    (activ))
+  Backprop
+  (forward [this]
+    (forward activ)
+    this)
+  (forward [this _]
+    (src-conn)
+    (rk! 1.0 b ones (mm! 1.0 w a-1 0.0 z))
+    (forward activ)
+    this)
+  (backward [this]
+    (backward activ)
+    this)
+  (backward [this [t eta lambda rho1 rho2 epsilon]]
+    (let [t (inc (long t))
+          eta (double (or eta 0.001))
+          lambda (double (or lambda 0.0))
+          rho1 (double (or rho1 0.9))
+          rho2 (double (or rho2 0.999))
+          epsilon (double (or epsilon 1e-6))
+          eta-avg (- (/ (double eta) (dim ones)))]
+      (mm! (/ 1.0 (dim ones)) z (trans a-1) 0.0 g)
+      (axpby! (- 1.0 rho1) g rho1 s)
+      (axpby! (- 1.0 rho2) (sqr! g) rho2 r)
+      (linear-frac! (/ (- eta) (- 1.0 (pow rho1 t))) s 0.0
+                    (/ 1.0 (sqrt (- 1.0 (pow rho2 t)))) (sqrt! r g) epsilon g)
+      (when prop-diff?
+        (mm! 1.0 (trans w) z 0.0 a-1))
+      (mv! eta-avg z ones 1.0 b)
+      (axpby! 1.0 g (inc (* eta-avg lambda)) w)
+      this)))
+
+(defn adam-layer [fact bluep activ-bluep ones prop-diff?
+                  a-1 b w a src-conn bias-tz weights-tz a-tz]
+  (let-release [z-tz (create-tensor fact a-tz false)
+                z (trans (view-ge (view z-tz) (ncols a-1) (dim b)))
+                g (raw w)
+                s (zero w)
+                r (zero w)
+                activ (activ-bluep z-tz a-tz)]
+    (->FullyConnectedAdam fact bluep ones activ prop-diff?
+                          g s r a-1 b w z
+                          src-conn bias-tz weights-tz a-tz)))
+
 (deftype FullyConnectedBlueprint [fact activ-bluep src-desc bias-desc weights-desc dst-desc]
   Releaseable
   (release [_]
@@ -202,9 +313,6 @@
   BlueprintProvider
   (blueprint [this]
     this)
-  ;; DescProvider
-  ;; (desc [_]
-  ;;   (desc activ-bluep))
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -233,7 +341,7 @@
     (let [src-shape (shape src-desc)
           training-layer (case optimization
                            :sgd sgd-layer
-                           :adam nil ;;TODO adam-layer
+                           :adam adam-layer
                            (dragan-says-ex
                             "This optimization algorithm is not available in Neanderthal backend."
                             {:optimization optimization}))]
@@ -253,14 +361,15 @@
     (.invoke this prev-layer prop-diff? :sgd)))
 
 (defn neanderthal-fc-blueprint [fact src-desc dst-desc activ alpha beta]
-  (let-release [dst-desc (memory-desc (shape dst-desc)
-                                      (or (tz/data-type dst-desc) (tz/data-type src-desc))
-                                      :nc)
-                bias-desc (memory-desc (rest (shape dst-desc)) (tz/data-type dst-desc) :x)
-                weights-desc (memory-desc (into [(first (shape bias-desc))] (rest (shape src-desc)))
-                                          (tz/data-type dst-desc) :oi)
-                activ-bluep (activ-blueprint fact dst-desc activ alpha beta)]
-    (->FullyConnectedBlueprint fact activ-bluep src-desc bias-desc weights-desc dst-desc)))
+  (let [dst-shape (shape dst-desc)
+        weights-shape [(dst-shape 1) (apply * (rest (shape src-desc)))]]
+    (let-release [dst-desc (memory-desc [(dst-shape 0) (apply * (rest dst-shape))]
+                                        (or (tz/data-type dst-desc) (data-type src-desc))
+                                        :nc)
+                  bias-desc (memory-desc [(dst-shape 1)] (data-type dst-desc) :x)
+                  weights-desc (memory-desc weights-shape (data-type dst-desc) :oi)
+                  activ-bluep (activ-blueprint fact dst-desc activ alpha beta)]
+      (->FullyConnectedBlueprint fact activ-bluep src-desc bias-desc weights-desc dst-desc))))
 
 
 (defmethod transfer! [FullyConnectedInference Object]
