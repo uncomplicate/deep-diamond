@@ -57,6 +57,7 @@
   (throw (UnsupportedOperationException. "Not available in CUDA. Please use a host instance.")))
 
 (defn set-tensor! [host cuda]
+  ;; TODO check descriptors
   (check-contiguous host cuda)
   (transfer! (view host) (view cuda))
   #_(memcpy-host! (data (buffer host)) (buffer cuda)
@@ -188,7 +189,7 @@
         (transform-tensor cudnn-hdl2
                           (cast-prim (data-accessor src-sub) 1.0) src-sub (buffer src-sub)
                           (+ (offset src-sub) (* src-entry-width src-stride-n src-n))
-                          (cast-prim (data-accessor dst-sub) 1.0) dst-sub (buffer dst-sub)
+                          (cast-prim (data-accessor dst-sub) 0.0) dst-sub (buffer dst-sub)
                           (+ (offset dst-sub) (* dst-entry-width dst-stride-n dst-n)))
         (dragan-says-ex "Requested subtensor is outside of bounds."
                         {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt
