@@ -85,16 +85,6 @@
   (test-stochastic-gradient-descent fact)
   (test-adam-gradient-descent fact))
 
-#_(facts "Fully connected deep network"
-       (with-release [input-tz (tensor [1024 1] :float :nc)
-                      net-bp (network input-tz input-tz
-                                      [(fully-connected [1024] :relu)
-                                       (fully-connected [349] :logistic)
-                                       (fully-connected [4024] :tanh)
-                                       (fully-connected [1] :elu)])
-                      net (init! (net-bp input-tz :sgd))]
-         (time (dotimes [i 100]
-                 (forward net [0 1 0 0 false])
-                 (backward net [0 1 0 0 false])))))
-
-;; "Elapsed time: 5917.241476 msecs"
+#_(with-release [fact (dnnl-factory)]
+  (bench-wide-layers fact))
+;; "Elapsed time: 5579.050168 msecs"

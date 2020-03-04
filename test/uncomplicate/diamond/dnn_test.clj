@@ -289,3 +289,15 @@
            (rand-uniform! (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
            (time (train net x-shuff y-shuff quad-cost 1 [0.01])) => (roughly 0.0 0.2))))
+
+(defn bench-wide-layers [fact]
+  (with-release [input-tz (tensor fact [1024 1] :float :nc)
+                 net-bp (network input-tz input-tz
+                                 [(fully-connected [1024] :relu)
+                                  (fully-connected [349] :logistic)
+                                  (fully-connected [4024] :tanh)
+                                  (fully-connected [1] :elu)])
+                 net (init! (net-bp input-tz :sgd))]
+    (time (dotimes [i 100]
+            (forward net [0 1 0 0 false])
+            (backward net [0 1 0 0 false])))))

@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.cudnn.cudnn-fully-connected-test
+(ns uncomplicate.diamond.internal.cudnn.fully-connected-test
   (:require [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.diamond.dnn-test :refer :all]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
@@ -26,3 +26,7 @@
   (test-gradient-descent fact)
   (test-stochastic-gradient-descent fact)
   (test-adam-gradient-descent fact))
+
+;; (with-release [fact (cudnn-factory)]
+;;   (bench-wide-layers fact))
+;; "Elapsed time: 161.175218 msecs"
