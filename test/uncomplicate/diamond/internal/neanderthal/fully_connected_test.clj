@@ -16,15 +16,13 @@
   (test-fully-connected-layer-2 fact)
   (test-sequential-network-linear fact)
   (test-sequential-network-detailed fact)
+  (test-sequential-network-batched fact)
   (test-quadratic-cost fact)
   (test-sequential-network-sigmoid-sgd fact)
   (test-sequential-network-sigmoid-adam fact)
   (test-gradient-descent fact)
-  (test-stochastic-gradient-descent fact)
-  (test-adam-gradient-descent fact))
-
-
-
+  (test-stochastic-gradient-descent-sgd fact)
+  (test-stochastic-gradient-descent-adam fact))
 
 ;; (with-release [fact (neanderthal-factory)]
 ;;   (bench-wide-layers fact))
