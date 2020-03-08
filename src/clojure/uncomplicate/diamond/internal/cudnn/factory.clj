@@ -330,11 +330,11 @@ Please contribute towards making it possible, or use on of the supported types."
   Releaseable
   (release [_]
     (in-context ctx
-                (release cudnn-hdl)
-                (doseq [eng (vals tensor-engines)]
-                  (release eng))
                 (doseq [neand-fact (vals neand-facts)]
                   (release neand-fact))
+                (doseq [eng (vals tensor-engines)]
+                  (release eng))
+                (release cudnn-hdl)
                 (when master
                   (when-not (= default-stream hstream)
                     (release hstream))

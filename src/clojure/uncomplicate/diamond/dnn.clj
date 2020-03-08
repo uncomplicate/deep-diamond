@@ -7,7 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.dnn
-  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
+  (:require [uncomplicate.commons
+             [core :refer [with-release]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [core :refer [ncols view transfer!]]
              [random :refer [rand-normal! rand-uniform! rng-state]]]
@@ -97,9 +99,10 @@
    (network *diamond-factory* src-desc layers)))
 
 (defn init! [network!]
-  (doseq [layer (api/layers network!)]
-    (rand-normal! 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
-    (rand-normal! (view (bias layer))))
+  (with-release [rng (rng-state (view (bias (first (api/layers network!)))))]
+    (doseq [layer (api/layers network!)]
+      (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
+      (rand-normal! rng (view (bias layer)))))
   network!)
 
 (defn ^:private linear-decay

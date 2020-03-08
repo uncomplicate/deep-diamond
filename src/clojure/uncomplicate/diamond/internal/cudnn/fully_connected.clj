@@ -116,7 +116,7 @@
 (deftype CUDnnActivationBlueprint [fact activ ad linear]
   Releaseable
   (release [_]
-    true)
+    (release ad))
   Info
   (info [this]
     {:activation activ})

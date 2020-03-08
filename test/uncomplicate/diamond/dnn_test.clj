@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.dnn-test
-  (:require [midje.sweet :refer [facts throws => roughly just]]
+  (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view vctr cols view-ge nrm2]]
@@ -232,7 +232,10 @@
            (transfer! [0.5 0.5] (bias (second (layers net))))
            (transfer! [0.25 0.25] train-tz)
            (train net quad-cost 1 [1 0 0 false]) => 0.056953115582683234
-           (just [(roughly 0.08) (roughly -0.16) (roughly 0.6875) (roughly 0.05)]))))
+           (entry (native (view (weights (first (layers net))))) 0) => (roughly 0.08)
+           (entry (native (view (bias (first (layers net))))) 0) => (roughly -0.16)
+           (entry (native (view (weights (second (layers net))))) 0) => 0.6875
+           (entry (native (view (bias (second (layers net))))) 0) => (roughly 0.05))))
 
 (defn test-sequential-network-batched [fact]
   (with-release [input-tz (tensor fact [4 2] :float :nc)
@@ -254,8 +257,10 @@
            (transfer! [0.5 0.5] (bias (second (layers net))))
            (transfer! [0.25 0.25 2.5 2.5] train-tz)
            (train net x-batcher y-batcher quad-cost 2 [1]) => (roughly 5.5345)
-           (seq (native (view (weights (first (layers net))))))
-           => (just [(roughly 0.97108) (roughly 1.0245) (roughly 0.79295) (roughly -1.38267)]))))
+           (entry (native (view (weights (first (layers net))))) 0) => (roughly 0.97108)
+           (entry (native (view (bias (first (layers net))))) 0) => (roughly 1.0245)
+           (entry (native (view (weights (second (layers net))))) 0) = (roughly 0.79295)
+           (entry (native (view (bias (second (layers net))))) 0) => (roughly -1.38267))))
 
 (defn test-quadratic-cost [fact]
   (with-release [input-tz (tensor fact [2 1] :float :nc)
@@ -283,7 +288,7 @@
                         quad-cost (cost net train-tz :sigmoid-crossentropy)]
            (transfer! (range 16) input-tz)
            (transfer! [1 2] train-tz)
-           (train net quad-cost 3 [0.01 0 0 false]) => (roughly 6 5))))
+           (train net quad-cost 3 [0.01 0 0 false]) => (roughly 6 5.9))))
 
 (defn test-sequential-network-sigmoid-adam [fact]
   (facts "Sequential network with sigmoid cross-entropy."
@@ -297,7 +302,7 @@
                         quad-cost (cost net train-tz :sigmoid-crossentropy)]
            (transfer! (range 16) input-tz)
            (transfer! [1 2] train-tz)
-           (train net quad-cost 3 []) => (roughly 6 5))))
+           (train net quad-cost 3 []) => (roughly 6 5.9))))
 
 (defn my-fn ^double [xs]
   (+ (math/sin (entry xs 0))
