@@ -159,7 +159,8 @@
           (offset! dst-submem (* dst-entry-width dst-stride-n dst-n))
           (execute! strm2 reorder reorder-args))
         (dragan-says-ex "Requested subtensor is outside of bounds."
-                        {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt
+                        {:src-index src-n :src-cnt src-cnt
+                         :dst-index dst-n :dst-cnt dst-cnt
                          :mb-size mb-size})))
     dst-tz)
   ConnectorCreator

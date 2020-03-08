@@ -11,7 +11,7 @@
              [core :refer [Releaseable release let-release with-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [axpy! axpby! view zero dim transfer!]]
+             [core :refer [axpy! axpby! view zero dim transfer! scal!]]
              [real :refer [nrm2 asum]]
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
@@ -514,12 +514,13 @@
       (axpby! 1.0 v (inc (* eta-avg (double lambda))) w)
       this)))
 
-(defn sgd-layer [fact bluep ip activ n]
-  (let [w (view (weights ip))
-        v (zero w)]
-    (->FullyConnectedSGD fact bluep ip activ n
-                         v w (view (diff-weights ip))
-                         (view (bias ip)) (view (diff-bias ip)))))
+(defn sgd-layer [fact bluep ip activ]
+  (let [n (first (shape (desc bluep)))]
+    (let-release [w (view (weights ip))
+                  v (zero w)]
+      (->FullyConnectedSGD fact bluep ip activ n
+                           v w (view (diff-weights ip))
+                           (view (bias ip)) (view (diff-bias ip))))))
 
 (defmethod print-method FullyConnectedSGD
   [fc ^java.io.Writer w]
@@ -597,6 +598,7 @@
           epsilon (double (or epsilon 1e-6))
           eta-avg (- (/ (double eta) n))]
       (backward ip)
+      (scal! (/ 1.0 n) g)
       (axpby! (- 1.0 rho1) g rho1 s)
       (axpby! (- 1.0 rho2) (sqr! g) rho2 r)
       (linear-frac! (/ (- eta) (- 1.0 (pow rho1 t))) s 0.0
@@ -605,12 +607,13 @@
       (axpby! 1.0 g (inc (* eta-avg lambda)) w)
       this)))
 
-(defn adam-layer [fact bluep ip activ n]
-  (let-release [w (view (weights ip))
-                s (zero w)
-                r (zero w)]
-    (->FullyConnectedAdam fact bluep ip activ n s r w (view (diff-weights ip))
-                          (view (bias ip)) (view (diff-bias ip)))))
+(defn adam-layer [fact bluep ip activ]
+  (let [n (first (shape (desc bluep)))]
+    (let-release [w (view (weights ip))
+                  s (zero w)
+                  r (zero w)]
+      (->FullyConnectedAdam fact bluep ip activ n s r w (view (diff-weights ip))
+                            (view (bias ip)) (view (diff-bias ip))))))
 
 (defmethod print-method FullyConnectedAdam
   [fc ^java.io.Writer w]
@@ -672,14 +675,13 @@
                   a-tz (dnnl-tensor fact dst-desc)
                   ip (ip-bluep src-tz z-tz prop-diff?)
                   activ (activ-bluep z-tz a-tz)]
-      (let [n ((shape src-tz) 0)
-            training-layer (case optimization
+      (let [training-layer (case optimization
                              :sgd sgd-layer
                              :adam adam-layer
                              (dragan-says-ex
                               "This optimization algorithm is not available for MKL-DNN backend."
                               {:optimization optimization}))]
-        (training-layer fact this ip activ n))))
+        (training-layer fact this ip activ))))
   (invoke [this prev-layer prop-diff?]
     (.invoke this prev-layer prop-diff? :sgd)))
 
@@ -787,8 +789,8 @@
                         connect-output connect-diff
                         (view (output connect-output))
                         (view train-tz)
-                        cost))))));;TODO see about offsets
-;; maybe leave output as-is and always copy the subtensor back from output for the computation?
+                        cost))))))
+;; TODO maybe leave output as-is and always copy the subtensor back from output for the computation?
 
 (defmethod transfer! [FullyConnectedInference Object]
   [source destination]

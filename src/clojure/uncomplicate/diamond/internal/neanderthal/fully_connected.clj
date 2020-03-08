@@ -175,7 +175,7 @@
 (defn sgd-layer [fact bluep activ-bluep ones prop-diff?
                  a-1 b w a src-conn bias-tz weights-tz a-tz]
   (let-release [z-tz (create-tensor fact a-tz false)
-                z (trans (view-ge (view z-tz) (ncols a-1) (dim b)))
+                z (view-ge (view z-tz) (dim b) (ncols a-1))
                 v (zero w)
                 activ (activ-bluep z-tz a-tz)]
     (->FullyConnectedSGD fact bluep ones activ prop-diff?
@@ -278,7 +278,7 @@
 (defn adam-layer [fact bluep activ-bluep ones prop-diff?
                   a-1 b w a src-conn bias-tz weights-tz a-tz]
   (let-release [z-tz (create-tensor fact a-tz false)
-                z (trans (view-ge (view z-tz) (ncols a-1) (dim b)))
+                z (view-ge (view z-tz) (dim b) (ncols a-1))
                 g (raw w)
                 s (zero w)
                 r (zero w)
@@ -328,14 +328,14 @@
                     bias-tz (create-tensor fact bias-desc false)
                     weights-tz (create-tensor fact weights-desc false)
                     a-tz (create-tensor fact dst-desc false)
-                    x (trans (view-ge (view (output src-conn))
-                                      (long (get src-shape 0)) (apply * (rest src-shape))))
+                    x (view-ge (view (output src-conn))
+                               (apply * (rest src-shape)) (long (get src-shape 0)))
                     b (view bias-tz)
                     ones (entry! (vctr x (ncols x)) 1.0)
                     activ (activ-bluep a-tz)]
         (->FullyConnectedInference fact this ones activ x b
                                    (trans (view-ge (view weights-tz) (mrows x) (dim b)))
-                                   (trans (view-ge (view a-tz) n (dim b)))
+                                   (view-ge (view a-tz) (dim b) n)
                                    src-conn bias-tz weights-tz a-tz))))
   (invoke [this prev-layer prop-diff? optimization]
     (let [src-shape (shape src-desc)
@@ -349,11 +349,11 @@
                     bias-tz (create-tensor fact bias-desc false)
                     weights-tz (create-tensor fact weights-desc false)
                     a-tz (create-tensor fact dst-desc false)
-                    x (trans (view-ge (view (output src-conn))
-                                      (long (get src-shape 0)) (apply * (rest src-shape))))
+                    x (view-ge (view (output src-conn))
+                               (apply * (rest src-shape)) (long (get src-shape 0)))
                     b (view bias-tz)
                     w (trans (view-ge (view weights-tz) (mrows x) (dim b)))
-                    a (trans (view-ge (view a-tz) (ncols x) (dim b)))
+                    a (view-ge (view a-tz) (dim b) (ncols x))
                     ones (entry! (vctr x (ncols x)) 1.0)]
         (training-layer fact this activ-bluep ones prop-diff? x b w a
                         src-conn bias-tz weights-tz a-tz))))
@@ -376,7 +376,7 @@
   [source destination]
   (transfer-parameters! source destination))
 
-#_(defmethod transfer! [FullyConnectedAdam Object]
+(defmethod transfer! [FullyConnectedAdam Object]
   [source destination]
   (transfer-parameters! source destination))
 

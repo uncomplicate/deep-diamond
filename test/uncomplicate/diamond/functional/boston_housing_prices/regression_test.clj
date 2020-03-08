@@ -18,7 +18,9 @@
                           network init! train cost train]]]
             [uncomplicate.diamond.internal.protocols
              :refer [diff-bias diff-weights forward backward layers]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]))
+            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
+            [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
+            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce boston-housing-raw
   (csv/read-csv (slurp (io/resource "uncomplicate/diamond/functional/boston_housing_prices/boston-housing.csv"))))
@@ -56,26 +58,35 @@
 (standardize! x-train)
 (standardize! x-test)
 
-(facts "Adam gradient descent - Boston Housing Prices."
-       (with-release [fact (dnnl-factory)
-                      x-tz (tensor fact [404 13] :float :nc)
-                      x-mb-tz (tensor fact [16 13] :float :nc)
-                      y-tz (tensor fact [404 1] :float :nc)
-                      y-mb-tz (tensor fact [16 1] :float :nc)
-                      net-bp (network fact x-mb-tz
-                                      [(fully-connected [64] :relu)
-                                       (fully-connected [64] :relu)
-                                       (fully-connected [1] :linear)])
-                      net (init! (net-bp x-mb-tz :adam))
-                      net-infer (net-bp x-mb-tz)
-                      quad-cost (cost net y-mb-tz :quadratic)
-                      mean-abs-cost (cost net-infer y-mb-tz :mean-absolute)
-                      x-batcher (batcher x-tz (input net))
-                      y-batcher (batcher y-tz y-mb-tz)]
-         (transfer! x-train (view x-tz))
-         (transfer! y-train (view y-tz))
-         (time (train net x-batcher y-batcher quad-cost 80 [])) => (roughly 0.0 10)
+(defn test-boston-regression [fact]
+  (with-release [x-tz (tensor fact [404 13] :float :nc)
+                 x-mb-tz (tensor fact [16 13] :float :nc)
+                 y-tz (tensor fact [404 1] :float :nc)
+                 y-mb-tz (tensor fact [16 1] :float :nc)
+                 net-bp (network fact x-mb-tz
+                                 [(fully-connected [64] :relu)
+                                  (fully-connected [64] :relu)
+                                  (fully-connected [1] :linear)])
+                 net (init! (net-bp x-mb-tz :adam))
+                 net-infer (net-bp x-mb-tz)
+                 quad-cost (cost net y-mb-tz :quadratic)
+                 mean-abs-cost (cost net-infer y-mb-tz :mean-absolute)
+                 x-batcher (batcher x-tz (input net))
+                 y-batcher (batcher y-tz y-mb-tz)]
+    (facts "Adam gradient descent - Boston Housing Prices."
+           (transfer! x-train (view x-tz))
+           (transfer! y-train (view y-tz))
+           (time (train net x-batcher y-batcher quad-cost 80 [] )) => (roughly 4 3)
 
-         (transfer! net net-infer)
-         (net-infer)
-         (mean-abs-cost) => (roughly 2.5 1.0)))
+           (transfer! net net-infer)
+           (net-infer)
+           (mean-abs-cost) => (roughly 2.5 1.0))))
+
+(with-release [fact (dnnl-factory)]
+  (test-boston-regression fact))
+
+(with-release [fact (neanderthal-factory)]
+  (test-boston-regression fact))
+
+(with-release [fact (cudnn-factory)]
+  (test-boston-regression fact))

@@ -16,8 +16,8 @@
             [uncomplicate.diamond.tensor :refer :all])
   (:import clojure.lang.ExceptionInfo))
 
-(defn test-tensor [factory]
-  (with-release [tz (tensor factory [2 3 4 5] :float :nchw)]
+(defn test-tensor [fact]
+  (with-release [tz (tensor fact [2 3 4 5] :float :nchw)]
     (facts "Basic tensor tests"
            (asum tz) => 0.0
            (asum (entry! tz 1)) => 120.0
@@ -81,8 +81,8 @@
            (seq (native (view-tz x1 [1 3 2 2]))) => (range 0.0 12.0)
            (contiguous? x1) => true)))
 
-(defn test-subtensor [factory]
-  (with-release [tz-x (tensor factory [6 1 1 1] :float [1 1 1 1])
+(defn test-subtensor [fact]
+  (with-release [tz-x (tensor fact [6 1 1 1] :float [1 1 1 1])
                  sub-x (view-tz tz-x [2 1 1 1])
                  sub-y (view-tz tz-x (desc [1 3 1 1] [3 1 1 1]))
                  sub-z (view-tz tz-x 4)]
@@ -99,9 +99,9 @@
 
 ;; TODO implement and test fluokitten support.
 
-(defn test-transformer [factory]
-  (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
-                 tz-y (tensor factory [2 3 4 5] :float :nhwc)
+(defn test-transformer [fact]
+  (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)
+                 tz-y (tensor fact [2 3 4 5] :float :nhwc)
                  tz-sub-x (view-tz tz-x [1 3 4 5])
                  tz-sub-y (view-tz tz-y [1 3 4 5])
                  transform (transformer tz-x tz-y)
@@ -118,8 +118,8 @@
            (sub-transform) => tz-sub-y
            (entry (view (native tz-y)) 34) => 310.0)))
 
-(defn test-pull-different [factory]
-  (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
+(defn test-pull-different [fact]
+  (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)
                  tz-y-desc (desc [2 3 4 5] :float :nhwc)
                  connection (connector tz-x tz-y-desc)]
     (facts "Tensor pull connector with different destination"
@@ -128,8 +128,8 @@
            (identical? (buffer (input connection)) (buffer (output connection))) => false
            (entry (native (view (connection))) 119) => 119.0)))
 
-(defn test-pull-same [factory]
-  (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
+(defn test-pull-same [fact]
+  (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)
                  tz-y-desc (desc [2 3 4 5] :float :nchw)
                  connection (connector tz-x tz-y-desc)]
     (facts "Tensor pull connector with the same destination"
@@ -138,8 +138,8 @@
            (identical? (buffer (input connection)) (buffer (output connection))) => true
            (entry (native (view (connection))) 119) => 119.0)))
 
-(defn test-push-different [factory]
-  (with-release [tz-y (tensor factory [2 3 4 5] :float :nchw)
+(defn test-push-different [fact]
+  (with-release [tz-y (tensor fact [2 3 4 5] :float :nchw)
                  tz-x-desc (desc [2 3 4 5] :float :nhwc)
                  connection (connector tz-x-desc tz-y)]
     (facts "Tensor push connector with different destination"
@@ -148,8 +148,8 @@
            (identical? (buffer (input connection)) (buffer (output connection))) => false
            (entry (native (view (connection))) 119) => 119.0)))
 
-(defn test-push-same [factory]
-  (with-release [tz-y (tensor factory [2 3 4 5] :float :nchw)
+(defn test-push-same [fact]
+  (with-release [tz-y (tensor fact [2 3 4 5] :float :nchw)
                  tz-x-desc (desc [2 3 4 5] :float :nchw)
                  connection (connector tz-x-desc tz-y)]
     (facts "Tensor push connector with the same destination"
@@ -158,9 +158,9 @@
            (identical? (buffer (input connection)) (buffer (output connection))) => true
            (entry (native (view (connection))) 119) => 119.0)))
 
-(defn test-shuffler [factory]
-  (with-release [tz-x (tensor factory [6 2 1 1] :float [2 1 1 1])
-                 tz-y (tensor factory [3 2 1 1] :float [1 3 1 1])
+(defn test-shuffler [fact]
+  (with-release [tz-x (tensor fact [6 2 1 1] :float [2 1 1 1])
+                 tz-y (tensor fact [3 2 1 1] :float [1 3 1 1])
                  shuff (shuffler tz-x tz-y)]
     (facts "shuffler test."
            (transfer! (range 1 13) tz-x)
@@ -172,9 +172,9 @@
            (shuff [0 2 8]) => (throws ExceptionInfo)
            (shuff [0 1]) => tz-y)))
 
-(defn test-batcher [factory]
-  (with-release [tz-x (tensor factory [7 2 1 1] :float [2 1 1 1])
-                 tz-y (tensor factory [3 2 1 1] :float [1 3 1 1])
+(defn test-batcher [fact]
+  (with-release [tz-x (tensor fact [7 2 1 1] :float [2 1 1 1])
+                 tz-y (tensor fact [3 2 1 1] :float [1 3 1 1])
                  batch (batcher tz-x tz-y 3)
                  batch-2 (batcher tz-x tz-y 2)]
     (facts "batcher test."

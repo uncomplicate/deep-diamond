@@ -11,15 +11,20 @@
   (test-fully-connected-inference fact)
   (test-fully-connected-transfer fact)
   (test-fully-connected-training fact)
+  (test-fully-connected-training-adam fact)
   (test-fully-connected-layer-1 fact)
   (test-fully-connected-layer-2 fact)
   (test-sequential-network-linear fact)
   (test-sequential-network-detailed fact)
   (test-quadratic-cost fact)
-  (test-sequential-network-sigmoid fact)
+  (test-sequential-network-sigmoid-sgd fact)
+  (test-sequential-network-sigmoid-adam fact)
   (test-gradient-descent fact)
   (test-stochastic-gradient-descent fact)
   (test-adam-gradient-descent fact))
+
+
+
 
 ;; (with-release [fact (neanderthal-factory)]
 ;;   (bench-wide-layers fact))
