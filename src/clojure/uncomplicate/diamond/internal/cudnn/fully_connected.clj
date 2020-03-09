@@ -147,11 +147,11 @@
   (desc [this]
     (desc (.dst-desc this))))
 
-;;TODO unify with neanderthal-fc-blueprint
 (defn cudnn-fc-blueprint [fact src-desc dst-desc activ alpha beta]
   (let [dst-shape (shape dst-desc)
         weights-shape [(dst-shape 1) (apply * (rest (shape src-desc)))]]
-    (let-release [dst-desc (cudnn-tensor-desc [(dst-shape 0) (apply * (rest dst-shape))]
+    (let-release [src-desc (cudnn-tensor-desc (shape src-desc) (data-type src-desc) (layout src-desc))
+                  dst-desc (cudnn-tensor-desc [(dst-shape 0) (apply * (rest dst-shape))]
                                               (or (tz/data-type dst-desc) (data-type src-desc))
                                               :nc)
                   bias-desc (cudnn-tensor-desc [(dst-shape 1)] (data-type dst-desc) :x)

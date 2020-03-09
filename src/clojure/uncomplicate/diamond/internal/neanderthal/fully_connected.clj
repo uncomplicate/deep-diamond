@@ -37,11 +37,16 @@
                                   src-conn bias-tz weights-tz dst-tz]
   Releaseable
   (release [_]
+    (release ones)
+    (release activ)
+    (release x)
+    (release b)
+    (release w)
+    (release a)
     (release src-conn)
     (release bias-tz)
     (release weights-tz)
-    (release dst-tz)
-    (release activ))
+    (release dst-tz))
   Object
   (hashCode [_]
     (-> (hash :fc) (hash-combine (info activ :activation))
@@ -91,18 +96,21 @@
 
 (deftype FullyConnectedSGD [fact bluep ones activ prop-diff?
                             v a-1 b w z
-                            src-conn bias-tz weights-tz dst-tz]
+                            src-conn bias-tz weights-tz diff-tz dst-tz]
   Releaseable
   (release [_]
-    "TODO"
+    (release ones)
+    (release activ)
+    (release v)
+    (release a-1)
+    (release b)
+    (release w)
+    (release z)
     (release src-conn)
     (release bias-tz)
     (release weights-tz)
-    (release dst-tz)
-    (release v)
-    (release z)
-    (release ones)
-    (release activ))
+    (release diff-tz)
+    (release dst-tz))
   Object
   (hashCode [_]
     (-> (hash :fc) (hash-combine (info activ :activation))
@@ -180,24 +188,27 @@
                 activ (activ-bluep z-tz a-tz)]
     (->FullyConnectedSGD fact bluep ones activ prop-diff?
                          v a-1 b w z
-                         src-conn bias-tz weights-tz a-tz)))
+                         src-conn bias-tz weights-tz z-tz a-tz)))
 
 (deftype FullyConnectedAdam [fact bluep ones activ prop-diff?
                             g s r a-1 b w z
-                            src-conn bias-tz weights-tz dst-tz]
+                            src-conn bias-tz weights-tz diff-tz dst-tz]
   Releaseable
   (release [_]
-    "TODO"
-    (release src-conn)
-    (release bias-tz)
-    (release weights-tz)
-    (release dst-tz)
+    (release ones)
+    (release activ)
     (release g)
     (release s)
     (release r)
+    (release a-1)
+    (release b)
+    (release w)
     (release z)
-    (release ones)
-    (release activ))
+    (release src-conn)
+    (release bias-tz)
+    (release weights-tz)
+    (release diff-tz)
+    (release dst-tz))
   Object
   (hashCode [_]
     (-> (hash :fc) (hash-combine (info activ :activation))
@@ -285,12 +296,16 @@
                 activ (activ-bluep z-tz a-tz)]
     (->FullyConnectedAdam fact bluep ones activ prop-diff?
                           g s r a-1 b w z
-                          src-conn bias-tz weights-tz a-tz)))
+                          src-conn bias-tz weights-tz z-tz a-tz)))
 
 (deftype FullyConnectedBlueprint [fact activ-bluep src-desc bias-desc weights-desc dst-desc]
   Releaseable
   (release [_]
-    (release activ-bluep))
+    (release activ-bluep)
+    (release src-desc)
+    (release bias-desc)
+    (release weights-desc)
+    (release dst-desc))
   Object
   (hashCode [_]
     (-> (hash :fc) (hash-combine activ-bluep)))
@@ -370,7 +385,6 @@
                   weights-desc (memory-desc weights-shape (data-type dst-desc) :oi)
                   activ-bluep (activ-blueprint fact dst-desc activ alpha beta)]
       (->FullyConnectedBlueprint fact activ-bluep src-desc bias-desc weights-desc dst-desc))))
-
 
 (defmethod transfer! [FullyConnectedInference Object]
   [source destination]

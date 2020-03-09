@@ -99,7 +99,8 @@
    (network *diamond-factory* src-desc layers)))
 
 (defn init! [network!]
-  (with-release [rng (rng-state (view (bias (first (api/layers network!)))))]
+  (with-release [rng (rng-state (view (bias (first (api/layers network!))))
+                                (- (long (rand (* Integer/MAX_VALUE 2))) Integer/MAX_VALUE))]
     (doseq [layer (api/layers network!)]
       (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
       (rand-normal! rng (view (bias layer)))))

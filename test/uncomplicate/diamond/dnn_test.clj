@@ -11,7 +11,7 @@
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view vctr cols view-ge nrm2]]
-             [random :refer [rand-uniform!]]
+             [random :refer [rand-uniform! rng-state]]
              [math :as math]]
             [uncomplicate.diamond
              [dnn :refer :all]
@@ -76,7 +76,6 @@
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
            (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
            (transfer! [-0.1 0.2] (bias fc))
-           (view (output connect-output)) => (vctr (output fc) [0.0 0.0])
            (fc) => (output fc)
            (view (output connect-output)) => (vctr (output fc) [0.0 0.72999996]))))
 
@@ -133,7 +132,7 @@
            (forward fc-output) => fc-output
            (transfer! [-0.71 -0.1] (view train-tz))
            (let [reflection-warn *warn-on-reflection*]
-             (set! *warn-on-reflection* true)
+             (set! *warn-on-reflection* false)
              (transfer! [0.1 0.3 -0.4 -0.2 0.2 0.3 -0.3 -0.1 -0.15 0.12 0.25 -0.25] (.s fc))
              (transfer! [0.01 0.03 -0.04 -0.02 0.02 0.03 -0.03 -0.01 -0.015 0.012 0.025 -0.025] (.s fc))
              (set! *warn-on-reflection* reflection-warn))
@@ -318,11 +317,12 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-tz :sgd))
-                 quad-cost (cost net y-tz :quadratic)]
+                 quad-cost (cost net y-tz :quadratic)
+                 rng-state (rng-state x-tz 1234)]
     (facts "Gradient descent."
-           (rand-uniform! (view x-tz))
+           (rand-uniform! rng-state (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
-           (time (train net quad-cost 30 [0.003 0 0 false])) => (roughly 0.0 0.2))))
+           (train net quad-cost 30 [0.003 0 0 false]) => (roughly 0.0 0.2))))
 
 (defn test-stochastic-gradient-descent-sgd [fact]
   (with-release [x-tz (tensor fact [10000 4] :float :nc)
@@ -336,11 +336,12 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-mb-tz :sgd))
-                 quad-cost (cost net y-mb-tz :quadratic)]
+                 quad-cost (cost net y-mb-tz :quadratic)
+                 rng-state (rng-state x-tz 1234)]
     (facts "Vanilla stochastic gradient descent."
-           (rand-uniform! (view x-tz))
+           (rand-uniform! rng-state (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
-           (time (train net x-shuff y-shuff quad-cost 1 [0.01 0 0 false])) => (roughly 0.0 0.2))))
+           (train net x-shuff y-shuff quad-cost 1 [0.01 0 0 false]) => (roughly 0.0 0.2))))
 
 (defn test-stochastic-gradient-descent-adam [fact]
   (with-release [x-tz (tensor fact [10000 4] :float :nc)
@@ -354,11 +355,12 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-mb-tz :adam))
-                 quad-cost (cost net y-mb-tz :quadratic)]
+                 quad-cost (cost net y-mb-tz :quadratic)
+                 rng-state (rng-state x-tz 1234)]
     (facts "Stochastic gradient descent with Adam."
-           (rand-uniform! (view x-tz))
+           (rand-uniform! rng-state (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
-           (time (train net x-shuff y-shuff quad-cost 1 [0.01])) => (roughly 0.0 0.01))))
+           (train net x-shuff y-shuff quad-cost 1 [0.01]) => (roughly 0.0 0.01))))
 
 (defn bench-wide-layers [fact]
   (with-release [input-tz (tensor fact [1024 1] :float :nc)

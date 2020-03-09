@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.cudnn.factory
   (:require [clojure.java.io :as io]
             [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release]]
+             [core :refer [Releaseable release let-release with-release Wrapper extract]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.core :refer [op]]
             [uncomplicate.clojurecuda
@@ -329,22 +329,26 @@ Please contribute towards making it possible, or use on of the supported types."
                        neand-facts tensor-engines]
   Releaseable
   (release [_]
-    (in-context ctx
-                (doseq [neand-fact (vals neand-facts)]
-                  (release neand-fact))
-                (doseq [eng (vals tensor-engines)]
-                  (release eng))
-                (release cudnn-hdl)
-                (when master
-                  (when-not (= default-stream hstream)
-                    (release hstream))
-                  (release ctx)))
+    (in-context
+     ctx
+     (doseq [neand-fact (vals neand-facts)]
+       (release neand-fact))
+     (doseq [eng (vals tensor-engines)]
+       (release eng))
+     (release cudnn-hdl))
+    (when master
+      (when-not (= default-stream hstream)
+        (release hstream))
+      (release ctx))
     true)
   DiamondFactoryProvider
   (diamond-factory [this]
     this)
   (native-diamond-factory [_]
     native-diamond-fact)
+  Wrapper
+  (extract [_]
+    (extract ctx))
   FlowProvider
   (flow [_]
     hstream)
@@ -368,9 +372,9 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-transformer [_ in-tz out-tz]
     (cudnn-transformer cudnn-hdl (view-tz in-tz) (view-tz out-tz)))
   (create-shuffler [_ src-tz dst-tz]
-    (cudnn-shuffler cudnn-hdl src-tz dst-tz))
+    (cudnn-shuffler cudnn-hdl (view-tz src-tz) (view-tz dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
-    (cudnn-batcher cudnn-hdl src-tz dst-tz mb-size))
+    (cudnn-batcher cudnn-hdl (view-tz src-tz) (view-tz dst-tz) mb-size))
   (create-sum [_ scale _]
     (cudnn-sum-blueprint cudnn-hdl scale))
   (create-sum [_ scale-src _ scale-dst _]
@@ -403,33 +407,30 @@ Please contribute towards making it possible, or use on of the supported types."
     (module prog)))
 
 (let [src (slurp (io/resource "uncomplicate/diamond/internal/cuda/blas-plus.cu"))]
-
   (defn ^:private create-cudnn-factory [ctx hstream cudnn-hdl master]
-    (in-context
-     ctx
-     (let-release [float-modl (create-module src "float")
-                   double-modl (create-module src "double")
-                   int-modl (create-module src "int")
-                   long-modl (create-module src "long")
-                   native-diamond-fact (dnnl-factory)
-                   float-fact (cuda-float ctx hstream)
-                   double-fact (cuda-double ctx hstream)
-                   int-fact nil  ;;TODO
-                   long-fact nil ;;TODO
-                   float-engine (->TensorEngine cudnn-hdl float-modl hstream float Float/BYTES)
-                   double-engine (->TensorEngine cudnn-hdl double-modl hstream double Double/BYTES)
-                   int-engine (->TensorEngine cudnn-hdl int-modl hstream int Integer/BYTES)
-                   long-engine (->TensorEngine cudnn-hdl long-modl hstream long Long/BYTES)]
-       (->CUDnnFactory ctx hstream cudnn-hdl master
-                       native-diamond-fact
-                       {:float float-fact
-                        :double double-fact
-                        :int int-fact
-                        :long long-fact}
-                       {:float float-engine
-                        :double double-engine
-                        :int int-engine
-                        :long long-engine})))))
+    (let-release [float-modl (create-module src "float")
+                  double-modl (create-module src "double")
+                  int-modl (create-module src "int")
+                  long-modl (create-module src "long")
+                  native-diamond-fact (dnnl-factory)
+                  float-fact (cuda-float ctx hstream)
+                  double-fact (cuda-double ctx hstream)
+                  int-fact nil  ;;TODO
+                  long-fact nil ;;TODO
+                  float-engine (->TensorEngine cudnn-hdl float-modl hstream float Float/BYTES)
+                  double-engine (->TensorEngine cudnn-hdl double-modl hstream double Double/BYTES)
+                  int-engine (->TensorEngine cudnn-hdl int-modl hstream int Integer/BYTES)
+                  long-engine (->TensorEngine cudnn-hdl long-modl hstream long Long/BYTES)]
+      (->CUDnnFactory ctx hstream cudnn-hdl master
+                      native-diamond-fact
+                      {:float float-fact
+                       :double double-fact
+                       :int int-fact
+                       :long long-fact}
+                      {:float float-engine
+                       :double double-engine
+                       :int int-engine
+                       :long long-engine}))))
 
 (defn cudnn-factory
   ([ctx hstream]
