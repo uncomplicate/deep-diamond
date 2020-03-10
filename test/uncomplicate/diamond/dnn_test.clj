@@ -11,7 +11,7 @@
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view vctr cols view-ge nrm2]]
-             [random :refer [rand-uniform! rng-state]]
+             [random :refer [rand-uniform!]]
              [math :as math]]
             [uncomplicate.diamond
              [dnn :refer :all]
@@ -317,10 +317,9 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-tz :sgd))
-                 quad-cost (cost net y-tz :quadratic)
-                 rng-state (rng-state x-tz 1234)]
+                 quad-cost (cost net y-tz :quadratic)]
     (facts "Gradient descent."
-           (rand-uniform! rng-state (view x-tz))
+           (rand-uniform! (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
            (train net quad-cost 30 [0.003 0 0 false]) => (roughly 0.0 0.2))))
 
@@ -336,10 +335,9 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-mb-tz :sgd))
-                 quad-cost (cost net y-mb-tz :quadratic)
-                 rng-state (rng-state x-tz 1234)]
+                 quad-cost (cost net y-mb-tz :quadratic)]
     (facts "Vanilla stochastic gradient descent."
-           (rand-uniform! rng-state (view x-tz))
+           (rand-uniform! (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
            (train net x-shuff y-shuff quad-cost 1 [0.01 0 0 false]) => (roughly 0.0 0.2))))
 
@@ -355,10 +353,9 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-mb-tz :adam))
-                 quad-cost (cost net y-mb-tz :quadratic)
-                 rng-state (rng-state x-tz 1234)]
+                 quad-cost (cost net y-mb-tz :quadratic)]
     (facts "Stochastic gradient descent with Adam."
-           (rand-uniform! rng-state (view x-tz))
+           (rand-uniform! (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
            (train net x-shuff y-shuff quad-cost 1 [0.01]) => (roughly 0.0 0.01))))
 
