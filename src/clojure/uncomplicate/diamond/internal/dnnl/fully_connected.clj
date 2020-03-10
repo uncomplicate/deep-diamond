@@ -13,20 +13,21 @@
             [uncomplicate.neanderthal
              [core :refer [axpy! axpby! view zero dim transfer! scal!]]
              [real :refer [nrm2 asum]]
-             [math :refer [sqr pow sqrt]]
-             [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
-             [block :refer [buffer]]]
+             [block :refer [buffer]]
+             [math :refer [sqrt pow]]
+             [vect-math :refer [sqr! linear-frac! sqrt!]]]
             [uncomplicate.neanderthal.internal
              [api :refer [flow]]
              [printing :refer [print-vector]]]
             [uncomplicate.diamond
              [tensor :as tz
-              :refer [Transfer input output connector view-tz revert shape layout
+              :refer [Transfer input output connector view-tz shape layout
                       TensorDescriptor shape]]
              [dnn :refer [Parameters bias weights transfer-parameters!]]]
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
-                     diff-bias diff-weights Backprop forward backward blueprint]]
+                     diff-bias diff-weights Backprop forward backward blueprint
+                     DiffTransfer diff-output diff-input]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all]
@@ -82,6 +83,7 @@
     a-tz)
   (output [_]
     a-tz)
+  DiffTransfer
   IFn
   (invoke [_]
     (execute! strm eltw-fwd-prim eltw-fwd-args)
@@ -109,6 +111,11 @@
     z-tz)
   (output [_]
     a-tz)
+  DiffTransfer
+  (diff-input [_]
+    a-tz)
+  (diff-output [_]
+    z-tz)
   IFn
   (invoke [_]
     (execute! strm eltw-fwd-prim eltw-fwd-args)
@@ -247,6 +254,11 @@
     (input src-conn))
   (output [_]
     dst-tz)
+  DiffTransfer
+  (diff-input [_]
+    dst-tz)
+  (diff-output [_]
+    (input src-conn))
   Parameters
   (bias [_]
     bias-tz)
@@ -484,6 +496,11 @@
     (input ip))
   (output [_]
     (output activ))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input activ))
+  (diff-output [_]
+    (diff-output ip))
   Parameters
   (weights [_]
     (weights ip))
@@ -569,6 +586,11 @@
     (input ip))
   (output [_]
     (output activ))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input activ))
+  (diff-output [_]
+    (diff-output ip))
   Parameters
   (weights [_]
     (weights ip))
@@ -707,6 +729,11 @@
     (input connect-output))
   (output [_]
     (output connect-output))
+  DiffTransfer
+  (diff-input [_]
+    (input connect-diff))
+  (diff-output [_]
+    (output connect-diff))
   Backprop
   (forward [this]
     (connect-output)
@@ -727,26 +754,15 @@
         output-desc (memory-desc (dims (output prev-layer))
                                  (data-type train-desc) (strides train-desc))]
     (let-release [connect-output (connector (output prev-layer) output-desc)
-                  connect-diff (revert connect-output)]
+                  connect-diff (connector output-desc (diff-input prev-layer))]
       (with-release [sum-desc (sum! eng output-desc 1.0 output-desc -1.0 train-tz)]
         (let-release [sum-prim (primitive sum-desc)]
           (->UniversalCost strm prev-layer sum-prim
-                           (args (buffer (input connect-diff)) (buffer (input connect-diff))
+                           (args (buffer (input connect-diff)) (buffer (output connect-output))
                                  (buffer train-tz))
                            connect-output connect-diff
-                           (view (output connect-output))
+                           (view (input connect-diff))
                            cost))))))
-
-(defn quadratic-cost [a-y]
-  (/ (sqr (nrm2 a-y)) (* 2 (dim a-y))))
-
-(defn mean-absolute-cost [a-y]
-  (/ (asum a-y) (dim a-y)))
-
-(defn sigmoid-crossentropy-cost [^long n a y]
-  (with-release [ylna (mul! (log a) y)
-                 y-1 (linear-frac 1.0 y -1.0)]
-    (/ (asum (axpy! -1.0 ylna (mul! y-1 (log! (linear-frac! -1.0 a 1.0))))) n)))
 
 (deftype CustomCost [strm prev-layer
                      sum-prim sum-args
@@ -761,6 +777,11 @@
     (input connect-output))
   (output [_]
     (output connect-output))
+  DiffTransfer
+  (diff-input [_]
+    (input connect-diff))
+  (diff-output [_]
+    (output connect-diff))
   Backprop
   (forward [this]
     (connect-output)
@@ -773,24 +794,23 @@
   IFn
   (invoke [_]
     (connect-output)
-    (cost a y)))
+    (cost y a)))
 
 (defn dnnl-custom-cost [eng strm prev-layer train-tz cost]
   (let [train-desc (desc train-tz)
         output-desc (memory-desc (dims (output prev-layer))
                                  (data-type train-desc) (strides train-desc))]
     (let-release [connect-output (connector (output prev-layer) output-desc)
-                  connect-diff (revert connect-output)]
+                  connect-diff (connector output-desc (diff-input prev-layer))]
       (with-release [sum-desc (sum! eng output-desc 1.0 output-desc -1.0 train-tz)]
         (let-release [sum-prim (primitive sum-desc)]
           (->CustomCost strm prev-layer sum-prim
-                        (args (buffer (input connect-diff)) (buffer (input connect-diff))
+                        (args (buffer (input connect-diff)) (buffer (output connect-output))
                               (buffer train-tz))
                         connect-output connect-diff
-                        (view (output connect-output))
+                        (view (input connect-diff))
                         (view train-tz)
                         cost))))))
-;; TODO maybe leave output as-is and always copy the subtensor back from output for the computation?
 
 (defmethod transfer! [FullyConnectedInference Object]
   [source destination]

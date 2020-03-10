@@ -13,17 +13,18 @@
             [uncomplicate.neanderthal.native :refer [factory-by-type]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
-                     NeanderthalFactoryProvider]]
+            [uncomplicate.diamond.internal
+             [protocols
+              :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
+                      NeanderthalFactoryProvider]]
+             [cost :refer [quadratic-cost! mean-absolute-cost! sigmoid-crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [DescProvider desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
                                       dnnl-inner-product-blueprint dnnl-fc-blueprint
-                                      dnnl-universal-cost quadratic-cost mean-absolute-cost
-                                      dnnl-custom-cost sigmoid-crossentropy-cost]]
+                                      dnnl-universal-cost dnnl-custom-cost]]
              [factory :refer [->FloatTensorEngine]]]
             [uncomplicate.diamond.internal.neanderthal.fully-connected
              :refer [neanderthal-fc-blueprint]])
@@ -86,12 +87,12 @@ Please contribute towards making it possible, or use on of the supported types."
     (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
-    (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost))
+    (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))
   (mean-absolute-cost [this prev-layer train-tz]
-    (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost))
+    (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost!))
   (sigmoid-crossentropy-cost [this prev-layer train-tz]
     (dnnl-custom-cost eng strm prev-layer train-tz
-                        (partial sigmoid-crossentropy-cost
+                        (partial sigmoid-crossentropy-cost!
                                  ((dims (output prev-layer)) 0)))))
 
 (defn neanderthal-factory

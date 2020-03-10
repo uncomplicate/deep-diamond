@@ -71,7 +71,8 @@
 
 (with-release [fact (dnnl-factory)]
   (test-sum fact)
-  (test-activation fact)
+  (test-activation-relu fact)
+  (test-activation-sigmoid fact)
   (test-fully-connected-inference fact)
   (test-fully-connected-transfer fact)
   (test-fully-connected-training fact)
@@ -86,7 +87,8 @@
   (test-sequential-network-sigmoid-adam fact)
   (test-gradient-descent fact)
   (test-stochastic-gradient-descent-sgd fact)
-  (test-stochastic-gradient-descent-adam fact))
+  (test-stochastic-gradient-descent-adam fact)
+  (test-sigmoid-crossentropy-cost fact))
 
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))

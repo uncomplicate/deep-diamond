@@ -99,8 +99,7 @@
    (network *diamond-factory* src-desc layers)))
 
 (defn init! [network!]
-  (with-release [rng (rng-state (view (bias (first (api/layers network!))))
-                                (- (long (rand (* Integer/MAX_VALUE 2))) Integer/MAX_VALUE))]
+  (with-release [rng (rng-state (view (bias (first (api/layers network!)))))]
     (doseq [layer (api/layers network!)]
       (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
       (rand-normal! rng (view (bias layer)))))
@@ -153,3 +152,18 @@
    (map (fn [[epochs hyperparam]]
           (train network in-batcher out-batcher cost! epochs hyperparam))
         options)))
+
+(defn infer [network in-batcher out-batcher]
+  (let [b-size (long (first (shape (input in-batcher))))
+        mb-size (long (first (shape (output in-batcher))))
+        mb-count (quot b-size mb-size)
+        mb-rem (rem b-size mb-size)]
+    (dotimes [n mb-count]
+      (in-batcher (* n mb-size))
+      (out-batcher (* n mb-size))
+      (network))
+    (when (< 0 mb-rem)
+      (in-batcher (- b-size mb-size))
+      (out-batcher (- b-size mb-size))
+      (network))
+    (output out-batcher)))

@@ -1,10 +1,12 @@
 (ns uncomplicate.diamond.internal.network
-  (:require [uncomplicate.commons.core :refer [Releaseable release let-release Info info]]
+  (:require [uncomplicate.commons
+             [core :refer [Releaseable release let-release Info info]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
             [uncomplicate.diamond.tensor :refer [Transfer input output]]
             [uncomplicate.diamond.internal.protocols
              :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
-                     diamond-factory]])
+                     diamond-factory DiffTransfer diff-input diff-output]])
   (:import clojure.lang.IFn))
 
 (defn invoke [f]
@@ -45,6 +47,11 @@
   Transfer
   (input [_] (input (get forward-layers 0)))
   (output [_] (output (peek forward-layers)))
+  DiffTransfer
+  (diff-input [this]
+    (output this))
+  (diff-output [_]
+    (dragan-says-ex "Inference network does not calculate gradients."))
   IFn
   (invoke [this]
     (peek (mapv invoke forward-layers))))
@@ -89,6 +96,11 @@
   Transfer
   (input [_] (input (first forward-layers)))
   (output [_] (output last-layer))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input last-layer))
+  (diff-output [_]
+    (diff-output (first forward-layers)))
   IFn
   (invoke [this]
     (doseq [layer forward-layers]

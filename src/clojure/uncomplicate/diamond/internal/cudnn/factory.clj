@@ -23,7 +23,8 @@
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
                                 CostFactory DnnFactory]]
-             [utils :refer [check-contiguous]]]
+             [utils :refer [check-contiguous]]
+             [cost :refer [quadratic-cost! mean-absolute-cost! sigmoid-crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
@@ -32,8 +33,7 @@
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler
                              cudnn-tensor-desc]]
              [fully-connected :refer [cudnn-sum-blueprint cudnn-activ-blueprint
-                                      cudnn-fc-blueprint cudnn-universal-cost cudnn-custom-cost
-                                      quadratic-cost mean-absolute-cost sigmoid-crossentropy-cost]]])
+                                      cudnn-fc-blueprint cudnn-universal-cost cudnn-custom-cost]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -391,12 +391,12 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-fc-blueprint this src-desc dst-desc activ alpha beta))
   CostFactory
   (quadratic-cost [_ prev-layer train-tz]
-    (cudnn-universal-cost prev-layer train-tz quadratic-cost))
+    (cudnn-universal-cost prev-layer train-tz quadratic-cost!))
   (mean-absolute-cost [_ prev-layer train-tz]
-    (cudnn-universal-cost prev-layer train-tz mean-absolute-cost))
+    (cudnn-universal-cost prev-layer train-tz mean-absolute-cost!))
   (sigmoid-crossentropy-cost [_ prev-layer train-tz]
     (cudnn-custom-cost prev-layer train-tz
-                       (partial sigmoid-crossentropy-cost
+                       (partial sigmoid-crossentropy-cost!
                                 ((dims (output prev-layer)) 0)))))
 
 (JCudnn/setExceptionsEnabled false)

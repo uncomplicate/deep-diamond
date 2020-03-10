@@ -7,7 +7,8 @@
 
 (with-release [fact (neanderthal-factory)]
   (test-sum fact)
-  (test-activation fact)
+  (test-activation-relu fact)
+  (test-activation-sigmoid fact)
   (test-fully-connected-inference fact)
   (test-fully-connected-transfer fact)
   (test-fully-connected-training fact)

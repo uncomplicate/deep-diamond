@@ -61,6 +61,39 @@
            (take 5 host-dy) => (just [(roughly -0.6) (roughly -0.59) (roughly -0.58)
                                       (roughly -0.57) (roughly -0.56)]))))
 
+(with-default
+  (with-release [cudnn-hdl (cudnn-handle default-stream)
+                 relu-desc (activation-descriptor :sigmoid true 42.0)
+                 desc-x (tensor-descriptor [1 1 1 1] :float :nchw)
+                 host-x (float-array [-0.5])
+                 gpu-x (mem-alloc (size desc-x))
+                 gpu-dx (mem-alloc (size desc-x))
+                 gpu-y (mem-alloc (size desc-x))
+                 gpu-dx (mem-alloc (size desc-x))
+                 host-dy (float-array [-0.1])
+                 gpu-dy (mem-alloc (size desc-x))]
+
+    (facts "Sigmoid Activation descriptor."
+           (get-activation-descriptor relu-desc) => {:mode :logistic :relu-nan-opt true :coef 42.0})
+
+    (memcpy-host! host-x gpu-x)
+
+    (facts "Activation forward sigmoid operation."
+           (activation-forward cudnn-hdl relu-desc (float 1.0) desc-x gpu-x (float 0.0) desc-x gpu-y)
+           => cudnn-hdl
+           (first (memcpy-host! gpu-x (float-array 1))) => -0.5
+           (first (memcpy-host! gpu-y (float-array 1))) => (roughly 0.3775407))
+
+    (facts "Activation backward sigmoid operation."
+           (memcpy-host! host-dy gpu-dy)
+           (first (memcpy-host! gpu-dy (float-array 1))) => (float -0.1)
+           (activation-backward cudnn-hdl relu-desc (float 1.0) desc-x gpu-y desc-x gpu-dy
+                                desc-x gpu-x (float 0.0) desc-x gpu-dx)
+           => cudnn-hdl
+           (first (memcpy-host! gpu-x (float-array 1))) => -0.5
+           (first (memcpy-host! gpu-y (float-array 1))) => (roughly 0.3775407)
+           (first (memcpy-host! gpu-dx (float-array 1))) => (roughly -0.02350037172436714)
+           (first (memcpy-host! gpu-dy (float-array 1))) => (float -0.1))))
 
 (with-default
   (with-release [cudnn-hdl (cudnn-handle default-stream)

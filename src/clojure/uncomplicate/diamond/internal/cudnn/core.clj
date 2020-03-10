@@ -156,11 +156,9 @@
                        (ptr beta) (extract (desc desc-y)) (extract buf-y))
   cudnn-handle)
 
-(defn activation-backward
-  "TODO: why is y even needed?"
-  [cudnn-handle ad
-   alpha desc-y buf-y desc-dy buf-dy
-   desc-x buf-x beta desc-dx buf-dx]
+(defn activation-backward [cudnn-handle ad
+                           alpha desc-y buf-y desc-dy buf-dy
+                           desc-x buf-x beta desc-dx buf-dx]
   (activation-backward* (extract cudnn-handle) (extract ad)
                         (ptr alpha) (extract (desc desc-y)) (extract buf-y)
                         (extract (desc desc-dy)) (extract buf-dy)

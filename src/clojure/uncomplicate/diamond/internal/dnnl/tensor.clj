@@ -24,9 +24,12 @@
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
                      Revert ConnectorCreator connector view-tz]
              :as tz]
-            [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
-                     neanderthal-factory tensor-engine native-diamond-factory Offset]]
+            [uncomplicate.diamond.internal
+             [protocols
+              :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
+                      neanderthal-factory tensor-engine native-diamond-factory Offset
+                      DiffTransfer diff-input diff-output]]
+             [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
                            equal-desc? execute! reorder primitive fwd-args offset! ndims]
@@ -38,16 +41,6 @@
            [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable]
            org.bytedeco.dnnl.dnnl_memory_desc_t
            uncomplicate.diamond.tensor.TensorDescriptorImpl))
-
-(defn check-contiguous
-  ([^Block x]
-   (when-not (.isContiguous x)
-     (dragan-says-ex "Neanderthal API is supported only on contiguous tensors. Please use a copy."
-                     {:strides (layout ~x)})))
-  ([^Block x ^Block y]
-   (when-not (and (.isContiguous x) (.isContiguous y))
-     (dragan-says-ex "Neanderthal API is supported only on contiguous tensors. Please use a copy."
-                     {:x-strides (layout ~x) :y-strides (layout ~y)}))))
 
 (declare ->DnnlTensor dnnl-transformer dnnl-tensor dnnl-shuffler)
 
@@ -105,6 +98,11 @@
     in-tz)
   (output [_]
     out-tz)
+  DiffTransfer
+  (diff-input [_]
+    out-tz)
+  (diff-output [_]
+    in-tz)
   IFn
   (invoke [_]
     (execute! strm reorder reorder-args)
@@ -143,6 +141,11 @@
     src-tz)
   (output [_]
     dst-tz)
+  DiffTransfer
+  (diff-input [_]
+    dst-tz)
+  (diff-output [_]
+    src-tz)
   IFn
   (invoke [this]
     (.invoke this strm 0 0))
@@ -195,6 +198,11 @@
     (input batcher))
   (output [_]
     (output batcher))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input batcher))
+  (diff-output [_]
+    (diff-output batcher))
   IFn
   (invoke [this cols]
     (.invoke this strm cols))
@@ -396,6 +404,11 @@
   (input [this]
     this)
   (output [this]
+    this)
+  DiffTransfer
+  (diff-input [this]
+    this)
+  (diff-output [this]
     this)
   IFn
   (invoke [this]

@@ -85,7 +85,7 @@
 (with-release [fact (dnnl-factory)]
   (test-boston-regression fact))
 
-#_(with-release [fact (neanderthal-factory)]
+(with-release [fact (neanderthal-factory)]
   (test-boston-regression fact))
 
 (with-release [fact (cudnn-factory)]

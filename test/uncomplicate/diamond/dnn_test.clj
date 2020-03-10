@@ -11,14 +11,14 @@
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view vctr cols view-ge nrm2]]
-             [random :refer [rand-uniform! rng-state]]
+             [random :refer [rand-uniform!]]
              [math :as math]]
             [uncomplicate.diamond
              [dnn :refer :all]
              [tensor :refer :all]
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
-             :refer [diff-bias diff-weights forward backward layers]]))
+             :refer [diff-bias diff-weights forward backward layers diff-input]]))
 
 (defn test-sum [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
@@ -37,7 +37,7 @@
      (entry (native (view tz-x)) 119) => 119.0
      (entry (native (view tz-y)) 119) => 3808.0)))
 
-(defn test-activation [fact]
+(defn test-activation-relu [fact]
   (with-release [src-tz (tensor fact [1 3 2 1] :float :nchw)
                  dst-tz (tensor fact [1 3 2 1] :float :nchw)
                  activ-bluep (activation fact src-tz :relu)
@@ -66,6 +66,36 @@
      (backward activ-train)
      (view (output activ-train)) => (vctr src-tz [-0.1 0.1 1 2 7 -0.6])
      (view (input activ-train)) => (vctr src-tz [0 0 1 2 7.0 0]))))
+
+(defn test-activation-sigmoid [fact]
+  (with-release [src-tz (tensor fact [1 1 1 1] :float :nchw)
+                 dst-tz (tensor fact [1 1 1 1] :float :nchw)
+                 activ-bluep (activation fact src-tz :sigmoid)
+                 activ-infer (activ-bluep src-tz)
+                 activ-train (activ-bluep src-tz dst-tz)]
+
+    (transfer! [0.7] src-tz)
+
+    (facts
+     "Activation inference test."
+     (view (activ-infer)) => (vctr src-tz [0.6681877970695496])
+     (view (input activ-infer)) => (vctr src-tz [0.6681877970695496])
+     (view (output activ-infer)) => (vctr src-tz [0.6681877970695496]))
+
+    (transfer! [-0.5] src-tz)
+
+    (facts
+     "Activation forward test."
+     (forward activ-train)
+     (view (input activ-train)) => (vctr src-tz [-0.5])
+     (entry (native (view (output activ-train))) 0) => (roughly 0.3775407))
+
+    (facts
+     "Activation backward test."
+     (transfer! [-0.1] (diff-input activ-train))
+     (backward activ-train)
+     (view (diff-input activ-train)) => (vctr src-tz [-0.10000000149011612])
+     (view (input activ-train)) => (vctr src-tz [-0.02350037172436714]))))
 
 (defn test-fully-connected-inference [fact]
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -213,7 +243,7 @@
                  quad-cost (cost net train-tz :quadratic)]
     (facts "Sequential network with linear/quadratic cost."
            (transfer! (range 16) input-tz)
-           (train net quad-cost 10 [0.01 0 0 false]) => (roughly 0.0 0.001))))
+           (train net quad-cost 10 [0.01 0 0 false]) => (roughly 0.0 0.002))))
 
 (defn test-sequential-network-detailed [fact]
   (with-release [input-tz (tensor fact [2 1] :float :nc)
@@ -275,8 +305,22 @@
            (quad-cost) => 0.6862499438341274
            (view (output net)) => (vctr train-tz 0.15 -1.64999998))))
 
+(defn test-sigmoid-crossentropy-cost [fact]
+  (with-release [input-tz (tensor fact [2 1] :float :nc)
+                 train-tz (tensor fact [2 1] :float :nc)
+                 net-bp (network fact input-tz
+                                 [(fully-connected [1] :relu)
+                                  (fully-connected [1] :sigmoid)])
+                 net (net-bp input-tz :sgd)
+                 sigmoid-crossentropy-cost (cost net train-tz :sigmoid-crossentropy)]
+    (facts "Sigmoid crossentropy cost."
+           (transfer! [0.25 0.65] train-tz)
+;;           (transfer! [0.5621765008857981 0.6570104626734987] (output net))
+           (transfer! [0.4 0.1] (output net))
+           (sigmoid-crossentropy-cost) => 1.0728741884231567)))
+
 (defn test-sequential-network-sigmoid-sgd [fact]
-  (facts "Sequential network with sigmoid cross-entropy."
+  (facts "Sequential SGD network with sigmoid cross-entropy."
          (with-release [input-tz (tensor fact [1 16] :float :nc)
                         train-tz (tensor fact [1 2] :float :nc)
                         net-bp (network fact input-tz
@@ -286,11 +330,11 @@
                         net (init! (net-bp input-tz :sgd))
                         quad-cost (cost net train-tz :sigmoid-crossentropy)]
            (transfer! (range 16) input-tz)
-           (transfer! [1 2] train-tz)
-           (train net quad-cost 3 [0.01 0 0 false]) => (roughly 6 5.9))))
+           (transfer! [0.9 0.1] train-tz)
+           (train net quad-cost 3 [0.01 0 0 false]) => (roughly 2 1.3))))
 
 (defn test-sequential-network-sigmoid-adam [fact]
-  (facts "Sequential network with sigmoid cross-entropy."
+  (facts "Sequential Adam network with sigmoid cross-entropy."
          (with-release [input-tz (tensor fact [1 16] :float :nc)
                         train-tz (tensor fact [1 2] :float :nc)
                         net-bp (network fact input-tz
@@ -300,8 +344,8 @@
                         net (init! (net-bp input-tz :adam))
                         quad-cost (cost net train-tz :sigmoid-crossentropy)]
            (transfer! (range 16) input-tz)
-           (transfer! [1 2] train-tz)
-           (train net quad-cost 3 []) => (roughly 6 5.9))))
+           (transfer! [0.9 0.1] train-tz)
+           (train net quad-cost 3 []) => (roughly 2 1.3))))
 
 (defn my-fn ^double [xs]
   (+ (math/sin (entry xs 0))
@@ -317,10 +361,9 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-tz :sgd))
-                 quad-cost (cost net y-tz :quadratic)
-                 rng-state (rng-state x-tz 1234)]
+                 quad-cost (cost net y-tz :quadratic)]
     (facts "Gradient descent."
-           (rand-uniform! rng-state (view x-tz))
+           (rand-uniform! (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
            (train net quad-cost 30 [0.003 0 0 false]) => (roughly 0.0 0.2))))
 
@@ -336,10 +379,9 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-mb-tz :sgd))
-                 quad-cost (cost net y-mb-tz :quadratic)
-                 rng-state (rng-state x-tz 1234)]
+                 quad-cost (cost net y-mb-tz :quadratic)]
     (facts "Vanilla stochastic gradient descent."
-           (rand-uniform! rng-state (view x-tz))
+           (rand-uniform! (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
            (train net x-shuff y-shuff quad-cost 1 [0.01 0 0 false]) => (roughly 0.0 0.2))))
 
@@ -355,10 +397,9 @@
                                   (fully-connected [64] :relu)
                                   (fully-connected [1] :linear)])
                  net (init! (net-bp x-mb-tz :adam))
-                 quad-cost (cost net y-mb-tz :quadratic)
-                 rng-state (rng-state x-tz 1234)]
+                 quad-cost (cost net y-mb-tz :quadratic)]
     (facts "Stochastic gradient descent with Adam."
-           (rand-uniform! rng-state (view x-tz))
+           (rand-uniform! (view x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view x-tz) 4 10000)))) (view y-tz))
            (train net x-shuff y-shuff quad-cost 1 [0.01]) => (roughly 0.0 0.01))))
 

@@ -28,7 +28,7 @@
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
                      diff-bias diff-weights Backprop forward backward blueprint
-                     create-tensor activ-blueprint]]
+                     create-tensor activ-blueprint DiffTransfer diff-input diff-output]]
             [uncomplicate.diamond.internal.dnnl.core :refer [memory-desc data-type]])
   (:import clojure.lang.IFn))
 
@@ -95,8 +95,8 @@
     (activ)))
 
 (deftype FullyConnectedSGD [fact bluep ones activ prop-diff?
-                            v a-1 b w z
-                            src-conn bias-tz weights-tz diff-tz dst-tz]
+                            v a-1 b w z diff-1
+                            src-conn bias-tz weights-tz dst-tz diff-conn]
   Releaseable
   (release [_]
     (release ones)
@@ -106,11 +106,12 @@
     (release b)
     (release w)
     (release z)
+    (release diff-1)
     (release src-conn)
     (release bias-tz)
     (release weights-tz)
-    (release diff-tz)
-    (release dst-tz))
+    (release dst-tz)
+    (release diff-conn))
   Object
   (hashCode [_]
     (-> (hash :fc) (hash-combine (info activ :activation))
@@ -152,6 +153,11 @@
     (input src-conn))
   (output [_]
     (output activ))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input activ))
+  (diff-output [_]
+    (input src-conn))
   IFn
   (invoke [_]
     (src-conn)
@@ -175,24 +181,24 @@
       (when nesterov? (axpy! (- (double mu)) v w))
       (mm! eta-avg z (trans a-1) mu v)
       (when prop-diff?
-        (mm! 1.0 (trans w) z 0.0 a-1))
+        (mm! 1.0 (trans w) z 0.0 diff-1))
       (mv! eta-avg z ones 1.0 b)
       (axpby! 1.0 v (inc (* eta-avg (double lambda))) w)
       this)))
 
 (defn sgd-layer [fact bluep activ-bluep ones prop-diff?
-                 a-1 b w a src-conn bias-tz weights-tz a-tz]
+                 a-1 b w a diff-1 src-conn bias-tz weights-tz a-tz diff-conn]
   (let-release [z-tz (create-tensor fact a-tz false)
                 z (view-ge (view z-tz) (dim b) (ncols a-1))
                 v (zero w)
                 activ (activ-bluep z-tz a-tz)]
     (->FullyConnectedSGD fact bluep ones activ prop-diff?
-                         v a-1 b w z
-                         src-conn bias-tz weights-tz z-tz a-tz)))
+                         v a-1 b w z diff-1
+                         src-conn bias-tz weights-tz z-tz diff-conn)))
 
 (deftype FullyConnectedAdam [fact bluep ones activ prop-diff?
-                            g s r a-1 b w z
-                            src-conn bias-tz weights-tz diff-tz dst-tz]
+                             g s r a-1 b w z diff-1
+                             src-conn bias-tz weights-tz dst-tz diff-conn]
   Releaseable
   (release [_]
     (release ones)
@@ -204,11 +210,12 @@
     (release b)
     (release w)
     (release z)
+    (release diff-1)
     (release src-conn)
     (release bias-tz)
     (release weights-tz)
-    (release diff-tz)
-    (release dst-tz))
+    (release dst-tz)
+    (release diff-conn))
   Object
   (hashCode [_]
     (-> (hash :fc) (hash-combine (info activ :activation))
@@ -250,6 +257,11 @@
     (input src-conn))
   (output [_]
     (output activ))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input activ))
+  (diff-output [_]
+    (input src-conn))
   IFn
   (invoke [_]
     (src-conn)
@@ -281,13 +293,13 @@
       (linear-frac! (/ (- eta) (- 1.0 (pow rho1 t))) s 0.0
                     (/ 1.0 (sqrt (- 1.0 (pow rho2 t)))) (sqrt! r g) epsilon g)
       (when prop-diff?
-        (mm! 1.0 (trans w) z 0.0 a-1))
+        (mm! 1.0 (trans w) z 0.0 diff-1))
       (mv! eta-avg z ones 1.0 b)
       (axpby! 1.0 g (inc (* eta-avg lambda)) w)
       this)))
 
 (defn adam-layer [fact bluep activ-bluep ones prop-diff?
-                  a-1 b w a src-conn bias-tz weights-tz a-tz]
+                  a-1 b w a diff-1 src-conn bias-tz weights-tz a-tz diff-conn]
   (let-release [z-tz (create-tensor fact a-tz false)
                 z (view-ge (view z-tz) (dim b) (ncols a-1))
                 g (raw w)
@@ -295,8 +307,8 @@
                 r (zero w)
                 activ (activ-bluep z-tz a-tz)]
     (->FullyConnectedAdam fact bluep ones activ prop-diff?
-                          g s r a-1 b w z
-                          src-conn bias-tz weights-tz z-tz a-tz)))
+                          g s r a-1 b w z diff-1
+                          src-conn bias-tz weights-tz z-tz diff-conn)))
 
 (deftype FullyConnectedBlueprint [fact activ-bluep src-desc bias-desc weights-desc dst-desc]
   Releaseable
@@ -361,6 +373,7 @@
                             "This optimization algorithm is not available in Neanderthal backend."
                             {:optimization optimization}))]
       (let-release [src-conn (connector (output prev-layer) src-desc)
+                    diff-conn (if prop-diff? (diff-input prev-layer) nil);;TODO src-desc is a blueprint and it is not ConnectionCreator due to having to support both CPU and GPU descs...
                     bias-tz (create-tensor fact bias-desc false)
                     weights-tz (create-tensor fact weights-desc false)
                     a-tz (create-tensor fact dst-desc false)
@@ -369,9 +382,10 @@
                     b (view bias-tz)
                     w (trans (view-ge (view weights-tz) (mrows x) (dim b)))
                     a (view-ge (view a-tz) (dim b) (ncols x))
+                    diff-1 (if prop-diff? (view-ge (view (input diff-conn)) (mrows x) (ncols x)) nil)
                     ones (entry! (vctr x (ncols x)) 1.0)]
-        (training-layer fact this activ-bluep ones prop-diff? x b w a
-                        src-conn bias-tz weights-tz a-tz))))
+        (training-layer fact this activ-bluep ones prop-diff? x b w a diff-1
+                        src-conn bias-tz weights-tz a-tz diff-conn))))
   (invoke [this prev-layer prop-diff?]
     (.invoke this prev-layer prop-diff? :sgd)))
 

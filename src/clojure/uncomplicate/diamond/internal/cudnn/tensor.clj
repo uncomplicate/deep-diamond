@@ -30,7 +30,7 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider create-tensor create-tensor-desc
                       diamond-factory neanderthal-factory tensor-engine native-diamond-factory
-                      Offset]]
+                      Offset DiffTransfer diff-input diff-output]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [data] :as dnnl]
@@ -135,6 +135,11 @@
     in-tz)
   (output [_]
     out-tz)
+  DiffTransfer
+  (diff-input [_]
+    out-tz)
+  (diff-output [_]
+    in-tz)
   IFn
   (invoke [_]
     (transform-tensor cudnn-hdl
@@ -175,6 +180,11 @@
     src-tz)
   (output [_]
     dst-tz)
+  DiffTransfer
+  (diff-input [_]
+    dst-tz)
+  (diff-output [_]
+    src-tz)
   IFn
   (invoke [this]
     (.invoke this cudnn-hdl 0 0))
@@ -219,6 +229,11 @@
     (input batcher))
   (output [_]
     (output batcher))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input batcher))
+  (diff-output [_]
+    (diff-output batcher))
   IFn
   (invoke [this cols]
     (.invoke this cudnn-hdl cols))
@@ -355,6 +370,11 @@
   (input [this]
     this)
   (output [this]
+    this)
+  DiffTransfer
+  (diff-input [this]
+    this)
+  (diff-output [this]
     this)
   IFn
   (invoke [this]

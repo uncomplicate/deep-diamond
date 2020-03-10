@@ -4,10 +4,9 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [core :refer [axpby! axpy! view dim copy!]]
-             [real :refer [nrm2 asum]]
-             [math :refer [sqr pow sqrt]]
-             [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
-             [block :refer [cast-prim data-accessor buffer]]]
+             [block :refer [cast-prim data-accessor buffer]]
+             [math :refer [sqrt pow]]
+             [vect-math :refer [sqr! linear-frac! sqrt!]]]
             [uncomplicate.neanderthal.internal
              [api :refer [flow]]
              [printing :refer [print-vector]]]
@@ -18,7 +17,8 @@
              [dnn :refer [Parameters bias weights transfer-parameters!]]]
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
-                     diff-bias diff-weights Backprop forward backward blueprint]]
+                     diff-bias diff-weights Backprop forward backward blueprint
+                     create-tensor DiffTransfer diff-input diff-output]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]
@@ -72,7 +72,7 @@
                           one a-tz (buffer a-tz) zero a-tz (buffer a-tz)))
     a-tz))
 
-(deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero linear]
+(deftype CUDnnLinearActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero]
   Releaseable
   (release [_]
     true)
@@ -91,29 +91,72 @@
     z-tz)
   (output [_]
     a-tz)
+  DiffTransfer
+  (diff-input [_]
+    a-tz)
+  (diff-output [_]
+    z-tz)
   IFn
   (invoke [_]
-    (if-not linear
-      (activation-forward cudnn-hdl activation-desc
-                          one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
-      (copy! z-tz a-tz))
+    (copy! z-tz a-tz)
     a-tz)
   Backprop
   (forward [this]
-    (if-not linear
-      (activation-forward cudnn-hdl activation-desc
-                          one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
-      (copy! z-tz a-tz))
+    (copy! z-tz a-tz)
     this)
   (backward [this]
-    (if-not linear
-      (activation-backward cudnn-hdl activation-desc
-                           one a-tz (buffer a-tz) a-tz (buffer a-tz) z-tz (buffer z-tz)
-                           zero z-tz (buffer z-tz))
-      (copy! a-tz z-tz))
+    (copy! a-tz z-tz)
     this))
 
-(deftype CUDnnActivationBlueprint [fact activ ad linear]
+(defn cudnn-linear-activation-training [cudnn-hdl bluep ad src-tz dst-tz one zero]
+  (->CUDnnLinearActivationTraining cudnn-hdl bluep ad src-tz dst-tz one zero))
+
+(deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz da-tz one zero]
+  Releaseable
+  (release [_]
+    (release da-tz))
+  Info
+  (info [this]
+    {:activation (info bluep :activation)
+     :z (info z-tz)
+     :a (info a-tz)
+     :da (info da-tz)})
+  (info [this info-type]
+    (case info-type
+      :a (info a-tz)
+      :z (info z-tz)
+      :da (info da-tz)
+      (info bluep info-type)))
+  Transfer
+  (input [_]
+    z-tz)
+  (output [_]
+    a-tz)
+  DiffTransfer
+  (diff-input [_]
+    da-tz)
+  (diff-output [_]
+    z-tz)
+  IFn
+  (invoke [_]
+    (activation-forward cudnn-hdl activation-desc
+                        one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
+    a-tz)
+  Backprop
+  (forward [this]
+    (activation-forward cudnn-hdl activation-desc
+                        one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
+    this)
+  (backward [this]
+    (activation-backward cudnn-hdl activation-desc
+                         one a-tz (buffer a-tz) da-tz (buffer da-tz) z-tz (buffer z-tz)
+                         zero z-tz (buffer z-tz))
+    this))
+
+(defn cudnn-activation-training [cudnn-hdl bluep ad src-tz dst-tz diff-tz one zero]
+  (->CUDnnActivationTraining cudnn-hdl bluep ad src-tz dst-tz diff-tz one zero))
+
+(deftype CUDnnActivationBlueprint [fact activ ad]
   Releaseable
   (release [_]
     (release ad))
@@ -129,16 +172,26 @@
     (->CUDnnActivationInference (handle fact) this ad src-tz
                                 (cast-prim (data-accessor src-tz) 1.0)
                                 (cast-prim (data-accessor src-tz) 0.0)
-                                linear))
+                                (or (= :linear activ) (= :identity activ))))
   (invoke [this src-tz dst-tz]
-    (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz
-                               (cast-prim (data-accessor src-tz) 1.0)
-                               (cast-prim (data-accessor dst-tz) 0.0)
-                               linear)))
+    (cond
+      (or (= :linear activ) (= :identity activ))
+      (->CUDnnLinearActivationTraining (handle fact) this ad src-tz dst-tz
+                                       (cast-prim (data-accessor src-tz) 1.0)
+                                       (cast-prim (data-accessor dst-tz) 0.0))
+      (or (= :sigmoid activ) (:logistic activ))
+      (let-release [diff-tz (create-tensor fact dst-tz false)]
+        (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz diff-tz
+                                   (cast-prim (data-accessor src-tz) 1.0)
+                                   (cast-prim (data-accessor dst-tz) 0.0)))
+      :default
+      (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz (view-tz dst-tz)
+                                 (cast-prim (data-accessor src-tz) 1.0)
+                                 (cast-prim (data-accessor dst-tz) 0.0)))))
 
 (defn cudnn-activ-blueprint [fact activ coef]
   (let-release [ad (activation-descriptor activ true coef)]
-    (->CUDnnActivationBlueprint fact activ ad (#{:linear :identity} activ))))
+    (->CUDnnActivationBlueprint fact activ ad)))
 
 ;; ============================= Fully Connected Layer ================================
 
@@ -173,6 +226,11 @@
     (input connect-output))
   (output [_]
     (output connect-output))
+  DiffTransfer
+  (diff-input [_]
+    (input connect-diff))
+  (diff-output [_]
+    (output connect-diff))
   Backprop
   (forward [this]
     (connect-output)
@@ -193,26 +251,15 @@
         output-desc (cudnn-tensor-desc (dims (output prev-layer))
                                        (data-type train-desc) (strides train-desc))]
     (let-release [connect-output (connector (output prev-layer) output-desc)
-                  connect-diff (revert connect-output)]
+                  connect-diff (connector output-desc (diff-input prev-layer))]
       (->UniversalCost prev-layer
                        connect-output connect-diff
-                       (view (output connect-output)) (view train-tz)
+                       (view (input connect-diff)) (view train-tz)
                        cost))))
-
-(defn quadratic-cost [a-y]
-  (/ (sqr (nrm2 a-y)) (* 2 (dim a-y))))
-
-(defn mean-absolute-cost [a-y]
-  (/ (asum a-y) (dim a-y)))
-
-(defn sigmoid-crossentropy-cost [^long n a y]
-  (with-release [ylna (mul! (log a) y)
-                 y-1 (linear-frac 1.0 y -1.0)]
-    (/ (asum (axpy! -1.0 ylna (mul! y-1 (log! (linear-frac! -1.0 a 1.0))))) n)))
 
 (deftype CustomCost [prev-layer
                      connect-output connect-diff
-                     a y cost]
+                     a y a-y cost]
   Releaseable
   (release [_]
     (release connect-output)
@@ -222,27 +269,33 @@
     (input connect-output))
   (output [_]
     (output connect-output))
+  DiffTransfer
+  (diff-input [_]
+    (input connect-diff))
+  (diff-output [_]
+    (output connect-diff))
   Backprop
   (forward [this]
     (connect-output)
     this)
   (backward [this]
-    (axpy! -1.0 y a)
+    (copy! a a-y)
+    (axpy! -1.0 y a-y)
     (connect-diff)
     (backward prev-layer)
     this)
   IFn
   (invoke [_]
     (connect-output)
-    (cost a y)))
+    (cost y a)))
 
 (defn cudnn-custom-cost [prev-layer train-tz cost]
   (let [train-desc (desc train-tz)
         output-desc (cudnn-tensor-desc (dims (output prev-layer))
                                        (data-type train-desc) (strides train-desc))]
     (let-release [connect-output (connector (output prev-layer) output-desc)
-                  connect-diff (revert connect-output)]
-      (->CustomCost  prev-layer
+                  connect-diff (connector output-desc (diff-input prev-layer))]
+      (->CustomCost prev-layer
                     connect-output connect-diff
-                    (view (output connect-output)) (view train-tz)
+                    (view (output connect-output)) (view train-tz) (view (input connect-diff))
                     cost))))

@@ -44,6 +44,10 @@
   (diff-bias [this])
   (diff-weights [this]))
 
+(defprotocol DiffTransfer
+  (diff-input [this])
+  (diff-output [this]))
+
 (defprotocol Backprop
   (forward [this] [this hyperparam])
   (backward [this] [this hyperparam]))

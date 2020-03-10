@@ -17,20 +17,22 @@
              :refer [FlowProvider Blas BlasPlus sum view factory amax RandomNumberGenerator
                      VectorMath rand-uniform rand-normal]]
             [uncomplicate.neanderthal.internal.host.lapack :refer [with-lapack-check]]
-            [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output
-                                                 shape data-type layout]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
-                     NeanderthalFactoryProvider]]
+            [uncomplicate.diamond.tensor
+             :refer [*diamond-factory* view-tz output shape data-type layout]]
+            [uncomplicate.diamond.internal
+             [protocols
+              :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
+                      NeanderthalFactoryProvider]]
+             [utils :refer [check-contiguous]]
+             [cost :refer [quadratic-cost! mean-absolute-cost! sigmoid-crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc data DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
-             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler
-                             check-contiguous]]
+             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
                                       dnnl-inner-product-blueprint dnnl-fc-blueprint
-                                      dnnl-universal-cost quadratic-cost mean-absolute-cost
-                                      dnnl-custom-cost sigmoid-crossentropy-cost]]])
+                                      dnnl-universal-cost
+                                      dnnl-custom-cost]]])
   (:import [uncomplicate.neanderthal.internal.host CBLAS LAPACK MKL]
            uncomplicate.neanderthal.internal.api.RealBufferAccessor
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor))
@@ -319,12 +321,12 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-fc-blueprint this eng src-desc dst-desc activ alpha beta weights-type))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
-    (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost))
+    (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))
   (mean-absolute-cost [this prev-layer train-tz]
-    (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost))
+    (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost!))
   (sigmoid-crossentropy-cost [this prev-layer train-tz]
     (dnnl-custom-cost eng strm prev-layer train-tz
-                      (partial sigmoid-crossentropy-cost
+                      (partial sigmoid-crossentropy-cost!
                                ((dims (output prev-layer)) 0)))))
 
 (defn dnnl-factory
