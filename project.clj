@@ -11,7 +11,7 @@
 
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [uncomplicate/commons "0.10.0"]
-                 [uncomplicate/neanderthal "0.28.0"]
+                 [uncomplicate/neanderthal "0.28.0-SNAPSHOT"]
                  [org.bytedeco/dnnl-platform "1.2.1-1.5.3-SNAPSHOT"]
                  [org.jcuda/jcudnn "10.2.0"]]
 
