@@ -13,15 +13,14 @@
             [uncomplicate.clojurecuda.core :refer [memcpy-host! mem-alloc]]
             [uncomplicate.clojurecuda.internal.protocols :as cuda]
             [uncomplicate.neanderthal
-             [core :refer [transfer! dim vctr copy!]]
+             [core :refer [transfer! dim vctr copy! native]]
              [block :refer [entry-width buffer data-accessor count-entries create-data-source
                             offset cast-prim]]
              [cuda :refer [factory-by-type]]]
-            [uncomplicate.neanderthal.internal
-             [api :refer [Viewable view flow equals-block compatible? set-all MemoryContext
-                          EngineProvider Container DataAccessorProvider FactoryProvider
-                          native-factory zero raw host factory fits?]]
-             [printing :refer [print-vector]]]
+            [uncomplicate.neanderthal.internal.api
+             :refer [Viewable view flow equals-block compatible? set-all MemoryContext
+                     EngineProvider Container DataAccessorProvider FactoryProvider
+                     native-factory zero raw host factory fits?]]
             [uncomplicate.neanderthal.internal.device.cublock :refer [cu-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout data-type TensorContainer Transfer
@@ -40,7 +39,7 @@
              [protocols :refer [DescProvider desc handle]]
              [constants :refer [cudnn-format]]])
   (:import clojure.lang.IFn
-           [uncomplicate.neanderthal.internal.api Block RealChangeable DataAccessor VectorSpace]
+           [uncomplicate.neanderthal.internal.api Block Changeable DataAccessor VectorSpace]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor
            uncomplicate.diamond.internal.cudnn.impl.CUTensorDescriptor))
@@ -349,16 +348,12 @@
   VectorSpace
   (dim [_]
     (apply * (.dims cu-desc)))
-  RealChangeable
-  (set [x val]
+  Changeable
+  (setBoxed [x val]
     (set-all eng val x)
     x)
-  (set [_ _ _]
-    (dragan-says-ex INEFFICIENT_OPERATION_MSG))
-  (setBoxed [x val]
-    (.set x val))
   (setBoxed [x i val]
-    (.set x i val))
+    (dragan-says-ex INEFFICIENT_OPERATION_MSG))
   (alter [_ _]
     (dragan-says-ex INEFFICIENT_OPERATION_MSG))
   (alter [_ _ _]
@@ -429,9 +424,12 @@
      (let-release [buf (mem-alloc (max 1 (size tdesc)))]
        (cudnn-tensor diamond-fact true buf tdesc)))))
 
-(defmethod print-method CUDnnTensor;;TODO see about printing entries...
+(defmethod print-method CUDnnTensor
   [^CUDnnTensor x ^java.io.Writer w]
-  (.write w (str x)))
+  (.write w (str x))
+  (.write w "\n")
+  (with-release [native-x (native (view x))]
+    (print-method (doall (take *print-length* (seq native-x))) w)))
 
 (defmethod transfer! [CUDnnTensor CUDnnTensor]
   [source destination]

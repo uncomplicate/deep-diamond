@@ -7,7 +7,22 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.native
-  (:require [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]))
+  (:require [uncomplicate.commons.utils :refer [channel]]
+            [uncomplicate.diamond.internal.protocols :refer [create-tensor-desc]]
+            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory map-channel]])
+  (:import java.nio.channels.FileChannel))
 
 (alter-var-root #'uncomplicate.diamond.tensor/*diamond-factory*
                 (constantly (dnnl-factory)))
+
+(defn map-file
+  ([file desc flag]
+   (map-channel uncomplicate.diamond.tensor/*diamond-factory*
+                (if (instance? FileChannel file) file (channel file))
+                desc flag))
+  ([file shape type format flag]
+   (map-file file
+             (create-tensor-desc uncomplicate.diamond.tensor/*diamond-factory* shape type format)
+             flag))
+  ([file desc]
+   (map-file file desc :read-write)))

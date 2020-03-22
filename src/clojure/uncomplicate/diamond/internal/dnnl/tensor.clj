@@ -14,11 +14,10 @@
             [uncomplicate.neanderthal
              [core :refer [transfer! dim]]
              [block :refer [entry-width data-accessor buffer count-entries]]]
-            [uncomplicate.neanderthal.internal
-             [api :refer [Viewable view flow FactoryProvider EngineProvider DataAccessorProvider
-                          Container raw copy MemoryContext set-all compatible? factory
-                          native-factory]]
-             [printing :refer [print-vector]]]
+            [uncomplicate.neanderthal.internal.api
+             :refer [Viewable view flow FactoryProvider EngineProvider DataAccessorProvider
+                     Container raw copy MemoryContext set-all compatible? factory native-factory
+                     create-vector]]
             [uncomplicate.neanderthal.internal.host.buffer-block :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
@@ -347,8 +346,8 @@
     (let [ewidth (entry-width (data-accessor neand-fact))
           n (apply * (dims tz-mem))]
       (if (= (* (long n) ewidth) (size tz-mem))
-        (real-block-vector neand-fact false (data tz-mem) n
-                           (/ (.position ^Pointer (ptr tz-mem)) ewidth) 1)
+        (create-vector neand-fact false (data tz-mem) n
+                       (/ (.position ^Pointer (ptr tz-mem)) ewidth) 1)
         (dragan-says-ex "Strided tensors cannot be viewed as vectors."))))
   Seqable
   (seq [this]
@@ -379,10 +378,17 @@
         (transfer! vs res))))
   Changeable
   (setBoxed [x v]
-    (set-all eng v x))
+    (set-all eng v x)
+    x)
+  (setBoxed [x i val]
+    (dragan-says-ex "Tensors do not support setting specific entries. Please use tensor's vector view."))
   (alter [x f]
     (check-contiguous x)
     (alter (view x) f)
+    x)
+  (alter [x i f]
+    (check-contiguous x)
+    (alter (view x) i f)
     x)
   VectorSpace
   (dim [_]
@@ -458,10 +464,21 @@
      (dnnl-tensor diamond-fact (neanderthal-factory diamond-fact dtype)
                   (tensor-engine diamond-fact dtype) mem-desc))))
 
+(defn dnnl-tensor* [diamond-fact mem-desc buf master]
+ (let [mem-desc (desc mem-desc)
+       tz-mem (memory (dnnl-engine diamond-fact) mem-desc buf master)
+       shp (dims mem-desc)
+       dtype (tz/data-type mem-desc)]
+   (->DnnlTensor diamond-fact
+                 (neanderthal-factory diamond-fact dtype)
+                 (tensor-engine diamond-fact dtype)
+                 true tz-mem (first shp) (apply * (rest shp)))))
+
 (defmethod print-method DnnlTensor
   [^DnnlTensor x ^java.io.Writer w]
   (.write w (str x))
-  (print-vector w (view x)))
+  (.write w "\n")
+  (print-method (doall (take *print-length* (seq (view x)))) w))
 
 (defmethod transfer! [DnnlTensor DnnlTensor]
   [source destination]

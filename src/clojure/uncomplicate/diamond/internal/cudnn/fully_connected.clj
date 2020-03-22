@@ -7,9 +7,7 @@
              [block :refer [cast-prim data-accessor buffer]]
              [math :refer [sqrt pow]]
              [vect-math :refer [sqr! linear-frac! sqrt!]]]
-            [uncomplicate.neanderthal.internal
-             [api :refer [flow]]
-             [printing :refer [print-vector]]]
+            [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond
              [tensor :as tz
               :refer [Transfer input output connector view-tz revert shape layout

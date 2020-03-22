@@ -164,7 +164,7 @@
   `eng` a DNNL engine that controls the context.
   `mem-desc` logical memory descriptor.
   `buf` Java's DirectByteBuffer instance.
-  `marter` indicates whether this memory object handles the life cycle of `buf`."
+  `master` indicates whether this memory object handles the life cycle of `buf`."
   ([eng mem-desc buf master]
    (if (<= (size (desc mem-desc)) (capacity buf))
      (memory* (desc mem-desc) (extract eng) buf master)

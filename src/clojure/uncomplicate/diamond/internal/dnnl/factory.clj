@@ -9,26 +9,26 @@
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release]]
-             [utils :refer [dragan-says-ex]]]
+             [utils :refer [dragan-says-ex mapped-buffer]]]
             [uncomplicate.neanderthal
              [native :refer [factory-by-type]]
              [block :refer [data-accessor]]]
             [uncomplicate.neanderthal.internal.api :as neand
              :refer [FlowProvider Blas BlasPlus sum view factory amax RandomNumberGenerator
-                     VectorMath rand-uniform rand-normal]]
+                     VectorMath rand-uniform rand-normal swap copy set-all]]
             [uncomplicate.neanderthal.internal.host.lapack :refer [with-lapack-check]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* view-tz output shape data-type layout]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
-                      NeanderthalFactoryProvider]]
+                      NeanderthalFactoryProvider diamond-factory]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! sigmoid-crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc data DnnlEngineProvider]]
-             [core :refer [memory-desc engine stream memory dims]]
-             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
+             [core :refer [memory-desc engine stream memory dims size]]
+             [tensor :refer [dnnl-tensor dnnl-tensor* dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
                                       dnnl-inner-product-blueprint dnnl-fc-blueprint
                                       dnnl-universal-cost
@@ -271,6 +271,22 @@ Please contribute towards making it possible, or use on of the supported types."
     (let [view-x (view x)]
       (rand-normal (neand/engine x) rng-stream mu sigma x))))
 
+(deftype ViewTensorEngine []
+  Blas
+  (swap [_ x y]
+    (let [vx (view x)]
+      (swap (neand/engine vx) (view x) (view y)))
+    x)
+  (copy [_ x y]
+    (let [vx (view x)]
+      (copy (neand/engine vx) (view x) (view y)))
+    y)
+  BlasPlus
+  (set-all [_ alpha x]
+    (let [vx (view x)]
+      (set-all (neand/engine vx) alpha (view x)))
+    x))
+
 (deftype DnnlFactory [eng strm master tensor-engines]
   Releaseable
   (release [_]
@@ -331,8 +347,25 @@ Please contribute towards making it possible, or use on of the supported types."
 
 (defn dnnl-factory
   ([eng strm]
-   (->DnnlFactory eng strm false {:float (->FloatTensorEngine)}))
+   (let [view-engine (->ViewTensorEngine)]
+     (->DnnlFactory eng strm false {:float (->FloatTensorEngine)
+                                    :int (->ViewTensorEngine)
+                                    :byte (->ViewTensorEngine)
+                                    :uint8 (->ViewTensorEngine)})))
   ([]
    (let-release [eng (engine)
                  strm (stream eng)]
-     (->DnnlFactory eng strm true {:float (->FloatTensorEngine)}))))
+     (let [view-engine (->ViewTensorEngine)]
+       (->DnnlFactory eng strm true {:float (->FloatTensorEngine)
+                                     :int (->ViewTensorEngine)
+                                     :byte (->ViewTensorEngine)
+                                     :uint8 (->ViewTensorEngine)})))))
+
+(defn map-channel
+  ([fact channel td flag]
+   (let [fact (diamond-factory fact)
+         size (size (desc td))]
+     (let-release [buf (mapped-buffer channel size flag)]
+       (dnnl-tensor* fact td buf true))))
+  ([fact channel td]
+   (map-channel fact channel td :read-write)))

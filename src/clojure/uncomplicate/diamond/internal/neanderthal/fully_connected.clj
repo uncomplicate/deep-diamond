@@ -17,9 +17,7 @@
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
              [block :refer [buffer]]]
-            [uncomplicate.neanderthal.internal
-             [api :refer [flow]]
-             [printing :refer [print-vector]]]
+            [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond
              [tensor :as tz
               :refer [Transfer input output connector view-tz revert shape layout
