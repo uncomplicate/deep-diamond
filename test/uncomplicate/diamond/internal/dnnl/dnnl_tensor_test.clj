@@ -1,5 +1,5 @@
 (ns uncomplicate.diamond.internal.dnnl.dnnl-tensor-test
-  (:require [midje.sweet :refer [facts throws =>]]
+  (:require [midje.sweet :refer [facts throws => truthy]]
             [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.neanderthal.core :refer [dim]]
             [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor]]
@@ -17,7 +17,7 @@
      (dim t0) => 0
      (dim tnc) => 6
      (tensor fact [2 3] :double :nc) => (throws ExceptionInfo)
-     (tensor fact [2 3] :int :nc) => (throws ExceptionInfo)
+     (tensor fact [2 3] :int :nc) => truthy
      (tensor fact [2 3] :long :nc) => (throws ExceptionInfo))))
 
 (with-release [eng (engine)

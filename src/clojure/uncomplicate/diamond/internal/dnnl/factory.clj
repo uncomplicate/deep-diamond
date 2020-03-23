@@ -362,10 +362,12 @@ Please contribute towards making it possible, or use on of the supported types."
                                      :uint8 (->ViewTensorEngine)})))))
 
 (defn map-channel
-  ([fact channel td flag]
+  ([fact channel td flag offset-bytes]
    (let [fact (diamond-factory fact)
          size (size (desc td))]
-     (let-release [buf (mapped-buffer channel size flag)]
+     (let-release [buf (mapped-buffer channel offset-bytes size flag)]
        (dnnl-tensor* fact td buf true))))
+  ([fact channel td flag]
+   (map-channel fact channel td flag 0))
   ([fact channel td]
    (map-channel fact channel td :read-write)))
