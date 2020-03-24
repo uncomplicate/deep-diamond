@@ -14,8 +14,7 @@
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
-             [dnn :refer [weights bias sum activation inner-product fully-connected
-                          network init! train cost train infer]]]
+             [dnn :refer [fully-connected network init! train cost]]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [diff-bias diff-weights forward backward layers]]
@@ -96,7 +95,6 @@
                  net (init! (net-bp x-mb-tz :adam))
                  net-infer (net-bp x-mb-tz)
                  crossentropy-cost (cost net y-mb-tz :sigmoid-crossentropy)
-                 binary-accuracy (cost net-infer y-mb-tz :mean-absolute)
                  x-batcher (batcher x-tz (input net))
                  y-batcher (batcher y-tz y-mb-tz)]
     (facts "Adam gradient descent - IMDB sentiment classification."

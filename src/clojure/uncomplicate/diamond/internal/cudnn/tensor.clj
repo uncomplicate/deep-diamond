@@ -460,3 +460,21 @@
   [source destination]
   (let-release [dest (raw destination (native-diamond-factory destination))]
     (set-tensor! (transfer! source dest) destination)))
+
+(defmethod transfer! [Object CUDnnTransformer]
+  [source destination]
+  (transfer! source (view (input destination)))
+  destination)
+
+(defmethod transfer! [CUDnnTransformer Object]
+  [source destination]
+  (transfer! (view (output source)) destination))
+
+(defmethod transfer! [CUDnnTensor CUDnnTransformer]
+  [source destination]
+  (transfer! source (input destination))
+  destination)
+
+(defmethod transfer! [CUDnnTransformer CUDnnTensor]
+  [source destination]
+  (transfer! (output source) destination))

@@ -12,7 +12,7 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.protocols :refer [Magma Monoid Foldable Applicative pure]]
             [uncomplicate.neanderthal
-             [core :refer [transfer! dim]]
+             [core :refer [transfer! dim copy!]]
              [block :refer [entry-width data-accessor buffer count-entries]]]
             [uncomplicate.neanderthal.internal.api
              :refer [Viewable view flow FactoryProvider EngineProvider DataAccessorProvider
@@ -21,7 +21,7 @@
             [uncomplicate.neanderthal.internal.host.buffer-block :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
-                     Revert ConnectorCreator connector view-tz]
+                     Revert ConnectorCreator connector view-tz transformer]
              :as tz]
             [uncomplicate.diamond.internal
              [protocols
@@ -482,11 +482,11 @@
 
 (defmethod transfer! [DnnlTensor DnnlTensor]
   [source destination]
-  (if (equal-desc? (buffer source) (buffer destination))
-    (do
-      (transfer! (view source) (view destination))
-      destination)
-    (dragan-says-ex "You need a specialized transformer to transfer these two MKL-DNN tensors.")))
+  (if (equal-desc? source destination)
+    (copy! source destination)
+    (with-release [transform! (transformer source destination)]
+      (transform!)))
+  destination)
 
 (defmethod transfer! [Object DnnlTensor]
   [source destination]
@@ -505,3 +505,12 @@
 (defmethod transfer! [DnnlTransformer Object]
   [source destination]
   (transfer! (view (output source)) destination))
+
+(defmethod transfer! [DnnlTensor DnnlTransformer]
+  [source destination]
+  (transfer! source (input destination))
+  destination)
+
+(defmethod transfer! [DnnlTransformer DnnlTensor]
+  [source destination]
+  (transfer! (output source) destination))

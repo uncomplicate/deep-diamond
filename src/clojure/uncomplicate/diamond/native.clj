@@ -16,16 +16,16 @@
                 (constantly (dnnl-factory)))
 
 (defn map-file
+  ([file shape type format flag offset-bytes]
+   (map-file file
+             (create-tensor-desc uncomplicate.diamond.tensor/*diamond-factory* shape type format)
+             flag offset-bytes))
   ([file desc flag offset-bytes]
    (map-channel uncomplicate.diamond.tensor/*diamond-factory*
                 (if (instance? FileChannel file) file (channel file))
                 desc flag offset-bytes))
   ([file desc flag]
    (map-file file desc flag 0))
-  ([file shape type format flag offset-bytes]
-   (map-file file
-             (create-tensor-desc uncomplicate.diamond.tensor/*diamond-factory* shape type format)
-             flag offset-bytes))
   ([file shape type format flag]
    (map-file file shape type format flag 0))
   ([file desc]
