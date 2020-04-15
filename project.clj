@@ -10,8 +10,8 @@
   :description "Fast Clojure Deep Learning Library"
 
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [uncomplicate/neanderthal "0.29.0-SNAPSHOT"]
-                 [org.bytedeco/dnnl-platform "1.2.1-1.5.3-SNAPSHOT"]
+                 [uncomplicate/neanderthal "0.31.0"]
+                 [org.bytedeco/dnnl-platform "1.3-1.5.3"]
                  [org.jcuda/jcudnn "10.2.0"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]

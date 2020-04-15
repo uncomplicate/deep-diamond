@@ -41,6 +41,7 @@
 
 (defn dec-primitive-kind [^long primitive-kind]
   (case primitive-kind
+    0 :undef
     1 :reorder
     2 :shuffle
     3 :concat
@@ -57,7 +58,9 @@
     14 :rnn
     15 :gemm
     16 :binary
-    0 :undef
+    17 :logsoftmax
+    18 :matmul
+    19 :resampling
     (dragan-says-ex "Unknown primitive kind." {:primitive-kind primitive-kind})))
 
 (defn dec-format [^long format]
@@ -71,19 +74,23 @@
     6 :abcde
     7 :abcdef
     8 :abdec
-    10 :acb
-    11 :acbde
-    12 :acdeb
-    13 :ba
-    14 :bac
-    15 :bacd
-    16 :bca
-    17 :bcda
-    18 :bcdea
-    19 :cba
-    20 :cdba
-    21 :cdeba
-    22 :decab
+    9 :acb
+    10 :acbde
+    11 :acbdef
+    12 :acdb
+    13 :acdeb
+    14 :ba
+    15 :bac
+    16 :bacd
+    17 :bca
+    18 :bcda
+    19 :bcdea
+    20 :cba
+    21 :cdba
+    22 :cdeba
+    23 :decab
+    24 :defcab
+
     (dragan-says-ex (format "%s format." (if (< 22 format 132) "Opaque" "Unknown"))
                     {:format format})))
 
@@ -138,6 +145,7 @@
    :abdec dnnl/dnnl_abdec
    :acb dnnl/dnnl_acb
    :acbde dnnl/dnnl_acbde
+   :acbdef dnnl/dnnl_acbdef
    :acdb dnnl/dnnl_acdb
    :acdeb dnnl/dnnl_acdeb
    :ba dnnl/dnnl_ba
@@ -149,7 +157,8 @@
    :cba dnnl/dnnl_cba
    :cdba dnnl/dnnl_cdba
    :cdeba dnnl/dnnl_cdeba
-   :decab dnnl/dnnl_decab})
+   :decab dnnl/dnnl_decab
+   :defcab dnnl/dnnl_defcab})
 
 (defn dec-data-type [^long data-type]
   (case data-type
@@ -200,7 +209,18 @@
    :logistic dnnl/dnnl_eltwise_logistic
    :sigmoid dnnl/dnnl_eltwise_logistic
    :exp dnnl/dnnl_eltwise_exp
-   :gelu dnnl/dnnl_eltwise_gelu})
+   :gelu dnnl/dnnl_eltwise_gelu
+   :gelu-tanh dnnl/dnnl_eltwise_gelu_tanh
+   :gelu-erf dnnl/dnnl_eltwise_gelu_erf
+   :swish dnnl/dnnl_eltwise_swish
+   :log dnnl/dnnl_eltwise_log
+   :clip dnnl/dnnl_eltwise_clip
+   :pow dnnl/dnnl_eltwise_pow
+   :relu-dst-bwd dnnl/dnnl_eltwise_relu_use_dst_for_bwd
+   :tanh-dst-bwd dnnl/dnnl_eltwise_tanh_use_dst_for_bwd
+   :elu-dst-bwd dnnl/dnnl_eltwise_elu_use_dst_for_bwd
+   :square-dst-bwd dnnl/dnnl_eltwise_sqrt_use_dst_for_bwd
+   :logistic-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd})
 
 (defn entry-bytes ^long [data-type]
   (case data-type

@@ -167,3 +167,6 @@
       (out-batcher (- b-size mb-size))
       (network))
     (output out-batcher)))
+
+(defn accuracy [y a]
+  )

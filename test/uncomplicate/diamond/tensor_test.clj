@@ -40,12 +40,15 @@
   (with-release [x1 (tensor fact [2 1 2 3] :float :nchw)
                  y1 (tensor fact [2 1 2 3] :float :nchw)
                  y3 (tensor fact [2 1 2 3] :float :nhwc)
-                 y4 (tensor fact [2 1 2 2] :float :nchw)]
+                 y4 (tensor fact [2 1 2 2] :float :nchw)
+                 x5 (tensor fact [2 2 2 2] :float :nchw)
+                 y5 (tensor fact [2 2 2 2] :float :nhwc)]
     (facts "Equality and hash code tests."
            (.equals x1 nil) => false
            (= x1 y1) => true
-           (= x1 y3) => false
+           ;; (= x1 y3) => false
            (= x1 y4) => false
+           (= x5 y5) => false
            (transfer! (range) x1) => (transfer! (range) y1))))
 
 (defn test-release [fact]
