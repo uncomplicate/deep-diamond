@@ -131,28 +131,22 @@ Please contribute towards making it possible, or use on of the supported types."
      (method (engine vx) vx)))
   ([method x y]
    (let [vx (view x)]
-     (check-contiguous x)
-     (check-contiguous y)
+     (check-contiguous x y)
      (method (engine vx) vx (view y))))
   ([method x y z]
    (let [vx (view x)]
-     (check-contiguous x)
-     (check-contiguous y)
-     (check-contiguous z)
+     (check-contiguous x y z)
      (method (engine vx) vx (view y) (view z)))))
 
 (defn tensor-math
   ([method a y]
    (let [va (view a)]
-     (check-contiguous a)
-     (check-contiguous y)
+     (check-contiguous a y)
      (method (engine va) va (view y))
      y))
   ([method a b y]
    (let [va (view a)]
-     (check-contiguous a)
-     (check-contiguous b)
-     (check-contiguous y)
+     (check-contiguous a b y)
      (method (engine va) va (view b) (view y))
      y)))
 
@@ -320,9 +314,11 @@ Please contribute towards making it possible, or use on of the supported types."
     (dragan-says-ex INEFFICIENT_OPERATION_MSG))
   RandomNumberGenerator
   (rand-uniform [_ rng-stream lower upper x]
-    (rand-uniform (engine (view x)) rng-stream lower upper (view x)))
+    (rand-uniform (engine (view x)) rng-stream lower upper (view x))
+    x)
   (rand-normal [_ rng-stream mu sigma x]
-    (rand-normal (engine (view x)) rng-stream mu sigma (view x))))
+    (rand-normal (engine (view x)) rng-stream mu sigma (view x))
+    x))
 
 (deftype CUDnnFactory [ctx hstream cudnn-hdl master
                        native-diamond-fact
@@ -363,7 +359,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor-desc [this shape dtype format]
     (cudnn-tensor-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
-    (cudnn-tensor-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
+    (desc tz-desc))
   (create-tensor [this tensor-desc init]
     (let-release [res (cudnn-tensor this tensor-desc)]
       (when init

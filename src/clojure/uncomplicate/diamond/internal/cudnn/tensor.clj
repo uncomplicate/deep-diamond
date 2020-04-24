@@ -94,6 +94,13 @@
     (cudnn-tensor-desc (.shape this) (or (.data-type this) :float)
                        (or (layout this) (default-strides (.shape this))))))
 
+(extend-type Object
+  DescProvider
+  (desc [this]
+    (cudnn-tensor-desc (shape this) (or (data-type this) :float)
+                       (or (layout this) (default-strides (shape this))))))
+
+
 (extend-type CUTensorDescriptor
   TensorDescriptor
   (shape [this]
@@ -463,7 +470,7 @@
 
 (defmethod transfer! [Object CUDnnTensor]
   [source destination]
-  (let-release [dest (raw destination (native-diamond-factory destination))]
+  (with-release [dest (raw destination (native-diamond-factory destination))]
     (set-tensor! (transfer! source dest) destination)))
 
 (defmethod transfer! [Object CUDnnTransformer]

@@ -63,6 +63,11 @@
   (desc [this]
     (memory-desc (.shape this) (or (.data-type this) :float) (or (layout this) :any))))
 
+(extend-type Object
+  DescProvider
+  (desc [this]
+    (memory-desc (shape this) (or (tz/data-type this) :float) (or (layout this) :any))))
+
 (extend-type dnnl_memory_desc_t
   TensorDescriptor
   (shape [this]

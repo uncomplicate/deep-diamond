@@ -174,13 +174,16 @@
 (def ^:const dnnl-data-type
   {:float dnnl/dnnl_f32
    Float/TYPE dnnl/dnnl_f32
+   Float dnnl/dnnl_f32
    :half dnnl/dnnl_f16
    :f16 dnnl/dnnl_f16
    :bf16 dnnl/dnnl_bf16
    :int dnnl/dnnl_s32
    Integer/TYPE dnnl/dnnl_s32
+   Integer dnnl/dnnl_s32
    :byte dnnl/dnnl_s8
    Byte/TYPE dnnl/dnnl_s8
+   Byte dnnl/dnnl_s8
    :u8 dnnl/dnnl_u8
    :uint8 dnnl/dnnl_u8
    :undef dnnl/dnnl_data_type_undef})

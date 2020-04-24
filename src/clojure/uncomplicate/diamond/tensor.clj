@@ -1,7 +1,7 @@
 (ns uncomplicate.diamond.tensor
   (:require [uncomplicate.commons
              [core :refer [release let-release Info]]
-             [utils :refer [dragan-says-ex]]]
+             [utils :refer [dragan-says-ex cond-into]]]
             [uncomplicate.diamond.internal.protocols :as api]))
 
 (def ^:dynamic *diamond-factory* nil)
@@ -79,21 +79,21 @@
 
 ;; =============================================================================
 
-(defrecord TensorDescriptorImpl [shape data-type format]
+(defrecord TensorDescriptorImpl [shape data-type layout]
   Info
   (info [this]
     {:class (class this)
      :device :cpu
      :shape shape
      :data-type data-type
-     :layout format})
+     :layout layout})
   TensorDescriptor
   (shape [_]
     shape)
   (data-type [_]
     data-type)
   (layout [_]
-    format)
+    layout)
   ConnectorCreator
   (connector [in-desc out]
     (connector (api/create-tensor-desc (api/diamond-factory out) in-desc) out)))
@@ -102,22 +102,40 @@
   "Creates a general, technology-agnostic, tensor descriptor.
 
   The required parameter `shape` is a vector of tensor dimensions.
-  Optionally, `type` and `format` can be provided as keywords, that
+  Optionally, `type` and `layout` can be provided as keywords, that
   are later transformed to appropriate internal implementations
-  supported by specific backend.
+  supported by specific backend. Alternatively, `layout` might be
+  provided as a vector of offsets.
 
   Examples:
 
-  (desc [2 3 2]) => {:shape [2 3 2], :data-type nil, :format nil}
-  (desc [2 3] :nc) => {:shape [2 3], :data-type nil, :format :nc}
-  (desc [2 3 2 4] :nhwc) => {:shape [2 3 2 4], :data-type nil, :format :nhwc}
+  (desc [2 3 2]) => {:shape [2 3 2], :data-type nil, :layout nil}
+  (desc [2 3] :nc) => {:shape [2 3], :data-type nil, :layout :nc}
+  (desc [2 3 2 4] :nhwc) => {:shape [2 3 2 4], :data-type nil, :layout :nhwc}
   "
-  ([shape type format]
-   (->TensorDescriptorImpl shape type format))
-  ([shape format]
-   (desc shape nil format))
-  ([shape]
-   (desc (uncomplicate.diamond.tensor/shape shape) nil nil)))
+  ([shape type layout]
+   (if (and (vector? shape)
+            (or (keyword? type) (class? type) (nil? type))
+            (or (and (vector? layout) (= (count shape) (count layout)))
+                (and (keyword? layout) (= (count shape) (count (name layout))))
+                (nil? layout)))
+     (->TensorDescriptorImpl shape type layout)
+     (dragan-says-ex "The requested descriptor would most likely be inconsistent."
+                     {:shape shape :type type :layout layout :errors
+                      (cond-into []
+                                 (not (vector? shape)) "shape is not a vector"
+                                 (not (or (keyword? type) (symbol? type) (nil? type)))
+                                 "type is not a keyword, class, or nil"
+                                 (not (or (vector? layout) (keyword? layout) (nil? layout)))
+                                 "layout is not a keyword, vector, or nil"
+                                 (and (vector? layout) (not= (count shape) (count layout)))
+                                 "shape and layout must have the same length"
+                                 (and (keyword? layout) (not= (count shape) (count (name layout))))
+                                 "shape and layout must have the same length")})))
+  ([shape layout]
+   (desc shape nil layout))
+  ([tdesc]
+   (desc (shape tdesc) (data-type tdesc) (layout tdesc))))
 
 (defn tensor
   "Creates a technology-specific tensor.
@@ -125,13 +143,13 @@
   The backend is determined by `tz-factory`, while the structure
   is provided either from a general or technology specific descriptor
   `desc`, or from directly provided descriptor parameters `shape`,
-  `type`, and `format`. If `tz-factory` is not provided, it is
+  `type`, and `layout`. If `tz-factory` is not provided, it is
   taken from the `*diamond-factory*` binding, which is by default
   [[internal/dnnl]].
 
   Examples:
 
-  (tensor {:shape [2 3] :data-type :float :format :nc})
+  (tensor {:shape [2 3] :data-type :float :layout :nc})
   =>
   {:shape [2 3], :data-type :float, :layout [3 1]}
   [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
@@ -146,13 +164,13 @@
   {:shape [2 3], :data-type :float, :layout [3 1]}
   [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
   "
-  ([tz-factory shape type format]
+  ([tz-factory shape type layout]
    (if (sequential? shape)
      (let [fact (api/diamond-factory tz-factory)]
-       (api/create-tensor fact (api/create-tensor-desc fact shape type format) true))
+       (api/create-tensor fact (api/create-tensor-desc fact shape type layout) true))
      (dragan-says-ex "Tensor shape has to be sequential." {:shape (class shape)})))
-  ([shape type format]
-   (tensor *diamond-factory* shape type format))
+  ([shape type layout]
+   (tensor *diamond-factory* shape type layout))
   ([tz-factory desc]
    (let [fact (api/diamond-factory tz-factory)]
      (api/create-tensor fact (api/create-tensor-desc fact desc) true)))
@@ -161,10 +179,6 @@
 
 (defn offset! [tz ^long n]
   (api/offset tz n))
-
-(defn offset [tz ^long n]
-  (let-release [tzv (view-tz tz)]
-    (offset! tzv n)))
 
 (defn transformer
   "Creates a function optimized for transferring data from tensor

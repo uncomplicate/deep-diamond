@@ -136,7 +136,7 @@ Please contribute towards making it possible, or use on of the supported types."
     y)
   BlasPlus
   (amax [_ x]
-    (tensor-amax CBLAS/isamax ^RealBufferAccessor (data-accessor (factory ~x)) ^DnnlTensor x))
+    (tensor-amax CBLAS/isamax ^RealBufferAccessor (data-accessor (factory x)) ^DnnlTensor x))
   (sum [_ x]
     (let [view-x (view x)]
       (sum (neand/engine x) (view x))))
@@ -263,13 +263,15 @@ Please contribute towards making it possible, or use on of the supported types."
     (dragan-says-ex INEFFICIENT_OPERATION_MSG))
   RandomNumberGenerator
   (rand-uniform [_ rng-stream lower upper x]
-    (check-contiguous)
-    (let [view-x (view x)]
-      (rand-uniform (neand/engine x) rng-stream lower upper x)))
+    (check-contiguous x)
+    (let [vx (view x)]
+      (rand-uniform (neand/engine x) rng-stream lower upper vx))
+    x)
   (rand-normal [_ rng-stream mu sigma x]
-    (check-contiguous)
-    (let [view-x (view x)]
-      (rand-normal (neand/engine x) rng-stream mu sigma x))))
+    (check-contiguous x)
+    (let [vx (view x)]
+      (rand-normal (neand/engine x) rng-stream mu sigma vx))
+    x))
 
 (deftype ViewTensorEngine []
   Blas
@@ -312,7 +314,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor-desc [this shape dtype format]
     (memory-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
-    (memory-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
+    (desc tz-desc))
   (create-tensor [this tensor-desc _]
     (dnnl-tensor this tensor-desc))
   (create-transformer [_ in-tz out-tz]
