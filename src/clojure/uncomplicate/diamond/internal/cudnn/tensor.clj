@@ -77,6 +77,11 @@
   (desc [this]
     (cudnn-tensor-desc this :float :nchw)))
 
+(extend-type java.lang.Number
+  DescProvider
+  (desc [this]
+    (cudnn-tensor-desc [this] :float :nchw)))
+
 (extend-type java.util.Map
   DescProvider
   (desc [this]

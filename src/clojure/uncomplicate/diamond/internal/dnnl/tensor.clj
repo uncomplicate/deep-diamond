@@ -46,17 +46,22 @@
 (extend-type java.util.Collection
   DescProvider
   (desc [this]
-    (memory-desc this :undef :undef)))
+    (memory-desc this :float :any)))
+
+(extend-type java.lang.Number
+  DescProvider
+  (desc [this]
+    (memory-desc [this] :float :x)))
 
 (extend-type java.util.Map
   DescProvider
   (desc [this]
-    (memory-desc (:shape this) (or (:data-type this) :undef) (or (layout this) :undef))))
+    (memory-desc (:shape this) (or (:data-type this) :float) (or (layout this) :any))))
 
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (memory-desc (.shape this) (or (.data-type this) :undef) (or (layout this) :undef))))
+    (memory-desc (.shape this) (or (.data-type this) :float) (or (layout this) :any))))
 
 (extend-type dnnl_memory_desc_t
   TensorDescriptor

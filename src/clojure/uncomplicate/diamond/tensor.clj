@@ -32,6 +32,15 @@
   (layout [_]
     nil))
 
+(extend-type java.lang.Number
+  TensorDescriptor
+  (shape [this]
+    [this])
+  (data-type [_]
+    nil)
+  (layout [_]
+    [1]))
+
 (extend-type clojure.lang.IPersistentVector
   TensorDescriptor
   (shape [this]
