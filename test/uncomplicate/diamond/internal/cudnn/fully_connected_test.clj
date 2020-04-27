@@ -32,6 +32,6 @@
   (test-stochastic-gradient-descent-adam fact)
   (test-sigmoid-crossentropy-cost fact))
 
-;; (with-release [fact (cudnn-factory)]
-;;   (bench-wide-layers fact))
-;; "Elapsed time: 161.175218 msecs"
+#_(with-release [fact (cudnn-factory)]
+  (bench-wide-layers fact))
+;; "Elapsed time: 148.475214 msecs"

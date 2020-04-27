@@ -414,4 +414,5 @@
     (time (do (dotimes [i 100]
                 (forward net [0 1 0 0 false])
                 (backward net [0 1 0 0 false]))
-              (net)))))
+              (net)
+              nil))))
