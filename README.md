@@ -12,10 +12,11 @@ Deep Diamond is a Clojure library for fast tensors and neural network related co
 
 ## When will it be released?
 
-Soon. Its progress will go along with the [books](https://aiprobook.com)
+[Alpha is already available on Clojars](https://clojars.org/uncomplicate/deep-diamond)
+The progress goes along with the [books](https://aiprobook.com)
 
 ## License
 
-Copyright © 2019 Dragan Djuric
+Copyright © 2019-2020 Dragan Djuric
 
 Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.
