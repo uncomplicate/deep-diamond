@@ -12,4 +12,4 @@
   (:import clojure.lang.ExceptionInfo java.nio.ByteBuffer))
 
 (facts "DNNL format tests."
-       (count (remove identity (map #(= % (dnnl-format (dec-format %))) (range 23)))) => 0)
+       (count (remove identity (map #(= % (dnnl-format (dec-format %))) (range 28)))) => 0)

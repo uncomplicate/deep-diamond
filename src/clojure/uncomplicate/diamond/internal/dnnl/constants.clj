@@ -73,23 +73,26 @@
     5 :abcd
     6 :abcde
     7 :abcdef
-    8 :abdec
-    9 :acb
-    10 :acbde
-    11 :acbdef
-    12 :acdb
-    13 :acdeb
-    14 :ba
-    15 :bac
-    16 :bacd
-    17 :bca
-    18 :bcda
-    19 :bcdea
-    20 :cba
-    21 :cdba
-    22 :cdeba
-    23 :decab
-    24 :defcab
+    8 :abdc
+    9 :abdec
+    10 :acb
+    11 :acbde
+    12 :acbdef
+    13 :acdb
+    14 :acdeb
+    15 :ba
+    16 :bac
+    17 :bacd
+    18 :bacde
+    19 :bca
+    20 :bcda
+    21 :bcdea
+    22 :cba
+    23 :cdba
+    24 :dcab
+    25 :cdeba
+    26 :decab
+    27 :defcab
 
     (dragan-says-ex (format "%s format." (if (< 22 format 132) "Opaque" "Unknown"))
                     {:format format})))
@@ -142,6 +145,7 @@
    :abcd dnnl/dnnl_abcd
    :abcde dnnl/dnnl_abcde
    :abcdef dnnl/dnnl_abcdef
+   :abdc dnnl/dnnl_abdc
    :abdec dnnl/dnnl_abdec
    :acb dnnl/dnnl_acb
    :acbde dnnl/dnnl_acbde
@@ -151,11 +155,13 @@
    :ba dnnl/dnnl_ba
    :bac dnnl/dnnl_bac
    :bacd dnnl/dnnl_bacd
+   :bacde dnnl/dnnl_bacde
    :bca dnnl/dnnl_bca
    :bcda dnnl/dnnl_bcda
    :bcdea dnnl/dnnl_bcdea
    :cba dnnl/dnnl_cba
    :cdba dnnl/dnnl_cdba
+   :dcab dnnl/dnnl_dcab
    :cdeba dnnl/dnnl_cdeba
    :decab dnnl/dnnl_decab
    :defcab dnnl/dnnl_defcab})
