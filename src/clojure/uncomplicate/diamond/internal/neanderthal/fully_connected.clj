@@ -154,6 +154,8 @@
   DiffTransfer
   (diff-input [_]
     (diff-input activ))
+  (diff-z [_]
+    (diff-output activ))
   (diff-output [_]
     (input src-conn))
   IFn
@@ -258,6 +260,8 @@
   DiffTransfer
   (diff-input [_]
     (diff-input activ))
+  (diff-z [_]
+    (diff-output activ))
   (diff-output [_]
     (input src-conn))
   IFn

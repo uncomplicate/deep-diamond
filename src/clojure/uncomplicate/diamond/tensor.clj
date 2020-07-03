@@ -230,7 +230,7 @@
   [   3.00    4.00    5.00 ]
   "
   ([x y]
-   (batcher x y (min ((shape x) 0)((shape y) 0))))
+   (batcher x y (min (long ((shape x) 0)) (long ((shape y) 0)))))
   ([x y ^long mb-size]
    (api/create-batcher (api/diamond-factory x) x y mb-size)))
 

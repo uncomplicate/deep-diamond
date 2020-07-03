@@ -97,12 +97,12 @@
                  crossentropy-cost (cost net y-mb-tz :sigmoid-crossentropy)
                  x-batcher (batcher x-tz (input net))
                  y-batcher (batcher y-tz y-mb-tz)]
+    (transfer! x-train (view x-tz))
+    (transfer! y-train (view y-tz))
     (facts "Adam gradient descent - IMDB sentiment classification."
-           (transfer! x-train (view x-tz))
-           (transfer! y-train (view y-tz))
-           (time (train net x-batcher y-batcher crossentropy-cost 20 [] )) => (roughly 0.2 0.1)
+           (time (train net x-batcher y-batcher crossentropy-cost 20 [])) => (roughly 0.2 0.1)
            (transfer! net net-infer)
-           (binary-accuracy! y-mb-tz (net-infer)) => (roughly 1 0.3))))
+           (binary-accuracy! y-mb-tz (net-infer)) => :a #_(roughly 1 0.3))))
 
 (with-release [fact (dnnl-factory)]
   (test-imdb-classification fact))

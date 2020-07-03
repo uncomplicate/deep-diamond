@@ -46,6 +46,7 @@
 
 (defprotocol DiffTransfer
   (diff-input [this])
+  (diff-z [this])
   (diff-output [this]))
 
 (defprotocol Backprop

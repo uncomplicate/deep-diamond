@@ -16,7 +16,7 @@
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
                      diff-bias diff-weights Backprop forward backward blueprint
-                     create-tensor DiffTransfer diff-input diff-output]]
+                     create-tensor DiffTransfer diff-input diff-output diff-z]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]
@@ -245,11 +245,9 @@
     (cost a-y)))
 
 (defn cudnn-universal-cost [prev-layer train-tz cost]
-  (let [train-desc (desc train-tz)
-        output-desc (cudnn-tensor-desc (dims (output prev-layer))
-                                       (data-type train-desc) (strides train-desc))]
-    (let-release [connect-output (connector (output prev-layer) output-desc)
-                  connect-diff (connector output-desc (diff-input prev-layer))]
+  (let [train-desc (desc train-tz)]
+    (let-release [connect-output (connector (output prev-layer) train-desc)
+                  connect-diff (connector train-desc (diff-input prev-layer))]
       (->UniversalCost prev-layer
                        connect-output connect-diff
                        (view (input connect-diff)) (view train-tz)
@@ -280,7 +278,6 @@
     (copy! a a-y)
     (axpy! -1.0 y a-y)
     (connect-diff)
-    (backward prev-layer)
     this)
   IFn
   (invoke [_]
@@ -288,11 +285,9 @@
     (cost y a)))
 
 (defn cudnn-custom-cost [prev-layer train-tz cost]
-  (let [train-desc (desc train-tz)
-        output-desc (cudnn-tensor-desc (dims (output prev-layer))
-                                       (data-type train-desc) (strides train-desc))]
-    (let-release [connect-output (connector (output prev-layer) output-desc)
-                  connect-diff (connector output-desc (diff-input prev-layer))]
+  (let [train-desc (desc train-tz)]
+    (let-release [connect-output (connector (output prev-layer) train-desc)
+                  connect-diff (connector train-desc (diff-z prev-layer))]
       (->CustomCost prev-layer
                     connect-output connect-diff
                     (view (output connect-output)) (view train-tz) (view (input connect-diff))

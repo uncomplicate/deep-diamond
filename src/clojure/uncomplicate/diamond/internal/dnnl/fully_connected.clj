@@ -25,7 +25,7 @@
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
                      diff-bias diff-weights Backprop forward backward blueprint
-                     DiffTransfer diff-output diff-input]]
+                     DiffTransfer diff-output diff-input diff-z]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all]
@@ -81,7 +81,6 @@
     a-tz)
   (output [_]
     a-tz)
-  DiffTransfer
   IFn
   (invoke [_]
     (execute! strm eltw-fwd-prim eltw-fwd-args)
@@ -497,6 +496,8 @@
   DiffTransfer
   (diff-input [_]
     (diff-input activ))
+  (diff-z [_]
+    (diff-output activ))
   (diff-output [_]
     (diff-output ip))
   Parameters
@@ -587,6 +588,8 @@
   DiffTransfer
   (diff-input [_]
     (diff-input activ))
+  (diff-z [_]
+    (diff-output activ))
   (diff-output [_]
     (diff-output ip))
   Parameters
@@ -748,12 +751,10 @@
     (cost a-y)))
 
 (defn dnnl-universal-cost [eng strm prev-layer train-tz cost]
-  (let [train-desc (desc train-tz)
-        output-desc (memory-desc (dims (output prev-layer))
-                                 (data-type train-desc) (strides train-desc))]
-    (let-release [connect-output (connector (output prev-layer) output-desc)
-                  connect-diff (connector output-desc (diff-input prev-layer))]
-      (with-release [sum-desc (sum! eng output-desc 1.0 output-desc -1.0 train-tz)]
+  (let [train-desc (desc train-tz)]
+    (let-release [connect-output (connector (output prev-layer) train-desc)
+                  connect-diff (connector train-desc (diff-input prev-layer))]
+      (with-release [sum-desc (sum! eng train-desc 1.0 train-desc -1.0 train-tz)]
         (let-release [sum-prim (primitive sum-desc)]
           (->UniversalCost strm prev-layer sum-prim
                            (args (buffer (input connect-diff)) (buffer (output connect-output))
@@ -787,7 +788,6 @@
   (backward [this]
     (execute! strm sum-prim sum-args)
     (connect-diff)
-    (backward prev-layer)
     this)
   IFn
   (invoke [_]
@@ -795,12 +795,10 @@
     (cost y a)))
 
 (defn dnnl-custom-cost [eng strm prev-layer train-tz cost]
-  (let [train-desc (desc train-tz)
-        output-desc (memory-desc (dims (output prev-layer))
-                                 (data-type train-desc) (strides train-desc))]
-    (let-release [connect-output (connector (output prev-layer) output-desc)
-                  connect-diff (connector output-desc (diff-input prev-layer))]
-      (with-release [sum-desc (sum! eng output-desc 1.0 output-desc -1.0 train-tz)]
+  (let [train-desc (desc train-tz)]
+    (let-release [connect-output (connector (output prev-layer) train-desc)
+                  connect-diff (connector train-desc (diff-z prev-layer))]
+      (with-release [sum-desc (sum! eng train-desc 1.0 train-desc -1.0 train-desc)]
         (let-release [sum-prim (primitive sum-desc)]
           (->CustomCost strm prev-layer sum-prim
                         (args (buffer (input connect-diff)) (buffer (output connect-output))

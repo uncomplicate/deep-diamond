@@ -35,7 +35,7 @@
                   y-1 (linear-frac 1.0 y -1.0)]
      (/ (asum (axpy! -1.0 ylna (mul! y-1 (log! (linear-frac! -1.0 a 1.0))))) n)))
   ([y a]
-   (sigmoid-crossentropy-cost! ((shape a) 0) a y)))
+   (sigmoid-crossentropy-cost! ((shape y) 0) y a)))
 
 (defn binary-accuracy!
   ([y a!]

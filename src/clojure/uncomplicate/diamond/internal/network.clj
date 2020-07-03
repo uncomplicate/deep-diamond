@@ -6,7 +6,7 @@
             [uncomplicate.diamond.tensor :refer [Transfer input output]]
             [uncomplicate.diamond.internal.protocols
              :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
-                     diamond-factory DiffTransfer diff-input diff-output]])
+                     diamond-factory DiffTransfer diff-input diff-output diff-z]])
   (:import clojure.lang.IFn))
 
 (defn invoke [f]
@@ -99,6 +99,8 @@
   DiffTransfer
   (diff-input [_]
     (diff-input last-layer))
+  (diff-z [_]
+    (diff-z last-layer))
   (diff-output [_]
     (diff-output (first forward-layers)))
   IFn

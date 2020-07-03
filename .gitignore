@@ -17,3 +17,4 @@ hs_*.log
 *.so
 */nrepl-port
 */target
+data

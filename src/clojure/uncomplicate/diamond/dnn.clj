@@ -160,13 +160,10 @@
         mb-rem (rem b-size mb-size)]
     (dotimes [n mb-count]
       (in-batcher (* n mb-size))
-      (out-batcher (* n mb-size))
-      (network))
+      (network)
+      (out-batcher 0 (* n mb-size)))
     (when (< 0 mb-rem)
       (in-batcher (- b-size mb-size))
-      (out-batcher (- b-size mb-size))
-      (network))
+      (network)
+      (out-batcher 0 (- b-size mb-size)))
     (output out-batcher)))
-
-(defn accuracy [y a]
-  )
