@@ -10,7 +10,7 @@
   :description "Fast Clojure Deep Learning Library"
 
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [uncomplicate/neanderthal "0.31.0"]
+                 [uncomplicate/neanderthal "0.33.0-SNAPSHOT"]
                  [org.bytedeco/dnnl-platform "1.5-1.5.4-SNAPSHOT"]
                  [org.jcuda/jcudnn "10.2.0"]]
 

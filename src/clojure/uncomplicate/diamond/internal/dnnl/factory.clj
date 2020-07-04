@@ -277,11 +277,11 @@ Please contribute towards making it possible, or use on of the supported types."
   Blas
   (swap [_ x y]
     (let [vx (view x)]
-      (swap (neand/engine vx) (view x) (view y)))
+      (swap (neand/engine vx) vx (view y)))
     x)
   (copy [_ x y]
     (let [vx (view x)]
-      (copy (neand/engine vx) (view x) (view y)))
+      (copy (neand/engine vx) vx (view y)))
     y)
   BlasPlus
   (set-all [_ alpha x]

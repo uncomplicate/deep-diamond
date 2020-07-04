@@ -253,9 +253,7 @@
                        (view (input connect-diff)) (view train-tz)
                        cost))))
 
-(deftype CustomCost [prev-layer
-                     connect-output connect-diff
-                     a y a-y cost]
+(deftype CustomCost [prev-layer connect-output connect-diff a y a-y cost]
   Releaseable
   (release [_]
     (release connect-output)

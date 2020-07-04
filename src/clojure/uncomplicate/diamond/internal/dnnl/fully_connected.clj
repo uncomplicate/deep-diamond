@@ -763,10 +763,8 @@
                            (view (input connect-diff))
                            cost))))))
 
-(deftype CustomCost [strm prev-layer
-                     sum-prim sum-args
-                     connect-output connect-diff
-                     a y cost]
+(deftype CustomCost [strm prev-layer sum-prim sum-args
+                     connect-output connect-diff a y cost]
   Releaseable
   (release [_]
     (release connect-output)
@@ -804,8 +802,7 @@
                         (args (buffer (input connect-diff)) (buffer (output connect-output))
                               (buffer train-tz))
                         connect-output connect-diff
-                        (view (input connect-diff))
-                        (view train-tz)
+                        (view (output connect-output)) (view train-tz)
                         cost))))))
 
 (defmethod transfer! [FullyConnectedInference Object]

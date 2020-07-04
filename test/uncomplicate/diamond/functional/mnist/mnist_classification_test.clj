@@ -14,7 +14,8 @@
              [native :refer [map-file]]
              [dnn :refer [fully-connected network init! train cost infer]]
              [metrics :refer [confusion-matrix contingency-totals classification-metrics]]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]))
+            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
+            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce train-images-file (random-access "data/mnist/train-images.idx3-ubyte"))
 (defonce train-labels-file (random-access "data/mnist/train-labels.idx1-ubyte"))
@@ -23,10 +24,8 @@
 
 (defonce train-images (map-file train-images-file [60000 1 28 28] :uint8 :nchw :read 16))
 (defonce train-labels (map-file train-labels-file [60000] :uint8 :x :read 8))
-(defonce train-labels-float (transfer! train-labels (tensor [60000] :float :x)))
 (defonce test-images (map-file test-images-file [10000 1 28 28] :uint8 :nchw :read 16))
 (defonce test-labels (map-file test-labels-file [10000] :uint8 :x :read 8))
-(defonce test-labels-float (transfer! test-labels (tensor [10000] :float :x)))
 
 (defn enc-categories [val-tz]
   (let [val-vector (view val-tz)]
@@ -54,19 +53,51 @@
                  net (init! (net-bp x-mb-tz :adam))
                  net-infer (net-bp x-mb-tz)
                  crossentropy-cost (cost net y-mb-tz :sigmoid-crossentropy)
+                 train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
                  x-train-bat (batcher train-images (input net))
+                 train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)
                  y-train-bat (batcher y-train y-mb-tz)
+                 test-images (transfer! test-images (tensor fact [10000 1 28 28] :uint8 :nchw))
                  x-test-bat (batcher test-images (input net-infer))
+                 test-labels-float (transfer! test-labels (tensor fact [10000] :float :x))
                  y-test (enc-categories test-labels-float)
                  y-test-bat (batcher (output net-infer) y-test)]
     (facts "MNIST classification tests."
-           (time (train net x-train-bat y-train-bat crossentropy-cost 2 []))
+           (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.25 0.1)
            (transfer! net net-infer)
            (take 8 (dec-categories (infer net-infer x-test-bat y-test-bat)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 (with-release [fact (dnnl-factory)]
   (test-mnist-classification fact))
-
 ;; "Elapsed time: 791.513226 msecs"
+
+#_(with-release [fact (cudnn-factory)];;TODO support uint8 in CUDA
+  (test-mnist-classification fact))
+
+(defn test-mnist-classification-internal-input [fact]
+  (with-release [y-mb-tz (tensor fact [512 10] :float :nc)
+                 net-bp (network fact (desc [512 1 28 28] :float :nchw)
+                                 [(fully-connected [256] :relu)
+                                  (fully-connected [256] :relu)
+                                  (fully-connected [10] :sigmoid)])
+                 net (init! (net-bp :adam))
+                 crossentropy-cost (cost net y-mb-tz :sigmoid-crossentropy)
+                 train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
+                 x-train-bat (batcher train-images (input net))
+                 train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
+                 y-train (enc-categories train-labels-float)
+                 y-train-bat (batcher y-train y-mb-tz)
+                 test-images (transfer! test-images (tensor fact [10000 1 28 28] :uint8 :nchw))
+                 x-test-bat (batcher test-images (input net))
+                 test-labels-float (transfer! test-labels (tensor fact [10000] :float :x))
+                 y-test (enc-categories test-labels-float)
+                 y-test-bat (batcher (output net) y-test)]
+    (facts "MNIST classification tests."
+           (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.25 0.1)
+           (take 8 (dec-categories (infer net x-test-bat y-test-bat)))
+           => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+
+(with-release [fact (dnnl-factory)]
+  (test-mnist-classification-internal-input fact))

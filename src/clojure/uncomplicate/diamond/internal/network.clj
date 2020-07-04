@@ -3,7 +3,7 @@
              [core :refer [Releaseable release let-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
-            [uncomplicate.diamond.tensor :refer [Transfer input output]]
+            [uncomplicate.diamond.tensor :refer [Transfer input output view-tz tensor]]
             [uncomplicate.diamond.internal.protocols
              :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
                      diamond-factory DiffTransfer diff-input diff-output diff-z]])
@@ -15,9 +15,10 @@
 (defn ^:private layer-info [layer]
   [(info layer :topology) (:shape (info layer :bias)) (info layer :activation)])
 
-(deftype SequentialNetworkInference [forward-layers]
+(deftype SequentialNetworkInference [x-tz forward-layers]
   Releaseable
   (release [_]
+    (release x-tz)
     (doseq [l forward-layers] (release l))
     true)
   Object
@@ -45,7 +46,7 @@
   (layers [_]
     forward-layers)
   Transfer
-  (input [_] (input (get forward-layers 0)))
+  (input [_] x-tz)
   (output [_] (output (peek forward-layers)))
   DiffTransfer
   (diff-input [this]
@@ -64,9 +65,10 @@
     (.write w "\n"))
   (.write w "]"))
 
-(deftype SequentialNetworkTraining [forward-layers last-layer rest-backward-layers]
+(deftype SequentialNetworkTraining [x-mb-tz forward-layers last-layer rest-backward-layers]
   Releaseable
   (release [_]
+    (release x-mb-tz)
     (doseq [l forward-layers] (release l)))
   Object
   (hashCode [_]
@@ -94,7 +96,7 @@
   (layers [_]
     forward-layers)
   Transfer
-  (input [_] (input (first forward-layers)))
+  (input [_] x-mb-tz)
   (output [_] (output last-layer))
   DiffTransfer
   (diff-input [_]
@@ -130,7 +132,7 @@
     (.write w "\n"))
   (.write w "]"))
 
-(deftype SequentialNetworkBlueprint [layer-blueprints]
+(deftype SequentialNetworkBlueprint [fact src-desc layer-blueprints]
   Releaseable
   (release [_]
     (doseq [l layer-blueprints] (release l))
@@ -142,33 +144,45 @@
     (and (satisfies? NeuralNetwork n) (= layer-blueprints (layers n))))
   (toString [_]
     (str layer-blueprints))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   NeuralNetwork
   (layers [_]
     (format "[%s]" (apply str layer-blueprints)))
   IFn
   (invoke [_ input-tz optimization]
-    (loop [bps (next layer-blueprints)
-           backward-layers [((first layer-blueprints) input-tz false optimization)]]
-      (if bps
-        (recur (next bps)
-               (cons ((first bps) (first backward-layers) true optimization)
-                     backward-layers))
-        (->SequentialNetworkTraining (reverse backward-layers)
-                                     (first backward-layers)
-                                     (rest backward-layers)))))
-  (invoke [this input-tz]
-    (loop [bps (next layer-blueprints)
-           forward-layers [((first layer-blueprints) input-tz)]]
-      (if bps
-        (recur (next bps) (conj forward-layers ((first bps) (peek forward-layers))))
-        (->SequentialNetworkInference forward-layers)))))
+    (let [input-tz (view-tz input-tz)]
+      (loop [bps (next layer-blueprints)
+             backward-layers [((first layer-blueprints) input-tz false optimization)]]
+        (if bps
+          (recur (next bps)
+                 (cons ((first bps) (first backward-layers) true optimization)
+                       backward-layers))
+          (->SequentialNetworkTraining input-tz
+                                       (reverse backward-layers)
+                                       (first backward-layers)
+                                       (rest backward-layers))))))
+  (invoke [this optimization-or-input-tz]
+    (if (keyword? optimization-or-input-tz)
+      (let-release [input-tz (tensor fact src-desc)]
+        (this input-tz optimization-or-input-tz))
+      (let [input-tz (view-tz optimization-or-input-tz)]
+        (loop [bps (next layer-blueprints)
+               forward-layers [((first layer-blueprints) input-tz)]]
+          (if bps
+            (recur (next bps) (conj forward-layers ((first bps) (peek forward-layers))))
+            (->SequentialNetworkInference input-tz forward-layers))))))
+  (invoke [this]
+    (let-release [input-tz (tensor fact src-desc)]
+      (this input-tz))))
 
 (defn sequential-network [fact src-desc layers]
   (let-release [layers (reduce (fn [lrs layer-fn]
                                  (conj lrs (layer-fn fact (peek lrs))))
                                [((first layers) fact src-desc)]
                                (rest layers))]
-    (->SequentialNetworkBlueprint layers)))
+    (->SequentialNetworkBlueprint fact src-desc layers)))
 
 (defmethod transfer! [SequentialNetworkInference Object]
   [source destination]

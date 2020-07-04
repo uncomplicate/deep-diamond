@@ -9,10 +9,10 @@
 (ns uncomplicate.diamond.internal.cost
   (:require [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.neanderthal
-             [core :refer [dim axpy!]]
+             [core :refer [dim axpy! scal!]]
              [real :refer [nrm2 asum]]
              [math :refer [sqr pow sqrt]]
-             [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr! round!]]]
+             [vect-math :refer [linear-frac! linear-frac mul! log! log log1p! sqrt! sqr! round!]]]
             [uncomplicate.diamond.tensor :refer [shape]]))
 
 (defn quadratic-cost!
@@ -33,7 +33,7 @@
   ([^long n y a]
    (with-release [ylna (mul! (log a) y)
                   y-1 (linear-frac 1.0 y -1.0)]
-     (/ (asum (axpy! -1.0 ylna (mul! y-1 (log! (linear-frac! -1.0 a 1.0))))) n)))
+     (/ (asum (axpy! -1.0 ylna (mul! y-1 (log1p! (scal! -1.0 a))))) n)))
   ([y a]
    (sigmoid-crossentropy-cost! ((shape y) 0) y a)))
 
