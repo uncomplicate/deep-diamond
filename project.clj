@@ -11,7 +11,7 @@
 
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [uncomplicate/neanderthal "0.33.0-SNAPSHOT"]
-                 [org.bytedeco/dnnl-platform "1.5-1.5.4-SNAPSHOT"]
+                 [org.bytedeco/dnnl-platform "1.5-1.5.3"]
                  [org.jcuda/jcudnn "10.2.0"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]

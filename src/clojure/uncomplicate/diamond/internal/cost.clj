@@ -33,7 +33,7 @@
   ([^long n y a]
    (with-release [ylna (mul! (log a) y)
                   y-1 (linear-frac 1.0 y -1.0)]
-     (/ (asum (axpy! -1.0 ylna (mul! y-1 (log1p! (scal! -1.0 a))))) n)))
+     (/ (asum (axpy! -1.0 ylna (mul! y-1 (log! (linear-frac! -1.0 a 1.0000001))))) n)))
   ([y a]
    (sigmoid-crossentropy-cost! ((shape y) 0) y a)))
 

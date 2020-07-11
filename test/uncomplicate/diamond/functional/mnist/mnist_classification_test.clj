@@ -71,7 +71,7 @@
 
 (with-release [fact (dnnl-factory)]
   (test-mnist-classification fact))
-;; "Elapsed time: 791.513226 msecs"
+;; "Elapsed time: 740.774879 msecs"
 
 #_(with-release [fact (cudnn-factory)];;TODO support uint8 in CUDA
   (test-mnist-classification fact))
@@ -101,3 +101,5 @@
 
 (with-release [fact (dnnl-factory)]
   (test-mnist-classification-internal-input fact))
+
+;; "Elapsed time: 748.254409 msecs"
