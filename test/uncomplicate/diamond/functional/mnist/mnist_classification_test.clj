@@ -44,11 +44,10 @@
       val-tz)))
 
 (defn test-mnist-classification [fact]
-  (with-release [x-mb-tz (tensor fact [512 1 28 28] :float :nchw)
-                 y-mb-tz (tensor fact [512 10] :float :nc)
+  (with-release [x-mb-tz (tensor fact [128 1 28 28] :float :nchw)
+                 y-mb-tz (tensor fact [128 10] :float :nc)
                  net-bp (network fact x-mb-tz
-                                 [(fully-connected [256] :relu)
-                                  (fully-connected [256] :relu)
+                                 [(fully-connected [512] :relu)
                                   (fully-connected [10] :sigmoid)])
                  net (init! (net-bp x-mb-tz :adam))
                  net-infer (net-bp x-mb-tz)
@@ -64,7 +63,7 @@
                  y-test (enc-categories test-labels-float)
                  y-test-bat (batcher (output net-infer) y-test)]
     (facts "MNIST classification tests."
-           (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.25 0.1)
+           (time (train net x-train-bat y-train-bat crossentropy-cost 5 [])) => (roughly 0.02 0.1)
            (transfer! net net-infer)
            (take 8 (dec-categories (infer net-infer x-test-bat y-test-bat)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
