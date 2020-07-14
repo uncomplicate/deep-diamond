@@ -12,7 +12,7 @@
              [core :refer [dim axpy! scal!]]
              [real :refer [nrm2 asum]]
              [math :refer [sqr pow sqrt]]
-             [vect-math :refer [linear-frac! linear-frac mul! log! log log1p! sqrt! sqr! round!]]]
+             [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr! round!]]]
             [uncomplicate.diamond.tensor :refer [shape]]))
 
 (defn quadratic-cost!
