@@ -8,13 +8,13 @@
 
 (ns uncomplicate.diamond.dnn
   (:require [uncomplicate.commons
-             [core :refer [with-release]]
+             [core :refer [with-release let-release release]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [core :refer [ncols view transfer!]]
              [random :refer [rand-normal! rand-uniform! rng-state]]]
             [uncomplicate.diamond.tensor
-             :refer [*diamond-factory* shape input output batcher]]
+             :refer [*diamond-factory* shape input output batcher TensorContainer tensor]]
             [uncomplicate.diamond.internal
              [protocols :as api]
              [network :refer [sequential-network]]]))
@@ -82,15 +82,18 @@
       dst-desc))))
 
 (defn cost
-  ([layer train-tz cost]
-   ((case cost
+  ([layer train-tz cost-kw]
+   ((case cost-kw
       :quadratic api/quadratic-cost
       :mean-absolute api/mean-absolute-cost
       :sigmoid-crossentropy api/sigmoid-crossentropy-cost
-      (dragan-says-ex "This cost function is not supported." {:cost cost}))
+      (dragan-says-ex "This cost function is not supported." {:cost cost-kw}))
     (api/diamond-factory layer) layer train-tz))
-  ([layer train-tz]
-   (api/quadratic-cost (api/diamond-factory layer) layer train-tz)))
+  ([layer cost-kw]
+   (let-release [train-tz (tensor (output layer) (output layer))]
+     (cost layer train-tz cost-kw)))
+  ([layer]
+   (cost layer :quadratic)))
 
 (defn network
   ([fact src-desc layers]
@@ -98,72 +101,87 @@
   ([src-desc layers]
    (network *diamond-factory* src-desc layers)))
 
-(defn init! [network!]
-  (with-release [rng (rng-state (view (bias (first (api/layers network!)))))]
-    (doseq [layer (api/layers network!)]
+(defn init! [net!]
+  (with-release [rng (rng-state (view (bias (first (api/layers net!)))))]
+    (doseq [layer (api/layers net!)]
       (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
       (rand-normal! rng (view (bias layer)))))
-  network!)
+  net!)
 
 (defn ^:private linear-decay
   [^long t ^long tau ^double eta-0 ^double eta-tau]
   (let [alpha (min (double (/ t tau)) 1.0)]
     (+  (* (- 1.0 alpha) eta-0) (* alpha eta-tau))))
 
+(defn ^:private train* [net in-batcher out-batcher cost! epochs hyperparam]
+ (let [b-size (long (first (shape (input in-batcher))))
+       mb-size (long (first (shape (output in-batcher))))
+       mb-count (quot b-size mb-size)
+       [eta-decay eta-0 eta-tau]
+       (let [eta (first hyperparam)]
+         (cond
+           (number? eta) [linear-decay eta (* 0.01 (double eta))]
+           (sequential? eta) (cons linear-decay eta)
+           :default (cons (constantly nil) eta)))
+       hyperparam (transient (into [0 0] (rest hyperparam)))]
+   (dotimes [t (long epochs)]
+     (assoc! hyperparam 0 t)
+     (assoc! hyperparam 1 (eta-decay t epochs eta-0 eta-tau))
+     (dotimes [n mb-count]
+       (in-batcher (* n mb-size))
+       (out-batcher (* n mb-size))
+       (api/forward net hyperparam)
+       (api/forward cost!)
+       (api/backward cost!)
+       (api/backward net hyperparam)))
+   (net)
+   (cost!)))
+
 (defn train
-  ([network cost! epochs hyperparam]
+  ([net cost! epochs hyperparam]
    (let [hyperparam (transient (into [0] hyperparam))]
      (dotimes [t epochs]
        (assoc! hyperparam 0 t)
-       (api/forward network hyperparam)
+       (api/forward net hyperparam)
        (api/forward cost!)
        (api/backward cost!)
-       (api/backward network hyperparam)))
-   (network)
+       (api/backward net hyperparam)))
+   (net)
    (cost!))
-  ([network cost! options]
+  ([net cost! options]
    (map (fn [[epochs hyperparam]]
-          (train network cost! epochs hyperparam))
+          (train net cost! epochs hyperparam))
         options))
-  ([network in-batcher out-batcher cost! epochs hyperparam]
-   (let [b-size (long (first (shape (input in-batcher))))
-         mb-size (long (first (shape (output in-batcher))))
-         mb-count (quot b-size mb-size)
-         [eta-decay eta-0 eta-tau]
-         (let [eta (first hyperparam)]
-           (cond
-             (number? eta) [linear-decay eta (* 0.01 (double eta))]
-             (sequential? eta) (cons linear-decay eta)
-             :default (cons (constantly nil) eta)))
-         hyperparam (transient (into [0 0] (rest hyperparam)))]
-     (dotimes [t (long epochs)]
-       (assoc! hyperparam 0 t)
-       (assoc! hyperparam 1 (eta-decay t epochs eta-0 eta-tau))
-       (dotimes [n mb-count]
-         (in-batcher (* n mb-size))
-         (out-batcher (* n mb-size))
-         (api/forward network hyperparam)
-         (api/forward cost!)
-         (api/backward cost!)
-         (api/backward network hyperparam)))
-     (network)
-     (cost!)))
-  ([network in-batcher out-batcher cost! options]
+  ([net in out cost! epochs hyperparam]
+   (let [create-in-batcher? (satisfies? TensorContainer in)
+         create-out-batcher? (satisfies? TensorContainer out)]
+     (let-release [in-batcher (if create-in-batcher?
+                                (batcher in (input net))
+                                in)
+                   out-batcher (if create-out-batcher?
+                                 (batcher out (api/diff-input cost!))
+                                 out)]
+       (try
+         (train* net in-batcher out-batcher cost! epochs hyperparam)
+         (finally
+           (when create-in-batcher? (release in-batcher))
+           (when create-out-batcher? (release out-batcher)))))))
+  ([net in-batcher out-batcher cost! options]
    (map (fn [[epochs hyperparam]]
-          (train network in-batcher out-batcher cost! epochs hyperparam))
+          (train* net in-batcher out-batcher cost! epochs hyperparam))
         options)))
 
-(defn infer [network in-batcher out-batcher]
+(defn infer* [net in-batcher out-batcher]
   (let [b-size (long (first (shape (input in-batcher))))
         mb-size (long (first (shape (output in-batcher))))
         mb-count (quot b-size mb-size)
         mb-rem (rem b-size mb-size)]
     (dotimes [n mb-count]
       (in-batcher (* n mb-size))
-      (network)
+      (net)
       (out-batcher 0 (* n mb-size)))
     (when (< 0 mb-rem)
       (in-batcher (- b-size mb-size))
-      (network)
+      (net)
       (out-batcher 0 (- b-size mb-size)))
     (output out-batcher)))

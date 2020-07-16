@@ -719,12 +719,13 @@
 
 (deftype UniversalCost [strm prev-layer
                         sum-prim sum-args
-                        connect-output connect-diff
+                        connect-output connect-diff train-tz
                         a-y cost]
   Releaseable
   (release [_]
     (release connect-output)
-    (release connect-diff))
+    (release connect-diff)
+    (release train-tz))
   Transfer
   (input [this]
     (input connect-output))
@@ -732,7 +733,7 @@
     (output connect-output))
   DiffTransfer
   (diff-input [_]
-    (input connect-diff))
+    train-tz)
   (diff-output [_]
     (output connect-diff))
   Backprop
@@ -759,16 +760,17 @@
           (->UniversalCost strm prev-layer sum-prim
                            (args (buffer (input connect-diff)) (buffer (output connect-output))
                                  (buffer train-tz))
-                           connect-output connect-diff
+                           connect-output connect-diff train-tz
                            (view (input connect-diff))
                            cost))))))
 
 (deftype CustomCost [strm prev-layer sum-prim sum-args
-                     connect-output connect-diff a y cost]
+                     connect-output connect-diff train-tz a y cost]
   Releaseable
   (release [_]
     (release connect-output)
-    (release connect-diff))
+    (release connect-diff)
+    (release train-tz))
   Transfer
   (input [this]
     (input connect-output))
@@ -776,7 +778,7 @@
     (output connect-output))
   DiffTransfer
   (diff-input [_]
-    (input connect-diff))
+    train-tz)
   (diff-output [_]
     (output connect-diff))
   Backprop
@@ -801,7 +803,7 @@
           (->CustomCost strm prev-layer sum-prim
                         (args (buffer (input connect-diff)) (buffer (output connect-output))
                               (buffer train-tz))
-                        connect-output connect-diff
+                        connect-output connect-diff train-tz
                         (view (output connect-output)) (view train-tz)
                         cost))))))
 

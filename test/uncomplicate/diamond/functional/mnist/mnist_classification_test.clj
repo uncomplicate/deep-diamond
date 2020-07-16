@@ -63,7 +63,7 @@
                  y-test (enc-categories test-labels-float)
                  y-test-bat (batcher (output net-infer) y-test)]
     (facts "MNIST classification tests."
-           (time (train net x-train-bat y-train-bat crossentropy-cost 5 [])) => (roughly 0.02 0.1)
+           (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.02 0.1)
            (transfer! net net-infer)
            (take 8 (dec-categories (infer net-infer x-test-bat y-test-bat)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
@@ -76,26 +76,25 @@
   (test-mnist-classification fact))
 
 (defn test-mnist-classification-internal-input [fact]
-  (with-release [y-mb-tz (tensor fact [512 10] :float :nc)
-                 net-bp (network fact (desc [512 1 28 28] :float :nchw)
+  (with-release [net-bp (network fact (desc [512 1 28 28] :float :nchw)
                                  [(fully-connected [256] :relu)
                                   (fully-connected [256] :relu)
                                   (fully-connected [10] :sigmoid)])
                  net (init! (net-bp :adam))
-                 crossentropy-cost (cost net y-mb-tz :sigmoid-crossentropy)
+                 net-infer (net-bp)
+                 crossentropy-cost (cost net :sigmoid-crossentropy)
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
-                 x-train-bat (batcher train-images (input net))
                  train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)
-                 y-train-bat (batcher y-train y-mb-tz)
                  test-images (transfer! test-images (tensor fact [10000 1 28 28] :uint8 :nchw))
-                 x-test-bat (batcher test-images (input net))
+                 x-test-bat (batcher test-images (input net-infer))
                  test-labels-float (transfer! test-labels (tensor fact [10000] :float :x))
                  y-test (enc-categories test-labels-float)
-                 y-test-bat (batcher (output net) y-test)]
+                 y-test-bat (batcher (output net-infer) y-test)]
     (facts "MNIST classification tests."
-           (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.25 0.1)
-           (take 8 (dec-categories (infer net x-test-bat y-test-bat)))
+           (time (train net train-images y-train crossentropy-cost 2 [])) => (roughly 0.25 0.1)
+           (transfer! net net-infer)
+           (take 8 (dec-categories (infer net-infer x-test-bat y-test-bat)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 (with-release [fact (dnnl-factory)]
