@@ -107,37 +107,13 @@
       (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
       (rand-normal! rng (view (bias layer)))))
   net!)
-
+n
 (defn ^:private linear-decay
   [^long t ^long tau ^double eta-0 ^double eta-tau]
   (let [alpha (min (double (/ t tau)) 1.0)]
     (+  (* (- 1.0 alpha) eta-0) (* alpha eta-tau))))
 
-(defn ^:private train* [net in-batcher out-batcher cost! epochs hyperparam]
- (let [b-size (long (first (shape (input in-batcher))))
-       mb-size (long (first (shape (output in-batcher))))
-       mb-count (quot b-size mb-size)
-       [eta-decay eta-0 eta-tau]
-       (let [eta (first hyperparam)]
-         (cond
-           (number? eta) [linear-decay eta (* 0.01 (double eta))]
-           (sequential? eta) (cons linear-decay eta)
-           :default (cons (constantly nil) eta)))
-       hyperparam (transient (into [0 0] (rest hyperparam)))]
-   (dotimes [t (long epochs)]
-     (assoc! hyperparam 0 t)
-     (assoc! hyperparam 1 (eta-decay t epochs eta-0 eta-tau))
-     (dotimes [n mb-count]
-       (in-batcher (* n mb-size))
-       (out-batcher (* n mb-size))
-       (api/forward net hyperparam)
-       (api/forward cost!)
-       (api/backward cost!)
-       (api/backward net hyperparam)))
-   (net)
-   (cost!)))
-
-(defn train
+(defn ^:private train*
   ([net cost! epochs hyperparam]
    (let [hyperparam (transient (into [0] hyperparam))]
      (dotimes [t epochs]
@@ -150,28 +126,67 @@
    (cost!))
   ([net cost! options]
    (map (fn [[epochs hyperparam]]
-          (train net cost! epochs hyperparam))
+          (train* net cost! epochs hyperparam))
         options))
-  ([net in out cost! epochs hyperparam]
-   (let [create-in-batcher? (satisfies? TensorContainer in)
-         create-out-batcher? (satisfies? TensorContainer out)]
-     (let-release [in-batcher (if create-in-batcher?
-                                (batcher in (input net))
-                                in)
-                   out-batcher (if create-out-batcher?
-                                 (batcher out (api/diff-input cost!))
-                                 out)]
-       (try
-         (train* net in-batcher out-batcher cost! epochs hyperparam)
-         (finally
-           (when create-in-batcher? (release in-batcher))
-           (when create-out-batcher? (release out-batcher)))))))
-  ([net in-batcher out-batcher cost! options]
-   (map (fn [[epochs hyperparam]]
-          (train* net in-batcher out-batcher cost! epochs hyperparam))
-        options)))
+  ([net in-batcher out-batcher cost! epochs hyperparam]
+   (let [b-size (long (first (shape (input in-batcher))))
+         mb-size (long (first (shape (output in-batcher))))
+         mb-count (quot b-size mb-size)
+         [eta-decay eta-0 eta-tau]
+         (let [eta (first hyperparam)]
+           (cond
+             (number? eta) [linear-decay eta (* 0.01 (double eta))]
+             (sequential? eta) (cons linear-decay eta)
+             :default (cons (constantly nil) eta)))
+         hyperparam (transient (into [0 0] (rest hyperparam)))]
+     (dotimes [t (long epochs)]
+       (assoc! hyperparam 0 t)
+       (assoc! hyperparam 1 (eta-decay t epochs eta-0 eta-tau))
+       (dotimes [n mb-count]
+         (in-batcher (* n mb-size))
+         (out-batcher (* n mb-size))
+         (api/forward net hyperparam)
+         (api/forward cost!)
+         (api/backward cost!)
+         (api/backward net hyperparam)))
+     (net)
+     (cost!))))
 
-(defn infer* [net in-batcher out-batcher]
+(defn train
+  ([net cost! epochs hyperparam]
+   (if (keyword? cost!)
+     (with-release [cost! (cost net cost!)]
+       (train* net cost! epochs hyperparam))
+     (train* net cost! epochs hyperparam)))
+  ([net cost! options]
+   (if (keyword? cost!)
+     (with-release [cost! (cost net cost!)]
+       (train* net cost! options))
+     (train* net cost! options)))
+  ([net in out cost! epochs hyperparam]
+   (cond (keyword? cost!)
+     (with-release [cost! (cost net cost!)]
+       (train net in out cost! epochs hyperparam))
+     (satisfies? TensorContainer in)
+     (with-release [in-batcher (batcher in (input net))]
+       (train net in-batcher out cost! epochs hyperparam))
+     (satisfies? TensorContainer out)
+     (with-release [out-batcher (batcher out (api/diff-input cost!))]
+       (train* net in out-batcher cost! epochs hyperparam))
+     :default (train* net in out cost! epochs hyperparam)))
+  ([net in out cost! options]
+   (cond (keyword? cost!)
+         (with-release [cost! (cost net cost!)]
+           (train net in out cost! options))
+         (satisfies? TensorContainer in)
+         (with-release [in-batcher (batcher in (input net))]
+           (train net in-batcher out cost! options))
+         (satisfies? TensorContainer out)
+         (with-release [out-batcher (batcher out (api/diff-input cost!))]
+           (train* net in out-batcher cost! options))
+         :default (train* net in out cost! options))))
+
+(defn ^:private infer* [net in-batcher out-batcher]
   (let [b-size (long (first (shape (input in-batcher))))
         mb-size (long (first (shape (output in-batcher))))
         mb-count (quot b-size mb-size)
@@ -185,3 +200,12 @@
       (net)
       (out-batcher 0 (- b-size mb-size)))
     (output out-batcher)))
+
+(defn infer [net in out]
+  (cond (satisfies? TensorContainer in)
+        (with-release [in-batcher (batcher in (input net))]
+          (infer net in-batcher out))
+        (satisfies? TensorContainer out)
+        (with-release [out-batcher (batcher (output net) out)]
+          (infer* net in out-batcher))
+        :default (infer* net in out)))
