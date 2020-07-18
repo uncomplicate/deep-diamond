@@ -213,12 +213,13 @@
 ;; ============================= Cost Function ========================================
 
 (deftype UniversalCost [prev-layer
-                        connect-output connect-diff
+                        connect-output connect-diff train-tz
                         a-y y cost]
   Releaseable
   (release [_]
     (release connect-output)
-    (release connect-diff))
+    (release connect-diff)
+    (release train-tz))
   Transfer
   (input [this]
     (input connect-output))
@@ -226,7 +227,7 @@
     (output connect-output))
   DiffTransfer
   (diff-input [_]
-    (input connect-diff))
+    train-tz)
   (diff-output [_]
     (output connect-diff))
   Backprop
@@ -249,15 +250,18 @@
     (let-release [connect-output (connector (output prev-layer) train-desc)
                   connect-diff (connector train-desc (diff-input prev-layer))]
       (->UniversalCost prev-layer
-                       connect-output connect-diff
+                       connect-output connect-diff train-tz
                        (view (input connect-diff)) (view train-tz)
                        cost))))
 
-(deftype CustomCost [prev-layer connect-output connect-diff a y a-y cost]
+(deftype CustomCost [prev-layer
+                     connect-output connect-diff train-tz
+                     a y a-y cost]
   Releaseable
   (release [_]
     (release connect-output)
-    (release connect-diff))
+    (release connect-diff)
+    (release train-tz))
   Transfer
   (input [this]
     (input connect-output))
@@ -265,7 +269,7 @@
     (output connect-output))
   DiffTransfer
   (diff-input [_]
-    (input connect-diff))
+    (release train-tz))
   (diff-output [_]
     (output connect-diff))
   Backprop
@@ -287,6 +291,6 @@
     (let-release [connect-output (connector (output prev-layer) train-desc)
                   connect-diff (connector train-desc (diff-z prev-layer))]
       (->CustomCost prev-layer
-                    connect-output connect-diff
+                    connect-output connect-diff train-tz
                     (view (output connect-output)) (view train-tz) (view (input connect-diff))
                     cost))))
