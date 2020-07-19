@@ -14,7 +14,8 @@
              [core :refer [ncols view transfer!]]
              [random :refer [rand-normal! rand-uniform! rng-state]]]
             [uncomplicate.diamond.tensor
-             :refer [*diamond-factory* shape input output batcher TensorContainer tensor]]
+             :refer [*diamond-factory* shape input output batcher TensorContainer
+                     tensor data-type layout]]
             [uncomplicate.diamond.internal
              [protocols :as api]
              [network :refer [sequential-network]]]))
@@ -107,7 +108,7 @@
       (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
       (rand-normal! rng (view (bias layer)))))
   net!)
-n
+
 (defn ^:private linear-decay
   [^long t ^long tau ^double eta-0 ^double eta-tau]
   (let [alpha (min (double (/ t tau)) 1.0)]
@@ -201,11 +202,17 @@ n
       (out-batcher 0 (- b-size mb-size)))
     (output out-batcher)))
 
-(defn infer [net in out]
-  (cond (satisfies? TensorContainer in)
-        (with-release [in-batcher (batcher in (input net))]
-          (infer net in-batcher out))
-        (satisfies? TensorContainer out)
-        (with-release [out-batcher (batcher (output net) out)]
-          (infer* net in out-batcher))
-        :default (infer* net in out)))
+(defn infer
+  ([net in out]
+   (cond (satisfies? TensorContainer in)
+         (with-release [in-batcher (batcher in (input net))]
+           (infer net in-batcher out))
+         (satisfies? TensorContainer out)
+         (with-release [out-batcher (batcher (output net) out)]
+           (infer* net in out-batcher))
+         :default (infer* net in out)))
+  ([net in]
+   (let [net-out (output net)]
+     (let-release [out (tensor net (cons (first (shape (input in))) (rest (shape net-out)))
+                               (data-type net-out) (layout net-out))]
+       (infer net in out)))))

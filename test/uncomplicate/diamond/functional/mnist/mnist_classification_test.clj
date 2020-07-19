@@ -125,12 +125,11 @@
                  net-infer (net-bp)
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
                  train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
-                 y-train (enc-categories train-labels-float)
-                 y-infer (tensor fact [10000 10] :float :nc)]
+                 y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
            (time (train net train-images y-train :sigmoid-crossentropy 2 [])) => (roughly 0.25 0.1)
            (transfer! net net-infer)
-           (take 8 (dec-categories (infer net-infer test-images y-infer)))
+           (take 8 (dec-categories (infer net-infer test-images)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 (with-release [fact (dnnl-factory)]
