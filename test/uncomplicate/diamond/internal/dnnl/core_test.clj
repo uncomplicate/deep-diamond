@@ -73,7 +73,7 @@
                       relu-desc (eltwise-fwd-desc :inference :relu md)
                       relu-pd (primitive-desc eng relu-desc)
                       relu (primitive relu-pd)
-                      relu-args (eltwise-args mem)]
+                      relu-args (fwd-args mem)]
          (primitive-kind relu-desc) => :eltwise
          (put-float buf 0 -100)
          (put-float buf 1 -20)
@@ -99,7 +99,7 @@
                       relu-desc (eltwise-fwd-desc :inference :relu sub-md)
                       relu-pd (primitive-desc eng relu-desc)
                       relu (primitive relu-pd)
-                      relu-args (eltwise-args sub-mem)]
+                      relu-args (fwd-args sub-mem)]
          (primitive-kind relu-desc) => :eltwise
          (put-float buf 0 -100)
          (put-float buf 1 -20)
@@ -134,7 +134,7 @@
                       relu-desc (eltwise-fwd-desc :inference :relu sub-md)
                       relu-pd (primitive-desc eng relu-desc)
                       relu (primitive relu-pd)
-                      relu-args (eltwise-args sub-mem)]
+                      relu-args (fwd-args sub-mem)]
          (put-float buf 24 -1000)
          (execute! s relu relu-args) => s
          (get-float buf 24) => 0.0))
@@ -237,7 +237,7 @@
                       relu-desc (eltwise-fwd-desc :inference :relu md)
                       relu-pd (primitive-desc eng relu-desc)
                       relu (primitive relu-pd)
-                      relu-args (eltwise-args mem)]
+                      relu-args (fwd-args mem)]
          (primitive-kind relu-desc) => :eltwise
          (put-float buf 0 -100)
          (put-float buf 1 20)
@@ -254,14 +254,14 @@
                       relu-desc (eltwise-fwd-desc :training :relu md)
                       relu-pd (primitive-desc eng relu-desc)
                       relu (primitive relu-pd)
-                      relu-args (eltwise-args mem)
+                      relu-args (fwd-args mem)
                       diff-dst-vec (fv (range 2 8))
                       diff-dst-desc (memory-desc [2 3] :float :nc)
                       relu-bwd-desc (eltwise-bwd-desc :relu diff-dst-desc md)
                       relu-bwd-pd (primitive-desc eng relu-bwd-desc relu-pd)
                       diff-dst-mem (memory eng (diff-dst-md relu-bwd-pd) (buffer diff-dst-vec))
                       relu-bwd (primitive relu-bwd-pd)
-                      relu-bwd-args (eltwise-args mem diff-dst-mem diff-dst-mem)]
+                      relu-bwd-args (eltwise-bwd-args mem diff-dst-mem diff-dst-mem)]
          (primitive-kind relu-desc) => :eltwise
          (put-float buf 0 -100)
          (put-float buf 1 20)
@@ -283,7 +283,7 @@
                       logistic-desc (eltwise-fwd-desc :training :logistic src-md)
                       logistic-pd (primitive-desc eng logistic-desc)
                       logistic (primitive logistic-pd)
-                      logistic-args (eltwise-args src-mem dst-mem)
+                      logistic-args (fwd-args src-mem dst-mem)
                       diff-dst-vec (fv [-0.5 -0.2 -0.4 0 0.2 0.3])
                       diff-dst-desc (memory-desc [2 3] :float :nc)
                       diff-src-vec (fv 6)
@@ -292,7 +292,7 @@
                       diff-dst-mem (memory eng (diff-dst-md logistic-bwd-pd) (buffer diff-dst-vec))
                       diff-src-mem (memory eng (diff-src-md logistic-bwd-pd) (buffer diff-src-vec))
                       logistic-bwd (primitive logistic-bwd-pd)
-                      logistic-bwd-args (eltwise-args src-mem diff-dst-mem diff-src-mem)]
+                      logistic-bwd-args (eltwise-bwd-args src-mem diff-dst-mem diff-src-mem)]
          (primitive-kind logistic-desc) => :eltwise
          (execute! s logistic logistic-args)
          (execute! s logistic-bwd logistic-bwd-args)
@@ -426,3 +426,62 @@
          diff-weights-vec => (fv -0.2)
          ;;Note that diff-bias is equal to diff-dst
          diff-bias-vec => (fv 0.4)))
+
+(facts "Softmax forward operation"
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 3] :float :nc)
+                      buf (direct-buffer (size md))
+                      mem (memory eng md buf)
+                      axis 1
+                      softmax-desc (softmax-fwd-desc :inference md axis)
+                      softmax-pd (primitive-desc eng softmax-desc)
+                      softmax (primitive softmax-pd)
+                      softmax-args (fwd-args mem)]
+         (primitive-kind softmax-desc) => :softmax
+         (put-float buf 0 1)
+         (put-float buf 1 3)
+         (put-float buf 2 3)
+         (put-float buf 3 2)
+         (put-float buf 4 4)
+         (put-float buf 5 8)
+         (execute! s softmax softmax-args) => s
+         (get-float buf 0) => 0.06337893754243851
+         (get-float buf 1) => 0.46831050515174866
+         (get-float buf 2) => 0.46831050515174866
+         (get-float buf 3) => 0.0024282580707222223
+         (get-float buf 4) => 0.017942532896995544
+         (get-float buf 5) => 0.9796292185783386))
+
+(facts "Softmax backward operation."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 3] :float :nc)
+                      buf (direct-buffer (size md))
+                      mem (memory eng md buf)
+                      axis 1
+                      softmax-desc (softmax-fwd-desc :training md axis)
+                      softmax-pd (primitive-desc eng softmax-desc)
+                      softmax (primitive softmax-pd)
+                      softmax-args (fwd-args mem)
+                      diff-dst-vec (fv 0 -2.135335400336505 0
+                                       0 0 -1.0207943791746268) ;; -ti/aLi
+                      diff-dst-desc (memory-desc [2 3] :float :nc)
+                      softmax-bwd-desc (softmax-bwd-desc diff-dst-desc md axis)
+                      softmax-bwd-pd (primitive-desc eng softmax-bwd-desc softmax-pd)
+                      diff-dst-mem (memory eng (diff-dst-md softmax-bwd-pd) (buffer diff-dst-vec))
+                      softmax-bwd (primitive softmax-bwd-pd)
+                      softmax-bwd-args (softmax-bwd-args mem diff-dst-mem diff-dst-mem)]
+         (primitive-kind softmax-desc) => :softmax
+         (put-float buf 0 1)
+         (put-float buf 1 3)
+         (put-float buf 2 3)
+         (put-float buf 3 2)
+         (put-float buf 4 4)
+         (put-float buf 5 8)
+         (execute! s softmax softmax-args) => s
+         (get-float buf 0) => 0.06337893754243851
+         (get-float buf 1) => 0.46831050515174866
+         (execute! s softmax-bwd softmax-bwd-args) => s
+         diff-dst-vec => (fv 0.06337893754243851 -0.5316895246505737 0.46831050515174866
+                             0.0024282580707222223 0.017942532896995544 -0.02037079446017742))) ; aLi - ti

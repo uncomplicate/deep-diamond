@@ -315,22 +315,14 @@
    (eltwise-backward-desc* (enc-keyword dnnl-eltwise-alg-kind alg-kind)
                            (desc diff-desc) (desc src-desc) 0.0 0.0)))
 
-(defn eltwise-args
+(defn eltwise-bwd-args
   "Creates DNNL's data structure that holds arguments as required by
   elementwise operations."
-  ([src-and-dst]
-   (let-release [args (dnnl_exec_arg_t. 2)]
-     (args* args 0 dnnl/DNNL_ARG_SRC (extract src-and-dst))
-     (args* args 1 dnnl/DNNL_ARG_DST (extract src-and-dst))))
-  ([src dst]
-   (let-release [args (dnnl_exec_arg_t. 2)]
-     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
-     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))))
-  ([src diff-dst diff-src]
-   (let-release [args (dnnl_exec_arg_t. 3)]
-     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
-     (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
-     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src)))))
+  [src diff-dst diff-src]
+  (let-release [args (dnnl_exec_arg_t. 3)]
+    (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+    (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
+    (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))))
 
 ;; ======================= Sum ============================================================
 
@@ -401,6 +393,10 @@
 (defn fwd-args
   "Creates DNNL's data structure that holds arguments as required by
   forward operations."
+  ([src-and-dst]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src-and-dst))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract src-and-dst))))
   ([src dst]
    (let-release [args (dnnl_exec_arg_t. 2)]
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
@@ -430,7 +426,7 @@
      (args* args 2 dnnl/DNNL_ARG_DIFF_WEIGHTS (extract diff-weights))
      (args* args 3 dnnl/DNNL_ARG_DIFF_BIAS (extract diff-bias)))))
 
-;; ========================= Reorder ==================================================
+;; ========================= Reorder ============================================
 
 (defn reorder
   "Copies data across engines, between physical memory formats, keeping the
@@ -440,7 +436,7 @@
   ([eng input output]
    (reorder eng input eng output)))
 
-;; ======================== Inner Product ======================================================
+;; ======================== Inner Product =======================================
 
 (defn inner-product-fwd-desc
   "Creates a descriptor for the forward phase of the inner product operation,
@@ -478,3 +474,30 @@
    (inner-product-backward-data-desc* diff-src-desc weights-desc diff-dst-desc))
   ([src-desc diff-weights-desc diff-bias-desc diff-dst-desc]
    (inner-product-backward-weights-desc* src-desc diff-weights-desc diff-bias-desc diff-dst-desc)))
+
+;; ================= Softmax ====================================================
+
+(defn softmax-fwd-desc
+  "TODO"
+  [prop-kind mem-desc axis]
+  (softmax-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                         (desc mem-desc) axis))
+
+(defn softmax-bwd-desc
+  "TODO"
+  [diff-desc src-desc axis]
+  (softmax-backward-desc* (desc diff-desc) (desc src-desc) axis))
+
+(defn softmax-bwd-args
+  "Creates DNNL's data structure that holds arguments as required by
+  the Softmax operation."
+  ([dst diff-src-and-dst]
+   (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-src-and-dst))
+     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src-and-dst))))
+  ([dst diff-dst diff-src]
+   (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
+     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src)))))

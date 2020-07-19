@@ -15,7 +15,7 @@
              [random :refer [rand-normal! rand-uniform! rng-state]]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* shape input output batcher TensorContainer
-                     tensor data-type layout]]
+                     tensor data-type layout view-tz]]
             [uncomplicate.diamond.internal
              [protocols :as api]
              [network :refer [sequential-network]]]))
@@ -89,7 +89,7 @@
       :mean-absolute api/mean-absolute-cost
       :sigmoid-crossentropy api/sigmoid-crossentropy-cost
       (dragan-says-ex "This cost function is not supported." {:cost cost-kw}))
-    (api/diamond-factory layer) layer train-tz))
+    (api/diamond-factory layer) layer (view-tz train-tz)))
   ([layer cost-kw]
    (let-release [train-tz (tensor (output layer) (output layer))]
      (cost layer train-tz cost-kw)))

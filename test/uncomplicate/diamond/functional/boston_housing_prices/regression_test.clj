@@ -76,7 +76,7 @@
     (facts "Adam gradient descent - Boston Housing Prices."
            (transfer! x-train (view x-tz))
            (transfer! y-train (view y-tz))
-           (time (< 3 (train net x-batcher y-batcher quad-cost 80 [] ) 10)) => true
+           (time (< 2 (train net x-batcher y-batcher quad-cost 80 [] ) 10)) => true
 
            (transfer! net net-infer)
            (net-infer)

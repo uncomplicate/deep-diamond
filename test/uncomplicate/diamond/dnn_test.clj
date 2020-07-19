@@ -127,7 +127,7 @@
                  fc-bluep (fully-connected fact input-tz [1 2] :linear)
                  fc (fc-bluep input-tz false)
                  train-tz (tensor fact [1 2] :float :nc)
-                 fc-output (cost fc train-tz)]
+                 fc-output (cost fc train-tz :quadratic)]
     (facts "Fully connected training layer"
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
            (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
@@ -152,7 +152,7 @@
                  fc-bluep (fully-connected fact input-tz [1 2] :linear)
                  fc (fc-bluep input-tz false :adam)
                  train-tz (tensor fact [1 2] :float :nc)
-                 fc-output (cost fc train-tz)]
+                 fc-output (cost fc train-tz :quadratic)]
     (facts "Fully connected training layer"
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
            (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
@@ -178,7 +178,7 @@
                  fc-bluep (fully-connected fact input-tz [1 1] :linear)
                  fc (fc-bluep input-tz false)
                  train-tz (tensor fact [1 1] :float :nc)
-                 fc-output (cost fc train-tz)]
+                 fc-output (cost fc train-tz :quadratic)]
     (facts "Fully connected layer step by step"
            (transfer! [-0.5] input-tz)
            (transfer! [-0.1] (weights fc))
@@ -203,7 +203,7 @@
                  fc1 (fc1-bluep input-tz true)
                  fc2 (fc2-bluep fc1 true)
                  train-tz (tensor fact [2 1] :float :nc)
-                 fc-output (cost fc2 train-tz)]
+                 fc-output (cost fc2 train-tz :quadratic)]
     (facts "Fully connected, 2 layers step by step."
            (transfer! [-0.5 -0.5] input-tz)
            (transfer! [-0.1 -0.1] (weights fc1))
@@ -315,9 +315,8 @@
                  sigmoid-crossentropy-cost (cost net train-tz :sigmoid-crossentropy)]
     (facts "Sigmoid crossentropy cost."
            (transfer! [0.25 0.65] train-tz)
-;;           (transfer! [0.5621765008857981 0.6570104626734987] (output net))
            (transfer! [0.4 0.1] (output net))
-           (sigmoid-crossentropy-cost) => 1.0728741884231567)))
+           (sigmoid-crossentropy-cost) => 1.0728740692138672)))
 
 (defn test-sequential-network-sigmoid-sgd [fact]
   (facts "Sequential SGD network with sigmoid cross-entropy."
@@ -345,7 +344,7 @@
                         quad-cost (cost net train-tz :sigmoid-crossentropy)]
            (transfer! (range 16) input-tz)
            (transfer! [0.9 0.1] train-tz)
-           (train net quad-cost 3 []) => (roughly 1.5 1))))
+           (train net quad-cost 3 []) => (roughly 1.7 1))))
 
 (defn my-fn ^double [xs]
   (+ (math/sin (entry xs 0))

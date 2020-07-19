@@ -144,14 +144,14 @@
   IFn
   (invoke [this src-tz]
     (let-release [eltw-fwd-prim (primitive eltw-infer-pd)
-                  eltw-fwd-args (eltwise-args (buffer src-tz))]
+                  eltw-fwd-args (fwd-args (buffer src-tz))]
       (->DnnlActivationInference fact (flow fact) this src-tz
                                  eltw-fwd-prim eltw-fwd-args)))
   (invoke [this src-tz dst-tz]
     (let-release [eltw-fwd-prim (primitive eltw-train-pd)
-                  eltw-fwd-args (eltwise-args (buffer src-tz) (buffer dst-tz))
+                  eltw-fwd-args (fwd-args (buffer src-tz) (buffer dst-tz))
                   eltw-bwd-prim (primitive eltw-bwd-pd)
-                  eltw-bwd-args (eltwise-args (buffer src-tz) (buffer dst-tz) (buffer src-tz))]
+                  eltw-bwd-args (eltwise-bwd-args (buffer src-tz) (buffer dst-tz) (buffer src-tz))]
       (->DnnlActivationTraining fact (flow fact) this src-tz dst-tz
                                 eltw-fwd-prim eltw-fwd-args
                                 eltw-bwd-prim eltw-bwd-args))))
