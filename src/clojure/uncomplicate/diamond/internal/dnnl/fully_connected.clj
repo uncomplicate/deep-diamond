@@ -64,10 +64,10 @@
 ;; ================================ Activation =============================================
 
 (deftype DnnlActivationInference [fact strm bluep a-tz
-                                  eltw-fwd-prim eltw-fwd-args]
+                                  eltwise-fwd-prim eltwise-fwd-args]
   Releaseable
   (release [_]
-    (release eltw-fwd-prim))
+    (release eltwise-fwd-prim))
   Info
   (info [this]
     {:activation (info bluep :activation)
@@ -83,16 +83,16 @@
     a-tz)
   IFn
   (invoke [_]
-    (execute! strm eltw-fwd-prim eltw-fwd-args)
+    (execute! strm eltwise-fwd-prim eltwise-fwd-args)
     a-tz))
 
 (deftype DnnlActivationTraining [fact strm bluep z-tz a-tz
-                                 eltw-fwd-prim eltw-fwd-args
-                                 eltw-bwd-prim eltw-bwd-args]
+                                 eltwise-fwd-prim eltwise-fwd-args
+                                 eltwise-bwd-prim eltwise-bwd-args]
   Releaseable
   (release [_]
-    (release eltw-fwd-prim)
-    (release eltw-bwd-prim))
+    (release eltwise-fwd-prim)
+    (release eltwise-bwd-prim))
   Info
   (info [this]
     {:activation (info bluep :activation)
@@ -115,14 +115,14 @@
     z-tz)
   IFn
   (invoke [_]
-    (execute! strm eltw-fwd-prim eltw-fwd-args)
+    (execute! strm eltwise-fwd-prim eltwise-fwd-args)
     a-tz)
   Backprop
   (forward [this]
-    (execute! strm eltw-fwd-prim eltw-fwd-args)
+    (execute! strm eltwise-fwd-prim eltwise-fwd-args)
     this)
   (backward [this]
-    (execute! strm eltw-bwd-prim eltw-bwd-args)
+    (execute! strm eltwise-bwd-prim eltwise-bwd-args)
     this))
 
 (deftype DnnlActivationBlueprint [fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd]
@@ -156,16 +156,103 @@
                                 eltw-fwd-prim eltw-fwd-args
                                 eltw-bwd-prim eltw-bwd-args))))
 
-(defn dnnl-activ-blueprint [fact eng src-desc diff-desc activ alpha beta]
+;; ================================ Softmax =============================================
+
+(deftype DnnlSoftmaxTraining [fact strm bluep z-tz diff-tz
+                                 softmax-fwd-prim softmax-fwd-args
+                                 softmax-bwd-prim softmax-bwd-args]
+  Releaseable
+  (release [_]
+    (release softmax-fwd-prim)
+    (release softmax-bwd-prim))
+  Info
+  (info [this]
+    {:activation :softmax
+     :z (info z-tz)
+     :a (info z-tz)
+     :diff (info diff-tz)})
+  (info [this info-type]
+    (case info-type
+      :a (info z-tz)
+      :z (info z-tz)
+      :diff (info diff-tz)
+      (info bluep info-type)))
+  Transfer
+  (input [_]
+    z-tz)
+  (output [_]
+    z-tz)
+  DiffTransfer
+  (diff-input [_]
+    diff-tz)
+  (diff-output [_]
+    z-tz)
+  IFn
+  (invoke [_]
+    (execute! strm softmax-fwd-prim softmax-fwd-args)
+    z-tz)
+  Backprop
+  (forward [this]
+    (execute! strm softmax-fwd-prim softmax-fwd-args)
+    this)
+  (backward [this]
+    (execute! strm softmax-bwd-prim softmax-bwd-args)
+    this))
+
+(deftype DnnlSoftmaxBlueprint [fact softmax-infer-pd softmax-train-pd softmax-bwd-pd]
+  Releaseable
+  (release [_]
+    (release softmax-infer-pd)
+    (release softmax-train-pd)
+    (release softmax-bwd-pd))
+  Info
+  (info [this]
+    {:activation :softmax})
+  (info [this info-type]
+    (case info-type
+      :activation :softmax
+      nil))
+  DescProvider
+  (desc [_]
+    (dst-md softmax-train-pd))
+  IFn
+  (invoke [this src-tz]
+    (let-release [softmax-fwd-prim (primitive softmax-infer-pd)
+                  softmax-fwd-args (fwd-args (buffer src-tz))]
+      (->DnnlActivationInference fact (flow fact) this src-tz
+                                 softmax-fwd-prim softmax-fwd-args)))
+  (invoke [this src-tz diff-tz]
+    (let-release [softmax-fwd-prim (primitive softmax-train-pd)
+                  softmax-fwd-args (fwd-args (buffer src-tz))
+                  softmax-bwd-prim (primitive softmax-bwd-pd)
+                  softmax-bwd-args (softmax-bwd-args (buffer src-tz) (buffer diff-tz) (buffer src-tz))]
+      (->DnnlSoftmaxTraining fact (flow fact) this src-tz diff-tz
+                             softmax-fwd-prim softmax-fwd-args
+                             softmax-bwd-prim softmax-bwd-args))))
+
+(defn dnnl-softmax-blueprint [fact eng src-desc diff-desc]
   (let [src-desc (desc src-desc)
         diff-desc (desc diff-desc)]
-    (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ src-desc alpha beta)
-                   eltw-train-desc (eltwise-fwd-desc :training activ src-desc alpha beta)
-                   eltw-bwd-desc (eltwise-bwd-desc activ diff-desc src-desc alpha beta)]
-      (let-release [eltw-infer-pd (primitive-desc eng eltw-infer-desc)
-                    eltw-train-pd (primitive-desc eng eltw-train-desc)
-                    eltw-bwd-pd (primitive-desc eng eltw-bwd-desc eltw-train-pd)]
-        (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd)))))
+    (with-release [softmax-infer-desc (softmax-fwd-desc :inference src-desc 1);;TODO currently DNNL is optimized for 1
+                   softmax-train-desc (softmax-fwd-desc :training src-desc 1)
+                   softmax-bwd-desc (softmax-bwd-desc diff-desc src-desc 1)]
+      (let-release [softmax-infer-pd (primitive-desc eng softmax-infer-desc)
+                    softmax-train-pd (primitive-desc eng softmax-train-desc)
+                    softmax-bwd-pd (primitive-desc eng softmax-bwd-desc softmax-train-pd)]
+        (->DnnlSoftmaxBlueprint fact softmax-infer-pd softmax-train-pd softmax-bwd-pd)))))
+
+(defn dnnl-activ-blueprint [fact eng src-desc diff-desc activ alpha beta]
+  (if (= :softmax activ)
+    (dnnl-softmax-blueprint fact eng src-desc diff-desc)
+    (let [src-desc (desc src-desc)
+          diff-desc (desc diff-desc)]
+      (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ src-desc alpha beta)
+                     eltw-train-desc (eltwise-fwd-desc :training activ src-desc alpha beta)
+                     eltw-bwd-desc (eltwise-bwd-desc activ diff-desc src-desc alpha beta)]
+        (let-release [eltw-infer-pd (primitive-desc eng eltw-infer-desc)
+                      eltw-train-pd (primitive-desc eng eltw-train-desc)
+                      eltw-bwd-pd (primitive-desc eng eltw-bwd-desc eltw-train-pd)]
+          (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd))))))
 
 ;; ================================ Inner Product =============================================
 

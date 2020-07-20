@@ -458,7 +458,8 @@
                       s (stream eng)
                       md (memory-desc [2 3] :float :nc)
                       buf (direct-buffer (size md))
-                      mem (memory eng md buf)
+                      mem-vec (fv 1 3 3 2 4 8)
+                      mem (memory eng md (buffer mem-vec))
                       axis 1
                       softmax-desc (softmax-fwd-desc :training md axis)
                       softmax-pd (primitive-desc eng softmax-desc)
@@ -471,17 +472,11 @@
                       softmax-bwd-pd (primitive-desc eng softmax-bwd-desc softmax-pd)
                       diff-dst-mem (memory eng (diff-dst-md softmax-bwd-pd) (buffer diff-dst-vec))
                       softmax-bwd (primitive softmax-bwd-pd)
-                      softmax-bwd-args (softmax-bwd-args mem diff-dst-mem diff-dst-mem)]
+                      softmax-bwd-args (softmax-bwd-args mem diff-dst-mem mem)]
          (primitive-kind softmax-desc) => :softmax
-         (put-float buf 0 1)
-         (put-float buf 1 3)
-         (put-float buf 2 3)
-         (put-float buf 3 2)
-         (put-float buf 4 4)
-         (put-float buf 5 8)
          (execute! s softmax softmax-args) => s
-         (get-float buf 0) => 0.06337893754243851
-         (get-float buf 1) => 0.46831050515174866
+         mem-vec => (fv 0.06337893754243851 0.46831050515174866 0.46831050515174866
+                        0.0024282580707222223 0.017942532896995544 0.9796292185783386)
          (execute! s softmax-bwd softmax-bwd-args) => s
-         diff-dst-vec => (fv 0.06337893754243851 -0.5316895246505737 0.46831050515174866
-                             0.0024282580707222223 0.017942532896995544 -0.02037079446017742))) ; aLi - ti
+         mem-vec => (fv 0.06337893754243851 -0.5316895246505737 0.46831050515174866
+                        0.0024282580707222223 0.017942532896995544 -0.02037079446017742))) ; aLi - ti

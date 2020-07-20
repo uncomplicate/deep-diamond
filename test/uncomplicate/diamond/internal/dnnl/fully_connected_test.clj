@@ -88,7 +88,7 @@
   (test-gradient-descent fact)
   (test-stochastic-gradient-descent-sgd fact)
   (test-stochastic-gradient-descent-adam fact)
-  (test-sigmoid-crossentropy-cost fact))
+  (test-crossentropy-cost fact))
 
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))

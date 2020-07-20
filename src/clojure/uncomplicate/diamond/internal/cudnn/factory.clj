@@ -24,7 +24,7 @@
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
                                 CostFactory DnnFactory]]
              [utils :refer [check-contiguous]]
-             [cost :refer [quadratic-cost! mean-absolute-cost! sigmoid-crossentropy-cost!]]]
+             [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
@@ -390,9 +390,9 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-universal-cost prev-layer train-tz quadratic-cost!))
   (mean-absolute-cost [_ prev-layer train-tz]
     (cudnn-universal-cost prev-layer train-tz mean-absolute-cost!))
-  (sigmoid-crossentropy-cost [_ prev-layer train-tz]
+  (crossentropy-cost [_ prev-layer train-tz]
     (cudnn-custom-cost prev-layer train-tz
-                       (partial sigmoid-crossentropy-cost!
+                       (partial crossentropy-cost!
                                 ((dims (output prev-layer)) 0)))))
 
 (JCudnn/setExceptionsEnabled false)

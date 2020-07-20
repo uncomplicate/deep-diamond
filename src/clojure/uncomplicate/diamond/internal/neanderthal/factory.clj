@@ -17,7 +17,7 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
                       NeanderthalFactoryProvider]]
-             [cost :refer [quadratic-cost! mean-absolute-cost! sigmoid-crossentropy-cost!]]]
+             [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [DescProvider desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
@@ -90,9 +90,9 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))
   (mean-absolute-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost!))
-  (sigmoid-crossentropy-cost [this prev-layer train-tz]
+  (crossentropy-cost [this prev-layer train-tz]
     (dnnl-custom-cost eng strm prev-layer train-tz
-                        (partial sigmoid-crossentropy-cost!
+                        (partial crossentropy-cost!
                                  ((dims (output prev-layer)) 0)))))
 
 (defn neanderthal-factory

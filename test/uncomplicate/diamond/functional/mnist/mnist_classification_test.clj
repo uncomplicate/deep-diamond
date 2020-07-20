@@ -51,7 +51,7 @@
                                   (fully-connected [10] :sigmoid)])
                  net (init! (net-bp x-mb-tz :adam))
                  net-infer (net-bp x-mb-tz)
-                 crossentropy-cost (cost net y-mb-tz :sigmoid-crossentropy)
+                 crossentropy-cost (cost net y-mb-tz :crossentropy)
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
                  x-train-bat (batcher train-images (input net))
                  train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
@@ -82,7 +82,7 @@
                                   (fully-connected [10] :sigmoid)])
                  net (init! (net-bp :adam))
                  net-infer (net-bp)
-                 crossentropy-cost (cost net :sigmoid-crossentropy)
+                 crossentropy-cost (cost net :crossentropy)
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
                  train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)]
@@ -108,7 +108,7 @@
                  train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
-           (time (train net train-images y-train :sigmoid-crossentropy 2 [])) => (roughly 0.25 0.1)
+           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.1)
            (transfer! net net-infer)
            (transfer! (view-tz test-images 512) (input net-infer))
            (take 8 (dec-categories (net-infer))) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
@@ -127,10 +127,29 @@
                  train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
-           (time (train net train-images y-train :sigmoid-crossentropy 2 [])) => (roughly 0.25 0.1)
+           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.1)
            (transfer! net net-infer)
            (take 8 (dec-categories (infer net-infer test-images)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 (with-release [fact (dnnl-factory)]
   (test-mnist-classification-internal-infer fact))
+
+(defn test-mnist-classification-softmax [fact]
+  (with-release [net-bp (network fact (desc [512 1 28 28] :float :nchw)
+                                 [(fully-connected [256] :relu)
+                                  (fully-connected [256] :relu)
+                                  (fully-connected [10] :softmax)])
+                 net (init! (net-bp :adam))
+                 net-infer (net-bp)
+                 train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
+                 train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
+                 y-train (enc-categories train-labels-float)]
+    (facts "MNIST classification tests."
+           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.15)
+           (transfer! net net-infer)
+           (take 8 (dec-categories (infer net-infer test-images)))
+           => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+
+(with-release [fact (dnnl-factory)]
+  (test-mnist-classification-softmax fact))

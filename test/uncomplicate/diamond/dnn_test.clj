@@ -305,18 +305,18 @@
            (quad-cost) => 0.6862499438341274
            (view (output net)) => (vctr train-tz 0.15 -1.64999998))))
 
-(defn test-sigmoid-crossentropy-cost [fact]
+(defn test-crossentropy-cost [fact]
   (with-release [input-tz (tensor fact [2 1] :float :nc)
                  train-tz (tensor fact [2 1] :float :nc)
                  net-bp (network fact input-tz
                                  [(fully-connected [1] :relu)
                                   (fully-connected [1] :sigmoid)])
                  net (net-bp input-tz :sgd)
-                 sigmoid-crossentropy-cost (cost net train-tz :sigmoid-crossentropy)]
+                 crossentropy-cost (cost net train-tz :crossentropy)]
     (facts "Sigmoid crossentropy cost."
            (transfer! [0.25 0.65] train-tz)
            (transfer! [0.4 0.1] (output net))
-           (sigmoid-crossentropy-cost) => 1.0728740692138672)))
+           (crossentropy-cost) => 1.0728740692138672)))
 
 (defn test-sequential-network-sigmoid-sgd [fact]
   (facts "Sequential SGD network with sigmoid cross-entropy."
@@ -327,10 +327,10 @@
                                          (fully-connected [64] :relu)
                                          (fully-connected [2] :sigmoid)])
                         net (init! (net-bp input-tz :sgd))
-                        quad-cost (cost net train-tz :sigmoid-crossentropy)]
+                        crossentropy-cost (cost net train-tz :crossentropy)]
            (transfer! (range 16) input-tz)
            (transfer! [0.9 0.1] train-tz)
-           (train net quad-cost 3 [0.01 0 0 false]) => (roughly 2 1.3))))
+           (train net crossentropy-cost 3 [0.01 0 0 false]) => (roughly 2 1.3))))
 
 (defn test-sequential-network-sigmoid-adam [fact]
   (facts "Sequential Adam network with sigmoid cross-entropy."
@@ -341,10 +341,10 @@
                                          (fully-connected [64] :relu)
                                          (fully-connected [2] :sigmoid)])
                         net (init! (net-bp input-tz :adam))
-                        quad-cost (cost net train-tz :sigmoid-crossentropy)]
+                        crossentropy-cost (cost net train-tz :crossentropy)]
            (transfer! (range 16) input-tz)
            (transfer! [0.9 0.1] train-tz)
-           (train net quad-cost 3 []) => (roughly 1.7 1))))
+           (train net crossentropy-cost 3 []) => (roughly 1.7 1))))
 
 (defn my-fn ^double [xs]
   (+ (math/sin (entry xs 0))

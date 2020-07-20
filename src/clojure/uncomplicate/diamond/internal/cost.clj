@@ -29,13 +29,13 @@
    (let [a-y (axpy! -1.0 y a!)]
      (/ (asum a-y) (dim a-y)))))
 
-(defn sigmoid-crossentropy-cost!
+(defn crossentropy-cost!
   ([^long n y a]
    (with-release [ylna (mul! (log a) y)
                   y-1 (linear-frac 1.0 y -1.0)]
      (/ (asum (axpy! -1.0 ylna (mul! y-1 (log! (linear-frac! -1.0 a 1.0000001))))) n)))
   ([y a]
-   (sigmoid-crossentropy-cost! ((shape y) 0) y a)))
+   (crossentropy-cost! ((shape y) 0) y a)))
 
 (defn binary-accuracy!
   ([y a!]

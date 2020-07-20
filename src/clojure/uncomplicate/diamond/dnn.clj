@@ -87,7 +87,7 @@
    ((case cost-kw
       :quadratic api/quadratic-cost
       :mean-absolute api/mean-absolute-cost
-      :sigmoid-crossentropy api/sigmoid-crossentropy-cost
+      :crossentropy api/crossentropy-cost
       (dragan-says-ex "This cost function is not supported." {:cost cost-kw}))
     (api/diamond-factory layer) layer (view-tz train-tz)))
   ([layer cost-kw]

@@ -35,7 +35,7 @@
 (defprotocol CostFactory
   (quadratic-cost [this last-layer train-tz])
   (mean-absolute-cost [this last-layer train-tz])
-  (sigmoid-crossentropy-cost [this last-layer train-tz]))
+  (crossentropy-cost [this last-layer train-tz]))
 
 (defprotocol BlueprintProvider
   (blueprint [this]))
