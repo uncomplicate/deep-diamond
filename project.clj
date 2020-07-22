@@ -10,8 +10,8 @@
   :description "Fast Clojure Deep Learning Library"
 
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [uncomplicate/neanderthal "0.33.0"]
-                 [org.bytedeco/dnnl-platform "1.5-1.5.3"]
+                 [uncomplicate/neanderthal "0.34.0-SNAPSHOT"]
+                 [org.bytedeco/dnnl-platform "1.5.1-1.5.4-SNAPSHOT"]
                  [org.jcuda/jcudnn "10.2.0"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
@@ -32,8 +32,8 @@
           :output-path "docs/codox"}
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
-                       "-Dorg.bytedeco.javacpp.mklml.load=mkl_rt"
-                       "-Dorg.bytedeco.javacpp.pathsfirst=true"
+                       ;;"-Dorg.bytedeco.javacpp.mklml.load=mkl_rt"
+                       ;;"-Dorg.bytedeco.javacpp.pathsfirst=true"
                        #_"-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"
                        #_"--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"]
 

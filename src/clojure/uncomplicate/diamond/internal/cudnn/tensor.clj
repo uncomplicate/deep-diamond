@@ -23,6 +23,7 @@
                      native-factory zero raw host factory fits?]]
             [uncomplicate.neanderthal.internal.device.cublock :refer [cu-block-vector]]
             [uncomplicate.diamond.tensor
+             :as diamond
              :refer [TensorDescriptor shape layout data-type TensorContainer Transfer
                      input output Revert ConnectorCreator connector view-tz]]
             [uncomplicate.diamond.internal
@@ -38,7 +39,7 @@
              [core :refer [tensor-descriptor equal-desc? size dims strides transform-tensor]]
              [protocols :refer [DescProvider desc handle]]
              [constants :refer [cudnn-format]]])
-  (:import clojure.lang.IFn
+  (:import [clojure.lang IFn ExceptionInfo]
            [uncomplicate.neanderthal.internal.api Block Changeable DataAccessor VectorSpace]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor
@@ -49,8 +50,7 @@
   Please use transfer! to be reminded of that.")
 
 (def ^{:private true :const true} DOES_NOT_FIT_MSG
-  "Source and destination have to fit and be compatible.")
-
+  "Source and destination shapes have to fit.")
 
 (defn ^:private not-available []
   (throw (UnsupportedOperationException. "Not available in CUDA. Please use a host instance.")))
@@ -72,34 +72,33 @@
 
 (declare ->CUDnnTensor cudnn-transformer cudnn-tensor cudnn-shuffler cudnn-tensor-desc)
 
+(defn cudnn-shape-padding [shape]
+  (into shape (repeat (- 4 (count shape)) 1)))
+
 (extend-type java.util.Collection
   DescProvider
   (desc [this]
-    (cudnn-tensor-desc this :float :nchw)))
+    (cudnn-tensor-desc (shape this) :float nil)))
 
 (extend-type java.lang.Number
   DescProvider
   (desc [this]
-    (cudnn-tensor-desc [this] :float :nchw)))
+    (cudnn-tensor-desc [this] :float nil)))
 
 (extend-type java.util.Map
   DescProvider
   (desc [this]
-    (cudnn-tensor-desc (:shape this) (or (:data-type this) :float)
-                       (or (layout this) (default-strides (:shape this))))))
+    (cudnn-tensor-desc (shape this) (or (:data-type this) :float) (layout this))))
 
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (cudnn-tensor-desc (.shape this) (or (.data-type this) :float)
-                       (or (layout this) (default-strides (.shape this))))))
+    (cudnn-tensor-desc (.shape this) (or (.data-type this) :float) (layout this))))
 
 (extend-type Object
   DescProvider
   (desc [this]
-    (cudnn-tensor-desc (shape this) (or (data-type this) :float)
-                       (or (layout this) (default-strides (shape this))))))
-
+    (cudnn-tensor-desc (shape this) (or (data-type this) :float) (layout this))))
 
 (extend-type CUTensorDescriptor
   TensorDescriptor
@@ -125,11 +124,12 @@
   (.write w (pr-str {:shape (.dims d) :data-type (.data-type d) :layout (.strides d)})))
 
 (defn cudnn-tensor-desc [shape dtype format]
-  (if (or (sequential? format) (cudnn-format format))
-    (tensor-descriptor shape dtype format)
-    (with-release [md (memory-desc shape dtype format)]
-      (let [padding-4 (repeat (- 4 (count shape)) 1)]
-        (tensor-descriptor (into shape padding-4) dtype (into (layout md) padding-4))))))
+  (let [format (or format (default-strides shape))]
+    (if (or (and (sequential? format) (<= 4(count format ))) (cudnn-format format))
+      (tensor-descriptor shape dtype format)
+      (with-release [md (memory-desc shape dtype format)]
+        (let [padding-4 (repeat (- 4 (count shape)) 1)]
+          (tensor-descriptor (into shape padding-4) dtype (into (layout md) padding-4)))))))
 
 ;; =================== Transformer ==============================================
 
@@ -327,16 +327,31 @@
   (raw [_]
     (cudnn-tensor diamond-fact cu-desc false))
   (raw [_ fact]
-    (create-tensor fact (create-tensor-desc fact cu-desc) false))
+    (let [df (diamond-factory fact)]
+      (create-tensor df (create-tensor-desc df cu-desc) false)))
   (zero [x]
     (zero x diamond-fact))
   (zero [_ fact]
-    (create-tensor diamond-fact cu-desc true))
+    (let [df (diamond-factory fact)]
+      (create-tensor df (create-tensor-desc df cu-desc) true)))
   (host [x]
     (let-release [res (raw x (native-diamond-factory diamond-fact))]
       (get-tensor! x res)))
   (native [x]
     (host x))
+  Viewable
+  (view [_]
+    vect-view)
+  MemoryContext
+  (compatible? [_ y]
+    (compatible? (factory vect-view) (factory y)))
+  (fits? [_ y]
+    (= (.dims cu-desc) (cudnn-shape-padding (shape y))))
+  (device [_]
+    :cuda)
+  VectorSpace
+  (dim [_]
+    (apply * (.dims cu-desc)))
   Block
   (buffer [_]
     buf)
@@ -347,19 +362,6 @@
   (isContiguous [_]
     (= (size cu-desc)
        (apply * (entry-width (data-accessor vect-view)) (.dims cu-desc))))
-  Viewable
-  (view [_]
-    vect-view)
-  MemoryContext
-  (compatible? [_ y]
-    (compatible? (factory vect-view) (factory y)))
-  (fits? [_ y]
-    (= (.dims cu-desc) (shape y)))
-  (device [_]
-    :cuda)
-  VectorSpace
-  (dim [_]
-    (apply * (.dims cu-desc)))
   Changeable
   (setBoxed [x val]
     (set-all eng val x)
@@ -424,7 +426,7 @@
   ([diamond-fact master buf tdesc]
    (let [tdesc (desc tdesc)
          neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
-         tz-cnt (apply * (shape tdesc))]
+         tz-cnt (apply * (dims tdesc))]
      (if (<= 0 (size tdesc) (cuda/size buf))
        (let-release [vect-view (cu-block-vector neand-fact false buf tz-cnt 0 1)]
          (->CUDnnTensor diamond-fact
@@ -448,20 +450,51 @@
   (copy! source destination))
 
 (defmethod transfer! [DnnlTensor CUDnnTensor]
-  [source destination]
-  (if (and (= (data-type source) (data-type destination)) (fits? source destination))
-    (set-tensor! source destination)
+  [src dest]
+  (if (fits? dest src)
+    (if (and (= (data-type src) (data-type dest))
+             (= (cudnn-shape-padding (layout src)) (strides dest)))
+      (set-tensor! src dest)
+      (with-release [dnnl-mid (raw dest src)]
+        (transfer! (view-tz src (diamond/desc (cudnn-shape-padding (shape src))
+                                              (data-type src)
+                                              (cudnn-shape-padding (layout src))))
+                   dnnl-mid)
+        (set-tensor! dnnl-mid dest)))
     (dragan-says-ex DOES_NOT_FIT_MSG
-                    {:source (dnnl/desc source) :destination (desc destination)
-                     :compatible? (compatible? source destination)})))
+                    {:source (dnnl/desc src) :destination (desc dest)
+                     :compatible? (compatible? src dest)})))
+
+(defn transfer-fucker [src dest]
+  (if (fits? dest src)
+    (if (and (= (data-type src) (data-type dest))
+             (= (cudnn-shape-padding (layout src)) (strides dest)))
+      (set-tensor! src dest)
+      (with-release [dnnl-mid (raw dest src)]
+        (transfer! (view-tz src (diamond/desc (cudnn-shape-padding (shape src))
+                                              (data-type src)
+                                              (cudnn-shape-padding (layout src))))
+                   dnnl-mid)
+        (set-tensor! dnnl-mid dest)))
+    (dragan-says-ex DOES_NOT_FIT_MSG
+                    {:source (dnnl/desc src) :destination (desc dest)
+                     :compatible? (compatible? src dest)})))
 
 (defmethod transfer! [CUDnnTensor DnnlTensor]
-  [source destination]
-  (if (and (= (data-type source) (data-type destination)) (fits? source destination))
-    (get-tensor! source destination)
+  [src dest]
+  (if (fits? src dest)
+    (if (and (= (data-type src) (data-type dest))
+             (= (strides src) (cudnn-shape-padding (layout dest))))
+      (get-tensor! src dest)
+      (with-release [dnnl-mid (raw src dest)]
+        (get-tensor! dnnl-mid dest)
+        (transfer! dnnl-mid
+                   (view-tz dest (diamond/desc (cudnn-shape-padding (shape dest))
+                                               (data-type dest)
+                                               (cudnn-shape-padding (layout dest)))))))
     (dragan-says-ex DOES_NOT_FIT_MSG
-                    {:source (desc source) :destination (dnnl/desc destination)
-                     :compatible? (compatible? source destination)})))
+                    {:source (desc src) :destination (dnnl/desc dest)
+                     :compatible? (compatible? src dest)})))
 
 (defmethod transfer! [CUDnnTensor Object]
   [source destination]

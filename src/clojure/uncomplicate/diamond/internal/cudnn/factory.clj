@@ -16,7 +16,7 @@
              [core :refer :all]
              [toolbox :refer [read-int]]]
             [uncomplicate.neanderthal
-             [cuda :refer [cuda-float cuda-double]]
+             [cuda :refer [cuda-float cuda-double cuda-long cuda-int cuda-byte]]
              [block :refer [buffer offset]]]
             [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
             [uncomplicate.diamond.tensor :refer [shape data-type layout view-tz output]]
@@ -406,27 +406,34 @@ Please contribute towards making it possible, or use on of the supported types."
   (defn ^:private create-cudnn-factory [ctx hstream cudnn-hdl master]
     (let-release [float-modl (create-module src "float")
                   double-modl (create-module src "double")
-                  int-modl (create-module src "int")
                   long-modl (create-module src "long")
+                  int-modl (create-module src "int")
+                  byte-modl (create-module src "char")
                   native-diamond-fact (dnnl-factory)
                   float-fact (cuda-float ctx hstream)
                   double-fact (cuda-double ctx hstream)
-                  int-fact nil  ;;TODO
-                  long-fact nil ;;TODO
+                  long-fact (cuda-long ctx hstream)
+                  int-fact (cuda-int ctx hstream)
+                  byte-fact (cuda-byte ctx hstream)
                   float-engine (->TensorEngine cudnn-hdl float-modl hstream float Float/BYTES)
                   double-engine (->TensorEngine cudnn-hdl double-modl hstream double Double/BYTES)
+                  long-engine (->TensorEngine cudnn-hdl long-modl hstream long Long/BYTES)
                   int-engine (->TensorEngine cudnn-hdl int-modl hstream int Integer/BYTES)
-                  long-engine (->TensorEngine cudnn-hdl long-modl hstream long Long/BYTES)]
+                  byte-engine (->TensorEngine cudnn-hdl byte-modl hstream byte Byte/BYTES)]
       (->CUDnnFactory ctx hstream cudnn-hdl master
                       native-diamond-fact
                       {:float float-fact
                        :double double-fact
+                       :long long-fact
                        :int int-fact
-                       :long long-fact}
+                       :byte byte-fact
+                       :uint8 byte-fact}
                       {:float float-engine
                        :double double-engine
                        :int int-engine
-                       :long long-engine}))))
+                       :long long-engine
+                       :byte byte-engine
+                       :uint8 byte-engine}))))
 
 (defn cudnn-factory
   ([ctx hstream]

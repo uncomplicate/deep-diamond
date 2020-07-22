@@ -351,17 +351,17 @@ Please contribute towards making it possible, or use on of the supported types."
   ([eng strm]
    (let [view-engine (->ViewTensorEngine)]
      (->DnnlFactory eng strm false {:float (->FloatTensorEngine)
-                                    :int (->ViewTensorEngine)
-                                    :byte (->ViewTensorEngine)
-                                    :uint8 (->ViewTensorEngine)})))
+                                    :int view-engine
+                                    :byte view-engine
+                                    :uint8 view-engine})))
   ([]
    (let-release [eng (engine)
                  strm (stream eng)]
      (let [view-engine (->ViewTensorEngine)]
        (->DnnlFactory eng strm true {:float (->FloatTensorEngine)
-                                     :int (->ViewTensorEngine)
-                                     :byte (->ViewTensorEngine)
-                                     :uint8 (->ViewTensorEngine)})))))
+                                     :int view-engine
+                                     :byte view-engine
+                                     :uint8 view-engine})))))
 
 (defn map-channel
   ([fact channel td flag offset-bytes]

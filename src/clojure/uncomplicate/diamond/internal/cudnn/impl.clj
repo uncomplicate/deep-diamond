@@ -9,12 +9,11 @@
 (ns uncomplicate.diamond.internal.cudnn.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release with-release let-release Info
-                           Wrapper Wrappable wrap extract]]
-             [utils :as cu :refer [dragan-says-ex]]]
+                           Wrapper Wrappable wrap extract info]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecuda.internal
              [protocols :refer [size]]
              [impl :refer [native-pointer]]]
-            [uncomplicate.diamond.tensor :refer [TensorDescriptor]]
             [uncomplicate.diamond.internal.utils :refer [deftype-wrapper]]
             [uncomplicate.diamond.internal.cudnn
              [constants :refer :all]
@@ -33,7 +32,11 @@
 
 (defmacro with-check
   ([status form]
-   `(cu/with-check cudnn-error ~status ~form)))
+   `(let [status# ~status
+          form# ~form]
+      (if (= 0 status#)
+        form#
+        (throw (cudnn-error status# (if (satisfies? Info form#) (info form#) form#)))))))
 
 ;; =========================== cuDNN Handle =================================
 
@@ -41,20 +44,20 @@
 
 (extend-type cudnnHandle
   Wrappable
-  (wrap [handle]
-    (->CUDnnHandle (volatile! handle))))
+  (wrap [hdl]
+    (->CUDnnHandle (volatile! hdl))))
 
 (defn cudnn-handle*
-  "Creates a cuDNN context handler on the specific `stream`."
+  "Creates a cuDNN context handle on the specific `hstream`."
   [^CUstream hstream]
-  (let [handle (cudnnHandle.)
+  (let [hdl (cudnnHandle.)
         cuda-stream (cudaStream_t. hstream)]
-    (with-check (JCudnn/cudnnCreate handle)
-      (with-check  (JCudnn/cudnnSetStream handle cuda-stream) handle))))
+    (with-check (JCudnn/cudnnCreate hdl)
+      (with-check  (JCudnn/cudnnSetStream hdl cuda-stream) hdl))))
 
-(defn get-cudnn-stream* [handle]
+(defn get-cudnn-stream* [hdl]
   (let [res (cudaStream_t.)]
-    (with-check (JCudnn/cudnnGetStream handle res) (CUstream. res))))
+    (with-check (JCudnn/cudnnGetStream hdl res) (CUstream. res))))
 
 ;; =========================== Tensor Descriptor ============================
 
@@ -72,6 +75,21 @@
   DescProvider
   (desc [this]
     this)
+  Info
+  (info [td]
+    {:class (class td)
+     :device :cuda
+     :shape (.dims td)
+     :data-type (.data-type td)
+     :layout (.strides td)})
+  (info [td info-type]
+    (case info-type
+      :class (class td)
+      :device :cuda
+      :shape (.dims td)
+      :data-type (.data-type td)
+      :layout (.strides td)
+      nil))
   Releaseable
   (release [this]
     (locking td
@@ -90,15 +108,26 @@
       (aget nbdims 0))))
 
 (extend-type cudnnTensorDescriptor
+  Info
+  (info [td]
+    (let [data-type (int-array 1)
+          dims (int-array JCudnn/CUDNN_DIM_MAX)
+          strides (int-array JCudnn/CUDNN_DIM_MAX)
+          nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
+      {:class (class td)
+       :device :cuda
+       :shape (vec (take nbdims dims))
+       :data-type (dec-data-type (aget data-type 0))
+       :layout (vec (take nbdims strides))}))
   Wrappable
   (wrap [td]
     (let [data-type (int-array 1)
           dims (int-array JCudnn/CUDNN_DIM_MAX)
-          strides (int-array JCudnn/CUDNN_DIM_MAX)]
-      (let [nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
-        (->CUTensorDescriptor (volatile! td) (vec (take nbdims dims))
-                              (dec-data-type (aget data-type 0))
-                              (vec (take nbdims strides)))))))
+          strides (int-array JCudnn/CUDNN_DIM_MAX)
+          nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
+      (->CUTensorDescriptor (volatile! td) (vec (take nbdims dims))
+                            (dec-data-type (aget data-type 0))
+                            (vec (take nbdims strides))))))
 
 (defn tensor-descriptor* []
   (let [res (cudnnTensorDescriptor.)]

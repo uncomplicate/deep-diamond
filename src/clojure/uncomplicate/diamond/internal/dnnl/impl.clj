@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.dnnl.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info
-                           Wrapper Wrappable wrap extract]]
+                           Wrapper Wrappable wrap extract info]]
              [utils :as cu :refer [dragan-says-ex]]]
             [uncomplicate.diamond.internal.utils :refer [deftype-wrapper]]
             [uncomplicate.diamond.internal.dnnl
@@ -33,7 +33,11 @@
 
 (defmacro with-check
   ([status form]
-   `(cu/with-check dnnl-error ~status ~form)))
+   `(let [status# ~status
+          form# ~form]
+      (if (= 0 status#)
+        form#
+        (throw (dnnl-error status# (if (satisfies? Info form#) (info form#) form#)))))))
 
 (extend-type Pointer
   Releaseable

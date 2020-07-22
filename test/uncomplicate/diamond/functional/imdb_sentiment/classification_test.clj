@@ -94,7 +94,7 @@
                                   (fully-connected [1] :sigmoid)])
                  net (init! (net-bp x-mb-tz :adam))
                  net-infer (net-bp x-mb-tz)
-                 crossentropy-cost (cost net y-mb-tz :sigmoid-crossentropy)
+                 crossentropy-cost (cost net y-mb-tz :crossentropy)
                  x-batcher (batcher x-tz (input net))
                  y-batcher (batcher y-tz y-mb-tz)]
     (transfer! x-train (view x-tz))

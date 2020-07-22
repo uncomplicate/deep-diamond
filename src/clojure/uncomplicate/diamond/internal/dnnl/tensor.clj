@@ -27,7 +27,7 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
                       neanderthal-factory tensor-engine native-diamond-factory Offset
-                      DiffTransfer diff-input diff-output]]
+                      DiffTransfer diff-input diff-output create-tensor-desc]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
@@ -341,11 +341,13 @@
   (raw [_]
     (dnnl-tensor diamond-fact tz-mem))
   (raw [_ fact]
-    (create-tensor fact tz-mem false))
+    (let [df (diamond-factory fact)]
+      (create-tensor df (create-tensor-desc df (desc tz-mem)) false)))
   (zero [x]
     (dnnl-tensor diamond-fact tz-mem))
   (zero [_ fact]
-    (create-tensor fact tz-mem true))
+    (let [df (diamond-factory fact)]
+      (create-tensor df (create-tensor-desc df (desc tz-mem)) true)))
   (host [x]
     (let-release [res (raw x)]
       (copy eng x res)))
@@ -391,7 +393,7 @@
     (set-all eng v x)
     x)
   (setBoxed [x i val]
-    (dragan-says-ex "Tensors do not support setting specific entries. Please use tensor's vector view."))
+    (dragan-says-ex "Tensors do not support editing of specific entries. Please use tensor's vector view."))
   (alter [x f]
     (check-contiguous x)
     (alter (view x) f)
