@@ -69,6 +69,7 @@
          (transfer! net net-infer)
          (take 8 (dec-categories (infer net-infer x-test-bat y-test-bat)))
          => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))
+;; "Elapsed time: 2205.468392 msecs"
 
 (with-diamond cudnn-factory []
   (with-release [x-mb-tz (tensor [128 1 28 28] :float :nchw)
@@ -92,6 +93,7 @@
            (transfer! net net-infer)
            (take 8 (dec-categories (native (infer net-infer x-test-bat y-test-bat))))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+;; "Elapsed time: 213.328266 msecs"
 
 (defn test-mnist-classification-internal-input [fact]
   (with-release [net-bp (network fact (desc [512 1 28 28] :float :nchw)
@@ -109,6 +111,7 @@
            (transfer! net net-infer)
            (transfer! (view-tz test-images 512) (input net-infer))
            (take 8 (dec-categories (net-infer))) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+
 
 (with-release [fact (dnnl-factory)]
   (test-mnist-classification-internal-input fact))

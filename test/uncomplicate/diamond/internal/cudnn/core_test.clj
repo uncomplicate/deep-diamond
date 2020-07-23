@@ -138,3 +138,29 @@
            (reduce-tensor cudnn-hdl mul-desc (float 1.5) desc-x gpu-x (float 0.0) desc-y gpu-y)
            => cudnn-hdl
            (first (memcpy-host! gpu-y host-y)) => (* 1.5 (double (apply * host-x))))))
+
+(with-default
+  (with-release [cudnn-hdl (cudnn-handle default-stream)
+                 desc-x (tensor-descriptor [2 3] :float :nchw)
+                 host-x (float-array [1 3 3 2 4 8])
+                 gpu-x (mem-alloc (size desc-x))
+                 gpu-dx (mem-alloc (size desc-x))
+                 gpu-y (mem-alloc (size desc-x))
+                 host-dy (float-array [0 -2.135335400336505 0 0 0 -1.0207943791746268])
+                 gpu-dy (mem-alloc (size desc-x))]
+
+    (memcpy-host! host-x gpu-x)
+
+    (facts "Softmax forward operation."
+           (softmax-forward cudnn-hdl :accurate :instance (float 1.0) desc-x gpu-x (float 0.0) desc-x gpu-x)
+           => cudnn-hdl
+           (seq (memcpy-host! gpu-x (float-array 6)))
+           => (map float [0.06337894 0.4683105 0.4683105 0.0024282578 0.017942535 0.9796292]))
+
+    (facts "Softmax backward operation."
+           (memcpy-host! host-dy gpu-dy)
+           (softmax-backward cudnn-hdl :accurate :instance
+                             (float 1.0) desc-x gpu-x desc-x gpu-dy (float 0.0) desc-x gpu-x)
+           => cudnn-hdl
+           (seq (memcpy-host! gpu-x (float-array 6)))
+           => (map float [0.06337894 -0.5316895 0.4683105 0.0024282578 0.017942535 -0.020370794]))))

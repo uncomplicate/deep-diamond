@@ -284,3 +284,19 @@
     (with-check
       (JCudnn/cudnnGetReductionWorkspaceSize cudnn-handle rtd desc-x desc-y size-arr)
       (aget size-arr 0))))
+
+;; ======================= Softmax ===================================
+
+(defn softmax-forward* [cudnn-handle algo mode alpha desc-x buf-x beta desc-y buf-y]
+  (with-check
+    (JCudnn/cudnnSoftmaxForward cudnn-handle algo mode alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-handle))
+
+(defn softmax-backward* [cudnn-handle algo mode
+                         alpha desc-y buf-y desc-dy buf-dy
+                         beta desc-dx buf-dx]
+  (with-check
+    (JCudnn/cudnnSoftmaxBackward cudnn-handle algo mode
+                                 alpha desc-y buf-y desc-dy buf-dy
+                                 beta desc-dx buf-dx)
+    cudnn-handle))

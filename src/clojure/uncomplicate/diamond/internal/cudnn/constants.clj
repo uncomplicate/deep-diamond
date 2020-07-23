@@ -10,7 +10,7 @@
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
   (:import [jcuda.jcudnn cudnnTensorFormat cudnnDataType cudnnActivationMode
             cudnnReduceTensorOp cudnnReduceTensorIndices cudnnNanPropagation
-            cudnnIndicesType]))
+            cudnnIndicesType cudnnSoftmaxAlgorithm cudnnSoftmaxMode]))
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
@@ -127,3 +127,12 @@
 (def ^:const cudnn-reduce-tensor-indices
   {:flattened cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_FLATTENED_INDICES
    :no-indices cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_NO_INDICES})
+
+(def ^:const cudnn-softmax-algorithm
+  {:fast cudnnSoftmaxAlgorithm/CUDNN_SOFTMAX_FAST
+   :accurate cudnnSoftmaxAlgorithm/CUDNN_SOFTMAX_ACCURATE
+   :log cudnnSoftmaxAlgorithm/CUDNN_SOFTMAX_LOG})
+
+(def ^:const cudnn-softmax-mode
+  {:instance cudnnSoftmaxMode/CUDNN_SOFTMAX_MODE_INSTANCE
+   :channel cudnnSoftmaxMode/CUDNN_SOFTMAX_MODE_CHANNEL})

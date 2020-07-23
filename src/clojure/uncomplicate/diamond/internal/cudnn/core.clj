@@ -37,13 +37,13 @@
         (wrap
          (if (keyword? layout)
            (let [format (enc-keyword cudnn-format layout)]
-             (if (= 4 d)
-               (tensor-4d-descriptor* td format dtype shape)
-               (tensor-nd-descriptor-ex* td format dtype (int-array shape))))
+             (if (< 4 d)
+               (tensor-nd-descriptor-ex* td format dtype (int-array shape))
+               (tensor-4d-descriptor* td format dtype shape)))
            (if (= d (count layout))
-             (if (= 4 d)
-               (tensor-4d-descriptor-ex* td dtype shape layout)
-               (tensor-nd-descriptor* td dtype (int-array shape) (int-array layout)))
+             (if (< 4 d)
+               (tensor-nd-descriptor* td dtype (int-array shape) (int-array layout))
+               (tensor-4d-descriptor-ex* td dtype shape layout))
              (dragan-says-ex "Shape and strides must have the same length."
                              {:shape shape :strides layout}))))
         (catch Exception e
@@ -208,3 +208,22 @@
                    workspace (mem-alloc (max 1 workspace-size))]
        (reduce-tensor cudnn-handle rtd indices workspace
                       alpha desc-x buf-x beta desc-y buf-y)))))
+
+;; =========================== Softmax ============================================
+
+(defn softmax-forward [cudnn-handle algo mode alpha desc-x buf-x beta desc-y buf-y]
+  (softmax-forward* (extract cudnn-handle) (enc-keyword cudnn-softmax-algorithm algo)
+                    (enc-keyword cudnn-softmax-mode mode)
+                    (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                    (ptr beta) (extract (desc desc-y)) (extract buf-y))
+  cudnn-handle)
+
+(defn softmax-backward [cudnn-handle algo mode
+                        alpha desc-y buf-y desc-dy buf-dy
+                        beta desc-dx buf-dx]
+  (softmax-backward* (extract cudnn-handle)  (enc-keyword cudnn-softmax-algorithm algo)
+                     (enc-keyword cudnn-softmax-mode mode)
+                     (ptr alpha) (extract (desc desc-y)) (extract buf-y)
+                     (extract (desc desc-dy)) (extract buf-dy)
+                     (ptr beta) (extract (desc desc-dx)) (extract buf-dx))
+  cudnn-handle)
