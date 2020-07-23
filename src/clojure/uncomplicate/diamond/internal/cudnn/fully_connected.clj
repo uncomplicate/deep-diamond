@@ -106,9 +106,6 @@
     (copy! a-tz z-tz)
     this))
 
-(defn cudnn-linear-activation-training [cudnn-hdl bluep ad src-tz dst-tz one zero]
-  (->CUDnnLinearActivationTraining cudnn-hdl bluep ad src-tz dst-tz one zero))
-
 (deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz da-tz one zero]
   Releaseable
   (release [_]
@@ -151,9 +148,6 @@
                          zero z-tz (buffer z-tz))
     this))
 
-(defn cudnn-activation-training [cudnn-hdl bluep ad src-tz dst-tz diff-tz one zero]
-  (->CUDnnActivationTraining cudnn-hdl bluep ad src-tz dst-tz diff-tz one zero))
-
 (deftype CUDnnActivationBlueprint [fact activ ad]
   Releaseable
   (release [_]
@@ -187,9 +181,98 @@
                                  (cast-prim (data-accessor src-tz) 1.0)
                                  (cast-prim (data-accessor dst-tz) 0.0)))))
 
+;; ================================ Softmax =============================================
+
+(deftype CUDnnSoftmaxInference [cudnn-hdl bluep z-tz one zero]
+  Releaseable
+  (release [_]
+    true)
+  Info
+  (info [this]
+    {:activation :softmax
+     :z (info z-tz)})
+  (info [this info-type]
+    (case info-type
+      :activation :softmax
+      :z (info z-tz)
+      (info bluep info-type)))
+  Transfer
+  (input [_]
+    z-tz)
+  (output [_]
+    z-tz)
+  IFn
+  (invoke [_]
+    (softmax-forward cudnn-hdl :accurate :instance
+                     one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
+    z-tz))
+
+(deftype CUDnnSoftmaxTraining [cudnn-hdl bluep z-tz da-tz one zero]
+  Releaseable
+  (release [_]
+    (release da-tz))
+  Info
+  (info [this]
+    {:activation :softmax
+     :z (info z-tz)
+     :da (info da-tz)})
+  (info [this info-type]
+    (case info-type
+      :z (info z-tz)
+      :da (info da-tz)
+      (info bluep info-type)))
+  Transfer
+  (input [_]
+    z-tz)
+  (output [_]
+    z-tz)
+  DiffTransfer
+  (diff-input [_]
+    da-tz)
+  (diff-output [_]
+    z-tz)
+  IFn
+  (invoke [_]
+    (softmax-forward cudnn-hdl :accurate :instance
+                     one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
+    z-tz)
+  Backprop
+  (forward [this]
+    (softmax-forward cudnn-hdl :accurate :instance
+                     one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
+    this)
+  (backward [this]
+    (softmax-backward cudnn-hdl :accurate :instance
+                      one z-tz (buffer z-tz) da-tz (buffer da-tz)
+                      zero z-tz (buffer z-tz))
+    this))
+
+(deftype CUDnnSoftmaxBlueprint [fact]
+  Releaseable
+  (release [_]
+    true)
+  Info
+  (info [this]
+    {:activation :softmax})
+  (info [this info-type]
+    (case info-type
+      :activation :softmax
+      nil))
+  IFn
+  (invoke [this src-tz]
+    (->CUDnnSoftmaxInference (handle fact) this src-tz
+                             (cast-prim (data-accessor src-tz) 1.0)
+                             (cast-prim (data-accessor src-tz) 0.0)))
+  (invoke [this src-tz dst-tz]
+    (->CUDnnSoftmaxTraining (handle fact) this src-tz (view-tz dst-tz)
+                            (cast-prim (data-accessor src-tz) 1.0)
+                            (cast-prim (data-accessor dst-tz) 0.0))))
+
 (defn cudnn-activ-blueprint [fact activ coef]
-  (let-release [ad (activation-descriptor activ true coef)]
-    (->CUDnnActivationBlueprint fact activ ad)))
+  (if (= :softmax activ)
+    (->CUDnnSoftmaxBlueprint fact)
+    (let-release [ad (activation-descriptor activ true coef)]
+      (->CUDnnActivationBlueprint fact activ ad))))
 
 ;; ============================= Fully Connected Layer ================================
 

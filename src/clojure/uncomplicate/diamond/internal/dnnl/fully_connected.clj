@@ -158,9 +158,9 @@
 
 ;; ================================ Softmax =============================================
 
-(deftype DnnlSoftmaxTraining [fact strm bluep z-tz diff-tz
-                                 softmax-fwd-prim softmax-fwd-args
-                                 softmax-bwd-prim softmax-bwd-args]
+(deftype DnnlSoftmaxTraining [fact strm bluep z-tz da-tz
+                              softmax-fwd-prim softmax-fwd-args
+                              softmax-bwd-prim softmax-bwd-args]
   Releaseable
   (release [_]
     (release softmax-fwd-prim)
@@ -169,13 +169,11 @@
   (info [this]
     {:activation :softmax
      :z (info z-tz)
-     :a (info z-tz)
-     :diff (info diff-tz)})
+     :da (info da-tz)})
   (info [this info-type]
     (case info-type
-      :a (info z-tz)
       :z (info z-tz)
-      :diff (info diff-tz)
+      :da (info da-tz)
       (info bluep info-type)))
   Transfer
   (input [_]
@@ -184,7 +182,7 @@
     z-tz)
   DiffTransfer
   (diff-input [_]
-    diff-tz)
+    da-tz)
   (diff-output [_]
     z-tz)
   IFn

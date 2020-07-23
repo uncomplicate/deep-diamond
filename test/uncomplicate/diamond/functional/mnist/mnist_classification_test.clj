@@ -52,7 +52,7 @@
                y-mb-tz (tensor [128 10] :float :nc)
                net-bp (network x-mb-tz
                                [(fully-connected [512] :relu)
-                                (fully-connected [10] :sigmoid)])
+                                (fully-connected [10] :softmax)])
                net (init! (net-bp x-mb-tz :adam))
                net-infer (net-bp x-mb-tz)
                crossentropy-cost (cost net y-mb-tz :crossentropy)
@@ -69,14 +69,14 @@
          (transfer! net net-infer)
          (take 8 (dec-categories (infer net-infer x-test-bat y-test-bat)))
          => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))
-;; "Elapsed time: 2205.468392 msecs"
+;; "Elapsed time: 2074.615346 msecs"
 
 (with-diamond cudnn-factory []
   (with-release [x-mb-tz (tensor [128 1 28 28] :float :nchw)
                  y-mb-tz (tensor [128 10] :float :nc)
                  net-bp (network x-mb-tz
                                  [(fully-connected [512] :relu)
-                                  (fully-connected [10] :sigmoid)])
+                                  (fully-connected [10] :softmax)])
                  net (init! (net-bp x-mb-tz :adam))
                  net-infer (net-bp x-mb-tz)
                  crossentropy-cost (cost net y-mb-tz :crossentropy)
@@ -111,7 +111,6 @@
            (transfer! net net-infer)
            (transfer! (view-tz test-images 512) (input net-infer))
            (take 8 (dec-categories (net-infer))) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
-
 
 (with-release [fact (dnnl-factory)]
   (test-mnist-classification-internal-input fact))
