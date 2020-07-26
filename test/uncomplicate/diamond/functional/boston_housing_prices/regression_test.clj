@@ -78,7 +78,7 @@
 
            (transfer! net net-infer)
            (net-infer)
-           (< 1.5 (mean-abs-cost) 4) => true)))
+           (mean-abs-cost) => (roughly 3 2))))
 
 (with-release [fact (dnnl-factory)]
   (test-boston-regression fact))
