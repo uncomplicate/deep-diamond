@@ -11,7 +11,7 @@
             [uncomplicate.diamond
              [tensor :refer [tensor transformer connector transformer
                              desc revert shape input output view-tz batcher with-diamond]]
-             [native :refer [map-file]]
+             [native :refer [map-tensor]]
              [dnn :refer [fully-connected network init! train cost infer]]
              [metrics :refer [confusion-matrix contingency-totals classification-metrics]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
@@ -22,10 +22,10 @@
 (defonce test-images-file (random-access "data/mnist/t10k-images.idx3-ubyte"))
 (defonce test-labels-file (random-access "data/mnist/t10k-labels.idx1-ubyte"))
 
-(defonce train-images (map-file train-images-file [60000 1 28 28] :uint8 :nchw :read 16))
-(defonce train-labels (map-file train-labels-file [60000] :uint8 :x :read 8))
-(defonce test-images (map-file test-images-file [10000 1 28 28] :uint8 :nchw :read 16))
-(defonce test-labels (map-file test-labels-file [10000] :uint8 :x :read 8))
+(defonce train-images (map-tensor train-images-file [60000 1 28 28] :uint8 :nchw :read 16))
+(defonce train-labels (map-tensor train-labels-file [60000] :uint8 :x :read 8))
+(defonce test-images (map-tensor test-images-file [10000 1 28 28] :uint8 :nchw :read 16))
+(defonce test-labels (map-tensor test-labels-file [10000] :uint8 :x :read 8))
 
 (defn enc-categories [val-tz]
   (let [val-vector (view val-tz)]

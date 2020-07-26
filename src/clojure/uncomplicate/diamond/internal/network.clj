@@ -1,12 +1,13 @@
 (ns uncomplicate.diamond.internal.network
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release Info info]]
+             [core :refer [Releaseable release let-release Info info with-release]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
             [uncomplicate.diamond.tensor :refer [Transfer input output view-tz tensor]]
             [uncomplicate.diamond.internal.protocols
              :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
-                     diamond-factory DiffTransfer diff-input diff-output diff-z]])
+                     diamond-factory native-diamond-factory DiffTransfer diff-input diff-output
+                     diff-z parameters]])
   (:import clojure.lang.IFn))
 
 (defn invoke [f]

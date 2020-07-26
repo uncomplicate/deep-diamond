@@ -21,12 +21,14 @@
             [uncomplicate.diamond
              [tensor :as tz
               :refer [Transfer input output connector view-tz revert shape layout
-                      TensorDescriptor shape]]
-             [dnn :refer [Parameters bias weights transfer-parameters!]]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
-                     diff-bias diff-weights Backprop forward backward blueprint
-                     create-tensor activ-blueprint DiffTransfer diff-input diff-output]]
+                      TensorDescriptor shape]]]
+            [uncomplicate.diamond.internal
+             [protocols
+              :refer [Parameters bias weights ParametersSeq parameters
+                      BlueprintProvider DiamondFactoryProvider DiffParameters
+                      diff-bias diff-weights Backprop forward backward blueprint
+                      create-tensor activ-blueprint DiffTransfer diff-input diff-output]]
+             [utils :refer [transfer-weights-bias!]]]
             [uncomplicate.diamond.internal.dnnl.core :refer [memory-desc data-type]])
   (:import clojure.lang.IFn))
 
@@ -81,6 +83,9 @@
     bias-tz)
   (weights [_]
     weights-tz)
+  ParametersSeq
+  (parameters [_]
+    [weights-tz bias-tz])
   Transfer
   (input [this]
     (input src-conn))
@@ -146,6 +151,9 @@
     bias-tz)
   (weights [_]
     weights-tz)
+  ParametersSeq
+  (parameters [_]
+    [weights-tz bias-tz])
   Transfer
   (input [this]
     (input src-conn))
@@ -252,6 +260,9 @@
     bias-tz)
   (weights [_]
     weights-tz)
+  ParametersSeq
+  (parameters [_]
+    [weights-tz bias-tz])
   Transfer
   (input [this]
     (input src-conn))
@@ -404,12 +415,12 @@
 
 (defmethod transfer! [FullyConnectedInference Object]
   [source destination]
-  (transfer-parameters! source destination))
+  (transfer-weights-bias! source destination))
 
 (defmethod transfer! [FullyConnectedAdam Object]
   [source destination]
-  (transfer-parameters! source destination))
+  (transfer-weights-bias! source destination))
 
 (defmethod transfer! [FullyConnectedSGD Object]
   [source destination]
-  (transfer-parameters! source destination))
+  (transfer-weights-bias! source destination))

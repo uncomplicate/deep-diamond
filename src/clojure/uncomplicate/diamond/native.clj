@@ -9,24 +9,26 @@
 (ns uncomplicate.diamond.native
   (:require [uncomplicate.commons.utils :refer [channel]]
             [uncomplicate.diamond.internal.protocols :refer [create-tensor-desc]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory map-channel]])
+            [uncomplicate.diamond.internal.dnnl
+             [factory :refer [dnnl-factory]]
+             [file-channel :refer [map-channel]]])
   (:import java.nio.channels.FileChannel))
 
 (alter-var-root #'uncomplicate.diamond.tensor/*diamond-factory*
                 (constantly (dnnl-factory)))
 
-(defn map-file
+(defn map-tensor
   ([file shape type format flag offset-bytes]
-   (map-file file
-             (create-tensor-desc uncomplicate.diamond.tensor/*diamond-factory* shape type format)
-             flag offset-bytes))
+   (map-tensor file
+               (create-tensor-desc uncomplicate.diamond.tensor/*diamond-factory* shape type format)
+               flag offset-bytes))
   ([file desc flag offset-bytes]
    (map-channel uncomplicate.diamond.tensor/*diamond-factory*
                 (if (instance? FileChannel file) file (channel file))
                 desc flag offset-bytes))
   ([file desc flag]
-   (map-file file desc flag 0))
+   (map-tensor file desc flag 0))
   ([file shape type format flag]
-   (map-file file shape type format flag 0))
+   (map-tensor file shape type format flag 0))
   ([file desc]
-   (map-file file desc :read-write)))
+   (map-tensor file desc :read-write)))

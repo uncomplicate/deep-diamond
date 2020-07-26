@@ -11,12 +11,10 @@
             [uncomplicate.diamond
              [tensor :as tz
               :refer [Transfer input output connector view-tz revert shape layout
-                      TensorDescriptor shape]]
-             [dnn :refer [Parameters bias weights transfer-parameters!]]]
+                      TensorDescriptor shape]]]
             [uncomplicate.diamond.internal.protocols
-             :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
-                     diff-bias diff-weights Backprop forward backward blueprint
-                     create-tensor DiffTransfer diff-input diff-output diff-z]]
+             :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
+                     blueprint create-tensor DiffTransfer diff-input diff-output diff-z]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]

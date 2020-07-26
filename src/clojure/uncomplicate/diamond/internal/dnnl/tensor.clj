@@ -27,7 +27,7 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
                       neanderthal-factory tensor-engine native-diamond-factory Offset
-                      DiffTransfer diff-input diff-output create-tensor-desc]]
+                      DiffTransfer diff-input diff-output create-tensor-desc layers parameters]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc

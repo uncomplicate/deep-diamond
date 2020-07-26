@@ -20,15 +20,6 @@
              [protocols :as api]
              [network :refer [sequential-network]]]))
 
-(defprotocol Parameters
-  (weights [this])
-  (bias [this]))
-
-(defn transfer-parameters! [source destination]
-  (transfer! (bias source) (bias destination))
-  (transfer! (weights source) (weights destination))
-  destination)
-
 (defn sum
   ([^double scale dst]
    (let [dst (api/create-tensor-desc *diamond-factory* dst)]
@@ -103,10 +94,10 @@
    (network *diamond-factory* src-desc layers)))
 
 (defn init! [net!]
-  (with-release [rng (rng-state (view (bias (first (api/layers net!)))))]
+  (with-release [rng (rng-state (view (api/bias (first (api/layers net!)))))]
     (doseq [layer (api/layers net!)]
-      (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (view (weights layer)))
-      (rand-normal! rng (view (bias layer)))))
+      (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (api/weights layer))
+      (rand-normal! rng (api/bias layer))))
   net!)
 
 (defn ^:private linear-decay

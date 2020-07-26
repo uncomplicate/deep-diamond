@@ -40,6 +40,13 @@
 (defprotocol BlueprintProvider
   (blueprint [this]))
 
+(defprotocol Parameters
+  (weights [this])
+  (bias [this]))
+
+(defprotocol ParametersSeq
+  (parameters [this]))
+
 (defprotocol DiffParameters
   (diff-bias [this])
   (diff-weights [this]))

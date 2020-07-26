@@ -10,7 +10,9 @@
   (:require [uncomplicate.commons
              [core :refer [Wrapper Releaseable extract]]
              [utils :refer [dragan-says-ex with-check]]]
-            [uncomplicate.diamond.tensor :refer [layout]])
+            [uncomplicate.neanderthal.core :refer [transfer!]]
+            [uncomplicate.diamond.tensor :refer [layout]]
+            [uncomplicate.diamond.internal.protocols :refer [weights bias]])
   (:import uncomplicate.neanderthal.internal.api.Block))
 
 (defmacro deftype-wrapper [name release-method error]
@@ -60,3 +62,8 @@ Please use a copy or create a transformer."
             (do (aset res (dec i) (* (aget res i) (long (get shape i))))
                 (recur res  (dec i)))
            (vec res)))))))
+
+(defn transfer-weights-bias! [source destination]
+  (transfer! (bias source) (bias destination))
+  (transfer! (weights source) (weights destination))
+  destination)

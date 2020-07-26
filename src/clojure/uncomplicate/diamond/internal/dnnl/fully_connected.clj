@@ -11,7 +11,7 @@
              [core :refer [Releaseable release let-release with-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [axpy! axpby! view zero dim transfer! scal!]]
+             [core :refer [axpy! axpby! view zero dim transfer! scal! copy!]]
              [real :refer [nrm2 asum]]
              [block :refer [buffer]]
              [math :refer [sqrt pow]]
@@ -20,12 +20,14 @@
             [uncomplicate.diamond
              [tensor :as tz
               :refer [Transfer input output connector view-tz shape layout
-                      TensorDescriptor shape]]
-             [dnn :refer [Parameters bias weights transfer-parameters!]]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [BlueprintProvider DiamondFactoryProvider DiffParameters
-                     diff-bias diff-weights Backprop forward backward blueprint
-                     DiffTransfer diff-output diff-input diff-z]]
+                      TensorDescriptor shape]]]
+            [uncomplicate.diamond.internal
+             [protocols
+              :refer [Parameters bias weights ParametersSeq parameters
+                      BlueprintProvider DiamondFactoryProvider DiffParameters
+                      diff-bias diff-weights Backprop forward backward blueprint
+                      DiffTransfer diff-output diff-input diff-z]]
+             [utils :refer [transfer-weights-bias!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all]
@@ -285,6 +287,9 @@
     bias-tz)
   (weights [_]
     weights-tz)
+  ParametersSeq
+  (parameters [_]
+    [weights-tz bias-tz])
   IFn
   (invoke [_]
     (src-conn)
@@ -346,6 +351,9 @@
     bias-tz)
   (weights [_]
     weights-tz)
+  ParametersSeq
+  (parameters [_]
+    [weights-tz bias-tz])
   DiffParameters
   (diff-bias [_]
     diff-bias-tz)
@@ -523,6 +531,9 @@
     (bias ip))
   (weights [_]
     (weights ip))
+  ParametersSeq
+  (parameters [_]
+    (parameters ip))
   Transfer
   (input [this]
     (input ip))
@@ -590,6 +601,9 @@
     (weights ip))
   (bias [_]
     (bias ip))
+  ParametersSeq
+  (parameters [_]
+    (parameters ip))
   IFn
   (invoke [_]
     (ip)
@@ -682,6 +696,9 @@
     (weights ip))
   (bias [_]
     (bias ip))
+  ParametersSeq
+  (parameters [_]
+    (parameters ip))
   IFn
   (invoke [_]
     (ip)
@@ -894,12 +911,12 @@
 
 (defmethod transfer! [FullyConnectedInference Object]
   [source destination]
-  (transfer-parameters! source destination))
+  (transfer-weights-bias! source destination))
 
 (defmethod transfer! [FullyConnectedAdam Object]
   [source destination]
-  (transfer-parameters! source destination))
+  (transfer-weights-bias! source destination))
 
 (defmethod transfer! [FullyConnectedSGD Object]
   [source destination]
-  (transfer-parameters! source destination))
+  (transfer-weights-bias! source destination))

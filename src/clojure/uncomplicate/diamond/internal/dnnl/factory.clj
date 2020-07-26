@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release]]
-             [utils :refer [dragan-says-ex mapped-buffer]]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [native :refer [factory-by-type]]
              [block :refer [data-accessor]]]
@@ -28,7 +28,7 @@
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc data DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims size]]
-             [tensor :refer [dnnl-tensor dnnl-tensor* dnnl-transformer dnnl-batcher dnnl-shuffler]]
+             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
                                       dnnl-inner-product-blueprint dnnl-fc-blueprint
                                       dnnl-universal-cost dnnl-custom-cost]]])
@@ -361,14 +361,3 @@ Please contribute towards making it possible, or use on of the supported types."
                                      :int view-engine
                                      :byte view-engine
                                      :uint8 view-engine})))))
-
-(defn map-channel
-  ([fact channel td flag offset-bytes]
-   (let [fact (diamond-factory fact)
-         size (size (desc td))]
-     (let-release [buf (mapped-buffer channel offset-bytes size flag)]
-       (dnnl-tensor* fact td buf true))))
-  ([fact channel td flag]
-   (map-channel fact channel td flag 0))
-  ([fact channel td]
-   (map-channel fact channel td :read-write)))
