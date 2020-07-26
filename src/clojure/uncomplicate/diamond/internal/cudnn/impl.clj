@@ -76,12 +76,6 @@
   (desc [this]
     this)
   Info
-  (info [td]
-    {:class (class td)
-     :device :cuda
-     :shape (.dims td)
-     :data-type (.data-type td)
-     :layout (.strides td)})
   (info [td info-type]
     (case info-type
       :class (class td)
@@ -90,6 +84,12 @@
       :data-type (.data-type td)
       :layout (.strides td)
       nil))
+  (info [td]
+    {:class (class td)
+     :device :cuda
+     :shape (.dims td)
+     :data-type (.data-type td)
+     :layout (.strides td)})
   Releaseable
   (release [this]
     (locking td
@@ -139,7 +139,7 @@
   ([^cudnnTensorDescriptor td ^long format ^long data-type shape]
    (with-check
      (JCudnn/cudnnSetTensor4dDescriptor
-      td data-type format (get shape 0 0) (get shape 1 1) (get shape 2 1) (get shape 3 1))
+      td format data-type (get shape 0 0) (get shape 1 1) (get shape 2 1) (get shape 3 1))
      td)))
 
 (defn tensor-4d-descriptor-ex* [^cudnnTensorDescriptor td ^long data-type shape stride]

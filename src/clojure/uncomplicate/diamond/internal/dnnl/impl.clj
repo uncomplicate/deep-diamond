@@ -10,7 +10,7 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info
                            Wrapper Wrappable wrap extract info]]
-             [utils :as cu :refer [dragan-says-ex]]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.diamond.internal.utils :refer [deftype-wrapper]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -37,7 +37,7 @@
           form# ~form]
       (if (= 0 status#)
         form#
-        (throw (dnnl-error status# (if (satisfies? Info form#) (info form#) form#)))))))
+        (throw (dnnl-error status# (if (satisfies? Info form#) (type form#) (str form#))))))))
 
 (extend-type Pointer
   Releaseable
@@ -196,12 +196,6 @@
 
 (extend-type dnnl_memory_desc_t
   Info
-  (info [this]
-    {:class (class this)
-     :device :cpu
-     :shape (vec (dims* this))
-     :data-type (dec-data-type (data-type* this))
-     :strides (vec (strides* this))})
   (info [this info-type]
     (case info-type
       :class (class this)
@@ -210,6 +204,12 @@
       :data-type (dec-data-type (data-type* this))
       :strides (vec (strides* this))
       nil))
+  (info [this]
+    {:class (class this)
+     :device :cpu
+     :shape (vec (dims* this))
+     :data-type (dec-data-type (data-type* this))
+     :strides (vec (strides* this))})
   DescProvider
   (desc [this]
     this))

@@ -18,7 +18,7 @@
              [tensor :refer :all]
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
-             :refer [diff-bias diff-weights forward backward layers diff-input]]))
+             :refer [diff-bias diff-weights forward backward layers diff-input weights bias]]))
 
 (defn test-sum [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)

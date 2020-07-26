@@ -15,10 +15,7 @@
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
              [dnn :refer [fully-connected network init! train cost]]]
-            [uncomplicate.diamond.internal
-             [protocols
-              :refer [diff-bias diff-weights forward backward layers]]
-             [cost :refer [binary-accuracy!]]]
+            [uncomplicate.diamond.internal.cost :refer [binary-accuracy!]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))

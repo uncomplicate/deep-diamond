@@ -18,11 +18,11 @@
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
-             [dnn :refer [weights bias sum activation inner-product fully-connected
+             [dnn :refer [sum activation inner-product fully-connected
                           network init! train cost train]]
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
-             :refer [diff-bias diff-weights forward backward layers]]
+             :refer [diff-bias diff-weights forward backward layers weights bias]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]])
   (:import clojure.lang.ExceptionInfo))
 
