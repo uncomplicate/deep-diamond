@@ -21,7 +21,8 @@
              :refer [Viewable view flow equals-block compatible? set-all MemoryContext
                      EngineProvider Container DataAccessorProvider FactoryProvider
                      native-factory zero raw host factory fits?]]
-            [uncomplicate.neanderthal.internal.device.cublock :refer [cu-block-vector]]
+            [uncomplicate.neanderthal.internal.device.cublock
+             :refer [cu-block-vector set-vector! get-vector!]]
             [uncomplicate.diamond.tensor
              :as diamond
              :refer [TensorDescriptor shape layout data-type TensorContainer Transfer
@@ -33,8 +34,8 @@
                       Offset DiffTransfer diff-input diff-output]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
-             [protocols :refer [data] :as dnnl]
-             [core :refer [memory-desc]]]
+             [protocols :as dnnl :refer [data]]
+             [core :as dnnl-core :refer [memory-desc]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer [tensor-descriptor equal-desc? size dims strides transform-tensor]]
              [protocols :refer [DescProvider desc handle]]
@@ -54,21 +55,6 @@
 
 (defn ^:private not-available []
   (throw (UnsupportedOperationException. "Not available in CUDA. Please use a host instance.")))
-
-(defn set-tensor! [host cuda]
-  ;; TODO check descriptors
-  (check-contiguous host cuda)
-  (transfer! (view host) (view cuda))
-  #_(memcpy-host! (data (buffer host)) (buffer cuda)
-                  (flow (diamond-factory cuda)))
-  cuda)
-
-(defn get-tensor! [cuda host]
-  (check-contiguous host cuda)
-  (transfer! (view cuda) (view host))
-  #_(memcpy-host! (buffer cuda) (data (buffer host))
-                  (flow (diamond-factory cuda)))
-  host)
 
 (declare ->CUDnnTensor cudnn-transformer cudnn-tensor cudnn-shuffler cudnn-tensor-desc)
 
@@ -451,75 +437,60 @@
 
 (defmethod transfer! [DnnlTensor CUDnnTensor]
   [src dest]
+  (check-contiguous src dest)
   (if (fits? dest src)
     (if (and (= (data-type src) (data-type dest))
              (= (cudnn-shape-padding (layout src)) (strides dest)))
-      (set-tensor! src dest)
-      (with-release [dnnl-mid (raw dest src)]
-        (transfer! (view-tz src (diamond/desc (cudnn-shape-padding (shape src))
-                                              (data-type src)
-                                              (cudnn-shape-padding (layout src))))
-                   dnnl-mid)
-        (set-tensor! dnnl-mid dest)))
+      (set-vector! (view src) (view dest))
+      (with-release [dnnl-mid (raw dest src)
+                     dnnl-view (view-tz src (diamond/desc (cudnn-shape-padding (shape src))
+                                                          (data-type src)
+                                                          (cudnn-shape-padding (layout src))))]
+        (dnnl-core/offset! (buffer dnnl-view) (dnnl-core/offset (buffer src)))
+        (transfer! dnnl-view dnnl-mid)
+        (set-vector! (view dnnl-mid) (view dest))))
     (dragan-says-ex DOES_NOT_FIT_MSG
                     {:source (dnnl/desc src) :destination (desc dest)
-                     :compatible? (compatible? src dest)})))
-
-(defn transfer-fucker [src dest]
-  (if (fits? dest src)
-    (if (and (= (data-type src) (data-type dest))
-             (= (cudnn-shape-padding (layout src)) (strides dest)))
-      (set-tensor! src dest)
-      (with-release [dnnl-mid (raw dest src)]
-        (transfer! (view-tz src (diamond/desc (cudnn-shape-padding (shape src))
-                                              (data-type src)
-                                              (cudnn-shape-padding (layout src))))
-                   dnnl-mid)
-        (set-tensor! dnnl-mid dest)))
-    (dragan-says-ex DOES_NOT_FIT_MSG
-                    {:source (dnnl/desc src) :destination (desc dest)
-                     :compatible? (compatible? src dest)})))
+                     :compatible? (compatible? src dest)}))
+  dest)
 
 (defmethod transfer! [CUDnnTensor DnnlTensor]
   [src dest]
+  (check-contiguous src dest)
   (if (fits? src dest)
     (if (and (= (data-type src) (data-type dest))
              (= (strides src) (cudnn-shape-padding (layout dest))))
-      (get-tensor! src dest)
-      (with-release [dnnl-mid (raw src dest)]
-        (get-tensor! dnnl-mid dest)
-        (transfer! dnnl-mid
-                   (view-tz dest (diamond/desc (cudnn-shape-padding (shape dest))
-                                               (data-type dest)
-                                               (cudnn-shape-padding (layout dest)))))))
+      (get-vector! (view src) (view dest))
+      (with-release [dnnl-mid (raw src dest)
+                     dnnl-view (view-tz dest (diamond/desc (cudnn-shape-padding (shape dest))
+                                                           (data-type dest)
+                                                           (cudnn-shape-padding (layout dest))))]
+        (dnnl-core/offset! (buffer dnnl-view) (dnnl-core/offset (buffer dest)))
+        (get-vector! (view src) (view dnnl-mid))
+        (transfer! dnnl-mid dnnl-view)))
     (dragan-says-ex DOES_NOT_FIT_MSG
                     {:source (desc src) :destination (dnnl/desc dest)
-                     :compatible? (compatible? src dest)})))
+                     :compatible? (compatible? src dest)}))
+  dest)
 
 (defmethod transfer! [CUDnnTensor Object]
   [source destination]
-  (with-release [h (host source)]
-    (transfer! h destination)))
+  (with-release [src (host source)]
+    (transfer! src destination)))
 
 (defmethod transfer! [Object CUDnnTensor]
-  [source destination]
-  (with-release [dest (raw destination (native-diamond-factory destination))]
-    (set-tensor! (transfer! source dest) destination)))
+  [source cuda]
+  (check-contiguous cuda)
+  (with-release [dest (raw cuda (native-diamond-factory cuda))]
+    (transfer! source dest)
+    (set-vector! (view dest) (view cuda))
+    cuda))
 
 (defmethod transfer! [Object CUDnnTransformer]
-  [source destination]
-  (transfer! source (view (input destination)))
-  destination)
-
-(defmethod transfer! [CUDnnTransformer Object]
-  [source destination]
-  (transfer! (view (output source)) destination))
-
-(defmethod transfer! [CUDnnTensor CUDnnTransformer]
   [source destination]
   (transfer! source (input destination))
   destination)
 
-(defmethod transfer! [CUDnnTransformer CUDnnTensor]
+(defmethod transfer! [CUDnnTransformer Object]
   [source destination]
   (transfer! (output source) destination))

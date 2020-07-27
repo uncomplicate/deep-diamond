@@ -409,7 +409,7 @@
   (buffer [_]
     tz-mem)
   (offset [_]
-    (dnnl-core/offset tz-mem))
+    (quot (dnnl-core/offset tz-mem) (entry-width (data-accessor neand-fact))))
   (stride [_]
     (dragan-says-ex "Tensors do not have a single stride. You're doing something wrong."))
   (isContiguous [_]
