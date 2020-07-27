@@ -322,7 +322,8 @@
       (create-tensor df (create-tensor-desc df cu-desc) true)))
   (host [x]
     (let-release [res (raw x (native-diamond-factory diamond-fact))]
-      (get-tensor! x res)))
+      (get-vector! vect-view (view res))
+      res))
   (native [x]
     (host x))
   Viewable
