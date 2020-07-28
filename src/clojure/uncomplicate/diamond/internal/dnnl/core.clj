@@ -506,6 +506,7 @@
 ;; ====================== Convolution ===========================================
 
 (defn convolution-fwd-desc
+  "TODO"
   ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides padding-l padding-r]
    (convolution-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
                               (enc-keyword dnnl-convolution-alg-kind alg-kind)
@@ -513,10 +514,18 @@
                               (long-array strides) (long-array padding-l) (long-array padding-r)))
   ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides padding]
    (convolution-fwd-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
-                         strides padding padding))
-  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides]
-   (convolution-fwd-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
-                         strides [1 1]))
-  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc]
-   (convolution-fwd-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
-                         [1 1] [1 1])))
+                         strides padding padding)))
+
+(defn convolution-bwd-desc
+  "TODO"
+  ([alg-kind diff-src-desc weights-desc diff-dst-desc strides padding-l padding-r]
+   (convolution-backward-data-desc* (enc-keyword dnnl-convolution-alg-kind alg-kind)
+                                    (desc diff-src-desc) (desc weights-desc) (desc diff-dst-desc)
+                                    (long-array strides)
+                                    (long-array padding-l) (long-array padding-r)))
+  ([alg-kind src-desc diff-weights-desc diff-bias-desc diff-dst-desc strides padding-l padding-r]
+   (convolution-backward-weights-desc* (enc-keyword dnnl-convolution-alg-kind alg-kind)
+                                       (desc src-desc) (desc diff-weights-desc)
+                                       (desc diff-bias-desc) (desc diff-dst-desc)
+                                       (long-array strides)
+                                       (long-array padding-l) (long-array padding-r))))
