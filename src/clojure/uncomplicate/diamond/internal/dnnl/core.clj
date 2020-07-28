@@ -471,9 +471,10 @@
   `diff-dst-desc`: descriptor of the destination gradient (output) memory.
   "
   ([diff-src-desc weights-desc diff-dst-desc]
-   (inner-product-backward-data-desc* diff-src-desc weights-desc diff-dst-desc))
+   (inner-product-backward-data-desc* (desc diff-src-desc) (desc weights-desc) (desc diff-dst-desc)))
   ([src-desc diff-weights-desc diff-bias-desc diff-dst-desc]
-   (inner-product-backward-weights-desc* src-desc diff-weights-desc diff-bias-desc diff-dst-desc)))
+   (inner-product-backward-weights-desc* (desc src-desc) (desc diff-weights-desc)
+                                         (desc diff-bias-desc) (desc diff-dst-desc))))
 
 ;; ================= Softmax ====================================================
 
@@ -501,3 +502,21 @@
      (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
      (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
      (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src)))))
+
+;; ====================== Convolution ===========================================
+
+(defn convolution-fwd-desc
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides padding-l padding-r]
+   (convolution-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                              (enc-keyword dnnl-convolution-alg-kind alg-kind)
+                              (desc src-desc) (desc weights-desc) (desc bias-desc) (desc dst-desc)
+                              (long-array strides) (long-array padding-l) (long-array padding-r)))
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides padding]
+   (convolution-fwd-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+                         strides padding padding))
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides]
+   (convolution-fwd-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+                         strides [1 1]))
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc]
+   (convolution-fwd-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+                         [1 1] [1 1])))

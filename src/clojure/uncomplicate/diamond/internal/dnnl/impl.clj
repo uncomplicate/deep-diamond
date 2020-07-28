@@ -21,7 +21,8 @@
            [org.bytedeco.dnnl dnnl_engine dnnl_stream dnnl_primitive_desc
             dnnl_primitive dnnl_exec_arg_t dnnl_memory_desc_t dnnl_memory
             dnnl_primitive_desc const_dnnl_op_desc_t dnnl_primitive_attr
-            dnnl_eltwise_desc_t dnnl_inner_product_desc_t dnnl_softmax_desc_t]))
+            dnnl_eltwise_desc_t dnnl_inner_product_desc_t dnnl_softmax_desc_t
+            dnnl_convolution_desc_t]))
 
 (defn dnnl-error
   ([^long err-code details]
@@ -393,3 +394,28 @@
     (with-check
       (dnnl/dnnl_softmax_backward_desc_init softmax-desc diff-data-desc data-desc (int axis))
       softmax-desc)))
+
+;; ======================= Convolution ====================================================
+
+(extend-type dnnl_convolution_desc_t
+  PrimitiveDescCreator
+  (primitive-desc*
+    ([desc eng]
+     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
+    ([desc eng hint-pd]
+     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
+  PrimitiveKind
+  (primitive-kind* [desc]
+    (.primitive_kind desc)))
+
+(defn convolution-forward-desc*
+  [prop-kind alg-kind
+   ^dnnl_memory_desc_t src-desc ^dnnl_memory_desc_t weights-desc
+   ^dnnl_memory_desc_t bias-desc ^dnnl_memory_desc_t
+   ^longs dst-desc ^longs strides ^longs padding-l ^longs padding-r]
+  (let-release [conv-desc (dnnl_convolution_desc_t.)]
+    (with-check
+      (dnnl/dnnl_convolution_forward_desc_init conv-desc (int prop-kind) (int alg-kind)
+                                               src-desc weights-desc bias-desc dst-desc
+                                               strides padding-l padding-r)
+      conv-desc)))

@@ -8,9 +8,12 @@
 
 (defproject uncomplicate/deep-diamond "0.9.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
-
+  :author "Dragan Djuric"
+  :url "http://github.com/uncomplicate/deep-diamond"
+  :license {:name "Eclipse Public License"
+            :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.10.1"]
-                 [uncomplicate/neanderthal "0.34.0-SNAPSHOT"]
+                 [uncomplicate/neanderthal "0.34.0"]
                  [org.bytedeco/dnnl-platform "1.5.1-1.5.4-SNAPSHOT"]
                  [org.jcuda/jcudnn "10.2.0"]]
 
@@ -32,8 +35,8 @@
           :output-path "docs/codox"}
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
-                       ;;"-Dorg.bytedeco.javacpp.mklml.load=mkl_rt"
-                       ;;"-Dorg.bytedeco.javacpp.pathsfirst=true"
+                       #_"-Dorg.bytedeco.javacpp.mklml.load=mkl_rt"
+                       #_"-Dorg.bytedeco.javacpp.pathsfirst=true"
                        #_"-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"
                        #_"--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"]
 

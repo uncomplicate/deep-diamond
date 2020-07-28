@@ -12,7 +12,7 @@
              [core :refer [with-release]]
              [utils :refer [capacity direct-buffer put-float get-float]]]
             [uncomplicate.neanderthal
-             [core :refer [zero nrm2]]
+             [core :refer [zero nrm2 entry! entry]]
              [native :refer [fv]]
              [block :refer [buffer]]]
             [uncomplicate.diamond.internal.dnnl
@@ -480,3 +480,29 @@
          (execute! s softmax-bwd softmax-bwd-args) => s
          mem-vec => (fv 0.06337893754243851 -0.5316895246505737 0.46831050515174866
                         0.0024282580707222223 0.017942532896995544 -0.02037079446017742))) ; aLi - ti
+
+(facts "Convolution forward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-desc (memory-desc [2 1 4 4] :float :nchw)
+                      weights-desc (memory-desc [1 1 3 3] :float :nchw)
+                      bias-desc (memory-desc [1] :float :x)
+                      dst-desc (memory-desc [2 1 2 2] :float :nchw)
+                      conv-desc (convolution-fwd-desc :inference :auto
+                                                      src-desc weights-desc bias-desc dst-desc
+                                                      [1 1] [0 0])
+                      conv-pd (primitive-desc eng conv-desc)
+                      src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                  0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
+                      src-mem (memory eng (src-md conv-pd) (buffer src-vec))
+                      weights-vec (fv -2 0 1 0 1 0 -1 -2 0)
+                      weights-mem (memory eng (weights-md conv-pd) (buffer weights-vec))
+                      bias-vec (fv 0.5)
+                      bias-mem (memory eng bias-desc (buffer bias-vec))
+                      dst-vec (fv (* 2 1 2 2))
+                      dst-mem (memory eng (dst-md conv-pd) (buffer dst-vec))
+                      conv (primitive conv-pd)
+                      conv-args (fwd-args src-mem weights-mem bias-mem dst-mem)]
+         (primitive-kind conv-desc) => :convolution
+         (execute! s conv conv-args) => s
+         (seq dst-vec) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5]))

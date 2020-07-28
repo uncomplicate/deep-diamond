@@ -242,3 +242,8 @@
     :u8 1
     :uint8 1
     (dragan-says-ex "unknown data type" {:data-type data-type})))
+
+(def ^:const dnnl-convolution-alg-kind
+  {:auto dnnl/dnnl_convolution_auto
+   :direct dnnl/dnnl_convolution_direct
+   :winograd dnnl/dnnl_convolution_direct})
