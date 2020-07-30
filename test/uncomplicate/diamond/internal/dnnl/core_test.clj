@@ -572,3 +572,56 @@
                                                0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
                                                0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0])
          (entry diff-bias-vec 0) => (float 6.3)))
+
+(facts "Max pooling forward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-desc (memory-desc [2 1 4 4] :float :nchw)
+                      dst-desc (memory-desc [2 1 2 2] :float :nchw)
+                      pool-desc (pooling-fwd-desc :inference :max
+                                                  src-desc dst-desc
+                                                  [2 2] [2 2] [0 0])
+                      pool-pd (primitive-desc eng pool-desc)
+                      src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                  0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
+                      src-mem (memory eng src-desc (buffer src-vec))
+                      dst-vec (fv (* 2 1 2 2))
+                      dst-mem (memory eng dst-desc (buffer dst-vec))
+                      pool (primitive pool-pd)
+                      pool-args (fwd-args src-mem dst-mem)]
+         (primitive-kind pool-desc) => :pooling
+         (execute! s pool pool-args) => s
+         (seq dst-vec) => [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]))
+
+(facts "Max pooling backward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-desc (memory-desc [2 1 4 4] :float :nchw)
+                      dst-desc (memory-desc [2 1 2 2] :float :nchw)
+                      pool-desc (pooling-fwd-desc :training :max
+                                                  src-desc dst-desc
+                                                  [2 2] [2 2] [0 0])
+                      pool-pd (primitive-desc eng pool-desc)
+                      src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                  0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
+                      src-mem (memory eng src-desc (buffer src-vec))
+                      dst-vec (fv (* 2 1 2 2))
+                      dst-mem (memory eng dst-desc (buffer dst-vec))
+                      workspace-mem (memory eng (workspace-md pool-pd))
+                      pool (primitive pool-pd)
+                      pool-args (fwd-args src-mem dst-mem workspace-mem)
+
+                      pool-bwd-desc (pooling-bwd-desc :max src-desc dst-desc [2 2] [2 2] [0 0])
+                      diff-dst-vec (entry! (zero src-vec) 2.0)
+                      diff-src-vec (entry! (zero src-vec) 0.0)
+                      pool-bwd-pd (primitive-desc eng pool-bwd-desc pool-pd)
+                      diff-dst-mem (memory eng (diff-dst-md pool-bwd-pd) (buffer diff-dst-vec))
+                      diff-src-mem (memory eng (diff-src-md pool-bwd-pd) (buffer diff-src-vec))
+                      pool-bwd (primitive pool-bwd-pd)
+                      pool-bwd-args (pooling-bwd-args diff-dst-mem diff-src-mem workspace-mem)]
+         (primitive-kind pool-desc) => :pooling
+         (execute! s pool pool-args) => s
+         (seq dst-vec) => [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]
+         (execute! s pool-bwd pool-bwd-args)
+         (seq diff-src-vec) => [0.0 0.0 0.0 2.0 0.0 2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 0.0 2.0 0.0
+                                0.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0]))
