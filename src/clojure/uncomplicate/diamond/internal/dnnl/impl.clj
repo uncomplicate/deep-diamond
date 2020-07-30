@@ -22,7 +22,7 @@
             dnnl_primitive dnnl_exec_arg_t dnnl_memory_desc_t dnnl_memory
             dnnl_primitive_desc const_dnnl_op_desc_t dnnl_primitive_attr
             dnnl_eltwise_desc_t dnnl_inner_product_desc_t dnnl_softmax_desc_t
-            dnnl_convolution_desc_t dnnl_pooling_desc_t]))
+            dnnl_convolution_desc_t dnnl_pooling_desc_t dnnl_batch_normalization_desc_t]))
 
 (defn dnnl-error
   ([^long err-code details]
@@ -478,3 +478,33 @@
                                             diff-src-desc diff-dst-desc
                                             strides kernel padding-l padding-r)
       pool-desc)))
+
+;; ======================== Batch Normalization ===================================================
+
+(extend-type dnnl_batch_normalization_desc_t
+  PrimitiveDescCreator
+  (primitive-desc*
+    ([desc eng]
+     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
+    ([desc eng hint-pd]
+     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
+  PrimitiveKind
+  (primitive-kind* [desc]
+    (.primitive_kind desc)))
+
+(defn batch-normalization-forward-desc*
+  [prop-kind data-desc epsilon flags]
+  (let-release [bnrm-desc (dnnl_batch_normalization_desc_t.)]
+    (with-check
+      (dnnl/dnnl_batch_normalization_forward_desc_init bnrm-desc (int prop-kind)
+                                                       data-desc (float epsilon) (int flags))
+      bnrm-desc)))
+
+(defn batch-normalization-backward-desc*
+  [prop-kind diff-data-desc data-desc epsilon flags]
+  (let-release [bnrm-desc (dnnl_batch_normalization_desc_t.)]
+    (with-check
+      (dnnl/dnnl_batch_normalization_backward_desc_init bnrm-desc (int prop-kind)
+                                                        diff-data-desc data-desc
+                                                        (float epsilon) (int flags))
+      bnrm-desc)))

@@ -254,3 +254,9 @@
    :avg_padding dnnl/dnnl_pooling_avg_include_padding
    :avg_include_padding dnnl/dnnl_pooling_avg_include_padding
    :avg_exclude_padding dnnl/dnnl_pooling_avg_exclude_padding})
+
+(def ^:const dnnl-normalization-flags
+  {:none dnnl/dnnl_normalization_flags_none
+   :global-stats dnnl/dnnl_use_global_stats
+   :scaleshift dnnl/dnnl_use_scaleshift
+   :fuse-relu dnnl/dnnl_fuse_norm_relu})

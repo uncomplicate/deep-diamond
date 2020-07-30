@@ -382,13 +382,14 @@
      (args* args 1 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src0))
      (args* args 2 (inc dnnl/DNNL_ARG_MULTIPLE_SRC) (extract src1))))
   ([dst src0 src1 & srcs]
-   (let-release [args (dnnl_exec_arg_t. 2)]
-     (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
-     (args* args 1 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src0))
-     (args* args 2 (inc dnnl/DNNL_ARG_MULTIPLE_SRC) (extract src1))
-     (doall (map #(args* args (+ dnnl/DNNL_ARG_MULTIPLE_SRC (int %2)) (extract %1))
-                 srcs (range 3 30)))
-     args)))
+   (let [cnt (+ 2 (count srcs))]
+     (let-release [args (dnnl_exec_arg_t. cnt)]
+       (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
+       (args* args 1 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src0))
+       (args* args 2 (inc dnnl/DNNL_ARG_MULTIPLE_SRC) (extract src1))
+       (doall (map #(args* args (+ dnnl/DNNL_ARG_MULTIPLE_SRC (int %2)) (extract %1))
+                   srcs (range 3 cnt)))
+       args))))
 
 (defn fwd-args
   "Creates DNNL's data structure that holds arguments as required by
@@ -402,10 +403,11 @@
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
      (args* args 1 dnnl/DNNL_ARG_DST (extract dst))))
   ([src dst workspace]
-   (let-release [args (dnnl_exec_arg_t. 3)]
+   (let-release [args (dnnl_exec_arg_t. (if workspace 3 2))]
+     (when workspace
+       (args* args 2 dnnl/DNNL_ARG_WORKSPACE (extract workspace)))
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
-     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))
-     (args* args 2 dnnl/DNNL_ARG_WORKSPACE (extract workspace))))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))))
   ([src weights bias dst]
    (let-release [args (dnnl_exec_arg_t. 4)]
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
@@ -554,9 +556,76 @@
    (pooling-bwd-desc alg-kind diff-src-desc diff-dst-desc strides kernel padding padding)))
 
 (defn pooling-bwd-args
-  ([diff-dst diff-src workspace]
+  "TODO"
+  [diff-dst diff-src workspace]
+  (let-release [args (dnnl_exec_arg_t. (if workspace 3 2))]
+    (when workspace
+      (args* args 2 dnnl/DNNL_ARG_WORKSPACE (extract workspace)))
+    (args* args 0 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
+    (args* args 1 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))))
+
+;; ====================== Batch Normalization ===========================================
+
+(defn batch-norm-fwd-desc
+  "TODO"
+  [prop-kind data-desc & flags]
+  (batch-normalization-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                                     (desc data-desc) 1.0E-10
+                                     (mask dnnl-normalization-flags flags)))
+
+(defn batch-norm-bwd-desc
+  "TODO"
+  [prop-kind diff-data-desc data-desc & flags]
+  (batch-normalization-backward-desc* (enc-keyword dnnl-backward-prop-kind prop-kind)
+                                      (desc diff-data-desc) (desc data-desc)
+                                      1.0E-10 (mask dnnl-normalization-flags flags)))
+
+(defn batch-norm-fwd-args
+  ([src dst]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))))
+  ([src dst mean variance]
+   (let-release [args (dnnl_exec_arg_t. 4)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 2 dnnl/DNNL_ARG_MEAN (extract mean))
+     (args* args 3 dnnl/DNNL_ARG_VARIANCE (extract variance))))
+  ([src dst scaleshift]
    (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 2 dnnl/DNNL_ARG_SCALE_SHIFT (extract scaleshift))))
+  ([src dst scaleshift mean variance]
+   (batch-norm-fwd-args src dst scaleshift mean variance nil))
+  ([src dst scaleshift mean variance workspace]
+   (let-release [args (dnnl_exec_arg_t. (if workspace 6 5))]
      (when workspace
-       (args* args 2 dnnl/DNNL_ARG_WORKSPACE (extract workspace)))
+       (args* args 5 dnnl/DNNL_ARG_WORKSPACE (extract workspace)))
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 2 dnnl/DNNL_ARG_SCALE_SHIFT (extract scaleshift))
+     (args* args 3 dnnl/DNNL_ARG_MEAN (extract mean))
+     (args* args 4 dnnl/DNNL_ARG_VARIANCE (extract variance)))))
+
+(defn batch-norm-bwd-args
+  ([diff-dst src mean variance diff-src]
+   (let-release [args (dnnl_exec_arg_t. 5)]
      (args* args 0 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
-     (args* args 1 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src)))))
+     (args* args 1 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 2 dnnl/DNNL_ARG_MEAN (extract mean))
+     (args* args 3 dnnl/DNNL_ARG_VARIANCE (extract variance))
+     (args* args 4 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))))
+  ([diff-dst src scaleshift mean variance diff-src diff-scaleshift]
+   (batch-norm-bwd-args diff-dst src scaleshift mean variance diff-src diff-scaleshift nil))
+  ([diff-dst src scaleshift mean variance diff-src diff-scaleshift workspace]
+   (let-release [args (dnnl_exec_arg_t. (if workspace 8 7))]
+     (when workspace
+       (args* args 7 dnnl/DNNL_ARG_WORKSPACE (extract workspace)))
+     (args* args 0 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
+     (args* args 1 dnnl/DNNL_ARG_SRC (extract src))
+     (args* args 2 dnnl/DNNL_ARG_SCALE_SHIFT (extract scaleshift))
+     (args* args 3 dnnl/DNNL_ARG_MEAN (extract mean))
+     (args* args 4 dnnl/DNNL_ARG_VARIANCE (extract variance))
+     (args* args 5 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))
+     (args* args 6 dnnl/DNNL_ARG_DIFF_SCALE_SHIFT (extract diff-scaleshift)))))

@@ -578,9 +578,7 @@
                       s (stream eng)
                       src-desc (memory-desc [2 1 4 4] :float :nchw)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      pool-desc (pooling-fwd-desc :inference :max
-                                                  src-desc dst-desc
-                                                  [2 2] [2 2] [0 0])
+                      pool-desc (pooling-fwd-desc :inference :max src-desc dst-desc [2 2] [2 2] [0 0])
                       pool-pd (primitive-desc eng pool-desc)
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
@@ -598,9 +596,7 @@
                       s (stream eng)
                       src-desc (memory-desc [2 1 4 4] :float :nchw)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      pool-desc (pooling-fwd-desc :training :max
-                                                  src-desc dst-desc
-                                                  [2 2] [2 2] [0 0])
+                      pool-desc (pooling-fwd-desc :training :max src-desc dst-desc [2 2] [2 2] [0 0])
                       pool-pd (primitive-desc eng pool-desc)
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
@@ -625,3 +621,70 @@
          (execute! s pool-bwd pool-bwd-args)
          (seq diff-src-vec) => [0.0 0.0 0.0 2.0 0.0 2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 0.0 2.0 0.0
                                 0.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0]))
+
+(facts "Batch normalization forward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      data-desc (memory-desc [2 1 2 2] :float :nchw)
+                      scaleshift-desc (memory-desc [2 1] :float :nc)
+                      bnrm-desc (batch-norm-fwd-desc :inference data-desc :scaleshift)
+                      bnrm-pd (primitive-desc eng bnrm-desc)
+                      src-vec (fv (range -1 7))
+                      src-mem (memory eng data-desc (buffer src-vec))
+                      dst-vec (fv 8)
+                      dst-mem (memory eng data-desc (buffer dst-vec))
+                      scaleshift-vec (fv [0.5 1.5])
+                      scaleshift-mem (memory eng scaleshift-desc (buffer scaleshift-vec))
+                      bnrm (primitive bnrm-pd)
+                      bnrm-args (batch-norm-fwd-args src-mem dst-mem scaleshift-mem)]
+         (primitive-kind bnrm-desc) => :batch-normalization
+         (execute! s bnrm bnrm-args) => s
+         (seq src-vec) => (range -1.0 7.0)
+         (seq dst-vec) => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
+                           1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586]))
+
+(facts "Batch normalization backward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      data-desc (memory-desc [1 2 2 2] :float :nchw)
+                      stats-desc (memory-desc [1 2] :float :nc)
+                      bnrm-desc (batch-norm-fwd-desc :training data-desc :scaleshift)
+                      bnrm-pd (primitive-desc eng bnrm-desc)
+                      src-vec (fv (range -1 7))
+                      src-mem (memory eng data-desc (buffer src-vec))
+                      dst-vec (fv 8)
+                      dst-mem (memory eng data-desc (buffer dst-vec))
+                      scaleshift-vec (fv [0.5 1.5])
+                      scaleshift-mem (memory eng stats-desc (buffer scaleshift-vec))
+                      mean-vec (fv 2)
+                      mean-mem (memory eng stats-desc (buffer mean-vec))
+                      variance-vec (fv 2)
+                      variance-mem (memory eng stats-desc (buffer variance-vec))
+                      bnrm (primitive bnrm-pd)
+                      bnrm-args (batch-norm-fwd-args src-mem dst-mem scaleshift-mem
+                                                     mean-mem variance-mem)
+                      bnrm-bwd-desc (batch-norm-bwd-desc :backward data-desc data-desc :scaleshift)
+                      bnrm-bwd-pd (primitive-desc eng bnrm-bwd-desc bnrm-pd)
+                      diff-dst-vec (fv [-5 10 0.3 0.2 -0.5 0.6 0.9 -3])
+                      diff-dst-mem (memory eng (diff-dst-md bnrm-bwd-pd) (buffer diff-dst-vec))
+                      diff-src-vec (fv 8)
+                      diff-src-mem (memory eng (diff-src-md bnrm-bwd-pd) (buffer diff-src-vec))
+                      diff-scaleshift-vec (fv 2)
+                      diff-scaleshift-mem (memory eng stats-desc (buffer diff-scaleshift-vec))
+                      bnrm-bwd (primitive bnrm-bwd-pd)
+                      bnrm-bwd-args (batch-norm-bwd-args diff-dst-mem src-mem scaleshift-mem
+                                                         mean-mem variance-mem
+                                                         diff-src-mem diff-scaleshift-mem)]
+         (primitive-kind bnrm-desc) => :batch-normalization
+         (execute! s bnrm bnrm-args) => s
+         (seq src-vec) => (range -1.0 7.0)
+         (seq dst-vec) => [-0.6708203554153442 -0.22360679507255554
+                           0.22360679507255554 0.6708203554153442
+                           -2.0124611854553223 -0.6708203554153442
+                           0.6708203554153442 2.0124611854553223]
+         (seq mean-vec) => [0.5 4.5]
+         (seq variance-vec) => [1.25 1.25]
+         (execute! s bnrm-bwd bnrm-bwd-args)
+         (seq diff-src-vec) => [-2.455202579498291 3.989145278930664 -0.6126827001571655 -0.9212599992752075
+                                -1.4489718675613403 0.9928141236305237 2.3612875938415527 -1.9051299095153809]
+         (seq diff-scaleshift-vec) => [2.6385602951049805 -3.219937801361084]))
