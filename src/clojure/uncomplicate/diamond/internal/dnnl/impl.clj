@@ -271,32 +271,26 @@
   (let-release [res (dnnl_engine.)]
     (with-check (dnnl/dnnl_memory_get_engine mem res) res)))
 
+(defn primitive-desc*
+  ([eng desc]
+   (primitive-desc* eng desc nil))
+  ([eng desc hint-pd]
+   (let-release [pd (dnnl_primitive_desc.)]
+     (with-check (dnnl/dnnl_primitive_desc_create pd (const_dnnl_op_desc_t. desc) nil
+                                                  ^dnnl_engine eng
+                                                  ^dnnl_primitive_desc hint-pd)
+       pd)))
+  ([eng desc hint-pd attr]
+   (let-release [pd (dnnl_primitive_desc.)]
+     (with-check (dnnl/dnnl_primitive_desc_create pd (const_dnnl_op_desc_t. desc)
+                                                  ^dnnl_primitive_attr attr
+                                                  ^dnnl_engine eng
+                                                  ^dnnl_primitive_desc hint-pd)
+       pd))))
+
 ;; ===================== Eltwise  =========================================================
 
-(extend-type const_dnnl_op_desc_t
-  PrimitiveDescCreator
-  (primitive-desc*;;TODO I don't need protocols here since the mkldnn->dnnl switch but check more ops.
-    ([desc eng hint-pd]
-     (let-release [pd (dnnl_primitive_desc.)]
-       (with-check (dnnl/dnnl_primitive_desc_create pd desc nil
-                                                    ^dnnl_engine eng
-                                                    ^dnnl_primitive_desc hint-pd)
-         pd)))
-    ([desc eng hint-pd attr]
-     (let-release [pd (dnnl_primitive_desc.)]
-       (with-check (dnnl/dnnl_primitive_desc_create pd desc
-                                                    ^dnnl_primitive_attr attr
-                                                    ^dnnl_engine eng
-                                                    ^dnnl_primitive_desc hint-pd)
-         pd)))))
-
 (extend-type dnnl_eltwise_desc_t
-  PrimitiveDescCreator
-  (primitive-desc*
-    ([desc eng]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
-    ([desc eng hint-pd]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
   PrimitiveKind
   (primitive-kind* [desc]
     (.primitive_kind desc)))
@@ -336,12 +330,6 @@
 ;; ======================== Inner Product =======================================================
 
 (extend-type dnnl_inner_product_desc_t
-  PrimitiveDescCreator
-  (primitive-desc*
-    ([desc eng]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
-    ([desc eng hint-pd]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
   PrimitiveKind
   (primitive-kind* [desc]
     (.primitive_kind desc)))
@@ -373,12 +361,6 @@
 ;; =========================== Softmax ==========================================
 
 (extend-type dnnl_softmax_desc_t
-  PrimitiveDescCreator
-  (primitive-desc*
-    ([desc eng]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
-    ([desc eng hint-pd]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
   PrimitiveKind
   (primitive-kind* [desc]
     (.primitive_kind desc)))
@@ -398,12 +380,6 @@
 ;; ======================= Convolution ====================================================
 
 (extend-type dnnl_convolution_desc_t
-  PrimitiveDescCreator
-  (primitive-desc*
-    ([desc eng]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
-    ([desc eng hint-pd]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
   PrimitiveKind
   (primitive-kind* [desc]
     (.primitive_kind desc)))
@@ -447,12 +423,6 @@
 ;; ======================== Pooling =================================================================
 
 (extend-type dnnl_pooling_desc_t
-  PrimitiveDescCreator
-  (primitive-desc*
-    ([desc eng]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
-    ([desc eng hint-pd]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
   PrimitiveKind
   (primitive-kind* [desc]
     (.primitive_kind desc)))
@@ -482,12 +452,6 @@
 ;; ======================== Batch Normalization ===================================================
 
 (extend-type dnnl_batch_normalization_desc_t
-  PrimitiveDescCreator
-  (primitive-desc*
-    ([desc eng]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng nil))
-    ([desc eng hint-pd]
-     (primitive-desc* (const_dnnl_op_desc_t. desc) eng hint-pd)))
   PrimitiveKind
   (primitive-kind* [desc]
     (.primitive_kind desc)))

@@ -214,11 +214,11 @@
   `hint-pd` (in case of backward propagation, for example), and additonal
   optional attribute `attr`."
   ([eng desc]
-   (wrap (primitive-desc* desc (extract eng))))
+   (wrap (primitive-desc* (extract eng) desc)))
   ([eng desc hint-pd]
-   (wrap (primitive-desc* desc (extract eng) (extract hint-pd))))
+   (wrap (primitive-desc* (extract eng) desc (extract hint-pd))))
   ([eng desc hint-pd attr]
-   (wrap (primitive-desc* desc (extract eng) (extract hint-pd) (extract attr)))))
+   (wrap (primitive-desc* (extract eng) desc (extract hint-pd) (extract attr)))))
 
 ;; ===================== Primitive ============================================
 
