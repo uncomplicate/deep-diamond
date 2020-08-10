@@ -333,7 +333,7 @@ Please contribute towards making it possible, or use on of the supported types."
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   DnnFactory
   (activ-blueprint [this src-desc activ alpha beta]
-    (dnnl-activ-blueprint this eng src-desc src-desc activ alpha beta))
+    (dnnl-activ-blueprint this eng src-desc activ alpha beta))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]

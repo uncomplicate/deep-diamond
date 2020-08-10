@@ -18,7 +18,7 @@
                           network init! train cost train]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
-            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+#_            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce boston-housing-raw
   (csv/read-csv (slurp (io/resource "uncomplicate/diamond/functional/boston_housing_prices/boston-housing.csv"))))
@@ -74,7 +74,7 @@
     (facts "Adam gradient descent - Boston Housing Prices."
            (transfer! x-train (view x-tz))
            (transfer! y-train (view y-tz))
-           (time (< 2 (train net x-batcher y-batcher quad-cost 80 [] ) 10)) => true
+           (time (train net x-batcher y-batcher quad-cost 80 [])) => (roughly 6.0 5)true
 
            (transfer! net net-infer)
            (net-infer)
@@ -86,5 +86,5 @@
 (with-release [fact (neanderthal-factory)]
   (test-boston-regression fact))
 
-(with-release [fact (cudnn-factory)]
+#_(with-release [fact (cudnn-factory)];;TODO
   (test-boston-regression fact))

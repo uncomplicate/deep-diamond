@@ -22,22 +22,16 @@
              [protocols :refer [DescProvider desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
-             [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
-                                      dnnl-inner-product-blueprint dnnl-fc-blueprint
-                                      dnnl-universal-cost dnnl-custom-cost]]
+             [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint
+                               dnnl-inner-product-blueprint dnnl-fc-blueprint
+                               dnnl-universal-cost dnnl-custom-cost]]
              [factory :refer [->FloatTensorEngine]]]
             [uncomplicate.diamond.internal.neanderthal.fully-connected
-             :refer [neanderthal-fc-blueprint]])
-  (:import uncomplicate.diamond.internal.neanderthal.fully_connected.FullyConnectedBlueprint))
+             :refer [neanderthal-fc-blueprint]]))
 
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the Neanderthal/DNNL platform.
 Please contribute towards making it possible, or use on of the supported types.")
-
-(extend-type FullyConnectedBlueprint
-  DescProvider
-  (desc [this]
-    (desc (.activ-bluep this))))
 
 (defrecord NeanderthalFactory [eng strm master tensor-engines]
   Releaseable
@@ -82,7 +76,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (activ-blueprint [this src-desc activ alpha beta]
     (dnnl-activ-blueprint this eng src-desc src-desc activ alpha beta))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
-    (dragan-says-ex "Neanderthal engine does not implement inner product blueprint."))
+    (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
   (fc-blueprint [this src-desc dst-desc activ alpha beta _]
     (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta))
   CostFactory

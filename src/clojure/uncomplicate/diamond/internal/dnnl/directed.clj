@@ -1192,6 +1192,9 @@
       :mask mask-tz
       :data (info (output data-conn))
       (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     (input data-conn))
