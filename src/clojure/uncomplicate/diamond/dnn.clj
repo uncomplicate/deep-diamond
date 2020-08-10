@@ -15,7 +15,7 @@
              [random :refer [rand-normal! rand-uniform! rng-state]]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* shape input output batcher TensorContainer
-                     tensor data-type layout view-tz]]
+                     tensor data-type layout view-tz desc]]
             [uncomplicate.diamond.internal
              [protocols :as api]
              [network :refer [sequential-network]]]))
@@ -49,29 +49,149 @@
   ([src-desc dst-desc]
    (api/inner-product-blueprint *diamond-factory* src-desc dst-desc nil)))
 
-(defn fully-connected
+(defn coerce-fc-dst [src-desc dst-desc]
+  (let [src-shape (shape src-desc)
+        dst-shape (shape dst-desc)
+        n (get src-shape 0)]
+    (if (< 1 (count dst-shape))
+      dst-desc
+      {:shape [n (get dst-shape 0)]
+       :data-type (data-type dst-desc)
+       :layout (layout dst-desc)})))
+
+(defn fully-connected ;;TODO this should get coerced src/dest!
   ([fact src-desc dst-desc activ args]
    (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
-         beta (or (:beta args) 0.0)]
+         beta (or (:beta args) 0.0)
+         dst-desc (coerce-fc-dst src-desc dst-desc)]
      (api/fc-blueprint (api/diamond-factory fact) src-desc dst-desc
                        activ alpha beta (:weights-type args))))
   ([fact src-desc dst-desc activ]
-   (api/fc-blueprint (api/diamond-factory fact) src-desc dst-desc activ
-                     (if (= activ :linear) 1.0 0.0) 0.0 nil))
+   (fully-connected fact src-desc dst-desc activ nil))
+  ([dst-desc activ args]
+   (fn
+     ([fact src-desc];;TODO coerce must go here!!!!!
+      (fully-connected fact src-desc dst-desc activ args))))
+  ([dst-desc activ]
+   (fully-connected dst-desc activ nil)))
+
+(defn dense
+  "TODO Same as fully-connected."
   ([dst-desc activ args]
    (fn
      ([fact src-desc]
-      (let [dst-desc (into [(get (shape src-desc) 0)] dst-desc)]
-        (fully-connected fact src-desc dst-desc activ args)))
-     ([]
-      dst-desc)))
+      (fully-connected fact src-desc dst-desc activ args))))
   ([dst-desc activ]
+   (fully-connected dst-desc activ nil)))
+
+(defn coerce-conv-shapes [src-shape kernel-shape dst-shape
+                          strides padding-l padding-r]
+  (let [cnt (count src-shape)
+        [n ic & idhw] src-shape
+        [n oc :as dst-shape] (if (< (count dst-shape) cnt)
+                               (into [n] dst-shape)
+                               dst-shape)
+        [_ _ & kdhw :as kernel-shape] (if (< (count kernel-shape) cnt)
+                                        (into [oc ic] kernel-shape)
+                                        kernel-shape)]
+    [kernel-shape (if (< (count dst-shape) cnt)
+                    (into dst-shape
+                          (map (fn [i k s pl pr]
+                                 (inc (quot (+ (- (long i) (long k))
+                                               (long pl) (long pr))
+                                            (long s))))
+                               idhw kdhw strides padding-l padding-r))
+                    dst-shape)]))
+
+(defn convolution
+  "TODO"
+  ([fact src-desc weights-desc dst-desc activ args]
+   (let [conv-dim (- (count (shape src-desc)) 2)
+         strides (or (:strides args) (vec (repeat conv-dim 1)))
+         padding-l (or (:padding-l args) (:padding args) (vec (repeat conv-dim 0)))
+         padding-r (or (:padding-r args) (:padding args) (vec (repeat conv-dim 0)))
+         alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
+         beta (or (:beta args) 0.0)
+         [weights-shape dst-shape] (coerce-conv-shapes (shape src-desc) (shape weights-desc)
+                                                       (shape dst-desc)
+                                                       strides padding-l padding-r)
+         weights-desc (if (= weights-shape (shape weights-desc))
+                        weights-desc
+                        (desc weights-shape (data-type weights-desc) (layout weights-desc)))
+         dst-desc (if (= dst-shape (shape dst-desc))
+                    dst-desc
+                    (desc dst-shape (data-type dst-desc) (layout dst-desc)))]
+     (if (= (count (shape src-desc)) (count weights-shape) (count dst-shape))
+       (api/convolution-blueprint (api/diamond-factory fact)
+                                  src-desc weights-desc dst-desc activ
+                                  strides padding-l padding-r alpha beta)
+       (dragan-says-ex "TODO message."))))
+  ([fact src-desc weights-desc dst-desc activ]
+   (convolution fact src-desc weights-desc dst-desc activ nil))
+  ([dst-desc kernel-desc activ args]
    (fn
      ([fact src-desc]
-      (let [dst-desc (into [(get (shape src-desc) 0)] dst-desc)]
-        (fully-connected fact src-desc dst-desc activ)))
-     ([]
-      dst-desc))))
+      (convolution fact src-desc kernel-desc dst-desc activ args))))
+  ([dst-desc kernel-desc activ]
+   (convolution dst-desc kernel-desc activ nil)))
+
+(defn convo
+  ([dst-desc kernel-desc activ args]
+   (fn
+     ([fact src-desc]
+      (convolution fact src-desc kernel-desc dst-desc activ args))))
+  ([dst-desc kernel-desc activ]
+   (convolution dst-desc kernel-desc activ nil)))
+
+(defn coerce-pooling-dst [src-desc dst-desc]
+  (let [src-shape (shape src-desc)
+        dst-shape (shape dst-desc)
+        [n c] src-shape
+        missing-cnt (- (count src-shape) (count dst-shape))]
+    (if (= 0 missing-cnt)
+      dst-desc
+      {:shape (into (if (= 1 missing-cnt) [n] [n c]) dst-shape)
+       :data-type (data-type dst-desc)
+       :layout (layout dst-desc)})))
+
+(defn pooling
+  "TODO"
+  ([fact src-desc kernel dst-desc algo args]
+   (let [conv-dim (count kernel)
+         padding-l (or (:padding-l args) (:padding args) (vec (repeat conv-dim 0)))
+         padding-r (or (:padding-r args) (:padding args) (vec (repeat conv-dim 0)))
+         strides (or (:strides args) (vec (map (fn [^long s ^long d ^long p-l ^long p-r]
+                                                 (quot (+ s p-l p-r) d))
+                                               (take-last conv-dim (shape src-desc))
+                                               (take-last conv-dim (shape dst-desc))
+                                               padding-l padding-r)))
+         dst-desc (coerce-pooling-dst src-desc dst-desc)]
+     (api/pooling-blueprint (api/diamond-factory fact)
+                            src-desc dst-desc algo
+                            strides kernel padding-l padding-r)))
+  ([fact src-desc kernel dst-desc algo]
+   (pooling fact src-desc kernel dst-desc algo nil))
+  ([dst-desc kernel algo args]
+   (fn
+     ([fact src-desc]
+      (pooling fact src-desc kernel dst-desc algo args))))
+  ([dst-desc kernel algo]
+   (pooling dst-desc kernel algo nil)))
+
+(defn dropout-mask [src-desc ^long mask-dim]
+  (let [src-shape (shape src-desc)]
+    (into (vec (repeat (- (count src-shape) mask-dim) 1)) (take-last mask-dim src-shape))))
+
+(defn dropout
+  "TODO"
+  ([fact src-desc sd]
+   (api/gaussian-dropout-blueprint fact src-desc sd))
+  ([sd]
+   (fn
+     ([fact src-desc]
+      (dropout fact src-desc sd))))
+  ([]
+   (dropout 1.0)))
 
 (defn cost
   ([layer train-tz cost-kw]
@@ -96,8 +216,8 @@
 (defn init! [net!]
   (with-release [rng (rng-state (view (api/bias (first (api/layers net!)))))]
     (doseq [layer (api/layers net!)]
-      (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape (input layer)))))) (api/weights layer))
-      (rand-normal! rng (api/bias layer))))
+      (doseq [params (api/parameters layer)]
+        (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape params))))) params))))
   net!)
 
 (defn ^:private linear-decay
@@ -157,15 +277,15 @@
      (train* net cost! options)))
   ([net in out cost! epochs hyperparam]
    (cond (keyword? cost!)
-     (with-release [cost! (cost net cost!)]
-       (train net in out cost! epochs hyperparam))
-     (satisfies? TensorContainer in)
-     (with-release [in-batcher (batcher in (input net))]
-       (train net in-batcher out cost! epochs hyperparam))
-     (satisfies? TensorContainer out)
-     (with-release [out-batcher (batcher out (api/diff-input cost!))]
-       (train* net in out-batcher cost! epochs hyperparam))
-     :default (train* net in out cost! epochs hyperparam)))
+         (with-release [cost! (cost net cost!)]
+           (train net in out cost! epochs hyperparam))
+         (satisfies? TensorContainer in)
+         (with-release [in-batcher (batcher in (input net))]
+           (train net in-batcher out cost! epochs hyperparam))
+         (satisfies? TensorContainer out)
+         (with-release [out-batcher (batcher out (api/diff-input cost!))]
+           (train* net in out-batcher cost! epochs hyperparam))
+         :default (train* net in out cost! epochs hyperparam)))
   ([net in out cost! options]
    (cond (keyword? cost!)
          (with-release [cost! (cost net cost!)]

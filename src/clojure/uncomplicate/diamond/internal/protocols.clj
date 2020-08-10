@@ -30,7 +30,12 @@
 (defprotocol DnnFactory
   (activ-blueprint [this src-desc activ alpha beta])
   (inner-product-blueprint [this src-desc dst-desc weights-type])
-  (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]))
+  (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type])
+  (convolution-blueprint [this src-desc kernel-desc dst-desc activ
+                          strides padding-l padding-r alpha beta])
+  (pooling-blueprint [this src-desc dst-desc algo
+                      strides kernel padding-l padding-r])
+  (gaussian-dropout-blueprint [this src-desc sd]))
 
 (defprotocol CostFactory
   (quadratic-cost [this last-layer train-tz])

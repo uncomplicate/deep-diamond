@@ -29,9 +29,11 @@
              [protocols :refer [desc data DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims size]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
-             [fully-connected :refer [dnnl-sum-blueprint dnnl-activ-blueprint
-                                      dnnl-inner-product-blueprint dnnl-fc-blueprint
-                                      dnnl-universal-cost dnnl-custom-cost]]])
+             [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint
+                               dnnl-inner-product-blueprint dnnl-fc-blueprint
+                               dnnl-universal-cost dnnl-custom-cost
+                               dnnl-convolution-layer-blueprint dnnl-pooling-blueprint
+                               dnnl-gaussian-dropout-blueprint]]])
   (:import [uncomplicate.neanderthal.internal.host CBLAS LAPACK MKL]
            uncomplicate.neanderthal.internal.api.RealBufferAccessor
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor))
@@ -336,6 +338,15 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
     (dnnl-fc-blueprint this eng src-desc dst-desc activ alpha beta weights-type))
+  (convolution-blueprint [this src-desc weights-desc dst-desc activ
+                          strides padding-l padding-r alpha beta]
+    (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ
+                                      strides padding-l padding-r alpha beta))
+  (pooling-blueprint [this src-desc dst-desc algo strides kernel padding-l padding-r]
+    (dnnl-pooling-blueprint this eng src-desc dst-desc algo
+                            strides kernel padding-l padding-r))
+  (gaussian-dropout-blueprint [this src-desc sd]
+    (dnnl-gaussian-dropout-blueprint this src-desc sd))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))

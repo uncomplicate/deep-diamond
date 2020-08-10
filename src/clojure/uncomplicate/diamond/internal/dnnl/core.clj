@@ -133,6 +133,11 @@
         y (desc y)]
     (or (= x y) (= 1 (dnnl/dnnl_memory_desc_equal x y)))))
 
+(def zero-desc (memory-desc [] :undef []))
+
+(defn zero-desc? [mem-desc]
+  (or (nil? mem-desc) (equal-desc? zero-desc mem-desc)))
+
 (defn data-type
   "Queries the data type of a memory descriptor."
   [mem-desc]
@@ -189,7 +194,7 @@
 
 (defn offset
   "Gets the starting position in the buffer that the memory object `mem` controls."
-  [mem]
+  ^long [mem]
   (.position ^Pointer (ptr mem)))
 
 (defn get-engine
@@ -245,37 +250,44 @@
 (defn src-md
   "Queries the primitive descriptor `pd` for the source (input)."
   [pd]
-  (query-md* (extract pd) dnnl/dnnl_query_src_md))
+  (let [d (query-md* (extract pd) dnnl/dnnl_query_src_md)]
+    (if (zero-desc? d) nil d)))
 
 (defn diff-src-md
   "Queries the primitive descriptor `pd` for the gradient of the source (input)."
   [pd]
-  (query-md* (extract pd) dnnl/dnnl_query_diff_src_md))
+  (let [d (query-md* (extract pd) dnnl/dnnl_query_diff_src_md)]
+    (if (zero-desc? d) nil d)))
 
 (defn weights-md
   "Queries the primitive descriptor `pd` for the weights."
   [pd]
-  (query-md* (extract pd) dnnl/dnnl_query_weights_md))
+  (let [d (query-md* (extract pd) dnnl/dnnl_query_weights_md)]
+    (if (zero-desc? d) nil d)))
 
 (defn diff-weights-md
   "Queries the primitive descriptor `pd` for the gradient of the weights."
   [pd]
-  (query-md* (extract pd) dnnl/dnnl_query_diff_weights_md))
+  (let [d (query-md* (extract pd) dnnl/dnnl_query_diff_weights_md)]
+    (if (zero-desc? d) nil d)))
 
 (defn dst-md
   "Queries the primitive descriptor `pd` for the destination (output)."
   [pd]
-  (query-md* (extract pd) dnnl/dnnl_query_dst_md))
+  (let [d (query-md* (extract pd) dnnl/dnnl_query_dst_md)]
+    (if (zero-desc? d) nil d)))
 
 (defn diff-dst-md
   "Queries the primitive descriptor `pd` for the gradient of the destination (output)."
   [pd]
-  (query-md* (extract pd) dnnl/dnnl_query_diff_dst_md))
+  (let [d (query-md* (extract pd) dnnl/dnnl_query_diff_dst_md)]
+    (if (zero-desc? d) nil d)))
 
 (defn workspace-md
   "Queries the primitive descriptor `pd` for the workspace (scratchpad)."
   [pd]
-  (query-md* (extract pd) dnnl/dnnl_query_workspace_md))
+  (let [d (query-md* (extract pd) dnnl/dnnl_query_workspace_md)]
+    (if (zero-desc? d) nil d)))
 
 ;; =================== Etlwise ==================================================
 
@@ -362,6 +374,28 @@
        (wrap (sum* (desc dst)
                    (float-array (cons scale (take-nth 2 scale-srcs)))
                    s (extract eng)))))))
+
+;; ======================= Sum ============================================================
+
+(defn binary-desc
+  "TODO
+  NOTE: much slower than Neanderthal add or mul. Use only when can't avoid it."
+  ([alg-kind src0-desc src1-desc dst-desc]
+   (binary-desc* (enc-keyword dnnl-binary-alg-kind alg-kind)
+                 (desc src0-desc) (desc src1-desc) (desc dst-desc) ))
+  ([alg-kind src-dst-desc src1-desc]
+   (binary-desc alg-kind src-dst-desc src1-desc src-dst-desc))
+  ([alg-kind src-dst-desc]
+   (binary-desc alg-kind src-dst-desc src-dst-desc src-dst-desc)))
+
+(defn binary-args
+  ([src0 src1 dst]
+   (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_SRC_0 (extract src0))
+     (args* args 1 dnnl/DNNL_ARG_SRC_1 (extract src1))
+     (args* args 2 dnnl/DNNL_ARG_DST (extract dst))))
+  ([src-and-dst src1]
+   (binary-args src-and-dst src1 src-and-dst)))
 
 ;; ========================= Execution Arguments =======================================
 

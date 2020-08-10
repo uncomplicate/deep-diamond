@@ -12,13 +12,14 @@
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view vctr cols view-ge nrm2]]
              [random :refer [rand-uniform!]]
-             [math :as math]]
+             [math :as math]
+             [vect-math :refer [div!]]]
             [uncomplicate.diamond
              [dnn :refer :all]
              [tensor :refer :all]
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
-             :refer [diff-bias diff-weights forward backward layers diff-input weights bias]]))
+             :refer [diff-bias diff-weights forward backward layers diff-input diff-output weights bias]]))
 
 (defn test-sum [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
@@ -121,6 +122,28 @@
            (transfer! fc fc-1) => fc-1
            (bias fc-1) => (bias fc)
            (weights fc-1) => (weights fc))))
+
+(defn test-inner-product-training [fact]
+  (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
+                 ip-bluep (inner-product fact input-tz [1 2])
+                 dst-tz (tensor fact [1 2] :float :nc)
+                 ip (ip-bluep input-tz dst-tz false)]
+    (facts "Inner product training operation."
+           (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights ip))
+           (transfer! [-0.1 0.2] (bias ip))
+           (forward ip) => ip
+           (view (output ip)) => (vctr input-tz -0.8100000023841858 0.7299999594688416)
+           (transfer! [-0.71 -0.1] (diff-input ip))
+           (backward ip) => ip
+           (seq (native (view input-tz))) => (map float [-0.5 0 0.2 1.0 0.3 -0.69999999])
+           (seq (native (view (weights ip))))
+           => (map float [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7])
+           (seq (native (view (diff-weights ip))))
+           => (map float [0.355 0.0 -0.142 -0.71
+                          -0.213 0.49699998 0.05 0.0
+                          -0.0200000014 -0.1 -0.030000001 0.07])
+           (seq (native (view (bias ip)))) => [-0.10000000149011612 0.20000000298023224])))
 
 (defn test-fully-connected-training [fact]
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -415,3 +438,165 @@
                 (backward net [0 1 0 0 false]))
               (net)
               nil))))
+
+(defn test-convolution-inference [fact]
+  (with-release [input-tz (tensor fact [2 1 4 4] :float :nchw)
+                 conv-bluep (convolution fact [2 1 4 4] [1 1 3 3] [1] :linear)
+                 conv (conv-bluep input-tz)
+                 connect-output (connector (output conv) (desc [2 1 2 2] :float :nchw))
+                 input-weights (connector (desc [1 1 3 3] :float :nchw) (weights conv))
+                 output-weights (revert input-weights)]
+    (facts "Convolution inference layer"
+           (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                       0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50]
+                      input-tz)
+           (transfer! [-2 0 1 0 1 0 -1 -2 0] (input input-weights))
+           (input-weights)
+           (transfer! [0.5] (bias conv))
+           (conv) => (output conv)
+           (seq (native (view (connect-output)))) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5])))
+
+(defn test-convolution-inference-relu [fact]
+  (with-release [input-tz (tensor fact [2 1 4 4] :float :nchw)
+                 conv-bluep (convolution fact [2 1 4 4] [1 1 3 3] [1] :relu)
+                 conv (conv-bluep input-tz)
+                 connect-output (connector (output conv) (desc [2 1 2 2] :float :nchw))
+                 input-weights (connector (desc [1 1 3 3] :float :nchw) (weights conv))
+                 output-weights (revert input-weights)]
+    (facts "Convolution inference layer"
+           (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                       0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50]
+                      input-tz)
+           (transfer! [-2 0 1 0 1 0 -1 -2 0] (input input-weights))
+           (input-weights)
+           (transfer! [0.5] (bias conv))
+           (conv) => (output conv)
+           (seq (native (view (connect-output)))) => [18.5 0.0 0.0 0.0 102.5 57.5 0.0 0.0])))
+
+(defn test-convolution-training [fact]
+  (with-release [input-tz (tensor fact [2 1 4 4] :float :nchw)
+                 conv-bluep (convolution fact [2 1 4 4] [1 1 3 3] [1] :linear)
+                 conv (conv-bluep input-tz true)
+                 input-weights (connector (desc [1 1 3 3] :float :nchw) (weights conv))
+                 output-weights (revert input-weights)
+                 train-tz (tensor fact [2 1 2 2] :float :nchw)
+                 conv-output (cost conv train-tz :quadratic)]
+    (facts "Convolution training layer"
+           (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                       0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50]
+                      input-tz)
+           (transfer! [-2 0 1 0 1 0 -1 -2 0] (input input-weights))
+           (input-weights)
+           (transfer! [0.5] (bias conv))
+           (forward conv [nil 1 0 0 false]) => conv
+           (forward conv-output)
+           (seq (native (view (output conv-output)))) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5]
+           (transfer! [18.3 -93.8 -21.3 -566.5 101.5 56.5 -78.5 -176.5] (view train-tz))
+           (backward conv-output) => conv-output
+           (backward conv) => conv
+           (backward conv [nil 1 0 0 false]) => conv
+           (view (weights conv)) => (vctr train-tz -127.950065 -115.449982 -45.800049 -108.500145
+                                          -92.000023 -116.5 -41.500053 -101.300003 -207.499939)
+           (view (input conv)) => (vctr train-tz [-0.40000152587890625 -0.600006103515625 0.20000076293945312
+                                                  0.3000030517578125 -1.5999984741210938 -1.7999992370605469
+                                                  1.1000022888183594 1.0 -0.20000076293945312 0.09999465942382812
+                                                  0.399993896484375 0.0 -0.7999992370605469 -2.5999984741210938
+                                                  -2.0 0.0 -2.0 -2.0 1.0 1.0 -2.0 -1.0 2.0 1.0 -1.0 -2.0 -1.0
+                                                  0.0 -1.0 -3.0 -2.0 0.0]))))
+
+(defn test-pooling-max [fact]
+  (with-release [src-tz (tensor fact [2 1 4 4] :float :nchw)
+                 dst-desc (desc [2 1 2 2] :float :nchw)
+                 pool-bluep (pooling fact src-tz [2 2] dst-desc :max)
+                 pool-infer (pool-bluep src-tz)
+                 pool-train (pool-bluep src-tz nil true)]
+
+    (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50] src-tz)
+
+    (facts
+     "Pooling inference test."
+     (view (pool-infer)) => (vctr src-tz [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0])
+     (view (input pool-infer)) => (vctr src-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+     (view (output pool-infer)) => (vctr src-tz [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]))
+
+    (facts
+     "Pooling forward test."
+     (entry! (output pool-train) 0.0)
+     (forward pool-train nil) => pool-train
+     (view (input pool-train)) => (vctr src-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+     (view (output pool-train)) => (vctr src-tz [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]))
+
+    (facts
+     "Pooling backward test."
+     (entry! (diff-input pool-train) 2.0)
+     (backward pool-train nil)
+     (view (diff-output pool-train))
+     => (vctr src-tz [0.0 0.0 0.0 2.0 0.0 2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 0.0 2.0 0.0
+                      0.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0]))))
+
+(defn test-pooling-avg [fact]
+  (with-release [src-tz (tensor fact [2 1 4 4] :float :nchw)
+                 dst-desc (desc [2 1 2 2] :float :nchw)
+                 pool-bluep (pooling fact src-tz [2 2] dst-desc :avg)
+                 pool-infer (pool-bluep src-tz)
+                 pool-train (pool-bluep src-tz nil true)]
+
+    (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50] src-tz)
+
+    (facts
+     "Pooling inference test."
+     (view (pool-infer)) => (vctr src-tz [35.25 8.25 21.0 56.25 35.25 21.0 8.25 56.25])
+     (view (input pool-infer)) => (vctr src-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+     (view (output pool-infer)) => (vctr src-tz [35.25 8.25 21.0 56.25 35.25 21.0 8.25 56.25]))
+
+    (facts
+     "Pooling forward test."
+     (entry! (output pool-train) 0.0)
+     (forward pool-train nil) => pool-train
+     (view (input pool-train)) => (vctr src-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+     (view (output pool-train)) => (vctr src-tz [35.25 8.25 21.0 56.25 35.25 21.0 8.25 56.25]))
+
+    (facts
+     "Pooling backward test."
+     (entry! (diff-input pool-train) 2.0)
+     (backward pool-train nil)
+     (view (diff-output pool-train)) => (vctr src-tz (repeat 32 0.5)))))
+
+(defn test-sequential-network-convolution-adam [fact]
+  (facts "Convolutional network with softmax cross-entropy."
+         (with-release [input-tz (tensor fact [2 1 8 8] :float :nhwc)
+                        train-tz (tensor fact [2 2] :float :nc)
+                        net-bp (network fact input-tz
+                                        [(convolution [1] [3 3] :relu)
+                                         (pooling [3 3] [2 2] :max);;TODO Maybe skip kernel and use default size equal to stride?
+                                         (convolution [1] [2 2] :relu {:padding [1 1]})
+                                         (fully-connected [4] :relu)
+                                         (fully-connected [2] :softmax)])
+                        net (init! (net-bp input-tz :adam))
+                        crossentropy-cost (cost net train-tz :crossentropy)]
+           (transfer! (range 1 10 0.2) input-tz)
+           (transfer! [0.9 0.1 0 0] train-tz)
+           (train net crossentropy-cost 3 []) => (roughly 1.7 1))))
+
+(defn test-gaussian-dropout [fact]
+  (with-release [src-tz (tensor fact [2 1 4 4] :float :nchw)
+                 drop-bluep (dropout fact src-tz 1.0)
+                 drop-train (drop-bluep src-tz nil true)]
+
+    (transfer! (repeat 1) src-tz)
+
+    (facts
+     "Dropout forward test."
+     (forward drop-train nil) => drop-train
+     (seq (div! (output drop-train) (.mask-tz drop-train))) => (repeat 32 1.0))
+
+    (facts
+     "Dropout backward test."
+     (backward drop-train nil)
+     (seq (div! (output drop-train) (.mask-tz drop-train))) => (repeat 32 1.0))))

@@ -20,9 +20,9 @@
            org.bytedeco.dnnl.global.dnnl
            [org.bytedeco.dnnl dnnl_engine dnnl_stream dnnl_primitive_desc
             dnnl_primitive dnnl_exec_arg_t dnnl_memory_desc_t dnnl_memory
-            dnnl_primitive_desc const_dnnl_op_desc_t dnnl_primitive_attr
-            dnnl_eltwise_desc_t dnnl_inner_product_desc_t dnnl_softmax_desc_t
-            dnnl_convolution_desc_t dnnl_pooling_desc_t dnnl_batch_normalization_desc_t]))
+            const_dnnl_op_desc_t dnnl_primitive_attr dnnl_eltwise_desc_t
+            dnnl_inner_product_desc_t dnnl_softmax_desc_t dnnl_convolution_desc_t
+            dnnl_pooling_desc_t dnnl_batch_normalization_desc_t dnnl_binary_desc_t]))
 
 (defn dnnl-error
   ([^long err-code details]
@@ -38,7 +38,7 @@
           form# ~form]
       (if (= 0 status#)
         form#
-        (throw (dnnl-error status# (if (satisfies? Info form#) (type form#) (str form#))))))))
+        (throw (dnnl-error status# (if (satisfies? Info form#) (info form#) (str form#))))))))
 
 (extend-type Pointer
   Releaseable
@@ -317,6 +317,19 @@
       (dnnl/dnnl_sum_primitive_desc_create pd dst (alength scales) scales
                                            (.position src 0) nil eng)
       pd)))
+
+;; ======================= Binary ============================================================
+
+(extend-type dnnl_binary_desc_t
+  PrimitiveKind
+  (primitive-kind* [desc]
+    (.primitive_kind desc)))
+
+(defn binary-desc* [alg-kind src0 src1 dst]
+  (let-release [binary-desc (dnnl_binary_desc_t.)]
+    (with-check
+      (dnnl/dnnl_binary_desc_init binary-desc alg-kind src0 src1 dst)
+      binary-desc)))
 
 ;; ======================= Reorder ========================================================
 

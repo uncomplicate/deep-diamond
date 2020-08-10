@@ -507,7 +507,6 @@
          (execute! s conv conv-args) => s
          (seq dst-vec) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5]))
 
-
 (facts "Convolution backward."
        (with-release [eng (engine)
                       s (stream eng)
@@ -548,7 +547,7 @@
                                                                   bias-desc dst-desc
                                                                   [1 1] [0 0] [0 0])
                       conv-bwd-weights-pd (primitive-desc eng conv-bwd-weights-desc conv-pd)
-                      diff-weights-vec (fv 32)
+                      diff-weights-vec (fv 9)
                       diff-bias-vec (fv [1.5])
                       diff-weights-mem (memory eng (diff-weights-md conv-bwd-weights-pd)
                                                (buffer diff-weights-vec))
@@ -567,10 +566,7 @@
                                            -2.0 -2.0 1.0 1.0 -2.0 -1.0 2.0 1.0
                                            -1.0 -2.0 -1.0 0.0 -1.0 -3.0 -2.0 0.0])
          (execute! s conv-bwd-weights conv-bwd-weights-args) => s
-         (seq diff-weights-vec) => (map float [251.9 230.9 93.6 217.0 186.0 233.0 81.0 198.6
-                                               415.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
-                                               0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0
-                                               0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0])
+         (seq diff-weights-vec) => (map float [251.9 230.9 93.6 217.0 186.0 233.0 81.0 198.6 415.0])
          (entry diff-bias-vec 0) => (float 6.3)))
 
 (facts "Max pooling forward."
@@ -589,6 +585,8 @@
                       pool-args (fwd-args src-mem dst-mem)]
          (primitive-kind pool-desc) => :pooling
          (execute! s pool pool-args) => s
+         src-vec => (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                        0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
          (seq dst-vec) => [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]))
 
 (facts "Max pooling backward."
@@ -617,6 +615,8 @@
                       pool-bwd-args (pooling-bwd-args diff-dst-mem diff-src-mem workspace-mem)]
          (primitive-kind pool-desc) => :pooling
          (execute! s pool pool-args) => s
+         src-vec => (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                        0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
          (seq dst-vec) => [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]
          (execute! s pool-bwd pool-bwd-args)
          (seq diff-src-vec) => [0.0 0.0 0.0 2.0 0.0 2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 0.0 2.0 0.0
@@ -688,3 +688,23 @@
          (seq diff-src-vec) => [-2.455202579498291 3.989145278930664 -0.6126827001571655 -0.9212599992752075
                                 -1.4489718675613403 0.9928141236305237 2.3612875938415527 -1.9051299095153809]
          (seq diff-scaleshift-vec) => [2.6385602951049805 -3.219937801361084]))
+
+(facts "In-place Binary operation"
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2 3 4 5] :float :nchw)
+                      buf0 (direct-buffer (size md))
+                      src0 (memory eng md buf0)
+                      buf1 (direct-buffer (size md))
+                      src1 (memory eng md buf1)
+                      add-desc (binary-desc :add md)
+                      add-pd (primitive-desc eng add-desc)
+                      add-prim (primitive add-pd)
+                      add-args (binary-args src0 src1)]
+         (put-float buf0 0 -100)
+         (put-float buf0 1 20)
+         (put-float buf1 0 -200)
+         (put-float buf1 1 30)
+         (execute! s add-prim add-args) => s
+         (get-float buf0 0) => -300.0
+         (get-float buf0 1) => 50.0))

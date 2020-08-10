@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.dnnl.fully-connected-test
+(ns uncomplicate.diamond.internal.dnnl.directed-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
@@ -88,8 +88,16 @@
   (test-gradient-descent fact)
   (test-stochastic-gradient-descent-sgd fact)
   (test-stochastic-gradient-descent-adam fact)
-  (test-crossentropy-cost fact))
+  (test-crossentropy-cost fact)
+  (test-inner-product-training fact)
+  (test-convolution-inference fact)
+  (test-convolution-inference-relu fact)
+  (test-convolution-training fact)
+  (test-pooling-max fact)
+  (test-pooling-avg fact)
+  (test-sequential-network-convolution-adam fact)
+  (test-gaussian-dropout fact))
 
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
-;; "Elapsed time: 5579.050168 msecs"
+;; "Elapsed time: 4990.836368 msecs"

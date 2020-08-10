@@ -15,7 +15,7 @@
              [dnn :refer [fully-connected network init! train cost infer]]
              [metrics :refer [confusion-matrix contingency-totals classification-metrics]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+            #_[uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce train-images-file (random-access "data/mnist/train-images.idx3-ubyte"))
 (defonce train-labels-file (random-access "data/mnist/train-labels.idx1-ubyte"))
@@ -71,7 +71,7 @@
          => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))
 ;; "Elapsed time: 2074.615346 msecs"
 
-(with-diamond cudnn-factory []
+#_(with-diamond cudnn-factory []
   (with-release [x-mb-tz (tensor [128 1 28 28] :float :nchw)
                  y-mb-tz (tensor [128 10] :float :nc)
                  net-bp (network x-mb-tz

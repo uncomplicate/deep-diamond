@@ -13,7 +13,7 @@
             [uncomplicate.fluokitten.protocols :refer [Magma Monoid Foldable Applicative pure]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
-             [block :refer [entry-width data-accessor buffer count-entries]]]
+             [block :refer [entry-width data-accessor buffer count-entries contiguous?]]]
             [uncomplicate.neanderthal.internal.api
              :refer [Viewable view flow FactoryProvider EngineProvider DataAccessorProvider
                      Container raw copy MemoryContext set-all compatible? factory native-factory
@@ -79,7 +79,9 @@
   ConnectorCreator
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
-      out
+      (if (satisfies? TensorContainer out)
+        (view-tz out)
+        out)
       (let [out-tz (output out)]
         (if (equal-desc? in-desc out-tz)
           (view-tz out-tz)
@@ -196,7 +198,6 @@
                          (entry-bytes (data-type src-tz))
                          ((dims dst-tz) 0) ((strides dst-sub) 0)
                          (entry-bytes (data-type dst-tz))))))))
-
 
 (deftype DnnlShuffler [strm batcher]
   Releaseable
@@ -354,13 +355,14 @@
   (native [x]
     x)
   Viewable
-  (view [_]
+  (view [this]
     (let [ewidth (entry-width (data-accessor neand-fact))
           n (apply * (dims tz-mem))]
       (if (= (* (long n) ewidth) (size tz-mem))
         (create-vector neand-fact false (data tz-mem) n
                        (/ (.position ^Pointer (ptr tz-mem)) ewidth) 1)
-        (dragan-says-ex "Strided tensors cannot be viewed as vectors."))))
+        (dragan-says-ex "Strided tensors cannot be viewed as vectors."
+                        {:tensor (info this)}))))
   Seqable
   (seq [this]
     (seq (view this)))
@@ -490,7 +492,8 @@
   [^DnnlTensor x ^java.io.Writer w]
   (.write w (str x))
   (.write w "\n")
-  (print-method (doall (take *print-length* (seq (view x)))) w))
+  (when (contiguous? x)
+    (print-method (doall (take *print-length* (seq (view x)))) w)))
 
 (defmethod transfer! [DnnlTensor DnnlTensor]
   [source destination]
@@ -526,3 +529,10 @@
 (defmethod transfer! [DnnlTransformer DnnlTensor]
   [source destination]
   (transfer! (output source) destination))
+
+(prefer-method transfer! [DnnlTensor Object] [Object DnnlTensor])
+(prefer-method transfer! [DnnlTensor DnnlTensor] [Object DnnlTensor])
+(prefer-method transfer! [DnnlTensor DnnlTensor] [DnnlTensor Object])
+
+(defn dnnl-args [args-fn & args]
+  (apply args-fn (map #(if % (buffer %) %) args)))

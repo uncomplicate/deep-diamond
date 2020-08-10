@@ -226,10 +226,12 @@
    :clip dnnl/dnnl_eltwise_clip
    :pow dnnl/dnnl_eltwise_pow
    :relu-dst-bwd dnnl/dnnl_eltwise_relu_use_dst_for_bwd
+   :exp-dst-bwd dnnl/dnnl_eltwise_exp_use_dst_for_bwd
    :tanh-dst-bwd dnnl/dnnl_eltwise_tanh_use_dst_for_bwd
    :elu-dst-bwd dnnl/dnnl_eltwise_elu_use_dst_for_bwd
    :square-dst-bwd dnnl/dnnl_eltwise_sqrt_use_dst_for_bwd
-   :logistic-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd})
+   :logistic-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd
+   :sigmoid-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd})
 
 (defn entry-bytes ^long [data-type]
   (case data-type
@@ -260,3 +262,9 @@
    :global-stats dnnl/dnnl_use_global_stats
    :scaleshift dnnl/dnnl_use_scaleshift
    :fuse-relu dnnl/dnnl_fuse_norm_relu})
+
+(def ^:const dnnl-binary-alg-kind
+  {:add dnnl/dnnl_binary_add
+   :mul dnnl/dnnl_binary_mul
+   :max dnnl/dnnl_binary_max
+   :min dnnl/dnnl_binary_min})
