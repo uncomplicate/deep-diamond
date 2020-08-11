@@ -21,7 +21,7 @@
              [impl :refer :all]])
   (:import java.lang.Exception
            [jcuda.jcudnn JCudnn]
-           uncomplicate.diamond.internal.cudnn.impl.CUTensorDescriptor))
+           [uncomplicate.diamond.internal.cudnn.impl CUTensorDescriptor CUFilterDescriptor]))
 
 (defn cudnn-handle [stream]
   (wrap (cudnn-handle* (extract stream))))
@@ -53,11 +53,17 @@
 (defn equal-desc? [td1 td2]
   (let [td1 (desc td1)
         td2 (desc td2)]
-    (and (instance? CUTensorDescriptor td1) (instance? CUTensorDescriptor td2)
-         (let [td1 ^CUTensorDescriptor td1
-               td2 ^CUTensorDescriptor td2]
-           (and (= (.dims td1) (.dims td2)) (= (.data-type td1) (.data-type td2))
-                (= (.strides td1) (.strides td2)))))))
+    (or (= td1 td2)
+        (and (instance? CUTensorDescriptor td1) (instance? CUTensorDescriptor td2)
+             (let [td1 ^CUTensorDescriptor td1
+                   td2 ^CUTensorDescriptor td2]
+               (and (= (.dims td1) (.dims td2)) (= (.data-type td1) (.data-type td2))
+                    (= (.strides td1) (.strides td2)))))
+        (and (instance? CUFilterDescriptor td1) (instance? CUFilterDescriptor td2)
+             (let [td1 ^CUFilterDescriptor td1
+                   td2 ^CUFilterDescriptor td2]
+               (and (= (.dims td1) (.dims td2)) (= (.data-type td1) (.data-type td2))
+                    (= (.format td1) (.format td2))))))))
 
 (defn data-type
   "Returns the data type of a tensor descriptor."
@@ -226,4 +232,74 @@
                      (ptr alpha) (extract (desc desc-y)) (extract buf-y)
                      (extract (desc desc-dy)) (extract buf-dy)
                      (ptr beta) (extract (desc desc-dx)) (extract buf-dx))
+  cudnn-handle)
+
+;; ============================ Filter =============================================
+
+(defn filter-descriptor [shape data-type format]
+  (let [d (count shape)
+        dtype (enc-keyword cudnn-data-type data-type)
+        format (enc-keyword cudnn-format format)]
+    (let [fd (filter-descriptor*)]
+      (try
+        (wrap
+         (if (< 4 d)
+           (filter-nd-descriptor* fd dtype format (int-array shape))
+           (filter-4d-descriptor* fd dtype format shape)))
+        (catch Exception e
+          (with-check (JCudnn/cudnnDestroyFilterDescriptor fd)
+            (throw e)))))))
+
+(defn extract-filter [ ^CUFilterDescriptor filter-desc]
+  (deref (.fd filter-desc)))
+
+;; ============================ Convolution ========================================
+
+(defn convolution-descriptor [mode data-type pad stride dilation]
+  (let-release [cd (wrap (convolution-descriptor*))]
+    (let [mode (enc-keyword cudnn-convolution-mode mode)
+          dtype (enc-keyword cudnn-data-type data-type)]
+      (try
+        (wrap
+         (if (= 2 (count pad))
+           (convolution-2d-descriptor* (extract cd) pad stride dilation mode dtype)
+           (convolution-nd-descriptor* (extract cd) (int-array pad) (int-array stride)
+                                       (int-array dilation) mode dtype)))))
+    cd))
+
+(defn convolution-get-fwd-algo
+  ([cudnn-handle cd desc-x desc-w desc-y preference limit-bytes]
+   (dec-convolution-fwd-algo
+    (convolution-get-fwd-algo* (extract cudnn-handle) (extract cd) (extract desc-x)
+                                        (extract-filter desc-w) (extract (desc desc-y))
+                                        (enc-keyword cudnn-convolution-fwd-preference preference)
+                                        limit-bytes)))
+  ([cudnn-handle cd desc-x desc-w desc-y]
+   (dec-convolution-fwd-algo
+    (convolution-get-fwd-algo* (extract cudnn-handle) (extract cd) (extract desc-x)
+                                        (extract-filter desc-w) (extract (desc desc-y)))))
+  ([cudnn-handle cd desc-x desc-w desc-y limit-bytes]
+   (dec-convolution-fwd-algo
+    (convolution-get-fwd-algo* (extract cudnn-handle) (extract cd) (extract desc-x)
+                                        (extract-filter desc-w) (extract (desc desc-y))
+                                        limit-bytes))))
+
+(defn convolution-get-fwd-workspace-size [cudnn-handle cd algo desc-x desc-w desc-y]
+  (convolution-get-fwd-workspace-size* (extract cudnn-handle) (extract cd)
+                                       (enc-keyword cudnn-convolution-fwd-algo algo)
+                                       (extract desc-x)
+                                       (extract-filter desc-w) (extract desc-y)))
+
+(defn convolution-forward
+  "TODO
+  The :convolution algorithm uses flipped kernels as real convolution from the books.
+  To match DNNL (more practical), use :cross-correlation."
+  [cudnn-handle cd algo alpha desc-x buf-x desc-w buf-w
+                           beta desc-y buf-y workspace]
+  (convolution-forward* (extract cudnn-handle) (extract cd)
+                        (enc-keyword cudnn-convolution-fwd-algo algo)
+                        (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                        (extract-filter desc-w) (extract buf-w)
+                        (ptr beta) (extract (desc desc-y)) (extract buf-y)
+                        (extract workspace) (if workspace (cuda/size workspace) 0))
   cudnn-handle)

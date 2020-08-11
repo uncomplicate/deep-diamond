@@ -23,7 +23,8 @@
            jcuda.driver.CUstream
            [jcuda.jcudnn JCudnn cudnnHandle cudnnStatus cudnnTensorDescriptor
             cudnnActivationDescriptor cudnnReduceTensorDescriptor cudnnIndicesType
-            cudnnReduceTensorIndices cudnnReduceTensorOp]))
+            cudnnReduceTensorIndices cudnnReduceTensorOp cudnnConvolutionDescriptor
+            cudnnFilterDescriptor cudnnConvolutionFwdPreference]))
 
 (defn cudnn-error [^long err-code details]
   (let [err (cudnnStatus/stringFor err-code)]
@@ -300,3 +301,171 @@
                                  alpha desc-y buf-y desc-dy buf-dy
                                  beta desc-dx buf-dx)
     cudnn-handle))
+
+;; ======================== Filter ==============================
+
+(deftype CUFilterDescriptor [^cudnnFilterDescriptor fd
+                             ^cudnnTensorDescriptor td
+                             dims data-type format strides]
+  Object
+  (hashCode [this]
+    (hash (deref td)))
+  (equals [this other]
+    (= @td (extract other)))
+  (toString [this]
+    (format "#CUFilterDescriptor[0x%s]" (Long/toHexString (native-pointer @td))))
+  Wrapper
+  (extract [this]
+    @td)
+  DescProvider
+  (desc [this]
+    this)
+  Info
+  (info [td info-type]
+    (case info-type
+      :class (class td)
+      :device :cuda
+      :shape (.dims td)
+      :data-type (.data-type td)
+      :format (.format td)
+      nil))
+  (info [td]
+    {:class (class td)
+     :device :cuda
+     :shape (.dims td)
+     :data-type (.data-type td)
+     :format (.format td)})
+  Releaseable
+  (release [this]
+    (locking td
+      (when-let [d @td]
+        (locking d
+          (with-check
+            (JCudnn/cudnnDestroyTensorDescriptor d)
+            (vreset! td nil)))))
+    (locking fd
+      (when-let [d @fd]
+        (locking d
+          (with-check
+            (JCudnn/cudnnDestroyFilterDescriptor d)
+            (vreset! fd nil)))))
+    true))
+
+(defn get-filter-nd-descriptor* ^long [^cudnnFilterDescriptor fd
+                                       ^ints data-type ^ints format ^ints dims]
+  (let [nbdims (int-array 1)]
+    (with-check
+      (JCudnn/cudnnGetFilterNdDescriptor fd (alength dims) data-type format nbdims dims)
+      (aget nbdims 0))))
+
+(extend-type cudnnFilterDescriptor
+  Info
+  (info [fd]
+    (let [data-type (int-array 1)
+          format (int-array 1)
+          dims (int-array JCudnn/CUDNN_DIM_MAX)
+          nbdims (get-filter-nd-descriptor* fd data-type format dims)]
+      {:class (class fd)
+       :device :cuda
+       :shape (vec (take nbdims dims))
+       :data-type (dec-data-type (aget data-type 0))
+       :format (dec-format (aget format 0))}))
+  Wrappable
+  (wrap [fd]
+    (let [data-type-arr (int-array 1)
+          format-arr (int-array 1)
+          dims-arr (int-array JCudnn/CUDNN_DIM_MAX)
+          strides-arr (int-array JCudnn/CUDNN_DIM_MAX)
+          nbdims (get-filter-nd-descriptor* fd data-type-arr format-arr dims-arr)
+          format (aget format-arr 0)
+          data-type (aget data-type-arr 0)
+          dims (vec (take nbdims dims-arr))]
+      (let-release [td (if (< 4 nbdims)
+                         (tensor-nd-descriptor-ex* (tensor-descriptor*) format data-type dims-arr)
+                         (tensor-4d-descriptor* (tensor-descriptor*) format data-type dims))]
+        (get-tensor-nd-descriptor* td data-type-arr dims-arr strides-arr)
+        (->CUFilterDescriptor (volatile! fd) (volatile! td) dims
+                              (dec-data-type data-type)
+                              (dec-format format)
+                              (vec (take nbdims strides-arr)))))))
+
+(defn filter-descriptor* []
+  (let [res (cudnnFilterDescriptor.)]
+    (with-check
+      (JCudnn/cudnnCreateFilterDescriptor res)
+      res)))
+
+(defn filter-4d-descriptor*
+  ([^cudnnFilterDescriptor fd ^long data-type ^long format shape]
+   (with-check
+     (JCudnn/cudnnSetFilter4dDescriptor
+      fd data-type format (get shape 0 0) (get shape 1 1) (get shape 2 1) (get shape 3 1))
+     fd)))
+
+(defn filter-nd-descriptor*
+  ([^cudnnFilterDescriptor fd ^long data-type ^long format ^ints dims]
+   (with-check
+     (JCudnn/cudnnSetFilterNdDescriptor fd data-type format (alength dims) dims)
+     fd)))
+
+;; ======================== Convolution ==============================
+
+(deftype-wrapper CUDnnConvolutionDescriptor
+  JCudnn/cudnnDestroyConvolutionDescriptor cudnn-error)
+
+(extend-type cudnnConvolutionDescriptor
+  Wrappable
+  (wrap [cd]
+    (->CUDnnConvolutionDescriptor (volatile! cd))))
+
+(defn convolution-descriptor* []
+  (let [res (cudnnConvolutionDescriptor.)]
+    (with-check
+      (JCudnn/cudnnCreateConvolutionDescriptor res)
+      res)))
+
+(defn convolution-2d-descriptor* [^cudnnConvolutionDescriptor cd
+                                  pad stride dilation mode data-type]
+  (with-check
+    (JCudnn/cudnnSetConvolution2dDescriptor
+     cd (get pad 0 0) (get pad 1 0) (get stride 0 1) (get stride 1 1)
+     (get dilation 0 1) (get dilation 0 1) mode data-type)
+    cd))
+
+(defn convolution-nd-descriptor* [^cudnnConvolutionDescriptor cd
+                                  ^ints pad ^ints stride ^ints dilation mode data-type]
+  (with-check
+    (JCudnn/cudnnSetConvolutionNdDescriptor cd (alength pad) pad stride dilation (int mode) (int data-type))
+    cd))
+
+(defn convolution-forward* [cudnn-handle cd algo alpha desc-x buf-x
+                            ^cudnnFilterDescriptor desc-w buf-w
+                            beta desc-y buf-y workspace ws-size]
+  (with-check
+    (JCudnn/cudnnConvolutionForward cudnn-handle alpha desc-x buf-x desc-w buf-w
+                                    cd algo workspace ws-size beta desc-y buf-y)
+    cudnn-handle))
+
+(defn convolution-get-fwd-algo*
+  ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y preference limit-bytes]
+   (let-release [algo (int-array 1)]
+     (with-check
+       (JCudnn/cudnnGetConvolutionForwardAlgorithm cudnn-handle desc-x desc-w cd desc-y
+                                                   (int preference) (long limit-bytes) algo)
+       (aget algo 0))))
+  ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y limit-bytes]
+   (convolution-get-fwd-algo* cudnn-handle cd desc-x desc-w desc-y
+                                       cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT
+                                       limit-bytes))
+  ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y]
+   (convolution-get-fwd-algo* cudnn-handle cd desc-x desc-w desc-y
+                                       cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
+                                       0)))
+
+(defn convolution-get-fwd-workspace-size*
+  [cudnn-handle cd algo desc-x ^cudnnFilterDescriptor desc-w desc-y]
+  (let-release [wsize (long-array 1)]
+    (with-check
+      (JCudnn/cudnnGetConvolutionForwardWorkspaceSize cudnn-handle desc-x desc-w
+                                                      cd desc-y (int algo) wsize)
+      (aget wsize 0))))

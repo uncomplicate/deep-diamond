@@ -152,7 +152,8 @@
     (memcpy-host! host-x gpu-x)
 
     (facts "Softmax forward operation."
-           (softmax-forward cudnn-hdl :accurate :instance (float 1.0) desc-x gpu-x (float 0.0) desc-x gpu-x)
+           (softmax-forward cudnn-hdl :accurate :instance
+                            (float 1.0) desc-x gpu-x (float 0.0) desc-x gpu-x)
            => cudnn-hdl
            (seq (memcpy-host! gpu-x (float-array 6)))
            => (map float [0.06337894 0.4683105 0.4683105 0.0024282578 0.017942535 0.9796292]))
@@ -164,3 +165,30 @@
            => cudnn-hdl
            (seq (memcpy-host! gpu-x (float-array 6)))
            => (map float [0.06337894 -0.5316895 0.4683105 0.0024282578 0.017942535 -0.020370794]))))
+
+(with-default
+  (with-release [cudnn-hdl (cudnn-handle default-stream)
+                 desc-x (tensor-descriptor [2 1 4 4] :float :nchw)
+                 host-x (float-array [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                      0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+                 gpu-x (mem-alloc (size desc-x))
+
+                 desc-w (filter-descriptor [1 1 3 3] :float :nchw)
+                 host-w (float-array [-2 0 1 0 1 0 -1 -2 0])
+                 gpu-w (mem-alloc (size desc-w))
+
+                 desc-y (tensor-descriptor [2 1 2 2] :float :nchw)
+                 gpu-y (mem-alloc (size desc-y))
+
+                 convo-desc (convolution-descriptor :cross-correleation :float [0 0] [1 1] [1 1])
+                 convo-algo (convolution-get-fwd-algo cudnn-hdl convo-desc desc-x desc-w desc-y)
+                 convo-ws (mem-alloc (convolution-get-fwd-workspace-size cudnn-hdl convo-desc convo-algo
+                                                                         desc-x desc-w desc-y))]
+
+    (memcpy-host! host-x gpu-x)
+    (memcpy-host! host-w gpu-w)
+    (facts "Convoluton forward operation."
+           (convolution-forward cudnn-hdl convo-desc convo-algo (float 1.0) desc-x gpu-x
+                                desc-w gpu-w (float 0.0) desc-y gpu-y convo-ws)
+           => cudnn-hdl
+           (seq (memcpy-host! gpu-y (float-array 8))) => [18.0 -94.0 -21.0 -566.0 102.0 57.0 -78.0 -176.0])))

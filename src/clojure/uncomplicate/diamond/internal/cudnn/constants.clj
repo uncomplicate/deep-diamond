@@ -10,7 +10,9 @@
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
   (:import [jcuda.jcudnn cudnnTensorFormat cudnnDataType cudnnActivationMode
             cudnnReduceTensorOp cudnnReduceTensorIndices cudnnNanPropagation
-            cudnnIndicesType cudnnSoftmaxAlgorithm cudnnSoftmaxMode]))
+            cudnnIndicesType cudnnSoftmaxAlgorithm cudnnSoftmaxMode
+            cudnnConvolutionMode cudnnConvolutionFwdAlgo cudnnConvolutionFwdPreference
+            cudnnConvolutionFwdAlgoPerf]))
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
@@ -20,32 +22,18 @@
 (defn dec-nan-propagation [^long nan]
   (if (= cudnnNanPropagation/CUDNN_PROPAGATE_NAN nan) true false))
 
-(defn dec-format [^long format]
-  (case format
-    0 :nchw
-    1 :nhwc
-    2 :nchw-vect-c
-    (dragan-says-ex "This format is not supported by cuDNN. Please find another way to do what you wanted."
-                    {:format format})))
-
 (def ^:const cudnn-format
   {:nchw cudnnTensorFormat/CUDNN_TENSOR_NCHW
    :nhwc cudnnTensorFormat/CUDNN_TENSOR_NHWC
    :nchw-vect-c cudnnTensorFormat/CUDNN_TENSOR_NCHW_VECT_C})
 
-(defn dec-data-type [^long data-type]
-  (case data-type
-    0 :float
-    1 :double
-    2 :half
-    3 :byte
-    4 :int
-    5 :int8x4
-    6 :uint8
-    7 :uint8x4
-    8 :int8x32
-    (dragan-says-ex "This data type is not supported by cuDNN. Please find another way to do what you wanted."
-                    {:data-type data-type})))
+(defn dec-format [^long format]
+  (case format
+    0 :nchw
+    1 :nhwc
+    2 :nchw-vect-c
+    (dragan-says-ex "This format is not supported by cuDNN."
+                    {:format format :available (keys cudnn-format)})))
 
 (def ^:const cudnn-data-type
   {:float cudnnDataType/CUDNN_DATA_FLOAT
@@ -68,6 +56,20 @@
    :uit8x4 cudnnDataType/CUDNN_DATA_UINT8x4
    :int8x32 cudnnDataType/CUDNN_DATA_INT8x32})
 
+(defn dec-data-type [^long data-type]
+  (case data-type
+    0 :float
+    1 :double
+    2 :half
+    3 :byte
+    4 :int
+    5 :int8x4
+    6 :uint8
+    7 :uint8x4
+    8 :int8x32
+    (dragan-says-ex "This data type is not supported by cuDNN."
+                    {:data-type data-type :available (keys cudnn-data-type)})))
+
 (defn data-type-width ^long [data-type]
   (case data-type
     :float 4
@@ -89,8 +91,8 @@
     :u8 1
     :uit8x4 4
     :int8x32 32
-    (dragan-says-ex "This data type is not supported by cuDNN. Please find another way to do what you wanted."
-                    {:data-type data-type})))
+    (dragan-says-ex "This data type is not supported by cuDNN."
+                    {:data-type data-type :available (keys cudnn-data-type)})))
 
 (def ^:const cudnn-activation-mode
   {:logistic cudnnActivationMode/CUDNN_ACTIVATION_SIGMOID
@@ -110,8 +112,8 @@
     3 :clipped-relu
     4 :elu
     5 :identity
-    (dragan-says-ex "This mode is not supported by cuDNN. Please find another way to do what you wanted."
-                    {:mode mode})))
+    (dragan-says-ex "This mode is not supported by cuDNN."
+                    {:mode mode :available (keys cudnn-activation-mode)})))
 
 (def ^:const cudnn-reduce-tensor-op
   {:add cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_ADD
@@ -136,3 +138,37 @@
 (def ^:const cudnn-softmax-mode
   {:instance cudnnSoftmaxMode/CUDNN_SOFTMAX_MODE_INSTANCE
    :channel cudnnSoftmaxMode/CUDNN_SOFTMAX_MODE_CHANNEL})
+
+(def ^:const cudnn-convolution-mode
+  {:convolution cudnnConvolutionMode/CUDNN_CONVOLUTION
+   :cross-correleation cudnnConvolutionMode/CUDNN_CROSS_CORRELATION})
+
+(def ^:const cudnn-convolution-fwd-algo
+  {:count cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_COUNT
+   :direct cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_DIRECT
+   :fft cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_FFT
+   :fft-tiling cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING
+   :gemm cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_GEMM
+   :implicit-gemm cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM
+   :implicit-precomp-gemm cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM
+   :winograd cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD
+   :winograd-nonfused cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED})
+
+(defn dec-convolution-fwd-algo [^long algo]
+  (case algo
+    0 :implicit-gemm
+    1 :implicit-precomp-gemm
+    2 :gemm
+    3 :direct
+    4 :fft
+    5 :fft-tiling
+    6 :winograd
+    7 :winograd-nonfused
+    8 :count
+    (dragan-says-ex "This algorithm is not supported by cuDNN."
+                    {:algo algo :available (keys cudnn-convolution-fwd-algo)})))
+
+(def ^:const cudnn-convolution-fwd-preference
+  {:no-workspace cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_NO_WORKSPACE
+   :fastest cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
+   :workspace-limit cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT})
