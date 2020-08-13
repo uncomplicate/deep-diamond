@@ -221,28 +221,26 @@
 
                  convo-desc (convolution-descriptor :cross-correleation :float [0 0] [1 1] [1 1])
                  convo-fwd-algo (convolution-fwd-get-algo cudnn-hdl convo-desc desc-x desc-w desc-y)
-                 convo-fwd-ws (mem-alloc (convolution-fwd-get-workspace-size
-                                          cudnn-hdl convo-desc convo-fwd-algo desc-x desc-w desc-y))
+
                  convo-bwd-data-algo (convolution-bwd-data-get-algo cudnn-hdl convo-desc
                                                                     desc-w desc-y desc-x)
-                 convo-bwd-data-ws (mem-alloc (convolution-bwd-data-get-workspace-size
-                                               cudnn-hdl convo-desc convo-bwd-data-algo
-                                               desc-w desc-y desc-x))
                  convo-bwd-filter-algo (convolution-bwd-filter-get-algo cudnn-hdl convo-desc
                                                                         desc-x desc-y desc-w)
-                 convo-bwd-filter-ws (mem-alloc (convolution-bwd-filter-get-workspace-size
+                 convo-ws (mem-alloc (max (long (convolution-fwd-get-workspace-size
+                                                 cudnn-hdl convo-desc convo-fwd-algo desc-x desc-w desc-y))
+                                          (long (convolution-bwd-data-get-workspace-size
+                                                 cudnn-hdl convo-desc convo-bwd-data-algo
+                                                 desc-w desc-y desc-x))
+                                          (long (convolution-bwd-filter-get-workspace-size
                                                  cudnn-hdl convo-desc convo-bwd-filter-algo
-                                                 desc-x desc-y desc-w))]
+                                                 desc-x desc-y desc-w))))]
 
     (memcpy-host! host-x gpu-x)
     (memcpy-host! host-w gpu-w)
-    (println (uncomplicate.clojurecuda.internal.protocols/size convo-bwd-data-ws))
-    (println (uncomplicate.clojurecuda.internal.protocols/size convo-bwd-filter-ws))
-    (println (uncomplicate.clojurecuda.internal.protocols/size convo-fwd-ws))
 
     (facts "Convoluton forward operation."
            (convolution-fwd cudnn-hdl convo-desc convo-fwd-algo (float 1.0) desc-x gpu-x
-                            desc-w gpu-w (float 0.0) desc-y gpu-y convo-fwd-ws) => cudnn-hdl
+                            desc-w gpu-w (float 0.0) desc-y gpu-y convo-ws) => cudnn-hdl
            (seq (memcpy-host! gpu-y (float-array 8)))
            => [18.0 -94.0 -21.0 -566.0 102.0 57.0 -78.0 -176.0])
 
@@ -251,7 +249,7 @@
     (facts "Convolution backward filter operation."
            (convolution-bwd-filter cudnn-hdl convo-desc convo-bwd-filter-algo
                                    (float 1.0) desc-x gpu-x desc-y gpu-y
-                                   (float 0.0) desc-w gpu-dw convo-bwd-filter-ws) => cudnn-hdl
+                                   (float 0.0) desc-w gpu-dw convo-ws) => cudnn-hdl
            (map float (seq (memcpy-host! gpu-dw (float-array 9))))
            => (map float [251.9 230.9 93.6 217.0 186.0 233.0 81.0 198.6 415.0]))
 
@@ -259,7 +257,7 @@
     (facts "Convolution backward data operation."
            (convolution-bwd-data cudnn-hdl convo-desc convo-bwd-data-algo
                                  (float 1.0) desc-w gpu-w desc-y gpu-y
-                                 (float 0.0) desc-x gpu-x convo-bwd-data-ws) => cudnn-hdl
+                                 (float 0.0) desc-x gpu-x convo-ws) => cudnn-hdl
            (map float (seq (memcpy-host! gpu-x (float-array 32))))
            => (map float [-0.40000004 -0.6 0.20000002 0.3 -1.6 -1.8 1.0999999 1.0 -0.20000005
                           0.100000024 0.39999995 -8.940697E-8 -0.8000001 -2.6 -2.0 0.0 -2.0 -2.0

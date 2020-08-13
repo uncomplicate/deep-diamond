@@ -372,7 +372,8 @@
                                       (extract (desc desc-dy)) (extract-filter desc-dw)
                                       limit-bytes))))
 
-(defn convolution-bwd-filter-get-workspace-size [cudnn-handle cd algo desc-x desc-dy desc-dw]
+(defn convolution-bwd-filter-get-workspace-size
+  [cudnn-handle cd algo desc-x desc-dy desc-dw]
   (convolution-bwd-filter-get-workspace-size* (extract cudnn-handle) (extract cd)
                                               (enc-keyword cudnn-convolution-bwd-filter-algo algo)
                                               (extract (desc desc-x)) (extract (desc desc-dy))
