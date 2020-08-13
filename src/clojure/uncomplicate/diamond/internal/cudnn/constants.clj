@@ -12,7 +12,9 @@
             cudnnReduceTensorOp cudnnReduceTensorIndices cudnnNanPropagation
             cudnnIndicesType cudnnSoftmaxAlgorithm cudnnSoftmaxMode
             cudnnConvolutionMode cudnnConvolutionFwdAlgo cudnnConvolutionFwdPreference
-            cudnnConvolutionFwdAlgoPerf]))
+            cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgo
+            cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterAlgo
+            cudnnConvolutionBwdFilterPreference]))
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
@@ -172,3 +174,53 @@
   {:no-workspace cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_NO_WORKSPACE
    :fastest cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
    :workspace-limit cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT})
+
+(def ^:const cudnn-convolution-bwd-data-algo
+  {:algo0 cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_0
+   :algo1 cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_1
+   :count cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT
+   :fft cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_FFT
+   :fft-tiling cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_FFT_TILING
+   :winograd cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD
+   :winograd-nonfused cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD_NONFUSED})
+
+(defn dec-convolution-bwd-data-algo [^long algo]
+  (case algo
+    0 :algo0
+    1 :algo1
+    2 :fft
+    3 :fft-tiling
+    4 :winograd
+    5 :winograd-nonfused
+    6 :count))
+
+(def ^:const cudnn-convolution-bwd-filter-algo
+  {:algo0 cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0
+   :algo1 cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1
+   :algo3 cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_3
+   :count cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT
+   :fft cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_FFT
+   :fft-tiling cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_FFT_TILING
+   :winograd cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD
+   :winograd-nonfused cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD_NONFUSED})
+
+(defn dec-convolution-bwd-filter-algo [^long algo]
+  (case algo
+    0 :algo0
+    1 :algo1
+    2 :fft
+    3 :algo3
+    4 :winograd
+    5 :winograd-nonfused
+    6 :fft-tiling
+    7 :count))
+
+(def ^:const cudnn-convolution-bwd-data-preference
+  {:no-workspace cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_NO_WORKSPACE
+   :fastest cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_PREFER_FASTEST
+   :workspace-limit cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT})
+
+(def ^:const cudnn-convolution-bwd-filter-preference
+  {:no-workspace cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_NO_WORKSPACE
+   :fastest cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_PREFER_FASTEST
+   :workspace-limit cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT})

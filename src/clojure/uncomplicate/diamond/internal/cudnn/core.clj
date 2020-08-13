@@ -267,39 +267,124 @@
                                        (int-array dilation) mode dtype)))))
     cd))
 
-(defn convolution-get-fwd-algo
+(defn convolution-fwd-get-algo
   ([cudnn-handle cd desc-x desc-w desc-y preference limit-bytes]
    (dec-convolution-fwd-algo
-    (convolution-get-fwd-algo* (extract cudnn-handle) (extract cd) (extract desc-x)
-                                        (extract-filter desc-w) (extract (desc desc-y))
-                                        (enc-keyword cudnn-convolution-fwd-preference preference)
-                                        limit-bytes)))
+    (convolution-fwd-get-algo* (extract cudnn-handle) (extract cd) (extract (desc desc-x))
+                               (extract-filter desc-w) (extract (desc desc-y))
+                               (enc-keyword cudnn-convolution-fwd-preference preference)
+                               limit-bytes)))
   ([cudnn-handle cd desc-x desc-w desc-y]
    (dec-convolution-fwd-algo
-    (convolution-get-fwd-algo* (extract cudnn-handle) (extract cd) (extract desc-x)
-                                        (extract-filter desc-w) (extract (desc desc-y)))))
+    (convolution-fwd-get-algo* (extract cudnn-handle) (extract cd) (extract (desc desc-x))
+                               (extract-filter desc-w) (extract (desc desc-y)))))
   ([cudnn-handle cd desc-x desc-w desc-y limit-bytes]
    (dec-convolution-fwd-algo
-    (convolution-get-fwd-algo* (extract cudnn-handle) (extract cd) (extract desc-x)
-                                        (extract-filter desc-w) (extract (desc desc-y))
-                                        limit-bytes))))
+    (convolution-fwd-get-algo* (extract cudnn-handle) (extract cd) (extract (desc desc-x))
+                               (extract-filter desc-w) (extract (desc desc-y))
+                               limit-bytes))))
 
-(defn convolution-get-fwd-workspace-size [cudnn-handle cd algo desc-x desc-w desc-y]
-  (convolution-get-fwd-workspace-size* (extract cudnn-handle) (extract cd)
+(defn convolution-fwd-get-workspace-size [cudnn-handle cd algo desc-x desc-w desc-y]
+  (convolution-fwd-get-workspace-size* (extract cudnn-handle) (extract cd)
                                        (enc-keyword cudnn-convolution-fwd-algo algo)
-                                       (extract desc-x)
-                                       (extract-filter desc-w) (extract desc-y)))
+                                       (extract (desc desc-x))
+                                       (extract-filter desc-w) (extract (desc desc-y))))
 
-(defn convolution-forward
+(defn convolution-fwd
   "TODO
   The :convolution algorithm uses flipped kernels as real convolution from the books.
   To match DNNL (more practical), use :cross-correlation."
-  [cudnn-handle cd algo alpha desc-x buf-x desc-w buf-w
-                           beta desc-y buf-y workspace]
-  (convolution-forward* (extract cudnn-handle) (extract cd)
-                        (enc-keyword cudnn-convolution-fwd-algo algo)
-                        (ptr alpha) (extract (desc desc-x)) (extract buf-x)
-                        (extract-filter desc-w) (extract buf-w)
-                        (ptr beta) (extract (desc desc-y)) (extract buf-y)
-                        (extract workspace) (if workspace (cuda/size workspace) 0))
+  ([cudnn-handle cd algo alpha desc-x buf-x desc-w buf-w beta desc-y buf-y workspace]
+   (convolution-fwd* (extract cudnn-handle) (extract cd)
+                     (enc-keyword cudnn-convolution-fwd-algo algo)
+                     (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                     (extract-filter desc-w) (extract buf-w)
+                     (ptr beta) (extract (desc desc-y)) (extract buf-y)
+                     (extract workspace) (if workspace (cuda/size workspace) 0))
+
+   cudnn-handle)
+  ([cudnn-handle cd algo ad alpha1 desc-x buf-x desc-w buf-w alpha2 buf-z
+    desc-bias buf-bias desc-y buf-y workspace]
+   (convolution-fwd* (extract cudnn-handle) (extract cd)
+                     (enc-keyword cudnn-convolution-fwd-algo algo) (extract ad)
+                     (ptr alpha1) (extract (desc desc-x)) (extract buf-x)
+                     (extract-filter desc-w) (extract buf-w)
+                     (ptr alpha2) (extract buf-z)
+                     (extract (desc desc-bias)) (extract buf-bias)
+                     (extract (desc desc-y)) (extract buf-y)
+                     (extract workspace) (if workspace (cuda/size workspace) 0))
+   cudnn-handle))
+
+(defn convolution-bwd-bias
+  ([cudnn-handle alpha desc-dy buf-dy beta desc-db buf-db]
+   (convolution-bwd-bias* (extract cudnn-handle)
+                          (ptr alpha) (extract (desc desc-dy)) (extract buf-dy)
+                          (ptr beta) (extract (desc desc-db)) (extract buf-db))))
+
+(defn convolution-bwd-data-get-algo
+  ([cudnn-handle cd desc-w desc-dy desc-dx preference limit-bytes]
+   (dec-convolution-bwd-data-algo
+    (convolution-bwd-data-get-algo* (extract cudnn-handle) (extract cd) (extract-filter desc-w)
+                                    (extract (desc desc-dy)) (extract (desc desc-dx))
+                                    (enc-keyword cudnn-convolution-bwd-data-preference preference)
+                                    limit-bytes)))
+  ([cudnn-handle cd desc-w desc-dy desc-dx]
+   (dec-convolution-bwd-data-algo
+    (convolution-bwd-data-get-algo* (extract cudnn-handle) (extract cd) (extract-filter desc-w)
+                                    (extract (desc desc-dy)) (extract (desc desc-dx)))))
+  ([cudnn-handle cd desc-w desc-dy desc-dx limit-bytes]
+   (dec-convolution-bwd-data-algo
+    (convolution-bwd-data-get-algo* (extract cudnn-handle) (extract cd) (extract-filter desc-w)
+                                    (extract (desc desc-dy)) (extract (desc desc-dx))
+                                    limit-bytes))))
+
+(defn convolution-bwd-data-get-workspace-size [cudnn-handle cd algo desc-w desc-dy desc-dx]
+  (convolution-bwd-data-get-workspace-size* (extract cudnn-handle) (extract cd)
+                                            (enc-keyword cudnn-convolution-bwd-data-algo algo)
+                                            (extract-filter desc-w) (extract (desc desc-dy))
+                                            (extract (desc desc-dx))))
+
+(defn convolution-bwd-data
+  [cudnn-handle cd algo alpha desc-w buf-w desc-dy buf-dy
+   beta desc-dx buf-dx workspace]
+  (convolution-bwd-data* (extract cudnn-handle) (extract cd)
+                         (enc-keyword cudnn-convolution-bwd-data-algo algo)
+                         (ptr alpha) (extract-filter desc-w) (extract buf-w)
+                         (extract (desc desc-dy)) (extract buf-dy)
+                         (ptr beta) (extract (desc desc-dx)) (extract buf-dx)
+                         (extract workspace) (if workspace (cuda/size workspace) 0))
+  cudnn-handle)
+
+(defn convolution-bwd-filter-get-algo
+  ([cudnn-handle cd desc-x desc-dy desc-dw preference limit-bytes]
+   (dec-convolution-bwd-filter-algo
+    (convolution-bwd-filter-get-algo* (extract cudnn-handle) (extract cd) (extract (desc desc-x))
+                                      (extract (desc desc-dy)) (extract-filter desc-dw)
+                                      (enc-keyword cudnn-convolution-bwd-filter-preference preference)
+                                      limit-bytes)))
+  ([cudnn-handle cd desc-x desc-dy desc-dw]
+   (dec-convolution-bwd-filter-algo
+    (convolution-bwd-filter-get-algo* (extract cudnn-handle) (extract cd) (extract (desc desc-x))
+                                      (extract (desc desc-dy)) (extract-filter desc-dw))))
+  ([cudnn-handle cd desc-x desc-dy desc-dw limit-bytes]
+   (dec-convolution-bwd-filter-algo
+    (convolution-bwd-filter-get-algo* (extract cudnn-handle) (extract cd) (extract (desc desc-x))
+                                      (extract (desc desc-dy)) (extract-filter desc-dw)
+                                      limit-bytes))))
+
+(defn convolution-bwd-filter-get-workspace-size [cudnn-handle cd algo desc-x desc-dy desc-dw]
+  (convolution-bwd-filter-get-workspace-size* (extract cudnn-handle) (extract cd)
+                                              (enc-keyword cudnn-convolution-bwd-filter-algo algo)
+                                              (extract (desc desc-x)) (extract (desc desc-dy))
+                                              (extract-filter desc-dw)))
+
+(defn convolution-bwd-filter
+  [cudnn-handle cd algo alpha desc-x buf-x desc-dy buf-dy
+   beta desc-dw buf-dw workspace]
+  (convolution-bwd-filter* (extract cudnn-handle) (extract cd)
+                           (enc-keyword cudnn-convolution-bwd-filter-algo algo)
+                           (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                           (extract (desc desc-dy)) (extract buf-dy)
+                           (ptr beta) (extract-filter desc-dw) (extract buf-dw)
+                           (extract workspace) (if workspace (cuda/size workspace) 0))
   cudnn-handle)
