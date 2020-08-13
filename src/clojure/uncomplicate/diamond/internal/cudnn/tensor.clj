@@ -97,7 +97,9 @@
   ConnectorCreator
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
-      out
+      (if (satisfies? TensorContainer out)
+        (view-tz out)
+        out)
       (let [out-tz (output out)]
         (if (equal-desc? in-desc out-tz)
           (view-tz out-tz)
@@ -111,7 +113,7 @@
 
 (defn cudnn-tensor-desc [shape dtype format]
   (let [format (or format (default-strides shape))]
-    (if (or (and (sequential? format) (<= 4(count format ))) (cudnn-format format))
+    (if (or (cudnn-format format) (and (sequential? format) (<= 4 (count format))))
       (tensor-descriptor shape dtype format)
       (with-release [md (memory-desc shape dtype format)]
         (let [padding-4 (repeat (- 4 (count shape)) 1)]

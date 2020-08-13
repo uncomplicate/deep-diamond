@@ -79,7 +79,7 @@
   ConnectorCreator
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
-      (if (satisfies? TensorContainer out)
+      (if (satisfies? TensorContainer out);;TODO use view for everything releaseable
         (view-tz out)
         out)
       (let [out-tz (output out)]

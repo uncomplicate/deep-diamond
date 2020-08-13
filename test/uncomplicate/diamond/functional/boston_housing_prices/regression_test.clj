@@ -18,7 +18,7 @@
                           network init! train cost train]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
-#_            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce boston-housing-raw
   (csv/read-csv (slurp (io/resource "uncomplicate/diamond/functional/boston_housing_prices/boston-housing.csv"))))
@@ -86,5 +86,5 @@
 (with-release [fact (neanderthal-factory)]
   (test-boston-regression fact))
 
-#_(with-release [fact (cudnn-factory)];;TODO
+(with-release [fact (cudnn-factory)];;TODO
   (test-boston-regression fact))

@@ -32,8 +32,8 @@
                            strides transform-tensor set-tensor scale-tensor add-tensor]]
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler
                              cudnn-tensor-desc]]
-             [fully-connected :refer [cudnn-sum-blueprint cudnn-activ-blueprint
-                                      cudnn-fc-blueprint cudnn-universal-cost cudnn-custom-cost]]])
+             [directed :refer [cudnn-sum-blueprint cudnn-activ-blueprint cudnn-fc-blueprint
+                               cudnn-universal-cost cudnn-custom-cost]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG

@@ -15,7 +15,7 @@
              [dnn :refer [fully-connected network init! train cost infer]]
              [metrics :refer [confusion-matrix contingency-totals classification-metrics]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            #_[uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce train-images-file (random-access "data/mnist/train-images.idx3-ubyte"))
 (defonce train-labels-file (random-access "data/mnist/train-labels.idx1-ubyte"))
@@ -71,7 +71,7 @@
          => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))
 ;; "Elapsed time: 2074.615346 msecs"
 
-#_(with-diamond cudnn-factory []
+(with-diamond cudnn-factory []
   (with-release [x-mb-tz (tensor [128 1 28 28] :float :nchw)
                  y-mb-tz (tensor [128 10] :float :nc)
                  net-bp (network x-mb-tz
@@ -112,11 +112,6 @@
            (transfer! (view-tz test-images 512) (input net-infer))
            (take 8 (dec-categories (net-infer))) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
-(with-release [fact (dnnl-factory)]
-  (test-mnist-classification-internal-input fact))
-
-;; "Elapsed time: 748.254409 msecs"
-
 (defn test-mnist-classification-internal-cost [fact]
   (with-release [net-bp (network fact (desc [512 1 28 28] :float :nchw)
                                  [(fully-connected [256] :relu)
@@ -133,9 +128,6 @@
            (transfer! (view-tz test-images 512) (input net-infer))
            (take 8 (dec-categories (net-infer))) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
-(with-release [fact (dnnl-factory)]
-  (test-mnist-classification-internal-cost fact))
-
 (defn test-mnist-classification-internal-infer [fact]
   (with-release [net-bp (network fact (desc [512 1 28 28] :float :nchw)
                                  [(fully-connected [256] :relu)
@@ -151,9 +143,6 @@
            (transfer! net net-infer)
            (take 8 (dec-categories (infer net-infer test-images)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
-
-(with-release [fact (dnnl-factory)]
-  (test-mnist-classification-internal-infer fact))
 
 (defn test-mnist-classification-softmax [fact]
   (with-release [net-bp (network fact (desc [512 1 28 28] :float :nchw)
@@ -172,4 +161,12 @@
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 (with-release [fact (dnnl-factory)]
+  (test-mnist-classification-internal-input fact)
+  (test-mnist-classification-internal-cost fact)
+  (test-mnist-classification-internal-infer fact)
   (test-mnist-classification-softmax fact))
+
+;; "Elapsed time: 762.952065 msecs"
+;; "Elapsed time: 810.657392 msecs"
+;; "Elapsed time: 821.330076 msecs"
+;; "Elapsed time: 798.699342 msecs"

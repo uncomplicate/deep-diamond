@@ -18,7 +18,7 @@
             [uncomplicate.diamond.internal.cost :refer [binary-accuracy!]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
-            #_[uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defn read-imdb-master
   ([]
@@ -107,5 +107,5 @@
 (with-release [fact (neanderthal-factory)]
   (test-imdb-classification fact))
 
-#_(with-release [fact (cudnn-factory)];;TODO
+(with-release [fact (cudnn-factory)];;TODO
   (test-imdb-classification fact))
