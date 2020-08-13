@@ -99,7 +99,7 @@
 
 (deftype FullyConnectedSGD [fact bluep ones activ prop-diff?
                             v a-1 b w z diff-1
-                            src-conn bias-tz weights-tz dst-tz diff-conn]
+                            src-conn bias-tz weights-tz dst-tz diff-conn] ;;TODO diff-conn is unused!
   Releaseable
   (release [_]
     (release ones)

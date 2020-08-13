@@ -509,7 +509,7 @@
                  dst-desc (desc [2 1 2 2] :float :nchw)
                  pool-bluep (pooling fact src-tz [2 2] dst-desc :max)
                  pool-infer (pool-bluep src-tz)
-                 pool-train (pool-bluep src-tz nil true)]
+                 pool-train (pool-bluep src-tz true nil)]
 
     (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                 0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50] src-tz)
@@ -542,7 +542,7 @@
                  dst-desc (desc [2 1 2 2] :float :nchw)
                  pool-bluep (pooling fact src-tz [2 2] dst-desc :avg)
                  pool-infer (pool-bluep src-tz)
-                 pool-train (pool-bluep src-tz nil true)]
+                 pool-train (pool-bluep src-tz true nil)]
 
     (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                 0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50] src-tz)

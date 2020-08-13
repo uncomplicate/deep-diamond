@@ -848,10 +848,10 @@
                   activ-bluep (dnnl-activ-blueprint fact eng ip-bluep activ alpha beta)]
       (->DirectedLayerBlueprint fact :fc ip-bluep activ-bluep))))
 
-(deftype UniversalCost [strm prev-layer
-                        sum-prim sum-args
-                        connect-output connect-diff train-tz
-                        a-y cost]
+(deftype DnnlUniversalCost [strm prev-layer
+                            sum-prim sum-args
+                            connect-output connect-diff train-tz
+                            a-y cost]
   Releaseable
   (release [_]
     (release connect-output)
@@ -888,15 +888,15 @@
                   connect-diff (connector train-desc (diff-input prev-layer))]
       (with-release [sum-desc (sum! eng train-desc 1.0 train-desc -1.0 train-tz)]
         (let-release [sum-prim (primitive sum-desc)]
-          (->UniversalCost strm prev-layer sum-prim
-                           (dnnl-args args (input connect-diff)
-                                      (output connect-output) train-tz)
-                           connect-output connect-diff train-tz
-                           (view (input connect-diff))
-                           cost))))))
+          (->DnnlUniversalCost strm prev-layer sum-prim
+                               (dnnl-args args (input connect-diff)
+                                          (output connect-output) train-tz)
+                               connect-output connect-diff train-tz
+                               (view (input connect-diff))
+                               cost))))))
 
-(deftype CustomCost [strm prev-layer sum-prim sum-args
-                     connect-output connect-diff train-tz a y cost]
+(deftype DnnlCustomCost [strm prev-layer sum-prim sum-args
+                         connect-output connect-diff train-tz a y cost]
   Releaseable
   (release [_]
     (release connect-output)
@@ -931,12 +931,12 @@
                   connect-diff (connector train-desc (diff-z prev-layer))]
       (with-release [sum-desc (sum! eng train-desc 1.0 train-desc -1.0 train-desc)]
         (let-release [sum-prim (primitive sum-desc)]
-          (->CustomCost strm prev-layer sum-prim
-                        (dnnl-args args (input connect-diff)
-                                   (output connect-output) train-tz)
-                        connect-output connect-diff (view-tz train-tz)
-                        (view (output connect-output)) (view train-tz)
-                        cost))))))
+          (->DnnlCustomCost strm prev-layer sum-prim
+                            (dnnl-args args (input connect-diff)
+                                       (output connect-output) train-tz)
+                            connect-output connect-diff (view-tz train-tz)
+                            (view (output connect-output)) (view train-tz)
+                            cost))))))
 
 (defmethod transfer! [InferenceLayer Object]
   [source destination]
@@ -990,8 +990,8 @@
 
 ;; ================================ Pooling =============================================
 
-(deftype PoolingInferenceLayer [fact strm bluep src-conn dst-tz
-                                pooling-fwd-prim pooling-fwd-args]
+(deftype DnnlPoolingInferenceLayer [fact strm bluep src-conn dst-tz
+                                    pooling-fwd-prim pooling-fwd-args]
   Releaseable
   (release [_]
     (release src-conn)
@@ -1020,14 +1020,15 @@
     (execute! strm pooling-fwd-prim pooling-fwd-args)
     dst-tz))
 
-(deftype PoolingTrainingLayer [fact strm bluep src-conn dst-tz workspace-tz
-                               pooling-fwd-prim pooling-fwd-args
-                               diff-dst-conn diff-src-conn
-                               pooling-bwd-prim pooling-bwd-args]
+(deftype DnnlPoolingTrainingLayer [fact strm bluep src-conn dst-tz workspace-tz
+                                   pooling-fwd-prim pooling-fwd-args
+                                   diff-dst-conn diff-src-conn
+                                   pooling-bwd-prim pooling-bwd-args]
   Releaseable
   (release [_]
-    (release workspace-tz)
+    (release src-conn)
     (release dst-tz)
+    (release workspace-tz)
     (release pooling-fwd-prim)
     (release diff-dst-conn)
     (release diff-src-conn)
@@ -1114,9 +1115,9 @@
                   pool-infer-prim (primitive pool-infer-pd)
                   pool-infer-args (fwd-args (buffer (output src-conn))
                                             (buffer dst-tz))]
-      (->PoolingInferenceLayer fact (flow fact) this src-conn dst-tz
-                               pool-infer-prim pool-infer-args)))
-  (invoke [this prev-layer _ prop-diff?]
+      (->DnnlPoolingInferenceLayer fact (flow fact) this src-conn dst-tz
+                                   pool-infer-prim pool-infer-args)))
+  (invoke [this prev-layer prop-diff? _]
     (let-release [src-tz (output prev-layer)
                   src-conn (connector src-tz (src-md pool-train-pd))
                   dst-tz (dnnl-tensor fact (dst-md pool-train-pd))
@@ -1130,13 +1131,13 @@
                       pool-bwd-prim (primitive pool-bwd-pd)
                       pool-bwd-args (dnnl-args pooling-bwd-args (output diff-dst-conn)
                                                (input diff-src-conn) workspace-tz)]
-          (->PoolingTrainingLayer fact (flow fact) this src-conn dst-tz workspace-tz
-                                  pool-train-prim pool-train-args
-                                  diff-dst-conn diff-src-conn
-                                  pool-bwd-prim pool-bwd-args))
-        (->PoolingTrainingLayer fact (flow fact) this src-conn dst-tz workspace-tz
-                                pool-train-prim pool-train-args
-                                nil nil nil nil)))))
+          (->DnnlPoolingTrainingLayer fact (flow fact) this src-conn dst-tz workspace-tz
+                                      pool-train-prim pool-train-args
+                                      diff-dst-conn diff-src-conn
+                                      pool-bwd-prim pool-bwd-args))
+        (->DnnlPoolingTrainingLayer fact (flow fact) this src-conn dst-tz workspace-tz
+                                    pool-train-prim pool-train-args
+                                    nil nil nil nil)))))
 
 (defn dnnl-pooling-blueprint
   [fact eng src-desc dst-desc algo strides kernel padding-l padding-r]
@@ -1153,11 +1154,11 @@
                     pool-bwd-pd (primitive-desc eng pool-bwd-desc pool-train-pd)]
         (->DnnlPoolingBlueprint fact algo pool-infer-pd pool-train-pd pool-bwd-pd)))))
 
-(defmethod transfer! [PoolingInferenceLayer Object]
+(defmethod transfer! [DnnlPoolingInferenceLayer Object]
   [source destination]
   destination)
 
-(defmethod transfer! [PoolingTrainingLayer Object]
+(defmethod transfer! [DnnlPoolingTrainingLayer Object]
   [source destination]
   destination)
 
@@ -1253,7 +1254,7 @@
   IFn
   (invoke [this prev-layer]
     (->IdentityLayer prev-layer))
-  (invoke [this prev-layer _ prip-diff?]
+  (invoke [this prev-layer _ _]
     (let-release [src-tz (output prev-layer)
                   data-conn (connector src-tz data-desc)
                   revert-data-conn (revert data-conn)

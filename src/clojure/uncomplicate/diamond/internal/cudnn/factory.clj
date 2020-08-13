@@ -33,7 +33,7 @@
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler
                              cudnn-tensor-desc]]
              [directed :refer [cudnn-sum-blueprint cudnn-activ-blueprint cudnn-fc-blueprint
-                               cudnn-universal-cost cudnn-custom-cost]]])
+                               cudnn-universal-cost cudnn-custom-cost cudnn-pooling-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -385,6 +385,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dragan-says-ex "cuDNN engine does not implement inner product blueprint."))
   (fc-blueprint [this src-desc dst-desc activ alpha beta _]
     (cudnn-fc-blueprint this src-desc dst-desc activ alpha beta))
+  (pooling-blueprint [this _ dst-desc algo strides kernel padding-l padding-r]
+    (cudnn-pooling-blueprint this dst-desc algo strides kernel (or padding-l padding-r)))
   CostFactory
   (quadratic-cost [_ prev-layer train-tz]
     (cudnn-universal-cost prev-layer train-tz quadratic-cost!))
