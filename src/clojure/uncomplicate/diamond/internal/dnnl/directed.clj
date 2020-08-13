@@ -1143,11 +1143,11 @@
   (let [src-desc (desc src-desc)
         dst-desc (desc dst-desc)]
     (with-release [pool-infer-desc (pooling-fwd-desc :inference algo src-desc dst-desc
-                                                     strides kernel padding-l padding-r)
+                                                     kernel strides padding-l padding-r)
                    pool-train-desc (pooling-fwd-desc :training algo src-desc dst-desc
-                                                     strides kernel padding-l padding-r)
+                                                     kernel strides padding-l padding-r)
                    pool-bwd-desc (pooling-bwd-desc algo src-desc dst-desc
-                                                   strides kernel padding-l padding-r)]
+                                                   kernel strides padding-l padding-r)]
       (let-release [pool-infer-pd (primitive-desc eng pool-infer-desc)
                     pool-train-pd (primitive-desc eng pool-train-desc)
                     pool-bwd-pd (primitive-desc eng pool-bwd-desc pool-train-pd)]

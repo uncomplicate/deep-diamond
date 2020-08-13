@@ -261,10 +261,10 @@
           dtype (enc-keyword cudnn-data-type data-type)]
       (try
         (wrap
-         (if (= 2 (count pad))
-           (convolution-2d-descriptor* (extract cd) pad stride dilation mode dtype)
+         (if (< 2 (count pad))
            (convolution-nd-descriptor* (extract cd) (int-array pad) (int-array stride)
-                                       (int-array dilation) mode dtype)))))
+                                       (int-array dilation) mode dtype)
+           (convolution-2d-descriptor* (extract cd) pad stride dilation mode dtype)))))
     cd))
 
 (defn convolution-fwd-get-algo
@@ -389,3 +389,34 @@
                            (ptr beta) (extract-filter desc-dw) (extract buf-dw)
                            (extract workspace) (if workspace (cuda/size workspace) 0))
   cudnn-handle)
+
+;; ======================== Pooling ================================================================
+
+(defn pooling-descriptor
+  ([mode nan-opt kernel stride padding]
+   (let-release [pd (wrap (pooling-descriptor*))]
+     (let [mode (enc-keyword cudnn-pooling-mode mode)
+           nan-opt (enc-nan-propagation nan-opt)]
+       (try
+         (wrap
+          (if (< 2 (count kernel))
+            (pooling-nd-descriptor* (extract pd) mode nan-opt
+                                    (int-array kernel) (int-array stride) (int-array padding))
+            (pooling-2d-descriptor* (extract pd) mode nan-opt kernel stride padding)))))
+     pd))
+  ([mode kernel stride padding]
+   (pooling-descriptor mode true kernel stride padding)))
+
+(defn pooling-forward [cudnn-handle pd alpha desc-x buf-x beta desc-y buf-y]
+  (pooling-forward* (extract cudnn-handle) (extract pd)
+                    (ptr alpha) (extract (desc desc-x)) (extract buf-x)
+                    (ptr beta) (extract (desc desc-y)) (extract buf-y)))
+
+(defn pooling-backward [cudnn-handle pd alpha
+                        desc-y buf-y desc-dy buf-dy desc-x buf-x
+                        beta desc-dx buf-dx]
+  (pooling-backward* (extract cudnn-handle) (extract pd)
+                     (ptr alpha) (extract (desc desc-y)) (extract buf-y)
+                     (extract (desc desc-dy)) (extract buf-dy)
+                     (extract (desc desc-x)) (extract buf-x)
+                     (ptr beta) (extract (desc desc-dx)) (extract buf-dx)))

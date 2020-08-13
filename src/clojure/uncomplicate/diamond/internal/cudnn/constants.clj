@@ -14,7 +14,7 @@
             cudnnConvolutionMode cudnnConvolutionFwdAlgo cudnnConvolutionFwdPreference
             cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgo
             cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterAlgo
-            cudnnConvolutionBwdFilterPreference]))
+            cudnnConvolutionBwdFilterPreference cudnnPoolingMode]))
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
@@ -224,3 +224,11 @@
   {:no-workspace cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_NO_WORKSPACE
    :fastest cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_PREFER_FASTEST
    :workspace-limit cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT})
+
+(def ^:const cudnn-pooling-mode
+  {:max cudnnPoolingMode/CUDNN_POOLING_MAX
+   :max-deterministic cudnnPoolingMode/CUDNN_POOLING_MAX_DETERMINISTIC
+   :avg cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
+   :avg-exclude-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
+   :avg-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING
+   :avg-include-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING})

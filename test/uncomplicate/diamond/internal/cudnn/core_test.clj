@@ -262,3 +262,35 @@
            => (map float [-0.40000004 -0.6 0.20000002 0.3 -1.6 -1.8 1.0999999 1.0 -0.20000005
                           0.100000024 0.39999995 -8.940697E-8 -0.8000001 -2.6 -2.0 0.0 -2.0 -2.0
                           1.0 1.0 -2.0 -1.0 2.0 1.0 -1.0 -2.0 -1.0 0.0 -1.0 -3.0 -2.0 0.0]))))
+
+(with-release [cudnn-hdl (cudnn-handle default-stream)
+               desc-x (tensor-descriptor [2 1 4 4] :float :nchw)
+               gpu-x (mem-alloc (size desc-x))
+               host-x (float-array [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                    0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+               gpu-dx (mem-alloc (size desc-x))
+               desc-y (tensor-descriptor [2 1 2 2] :float :nchw)
+               gpu-y (mem-alloc (size desc-y))
+               host-dy (float-array (repeat 8 2.0))
+               gpu-dy (mem-alloc (size desc-y))
+               pool-desc (pooling-descriptor :max-deterministic [2 2] [2 2] [0 0])]
+
+  (memcpy-host! host-x gpu-x)
+
+  (facts "Max pooling forward."
+         (pooling-forward cudnn-hdl pool-desc
+                          (float 1.0) desc-x gpu-x (float 0.0) desc-y gpu-y)
+         (seq (memcpy-host! gpu-x (float-array 32))) => (seq host-x)
+         (seq (memcpy-host! gpu-y (float-array 8))) => [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0])
+
+  (memcpy-host! host-dy gpu-dy)
+
+  (facts "Max pooling backward."
+         (pooling-backward cudnn-hdl pool-desc
+                           (float 1.0) desc-y gpu-y desc-y gpu-dy desc-x gpu-x
+                           (float 0.0) desc-x gpu-x)
+         (seq (memcpy-host! gpu-y (float-array 8))) => [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]
+         (seq (memcpy-host! gpu-dy (float-array 8))) => (seq host-dy)
+         (seq (memcpy-host! gpu-x (float-array 32)))
+         => [0.0 0.0 0.0 2.0 0.0 2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 0.0 2.0 0.0
+             0.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0]))

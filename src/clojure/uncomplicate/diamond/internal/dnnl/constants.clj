@@ -253,9 +253,9 @@
 (def ^:const dnnl-pooling-alg-kind
   {:max dnnl/dnnl_pooling_max
    :avg dnnl/dnnl_pooling_avg
-   :avg_padding dnnl/dnnl_pooling_avg_include_padding
-   :avg_include_padding dnnl/dnnl_pooling_avg_include_padding
-   :avg_exclude_padding dnnl/dnnl_pooling_avg_exclude_padding})
+   :avg-padding dnnl/dnnl_pooling_avg_include_padding
+   :avg-include-padding dnnl/dnnl_pooling_avg_include_padding
+   :avg-exclude-padding dnnl/dnnl_pooling_avg_exclude_padding})
 
 (def ^:const dnnl-normalization-flags
   {:none dnnl/dnnl_normalization_flags_none

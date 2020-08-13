@@ -570,24 +570,24 @@
 
 (defn pooling-fwd-desc
   "TODO"
-  ([prop-kind alg-kind src-desc dst-desc strides kernel padding-l padding-r]
+  ([prop-kind alg-kind src-desc dst-desc kernel strides padding-l padding-r]
    (pooling-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
                           (enc-keyword dnnl-pooling-alg-kind alg-kind)
                           (desc src-desc) (desc dst-desc)
                           (long-array strides) (long-array kernel)
                           (long-array padding-l) (long-array padding-r)))
-  ([prop-kind alg-kind src-desc dst-desc strides kernel padding]
-   (pooling-fwd-desc prop-kind alg-kind src-desc dst-desc strides kernel padding padding)))
+  ([prop-kind alg-kind src-desc dst-desc kernel strides padding]
+   (pooling-fwd-desc prop-kind alg-kind src-desc dst-desc kernel strides padding padding)))
 
 (defn pooling-bwd-desc
   "TODO"
-  ([alg-kind diff-src-desc diff-dst-desc strides kernel padding-l padding-r]
+  ([alg-kind diff-src-desc diff-dst-desc kernel strides padding-l padding-r]
    (pooling-backward-desc* (enc-keyword dnnl-pooling-alg-kind alg-kind)
                            (desc diff-src-desc) (desc diff-dst-desc)
                            (long-array strides) (long-array kernel)
                            (long-array padding-l) (long-array padding-r)))
-  ([alg-kind diff-src-desc diff-dst-desc strides kernel padding]
-   (pooling-bwd-desc alg-kind diff-src-desc diff-dst-desc strides kernel padding padding)))
+  ([alg-kind diff-src-desc diff-dst-desc kernel strides padding]
+   (pooling-bwd-desc alg-kind diff-src-desc diff-dst-desc kernel strides padding padding)))
 
 (defn pooling-bwd-args
   "TODO"

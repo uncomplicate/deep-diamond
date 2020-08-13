@@ -25,7 +25,8 @@
             cudnnActivationDescriptor cudnnReduceTensorDescriptor cudnnIndicesType
             cudnnReduceTensorIndices cudnnReduceTensorOp cudnnConvolutionDescriptor
             cudnnFilterDescriptor cudnnConvolutionFwdPreference
-            cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterPreference]))
+            cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterPreference
+            cudnnPoolingDescriptor]))
 
 (defn cudnn-error [^long err-code details]
   (let [err (cudnnStatus/stringFor err-code)]
@@ -206,13 +207,12 @@
      (with-check
        (JCudnn/cudnnCreateActivationDescriptor res)
        res)))
-  ([^cudnnActivationDescriptor ad ^long mode ^long relu-nan-opt ^double coef]
+  ([ad ^long mode ^long relu-nan-opt ^double coef]
    (with-check
      (JCudnn/cudnnSetActivationDescriptor ad mode relu-nan-opt coef)
      ad)))
 
-(defn get-activation-descriptor* [^cudnnActivationDescriptor ad
-                                  ^ints mode ^ints relu-nan-opt ^doubles coef]
+(defn get-activation-descriptor* [ad ^ints mode ^ints relu-nan-opt ^doubles coef]
   (with-check
     (JCudnn/cudnnGetActivationDescriptor ad mode relu-nan-opt coef)
     ad))
@@ -247,13 +247,13 @@
      (with-check
        (JCudnn/cudnnCreateReduceTensorDescriptor res)
        res)))
-  ([^cudnnReduceTensorDescriptor rtd ^long op ^long comp-type ^long nan-opt]
+  ([rtd ^long op ^long comp-type ^long nan-opt]
    (with-check
      (JCudnn/cudnnSetReduceTensorDescriptor rtd op comp-type nan-opt
                                             cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_NO_INDICES
                                             cudnnIndicesType/CUDNN_32BIT_INDICES)
      rtd))
-  ([^cudnnReduceTensorDescriptor rtd op comp-type nan-opt indices]
+  ([rtd op comp-type nan-opt indices]
    (let [comp-type (int comp-type)]
      (with-check
        (JCudnn/cudnnSetReduceTensorDescriptor
@@ -425,18 +425,16 @@
       (JCudnn/cudnnCreateConvolutionDescriptor res)
       res)))
 
-(defn convolution-2d-descriptor* [^cudnnConvolutionDescriptor cd
-                                  pad stride dilation mode data-type]
+(defn convolution-2d-descriptor* [cd pad stride dilation mode data-type]
   (with-check
     (JCudnn/cudnnSetConvolution2dDescriptor
      cd (get pad 0 0) (get pad 1 0) (get stride 0 1) (get stride 1 1)
      (get dilation 0 1) (get dilation 0 1) mode data-type)
     cd))
 
-(defn convolution-nd-descriptor* [^cudnnConvolutionDescriptor cd
-                                  ^ints pad ^ints stride ^ints dilation mode data-type]
+(defn convolution-nd-descriptor* [cd ^ints pad ^ints stride ^ints dilation mode data-type]
   (with-check
-    (JCudnn/cudnnSetConvolutionNdDescriptor cd (alength pad) pad stride dilation (int mode) (int data-type))
+    (JCudnn/cudnnSetConvolutionNdDescriptor cd (alength pad) pad stride dilation mode data-type)
     cd))
 
 (defn convolution-fwd-get-algo*
@@ -553,4 +551,46 @@
                                            alpha desc-x buf-x desc-dy buf-dy
                                            cd algo workspace ws-size
                                            beta desc-dw buf-dw)
+    cudnn-handle))
+
+;; ======================== Pooling ================================================================
+
+(deftype-wrapper CUDnnPoolingDescriptor
+  JCudnn/cudnnDestroyPoolingDescriptor cudnn-error)
+
+(extend-type cudnnPoolingDescriptor
+  Wrappable
+  (wrap [pd]
+    (->CUDnnPoolingDescriptor (volatile! pd))))
+
+(defn pooling-descriptor* []
+  (let [res (cudnnPoolingDescriptor.)]
+    (with-check
+      (JCudnn/cudnnCreatePoolingDescriptor res)
+      res)))
+
+(defn pooling-2d-descriptor* [pd mode nan-opt kernel strides padding]
+  (with-check
+    (JCudnn/cudnnSetPooling2dDescriptor
+     pd mode nan-opt (get kernel 0 0) (get kernel 1 0) (get padding 0 1) (get padding 1 1)
+     (get strides 0 1) (get strides 0 1))
+    pd))
+
+(defn pooling-nd-descriptor* [pd mode nan-opt ^ints kernel ^ints stride ^ints padding]
+  (with-check
+    (JCudnn/cudnnSetPoolingNdDescriptor pd mode nan-opt (alength kernel) kernel padding stride)
+    pd))
+
+(defn pooling-forward* [cudnn-handle pd alpha desc-x buf-x beta desc-y buf-y]
+  (with-check
+    (JCudnn/cudnnPoolingForward cudnn-handle pd alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-handle))
+
+(defn pooling-backward* [cudnn-handle pd
+                         alpha desc-y buf-y desc-dy buf-dy desc-x buf-x
+                         beta desc-dx buf-dx]
+  (with-check
+    (JCudnn/cudnnPoolingBackward cudnn-handle pd
+                                 alpha desc-y buf-y desc-dy buf-dy desc-x buf-x
+                                 beta desc-dx buf-dx)
     cudnn-handle))
