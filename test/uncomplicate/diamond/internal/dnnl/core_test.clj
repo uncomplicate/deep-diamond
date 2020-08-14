@@ -643,7 +643,7 @@
          (seq dst-vec) => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
                            1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586]))
 
-(facts "Batch normalization backward."
+(facts "Batch normalization backward." ;;TODO check the numbers
        (with-release [eng (engine)
                       s (stream eng)
                       data-desc (memory-desc [1 2 2 2] :float :nchw)
@@ -654,7 +654,8 @@
                       src-mem (memory eng data-desc (buffer src-vec))
                       dst-vec (fv 8)
                       dst-mem (memory eng data-desc (buffer dst-vec))
-                      scaleshift-vec (fv [0.5 1.5])
+                      scaleshift-desc (memory-desc [2 2] :float :nc)
+                      scaleshift-vec (fv [0.5 1.5 1 1])
                       scaleshift-mem (memory eng stats-desc (buffer scaleshift-vec))
                       mean-vec (fv 2)
                       mean-mem (memory eng stats-desc (buffer mean-vec))
@@ -669,8 +670,8 @@
                       diff-dst-mem (memory eng (diff-dst-md bnrm-bwd-pd) (buffer diff-dst-vec))
                       diff-src-vec (fv 8)
                       diff-src-mem (memory eng (diff-src-md bnrm-bwd-pd) (buffer diff-src-vec))
-                      diff-scaleshift-vec (fv 2)
-                      diff-scaleshift-mem (memory eng stats-desc (buffer diff-scaleshift-vec))
+                      diff-scaleshift-vec (fv 4)
+                      diff-scaleshift-mem (memory eng scaleshift-desc (buffer diff-scaleshift-vec))
                       bnrm-bwd (primitive bnrm-bwd-pd)
                       bnrm-bwd-args (batch-norm-bwd-args diff-dst-mem src-mem scaleshift-mem
                                                          mean-mem variance-mem
@@ -678,17 +679,16 @@
          (primitive-kind bnrm-desc) => :batch-normalization
          (execute! s bnrm bnrm-args) => s
          (seq src-vec) => (range -1.0 7.0)
-         (seq dst-vec) => [-0.6708203554153442 -0.22360679507255554
-                           0.22360679507255554 0.6708203554153442
-                           -2.0124611854553223 -0.6708203554153442
-                           0.6708203554153442 2.0124611854553223]
+         (seq dst-vec)
+         => [0.32917964458465576 0.7763931751251221 1.223606824874878 1.6708203554153442
+             -1.0124611854553223 0.32917964458465576 1.6708203554153442 3.0124611854553223]
          (seq mean-vec) => [0.5 4.5]
          (seq variance-vec) => [1.25 1.25]
          (execute! s bnrm-bwd bnrm-bwd-args)
          (seq diff-src-vec)
          => [-2.455202579498291 3.989145278930664 -0.6126827001571655 -0.9212599992752075
              -1.4489718675613403 0.9928141236305237 2.3612875938415527 -1.9051299095153809]
-         (seq diff-scaleshift-vec) => [2.6385602951049805 -3.219937801361084]))
+         (seq diff-scaleshift-vec) => [2.6385602951049805 -3.219937801361084 5.5 -2.0]))
 
 (facts "In-place Binary operation"
        (with-release [eng (engine)

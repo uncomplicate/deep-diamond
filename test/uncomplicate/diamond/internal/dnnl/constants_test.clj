@@ -8,8 +8,11 @@
 
 (ns uncomplicate.diamond.internal.dnnl.constants-test
   (:require [midje.sweet :refer [facts =>]]
-            [uncomplicate.diamond.internal.dnnl.constants :refer [dnnl-format dec-format]])
-  (:import clojure.lang.ExceptionInfo java.nio.ByteBuffer))
+            [uncomplicate.diamond.internal.dnnl.constants :refer :all]))
 
 (facts "DNNL format tests."
-       (count (remove identity (map #(= % (dnnl-format (dec-format %))) (range 28)))) => 0)
+       (remove identity (map #(= % (dnnl-format (dec-format %))) (range 28))) => [])
+
+(facts "DNNL data-type tests."
+       (remove identity (map #(= % (dnnl-data-type (dec-data-type %))) (range 7)))
+       => [])

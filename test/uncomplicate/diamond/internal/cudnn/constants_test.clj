@@ -8,37 +8,28 @@
 
 (ns uncomplicate.diamond.internal.cudnn.constants-test
   (:require [midje.sweet :refer [facts =>]]
-            [uncomplicate.diamond.internal.cudnn.constants :refer :all])
-  (:import clojure.lang.ExceptionInfo java.nio.ByteBuffer))
+            [uncomplicate.diamond.internal.cudnn.constants :refer :all]))
 
 (facts "cuDNN data-type tests."
-       (->> (map #(= % (cudnn-data-type (dec-data-type %))) (range 0))
-            (remove identity)
-            (count))
-       => 0)
+       (remove identity (map #(= % (cudnn-data-type (dec-data-type %))) (range 8))) => [])
 
 (facts "cuDNN activation mode tests."
-       (->> (map #(= % (cudnn-activation-mode (dec-activation-mode %))) (range 0))
-            (remove identity)
-            (count))
-       => 0)
+       (remove identity (map #(= % (cudnn-activation-mode (dec-activation-mode %))) (range 0)))
+       => [])
 
 (facts "cuDNN convolution forward algorithm tests."
-       (->> (map #(= % (cudnn-convolution-fwd-algo (dec-convolution-fwd-algo %))) (range 0))
-            (remove identity)
-            (count))
-       => 0)
+       (remove identity
+               (map #(= % (cudnn-convolution-fwd-algo (dec-convolution-fwd-algo %))) (range 0)))
+       => [])
 
 (facts "cuDNN convolution backward data algorithm tests."
-       (->> (map #(= % (cudnn-convolution-bwd-data-algo (dec-convolution-bwd-data-algo %)))
-                 (range 0))
-            (remove identity)
-            (count))
-       => 0)
+       (remove identity
+               (map #(= % (cudnn-convolution-bwd-data-algo (dec-convolution-bwd-data-algo %)))
+                    (range 0)))
+       => [])
 
 (facts "cuDNN convolution backward filter algorithm tests."
-       (->> (map #(= % (cudnn-convolution-bwd-filter-algo (dec-convolution-bwd-filter-algo %)))
-                 (range 0))
-            (remove identity)
-            (count))
-       => 0)
+       (remove identity
+               (map #(= % (cudnn-convolution-bwd-filter-algo (dec-convolution-bwd-filter-algo %)))
+                    (range 0)))
+       => [])

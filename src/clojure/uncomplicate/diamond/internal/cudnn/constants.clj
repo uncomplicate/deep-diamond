@@ -55,7 +55,7 @@
    :int8x4 cudnnDataType/CUDNN_DATA_INT8x4
    :uint8 cudnnDataType/CUDNN_DATA_UINT8
    :u8 cudnnDataType/CUDNN_DATA_UINT8
-   :uit8x4 cudnnDataType/CUDNN_DATA_UINT8x4
+   :uint8x4 cudnnDataType/CUDNN_DATA_UINT8x4
    :int8x32 cudnnDataType/CUDNN_DATA_INT8x32})
 
 (defn dec-data-type [^long data-type]

@@ -93,9 +93,8 @@
     25 :cdeba
     26 :decab
     27 :defcab
-
-    (dragan-says-ex (format "%s format." (if (< 22 format 132) "Opaque" "Unknown"))
-                    {:format format})))
+    (if (< 28 format dnnl/dnnl_format_tag_last) :opaque
+        (dragan-says-ex "Unknown format." {:format format}))))
 
 (def ^:const dnnl-format
   {:undef dnnl/dnnl_format_tag_undef
@@ -231,7 +230,8 @@
    :elu-dst-bwd dnnl/dnnl_eltwise_elu_use_dst_for_bwd
    :square-dst-bwd dnnl/dnnl_eltwise_sqrt_use_dst_for_bwd
    :logistic-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd
-   :sigmoid-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd})
+   :sigmoid-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd
+   :round dnnl/dnnl_eltwise_round})
 
 (defn entry-bytes ^long [data-type]
   (case data-type
