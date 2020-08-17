@@ -4,7 +4,7 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecuda.core :refer [mem-alloc]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! axpy! view dim copy! transfer!]]
+             [core :refer [axpby! axpy! view dim copy! transfer! raw zero]]
              [block :refer [cast-prim data-accessor buffer]]
              [math :refer [sqrt pow]]
              [vect-math :refer [sqr! linear-frac! sqrt!]]]
@@ -15,7 +15,7 @@
             [uncomplicate.diamond.internal.protocols
              :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
                      blueprint create-tensor DiffTransfer diff-input diff-output diff-z
-                     ParametersSeq]]
+                     ParametersSeq Parameters DiffParameters]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]
@@ -282,7 +282,7 @@
   (desc [this]
     (.dst-desc this)))
 
-(defn cudnn-fc-blueprint [fact src-desc dst-desc activ alpha beta]
+(defn cudnn-fc-blueprint [fact src-desc dst-desc activ alpha _]
   (let [dst-shape (shape dst-desc)
         weights-shape [(dst-shape 1) (apply * (rest (shape src-desc)))]]
     (let-release [src-desc (cudnn-tensor-desc (shape src-desc) (data-type src-desc) (layout src-desc))
@@ -376,8 +376,436 @@
                   connect-diff (connector train-desc (diff-z prev-layer))]
       (->CuDnnCustomCost prev-layer
                          connect-output connect-diff train-tz
-                         (view (output connect-output)) (view train-tz) (view (input connect-diff))
+                         (view (output connect-output)) (view train-tz)
+                         (view (input connect-diff))
                          cost))))
+
+;; ================================ Convolution ===============================================
+
+(deftype CuDnnConvolutionInferenceLayer [fact cudnn-hdl bluep one zero activ
+                                         conv-desc filter-desc conv-fwd-algo
+                                         src-conn bias-tz weights-tz dst-tz workspace]
+  Releaseable
+  (release [_]
+    (release activ)
+    (release conv-desc)
+    (release src-conn)
+    (release bias-tz)
+    (release weights-tz)
+    (release dst-tz)
+    (release workspace))
+  ;; TODO implement equals, hashcode etc.
+  Info
+  (info [this]
+    (assoc (info activ)
+           :shape (info bluep :shape)
+           :bias (info bias-tz)
+           :weights (info weights-tz)
+           :dst (info dst-tz)
+           :topology :convolution :algorithm :inference))
+  (info [this info-type]
+    (case info-type
+      :shape (info bluep :shape)
+      :bias (info bias-tz)
+      :weights (info weights-tz)
+      :dst (info dst-tz)
+      :topology :convolution :algorithm :inference
+      (or (info activ info-type) (info bluep info-type))))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  BlueprintProvider
+  (blueprint [_]
+    bluep)
+  Parameters
+  (bias [_]
+    bias-tz)
+  (weights [_]
+    weights-tz)
+  ParametersSeq
+  (parameters [_]
+    [weights-tz bias-tz])
+  Transfer
+  (input [this]
+    (input src-conn))
+  (output [_]
+    (output activ))
+  IFn
+  (invoke [_]
+    (src-conn)
+    (convolution-fwd cudnn-hdl conv-desc conv-fwd-algo
+                     one (output src-conn) (buffer (output src-conn))
+                     filter-desc (buffer weights-tz) zero dst-tz (buffer dst-tz) workspace)
+    (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
+    (activ)))
+
+(deftype CuDnnConvolutionSGD [fact cudnn-hdl bluep one zero scal-n ^long n
+                              activ prop-diff? conv-desc filter-desc
+                              conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                              v w diff-weights-vec
+                              src-conn bias-tz weights-tz dst-tz a-tz
+                              diff-src-conn diff-weights-tz workspace]
+  Releaseable
+  (release [_]
+    (release activ)
+    (release src-conn)
+    (release bias-tz)
+    (release weights-tz)
+    (release dst-tz)
+    (release a-tz);;TODO move the release part to activ since I don't use a-tz here
+    (release diff-src-conn)
+    (release diff-weights-tz)
+    (release workspace))
+  ;;TODO Implement equals etc.
+  Info
+  (info [this]
+    (assoc (info activ) :shape (info bluep :shape)
+           :shape (info bluep :shape)
+           :bias (info bias-tz)
+           :weights (info weights-tz)
+           :dst (info dst-tz)
+           :batch n :algorithm :adam :topology :fc))
+  (info [this info-type]
+    (case info-type
+      :shape (info bluep :shape)
+      :bias (info bias-tz)
+      :weights (info weights-tz)
+      :dst (info dst-tz)
+      :batch n :algorithm :adam :topology :fc
+      (or (info activ info-type) (info bluep info-type))))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  BlueprintProvider
+  (blueprint [_]
+    bluep)
+  Parameters
+  (bias [_]
+    bias-tz)
+  (weights [_]
+    weights-tz)
+  ParametersSeq
+  (parameters [_]
+    [weights-tz bias-tz])
+  Transfer
+  (input [this]
+    (input src-conn))
+  (output [_]
+    (output activ))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input activ))
+  (diff-z [_]
+    (diff-output activ))
+  (diff-output [_]
+    (input src-conn))
+  IFn
+  (invoke [this]
+    (src-conn)
+    (convolution-fwd cudnn-hdl conv-desc conv-fwd-algo
+                     one (output src-conn) (buffer (output src-conn))
+                     filter-desc (buffer weights-tz) zero dst-tz (buffer dst-tz) workspace)
+    (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
+    (activ))
+  Backprop
+  (forward [this]
+    (forward activ)
+    this)
+  (forward [this [_ _ mu nesterov?]]
+    (when nesterov? (axpy! mu v w))
+    (src-conn)
+    (convolution-fwd cudnn-hdl conv-desc conv-fwd-algo
+                     one (output src-conn) (buffer (output src-conn))
+                     filter-desc (buffer weights-tz) zero dst-tz (buffer dst-tz) workspace)
+    (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
+    (forward activ)
+    this)
+  (backward [this]
+    (backward activ)
+    this)
+  (backward [this [_ eta lambda mu nesterov?]]
+    (let [eta-avg (- (/ (double eta) n))]
+      (when nesterov? (axpy! (- (double mu)) v w))
+      (convolution-bwd-filter cudnn-hdl conv-desc conv-bwd-weights-algo
+                              one (output src-conn) (buffer (output src-conn))
+                              dst-tz (buffer dst-tz)
+                              zero filter-desc (buffer diff-weights-tz) workspace)
+      (convolution-bwd-bias cudnn-hdl
+                            (cast-prim (data-accessor dst-tz) eta) dst-tz (buffer dst-tz)
+                            one bias-tz (buffer bias-tz))
+      (when prop-diff?
+        (convolution-bwd-data cudnn-hdl conv-desc conv-bwd-data-algo
+                              one filter-desc (buffer weights-tz)
+                              dst-tz (buffer dst-tz)
+                              zero (input diff-src-conn) (buffer (input diff-src-conn))
+                              workspace)
+        (diff-src-conn))
+      (axpby! eta-avg diff-weights-vec mu v)
+      (axpby! 1.0 v (inc (* eta-avg (double lambda))) w)
+      this)))
+
+(defn sgd-layer [fact bluep activ-bluep val-1 val-0 scal-n prop-diff?
+                 conv-desc filter-desc conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                 src-conn bias-tz weights-tz z-tz a-tz
+                 diff-weights-tz workspace]
+  (let-release [n (get (shape z-tz) 0)
+                w (view weights-tz)
+                v (zero w)
+                a (view a-tz)
+                diff-weights-vec (view diff-weights-tz)
+                activ (activ-bluep z-tz a-tz)
+                diff-src-conn (revert src-conn)]
+    (->CuDnnConvolutionSGD fact (handle fact) bluep
+                           val-1 val-0 scal-n n
+                           activ prop-diff? conv-desc filter-desc
+                           conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                           v w diff-weights-vec
+                           src-conn bias-tz weights-tz z-tz a-tz
+                           diff-src-conn diff-weights-tz workspace)))
+
+(deftype CuDnnConvolutionAdam [fact cudnn-hdl bluep one zero scal-n ^long n
+                               activ prop-diff? conv-desc filter-desc
+                               conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                               g s r w
+                               src-conn bias-tz weights-tz dst-tz a-tz
+                               diff-src-conn diff-weights-tz workspace]
+  Releaseable
+  (release [_]
+    (release activ)
+    (release src-conn)
+    (release bias-tz)
+    (release weights-tz)
+    (release dst-tz)
+    (release a-tz);;TODO move the release part to activ since I don't use a-tz here
+    (release diff-src-conn)
+    (release diff-weights-tz)
+    (release workspace))
+  ;;TODO Implement equals etc.
+  Info
+  (info [this]
+    (assoc (info activ) :shape (info bluep :shape)
+           :shape (info bluep :shape)
+           :bias (info bias-tz)
+           :weights (info weights-tz)
+           :dst (info dst-tz)
+           :batch n :algorithm :adam :topology :fc))
+  (info [this info-type]
+    (case info-type
+      :shape (info bluep :shape)
+      :bias (info bias-tz)
+      :weights (info weights-tz)
+      :dst (info dst-tz)
+      :batch n :algorithm :adam :topology :fc
+      (or (info activ info-type) (info bluep info-type))))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  BlueprintProvider
+  (blueprint [_]
+    bluep)
+  Parameters
+  (bias [_]
+    bias-tz)
+  (weights [_]
+    weights-tz)
+  ParametersSeq
+  (parameters [_]
+    [weights-tz bias-tz])
+  Transfer
+  (input [this]
+    (input src-conn))
+  (output [_]
+    (output activ))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input activ))
+  (diff-z [_]
+    (diff-output activ))
+  (diff-output [_]
+    (input src-conn))
+  IFn
+  (invoke [this]
+    (src-conn)
+    (convolution-fwd cudnn-hdl conv-desc conv-fwd-algo
+                     one (output src-conn) (buffer (output src-conn))
+                     filter-desc (buffer weights-tz) zero dst-tz (buffer dst-tz) workspace)
+    (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
+    (activ))
+  Backprop
+  (forward [this]
+    (forward activ)
+    this)
+  (forward [this _]
+    (src-conn)
+    (convolution-fwd cudnn-hdl conv-desc conv-fwd-algo
+                     one (output src-conn) (buffer (output src-conn))
+                     filter-desc (buffer weights-tz) zero dst-tz (buffer dst-tz) workspace)
+    (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
+    (forward activ)
+    this)
+  (backward [this]
+    (backward activ)
+    this)
+  (backward [this [t eta lambda rho1 rho2 epsilon]]
+    (let [t (inc (long t))
+          eta (double (or eta 0.001))
+          lambda (double (or lambda 0.0))
+          rho1 (double (or rho1 0.9))
+          rho2 (double (or rho2 0.999))
+          epsilon (double (or epsilon 1e-6))
+          eta-avg (- (/ (double eta) n))]
+      (convolution-bwd-filter cudnn-hdl conv-desc conv-bwd-weights-algo
+                              scal-n (output src-conn) (buffer (output src-conn))
+                              dst-tz (buffer dst-tz)
+                              zero filter-desc (buffer diff-weights-tz) workspace)
+      (convolution-bwd-bias cudnn-hdl
+                            (cast-prim (data-accessor dst-tz) eta) dst-tz (buffer dst-tz)
+                            one bias-tz (buffer bias-tz))
+      (when prop-diff?
+        (convolution-bwd-data cudnn-hdl conv-desc conv-bwd-data-algo
+                              one filter-desc (buffer weights-tz)
+                              dst-tz (buffer dst-tz)
+                              zero (input diff-src-conn) (buffer (input diff-src-conn))
+                              workspace)
+        (diff-src-conn))
+      (axpby! (- 1.0 rho1) g rho1 s);;TODO I might separate this into a optimization-algo type everywhere!
+      (axpby! (- 1.0 rho2) (sqr! g) rho2 r)
+      (linear-frac! (/ (- eta) (- 1.0 (pow rho1 t))) s 0.0
+                    (/ 1.0 (sqrt (- 1.0 (pow rho2 t)))) (sqrt! r g) epsilon g)
+      (axpby! 1.0 g (inc (* eta-avg lambda)) w)
+      this)))
+
+(defn adam-layer [fact bluep activ-bluep val-1 val-0 scal-n prop-diff?
+                  conv-desc filter-desc conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                  src-conn bias-tz weights-tz z-tz a-tz
+                  diff-weights-tz workspace]
+  (let-release [n (get (shape z-tz) 0)
+                w (view weights-tz)
+                a (view a-tz)
+                g (raw w)
+                s (zero w)
+                r (zero w);;TODO rename zero value to val-0
+                activ (activ-bluep z-tz a-tz)
+                diff-src-conn (revert src-conn)]
+    (->CuDnnConvolutionAdam fact (handle fact) bluep
+                            val-1 val-0 scal-n n
+                            activ prop-diff? conv-desc filter-desc
+                            conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                            g s r w
+                            src-conn bias-tz weights-tz z-tz a-tz
+                            diff-src-conn diff-weights-tz workspace)))
+
+(deftype CuDnnConvolutionLayerBlueprint [fact activ-bluep conv-desc
+                                         conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                                         src-desc weights-desc filter-desc bias-desc dst-desc]
+  ;; TODO implement equals
+  Releaseable
+  (release [_]
+    (release conv-desc)
+    (release conv-fwd-algo)
+    (release conv-bwd-data-algo)
+    (release conv-bwd-weights-algo)
+    (release weights-desc)
+    (release filter-desc)
+    (release bias-desc))
+  Info
+  (info [this info-type]
+    (case info-type
+      :bias bias-desc
+      :inference {:src src-desc
+                  :weights weights-desc
+                  :filter filter-desc
+                  :dst dst-desc}
+      :training {:src src-desc
+                 :weights weights-desc
+                 :filter filter-desc
+                 :dst dst-desc}
+      nil))
+  (info [this]
+    {:bias bias-desc
+     :inference {:src src-desc
+                 :weights weights-desc
+                 :filter filter-desc
+                 :dst dst-desc}
+     :training {:src src-desc
+                :weights weights-desc
+                :filter filter-desc
+                :dst dst-desc}})
+  DescProvider
+  (desc [_]
+    dst-desc)
+  IFn
+  (invoke [this prev-layer]
+    (let-release [src-conn (connector (output prev-layer) src-desc)
+                  bias-tz (cudnn-tensor fact bias-desc)
+                  weights-tz (cudnn-tensor fact weights-desc)
+                  a-tz (cudnn-tensor fact dst-desc)
+                  workspace (mem-alloc (convolution-fwd-get-workspace-size
+                                        (handle fact) conv-desc conv-fwd-algo
+                                        src-desc filter-desc dst-desc))
+                  activ (activ-bluep a-tz)]
+      (->CuDnnConvolutionInferenceLayer fact (handle fact) this
+                                        (cast-prim (data-accessor a-tz) 1.0)
+                                        (cast-prim (data-accessor a-tz) 0.0)
+                                        activ
+                                        conv-desc filter-desc conv-fwd-algo
+                                        src-conn bias-tz weights-tz a-tz workspace)))
+  (invoke [this prev-layer prop-diff? optimization]
+    (let [src-shape (shape src-desc)
+          training-layer (case optimization
+                           :sgd sgd-layer
+                           :adam adam-layer
+                           (dragan-says-ex
+                            "This optimization algorithm is not available in cuDNN backend."
+                            {:optimization optimization}))]
+      (let-release [src-conn (connector (output (prev-layer)) src-desc)
+                    bias-tz (cudnn-tensor fact bias-desc)
+                    weights-tz (cudnn-tensor fact weights-desc)
+                    dst-tz (cudnn-tensor fact dst-desc)
+                    diff-src-conn (revert src-conn)
+                    diff-weights-tz (raw weights-tz)
+                    workspace (mem-alloc (max (long (convolution-fwd-get-workspace-size
+                                                     (handle fact) conv-desc conv-fwd-algo
+                                                     src-desc filter-desc dst-desc))
+                                              (long (convolution-bwd-data-get-workspace-size
+                                                     (handle fact) conv-desc conv-bwd-data-algo
+                                                     filter-desc dst-desc src-desc))
+                                              (long (convolution-bwd-filter-get-workspace-size
+                                                     (handle fact) conv-desc conv-bwd-weights-algo
+                                                     src-desc dst-desc filter-desc))))
+                    a-tz (raw dst-tz)]
+        (training-layer fact this activ-bluep
+                        (cast-prim (data-accessor dst-tz) 1.0)
+                        (cast-prim (data-accessor dst-tz) 0.0)
+                        (cast-prim (data-accessor dst-tz) (/ 1.0 (long (get src-shape 0))))
+                        prop-diff? conv-desc filter-desc
+                        conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                        src-conn bias-tz weights-tz dst-tz a-tz
+                        diff-weights-tz workspace))))
+  (invoke [this prev-layer prop-diff?]
+    (.invoke this prev-layer prop-diff? :sgd)))
+
+(defn cudnn-convolution-layer-blueprint
+  [fact src-desc weights-desc dst-desc strides padding dilation
+   activ alpha]
+  (let-release [src-desc (desc src-desc)
+                dst-desc (desc dst-desc)
+                dtype (data-type dst-desc)
+                weights-desc (cudnn-tensor-desc (shape weights-desc) dtype nil)
+                filter-desc (filter-descriptor (shape weights-desc) dtype :nchw);;TODO generalize?
+                bias-desc (cudnn-tensor-desc [1 (get (dims dst-desc) 1)] dtype :nc);;TODO maybe I'd need to do into etc.
+                conv-desc (convolution-descriptor :cross-correleation dtype padding strides dilation)
+                conv-fwd-algo (convolution-fwd-get-algo (handle fact) conv-desc
+                                                        src-desc filter-desc dst-desc)
+                conv-bwd-data-algo (convolution-bwd-data-get-algo (handle fact) conv-desc
+                                                                  filter-desc dst-desc src-desc)
+                conv-bwd-weights-algo (convolution-bwd-filter-get-algo (handle fact) conv-desc
+                                                                       src-desc dst-desc filter-desc)
+                activ-bluep (cudnn-activ-blueprint fact activ alpha)]
+    (->CuDnnConvolutionLayerBlueprint fact activ-bluep conv-desc
+                                      conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                                      src-desc weights-desc filter-desc bias-desc dst-desc)))
+
 
 ;; ================================ Pooling =============================================
 

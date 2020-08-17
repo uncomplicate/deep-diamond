@@ -44,7 +44,7 @@
            [uncomplicate.neanderthal.internal.api Block Changeable DataAccessor VectorSpace]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor
-           uncomplicate.diamond.internal.cudnn.impl.CUTensorDescriptor))
+           [uncomplicate.diamond.internal.cudnn.impl CUTensorDescriptor CUFilterDescriptor]))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
   "This operation would be inefficient because it uses memory transfer.
@@ -118,6 +118,32 @@
       (with-release [md (memory-desc shape dtype format)]
         (let [padding-4 (repeat (- 4 (count shape)) 1)]
           (tensor-descriptor (into shape padding-4) dtype (into (layout md) padding-4)))))))
+
+(extend-type CUFilterDescriptor ;;TODO macro-ize with CUTeensorDescriptor
+  TensorDescriptor
+  (shape [this]
+    (.dims this))
+  (data-type [this]
+    (.data-type this))
+  (layout [this]
+    (.strides this))
+  ConnectorCreator
+  (connector [in-desc out]
+    (if (equal-desc? in-desc (input out))
+      (if (satisfies? TensorContainer out)
+        (view-tz out)
+        out)
+      (let [out-tz (output out)]
+        (if (equal-desc? in-desc out-tz)
+          (view-tz out-tz)
+          (let [fact (diamond-factory out-tz)]
+            (let-release [in-tz (cudnn-tensor fact in-desc)]
+              (cudnn-transformer (handle fact) in-tz (view-tz out-tz)))))))))
+
+(defmethod print-method CUFilterDescriptor
+  [^CUFilterDescriptor d ^java.io.Writer w]
+  (.write w (pr-str {:shape (.dims d) :data-type (.data-type d)
+                     :layout (.strides d) :format (.format d)})))
 
 ;; =================== Transformer ==============================================
 
@@ -313,7 +339,7 @@
     (data-accessor vect-view))
   Container
   (raw [_]
-    (cudnn-tensor diamond-fact cu-desc false))
+    (cudnn-tensor diamond-fact cu-desc))
   (raw [_ fact]
     (let [df (diamond-factory fact)]
       (create-tensor df (create-tensor-desc df cu-desc) false)))

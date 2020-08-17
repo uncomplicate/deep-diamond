@@ -31,6 +31,9 @@
   (test-stochastic-gradient-descent-sgd fact)
   (test-stochastic-gradient-descent-adam fact)
   (test-crossentropy-cost fact)
+  (test-convolution-inference fact)
+  (test-convolution-inference-relu fact)
+  (test-convolution-training fact)
   (test-pooling-max fact)
   (test-pooling-avg fact))
 

@@ -237,7 +237,6 @@
 
     (memcpy-host! host-x gpu-x)
     (memcpy-host! host-w gpu-w)
-
     (facts "Convoluton forward operation."
            (convolution-fwd cudnn-hdl convo-desc convo-fwd-algo (float 1.0) desc-x gpu-x
                             desc-w gpu-w (float 0.0) desc-y gpu-y convo-ws) => cudnn-hdl

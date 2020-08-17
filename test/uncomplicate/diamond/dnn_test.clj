@@ -10,7 +10,7 @@
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
-             [core :refer [entry! entry native transfer! view vctr cols view-ge nrm2]]
+             [core :refer [entry! entry native transfer! view vctr cols view-ge nrm2 axpy!]]
              [random :refer [rand-uniform!]]
              [math :as math]
              [vect-math :refer [div!]]]
@@ -495,8 +495,9 @@
            (backward conv-output) => conv-output
            (backward conv) => conv
            (backward conv [nil 1 0 0 false]) => conv
-           (view (weights conv)) => (vctr train-tz -127.950065 -115.449982 -45.800049 -108.500145
-                                          -92.000023 -116.5 -41.500053 -101.300003 -207.499939)
+           (nrm2 (axpy! -1 (view (weights conv))
+                        (vctr train-tz -127.950065 -115.449982 -45.800049 -108.500145
+                              -92.000023 -116.5 -41.500053 -101.300003 -207.499939))) => (roughly 0 0.0001)
            (view (input conv)) => (vctr train-tz [-0.40000152587890625 -0.600006103515625 0.20000076293945312
                                                   0.3000030517578125 -1.5999984741210938 -1.7999992370605469
                                                   1.1000022888183594 1.0 -0.20000076293945312 0.09999465942382812

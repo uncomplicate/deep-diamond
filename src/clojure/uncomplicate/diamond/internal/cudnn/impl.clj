@@ -553,6 +553,12 @@
                                            beta desc-dw buf-dw)
     cudnn-handle))
 
+(defn convolution-bwd-bias*
+  [cudnn-handle alpha desc-dy buf-dy beta desc-db buf-db]
+  (with-check
+    (JCudnn/cudnnConvolutionBackwardBias cudnn-handle alpha desc-dy buf-dy beta desc-db buf-db)
+    cudnn-handle))
+
 ;; ======================== Pooling ================================================================
 
 (deftype-wrapper CUDnnPoolingDescriptor

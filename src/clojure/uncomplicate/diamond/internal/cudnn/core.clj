@@ -390,6 +390,13 @@
                            (extract workspace) (if workspace (cuda/size workspace) 0))
   cudnn-handle)
 
+(defn convolution-bwd-bias
+  [cudnn-handle alpha desc-dy buf-dy beta desc-db buf-db]
+  (convolution-bwd-bias* (extract cudnn-handle)
+                         (ptr alpha) (extract (desc desc-dy)) (extract buf-dy)
+                         (ptr beta) (extract (desc desc-db)) (extract buf-db))
+  cudnn-handle)
+
 ;; ======================== Pooling ================================================================
 
 (defn pooling-descriptor
