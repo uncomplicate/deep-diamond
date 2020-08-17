@@ -324,6 +324,6 @@
          :default (infer* net in out)))
   ([net in]
    (let [net-out (output net)]
-     (let-release [out (tensor net (cons (first (shape (input in))) (rest (shape net-out)))
+     (let-release [out (tensor net (into [(get (shape (input in)) 0)] (rest (shape net-out)))
                                (data-type net-out) (layout net-out))]
        (infer net in out)))))

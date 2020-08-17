@@ -355,7 +355,7 @@
     (output connect-output))
   DiffTransfer
   (diff-input [_]
-    (release train-tz))
+    train-tz)
   (diff-output [_]
     (output connect-diff))
   Backprop

@@ -75,15 +75,13 @@
                  net-infer (net-bp x-mb-tz)
                  crossentropy-cost (cost net y-mb-tz :crossentropy)
                  train-images (transfer! train-images (tensor [60000 1 28 28] :float :nchw))
-                 x-train-bat (batcher train-images (input net))
                  y-train (transfer! y-train (tensor y-train))
-                 y-train-bat (batcher y-train y-mb-tz)
                  test-images (transfer! test-images (tensor [10000 1 28 28] :float :nchw))
-                 x-test-bat (batcher test-images (input net-infer))
-                 y-test (transfer! y-test (tensor y-test))
-                 y-test-bat (batcher (output net-infer) y-test)]
+                 y-test (transfer! y-test (tensor y-test))]
     (facts "cuDNN MNIST classification tests."
-           (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.02 0.1)
+           (time (train net train-images y-train crossentropy-cost 2 [])) => (roughly 0.02 0.1)
            (transfer! net net-infer)
-           (take 8 (mnist/dec-categories (native (infer net-infer x-test-bat y-test-bat))))
+           (take 8 (mnist/dec-categories (native (infer net-infer test-images))))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+
+;; "Elapsed time: 3387.181722 msecs"
