@@ -12,10 +12,12 @@
              [tensor :as tz
               :refer [Transfer input output connector view-tz revert shape layout
                       TensorDescriptor shape]]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
-                     blueprint create-tensor DiffTransfer diff-input diff-output diff-z
-                     ParametersSeq Parameters DiffParameters]]
+            [uncomplicate.diamond.internal
+             [protocols
+              :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
+                      blueprint create-tensor DiffTransfer diff-input diff-output diff-z
+                      ParametersSeq Parameters DiffParameters]]
+             [utils :refer [transfer-weights-bias!]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]
@@ -439,12 +441,12 @@
     (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
     (activ)))
 
-(deftype CuDnnConvolutionSGD [fact cudnn-hdl bluep one zero scal-n ^long n
-                              activ prop-diff? conv-desc filter-desc
-                              conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
-                              v w diff-weights-vec
-                              src-conn bias-tz weights-tz dst-tz a-tz
-                              diff-src-conn diff-weights-tz workspace]
+(deftype CuDnnConvolutionSGDLayer [fact cudnn-hdl bluep one zero scal-n ^long n
+                                   activ prop-diff? conv-desc filter-desc
+                                   conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                                   v w diff-weights-vec
+                                   src-conn bias-tz weights-tz dst-tz a-tz
+                                   diff-src-conn diff-weights-tz workspace]
   Releaseable
   (release [_]
     (release activ)
@@ -555,20 +557,20 @@
                 diff-weights-vec (view diff-weights-tz)
                 activ (activ-bluep z-tz a-tz)
                 diff-src-conn (revert src-conn)]
-    (->CuDnnConvolutionSGD fact (handle fact) bluep
-                           val-1 val-0 scal-n n
-                           activ prop-diff? conv-desc filter-desc
-                           conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
-                           v w diff-weights-vec
-                           src-conn bias-tz weights-tz z-tz a-tz
-                           diff-src-conn diff-weights-tz workspace)))
+    (->CuDnnConvolutionSGDLayer fact (handle fact) bluep
+                                val-1 val-0 scal-n n
+                                activ prop-diff? conv-desc filter-desc
+                                conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                                v w diff-weights-vec
+                                src-conn bias-tz weights-tz z-tz a-tz
+                                diff-src-conn diff-weights-tz workspace)))
 
-(deftype CuDnnConvolutionAdam [fact cudnn-hdl bluep one zero scal-n ^long n
-                               activ prop-diff? conv-desc filter-desc
-                               conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
-                               g s r w
-                               src-conn bias-tz weights-tz dst-tz a-tz
-                               diff-src-conn diff-weights-tz workspace]
+(deftype CuDnnConvolutionAdamLayer [fact cudnn-hdl bluep one zero scal-n ^long n
+                                    activ prop-diff? conv-desc filter-desc
+                                    conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                                    g s r w
+                                    src-conn bias-tz weights-tz dst-tz a-tz
+                                    diff-src-conn diff-weights-tz workspace]
   Releaseable
   (release [_]
     (release activ)
@@ -687,13 +689,13 @@
                 r (zero w);;TODO rename zero value to val-0
                 activ (activ-bluep z-tz a-tz)
                 diff-src-conn (revert src-conn)]
-    (->CuDnnConvolutionAdam fact (handle fact) bluep
-                            val-1 val-0 scal-n n
-                            activ prop-diff? conv-desc filter-desc
-                            conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
-                            g s r w
-                            src-conn bias-tz weights-tz z-tz a-tz
-                            diff-src-conn diff-weights-tz workspace)))
+    (->CuDnnConvolutionAdamLayer fact (handle fact) bluep
+                                 val-1 val-0 scal-n n
+                                 activ prop-diff? conv-desc filter-desc
+                                 conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                                 g s r w
+                                 src-conn bias-tz weights-tz z-tz a-tz
+                                 diff-src-conn diff-weights-tz workspace)))
 
 (deftype CuDnnConvolutionLayerBlueprint [fact activ-bluep conv-desc
                                          conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
@@ -731,9 +733,22 @@
                 :weights weights-desc
                 :filter filter-desc
                 :dst dst-desc}})
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  BlueprintProvider
+  (blueprint [this]
+    this)
   DescProvider
   (desc [_]
     dst-desc)
+  TensorDescriptor
+  (shape [_]
+    (shape dst-desc))
+  (data-type [_]
+    (tz/data-type dst-desc))
+  (layout [_]
+    (strides dst-desc))
   IFn
   (invoke [this prev-layer]
     (let-release [src-conn (connector (output prev-layer) src-desc)
@@ -806,6 +821,17 @@
                                       conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
                                       src-desc weights-desc filter-desc bias-desc dst-desc)))
 
+(defmethod transfer! [CuDnnConvolutionInferenceLayer Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
+
+(defmethod transfer! [CuDnnConvolutionSGDLayer Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
+
+(defmethod transfer! [CuDnnConvolutionAdamLayer Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
 
 ;; ================================ Pooling =============================================
 

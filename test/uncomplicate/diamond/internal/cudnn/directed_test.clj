@@ -35,7 +35,8 @@
   (test-convolution-inference-relu fact)
   (test-convolution-training fact)
   (test-pooling-max fact)
-  (test-pooling-avg fact))
+  (test-pooling-avg fact)
+  (test-sequential-network-convolution-adam fact))
 
 #_(with-release [fact (cudnn-factory)]
   (bench-wide-layers fact))
