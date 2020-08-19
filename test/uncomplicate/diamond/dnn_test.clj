@@ -127,7 +127,7 @@
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
                  ip-bluep (inner-product fact input-tz [1 2])
                  dst-tz (tensor fact [1 2] :float :nc)
-                 ip (ip-bluep input-tz dst-tz false)]
+                 ip (ip-bluep input-tz dst-tz false false)]
     (facts "Inner product training operation."
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
            (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights ip))
@@ -143,7 +143,7 @@
            => (map float [0.355 0.0 -0.142 -0.71
                           -0.213 0.49699998 0.05 0.0
                           -0.0200000014 -0.1 -0.030000001 0.07])
-           (seq (native (view (bias ip)))) => [-0.10000000149011612 0.20000000298023224])))
+           (seq (native (view (bias ip)))) => (map float [-0.71 -0.1]))))
 
 (defn test-fully-connected-training [fact]
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)

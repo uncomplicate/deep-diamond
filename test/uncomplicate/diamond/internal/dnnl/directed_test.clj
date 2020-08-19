@@ -32,7 +32,7 @@
                       dst-tz (tensor fact [1 2] :float :nc)
                       ip (inner-product fact src-tz dst-tz)
                       ip-infer (ip src-tz)
-                      ip-train (ip src-tz dst-tz true)]
+                      ip-train (ip src-tz dst-tz true false)]
          (transfer! [-0.5 0 0.2 1 0.3 -0.7] src-tz)
          (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights ip-infer))
          (transfer! [-0.1 0.2] (bias ip-infer))
@@ -54,7 +54,7 @@
                       dst-tz (tensor fact [1 1] :float :nc)
                       ip (inner-product fact src-tz dst-tz)
                       ip-infer (ip src-tz)
-                      ip-train (ip src-tz dst-tz true)]
+                      ip-train (ip src-tz dst-tz true false)]
          (transfer! [-0.5] src-tz)
          (transfer! [-0.1] (weights ip-infer))
          (transfer! [ 0.2] (bias ip-infer))

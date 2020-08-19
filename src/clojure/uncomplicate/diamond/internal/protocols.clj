@@ -63,7 +63,7 @@
 
 (defprotocol Backprop
   (forward [this] [this hyperparam])
-  (backward [this] [this hyperparam]))
+  (backward [this] [this hyperparam] [this scal-diff-w scal-g scal-diff-b scal-b]))
 
 (defprotocol NeuralNetwork
   (layers [this]))

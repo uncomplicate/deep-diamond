@@ -31,11 +31,11 @@
              [protocols :refer :all]
              [core :refer :all :as dnnl]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]]
-            [uncomplicate.diamond.internal.neanderthal.fully-connected
-             :refer [->FullyConnectedBlueprint ->GaussianDropoutBlueprint]])
+            [uncomplicate.diamond.internal.neanderthal.directed
+             :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint]])
   (:import clojure.lang.IFn
-           [uncomplicate.diamond.internal.neanderthal.fully_connected
-            FullyConnectedBlueprint GaussianDropoutBlueprint]))
+           [uncomplicate.diamond.internal.neanderthal.directed
+            DirectedLayerBlueprint GaussianDropoutBlueprint]))
 
 (defn dnnl-contiguous-desc [md]
   (let-release [shape (dims md)
@@ -155,6 +155,13 @@
   DescProvider
   (desc [_]
     (dst-md eltw-train-pd))
+  TensorDescriptor
+  (shape [this]
+    (shape (desc this)))
+  (data-type [this]
+    (data-type (desc this)))
+  (layout [this]
+    (layout (desc this)))
   IFn
   (invoke [this src-tz]
     (let-release [eltw-fwd-prim (primitive eltw-infer-pd)
@@ -241,6 +248,13 @@
   DescProvider
   (desc [_]
     (dst-md softmax-train-pd))
+  TensorDescriptor
+  (shape [this]
+    (shape (desc this)))
+  (data-type [this]
+    (data-type (desc this)))
+  (layout [this]
+    (layout (desc this)))
   IFn
   (invoke [this src-tz]
     (let-release [softmax-fwd-prim (primitive softmax-infer-pd)
@@ -318,7 +332,8 @@
     dst-tz))
 
 (deftype DnnlProductTraining [fact strm bluep
-                              bias-tz weights-tz dst-tz diff-weights-tz diff-bias-tz
+                              bias-tz weights-tz dst-tz
+                              diff-weights-tz post-diff-weights-tz diff-bias-tz
                               src-conn weights-conn
                               fwd-prim fwd-args
                               bwd-src-conn diff-dst-conn diff-weights-conn
@@ -331,6 +346,7 @@
     (release weights-tz)
     (release dst-tz)
     (release diff-weights-tz)
+    (release post-diff-weights-tz)
     (release diff-bias-tz)
     (release src-conn)
     (release weights-conn)
@@ -381,7 +397,7 @@
   (diff-bias [_]
     diff-bias-tz)
   (diff-weights [_]
-    diff-weights-tz)
+    post-diff-weights-tz)
   IFn
   (invoke [_]
     (src-conn)
@@ -395,10 +411,16 @@
     (execute! strm fwd-prim fwd-args)
     this)
   (backward [this]
+    (backward this 1.0 0.0 1.0 0.0))
+  (backward [this scal-diff-w scal-g scal-diff-b scal-b]
     (bwd-src-conn)
     (diff-dst-conn)
     (execute! strm bwd-weights-prim bwd-weights-args)
     (diff-weights-conn)
+    (if (= 0.0 scal-g)
+      (when-not (= 1.0 scal-diff-w) (scal! scal-diff-w diff-weights-tz))
+      (axpby! scal-diff-w diff-weights-tz scal-g post-diff-weights-tz))
+    (axpby! scal-diff-b diff-bias-tz scal-b bias-tz)
     (when bwd-data-prim
       (diff-dst-data-conn)
       (weights-data-conn)
@@ -451,7 +473,7 @@
       (->DnnlProductInference fact (flow fact) this
                               src-conn bias-tz weights-tz dst-tz
                               fwd-prim fwd-args)))
-  (invoke [this src-tz dst-tz prop-diff?]
+  (invoke [this src-tz dst-tz prop-diff? post-process-diff?]
     (let-release [src-conn (connector src-tz (src-md train-pd))
                   bias-tz (dnnl-tensor fact bias-desc)
                   weights-tz (dnnl-tensor fact weights-desc)
@@ -463,6 +485,8 @@
                   bwd-src-conn (connector src-conn (src-md bwd-weights-pd))
                   diff-dst-conn (connector dst-tz (diff-dst-md bwd-weights-pd))
                   diff-weights-tz (dnnl-tensor fact weights-desc)
+                  post-diff-weights-tz (if post-process-diff? (dnnl-tensor fact weights-desc)
+                                           diff-weights-tz)
                   diff-weights-conn (connector (diff-weights-md bwd-weights-pd)
                                                diff-weights-tz)
                   diff-bias-tz (dnnl-tensor fact bias-desc)
@@ -480,16 +504,16 @@
                                                (output diff-dst-data-conn)
                                                (output weights-data-conn)
                                                (input diff-src-conn))]
-          (->DnnlProductTraining fact (flow fact) this
-                                 bias-tz weights-tz dst-tz diff-weights-tz diff-bias-tz
+          (->DnnlProductTraining fact (flow fact) this bias-tz weights-tz dst-tz
+                                 diff-weights-tz post-diff-weights-tz diff-bias-tz
                                  src-conn weights-conn
                                  fwd-prim fwd-args
                                  bwd-src-conn diff-dst-conn diff-weights-conn
                                  bwd-weights-prim bwd-weights-args
                                  diff-dst-data-conn weights-data-conn diff-src-conn
                                  bwd-data-prim bwd-data-args))
-        (->DnnlProductTraining fact (flow fact) this
-                               bias-tz weights-tz dst-tz diff-weights-tz diff-bias-tz
+        (->DnnlProductTraining fact (flow fact) this bias-tz weights-tz dst-tz
+                               diff-weights-tz post-diff-weights-tz diff-bias-tz
                                src-conn weights-conn
                                fwd-prim fwd-args
                                bwd-src-conn diff-dst-conn diff-weights-conn
@@ -525,323 +549,6 @@
    (dnnl-inner-product-blueprint fact eng src-desc dst-desc nil)))
 
 ;; ================================ Directed Layer ==================================
-
-(deftype InferenceLayer [fact bluep op activ]
-  Releaseable
-  (release [_]
-    (release op)
-    (release activ))
-  Object
-  (hashCode [_]
-    (-> (hash (info bluep :topology)) (hash-combine (info activ :activation))
-        (hash-combine (weights op)) (hash-combine (bias op))))
-  (equals [_ layer]
-    (and (satisfies? Parameters layer) (= (info bluep :topology) (info layer :topology))
-         (= (info activ :activation) (info layer :activation))
-         (= (bias op) (bias layer)) (= (weights op) (weights layer))))
-  (toString [_]
-    (str bluep))
-  Info
-  (info [x]
-    (assoc (into (info op) (info activ)) :shape (info bluep :shape)
-           :topology (info bluep :topology) :algorithm :inference))
-  (info [x info-type]
-    (case info-type
-      :algorithm :inference
-      (or (info activ info-type) (info op info-type) (info bluep info-type))))
-  DiamondFactoryProvider
-  (diamond-factory [_]
-    fact)
-  BlueprintProvider
-  (blueprint [_]
-    bluep)
-  Parameters
-  (bias [_]
-    (bias op))
-  (weights [_]
-    (weights op))
-  ParametersSeq
-  (parameters [_]
-    (parameters op))
-  Transfer
-  (input [this]
-    (input op))
-  (output [_]
-    (output activ))
-  IFn
-  (invoke [_]
-    (op)
-    (activ)))
-
-(defmethod print-method InferenceLayer
-  [layer ^java.io.Writer w]
-  (let [bluep (blueprint layer)]
-    (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                       :shape (info bluep :shape)
-                       :topology (info bluep :topology)
-                       :activation (info bluep :activation)}))))
-
-(deftype SGDLayer [fact bluep op activ ^long n
-                   v w diff-weights-vec
-                   b diff-bias-vec]
-  Releaseable
-  (release [_]
-    (release op)
-    (release activ)
-    (release v))
-  Object
-  (hashCode [_]
-    (-> (hash (info bluep :topology)) (hash-combine (info activ :activation))
-        (hash-combine (weights op)) (hash-combine (bias op))))
-  (equals [_ layer]
-    (and (satisfies? Parameters layer)
-         (= (info bluep :topology) (info layer :topology))
-         (= (info activ :activation) (info layer :activation))
-         (= (bias op) (bias layer)) (= (weights op) (weights layer))))
-  (toString [_]
-    (str bluep))
-  Info
-  (info [x]
-    (assoc (into (info op) (info activ)) :shape (info bluep :shape)
-           :batch n :algorithm :sgd :topology (info bluep :topology) ))
-  (info [x info-type]
-    (case info-type
-      :batch n
-      :algorithm :sgd
-      (or (info activ info-type) (info op info-type) (info bluep info-type))))
-  DiamondFactoryProvider
-  (diamond-factory [_]
-    fact)
-  BlueprintProvider
-  (blueprint [_]
-    bluep)
-  Transfer
-  (input [this]
-    (input op))
-  (output [_]
-    (output activ))
-  DiffTransfer
-  (diff-input [_]
-    (diff-input activ))
-  (diff-z [_]
-    (diff-output activ))
-  (diff-output [_]
-    (diff-output op))
-  Parameters
-  (weights [_]
-    (weights op))
-  (bias [_]
-    (bias op))
-  ParametersSeq
-  (parameters [_]
-    (parameters op))
-  IFn
-  (invoke [_]
-    (op)
-    (activ))
-  Backprop
-  (forward [this]
-    (forward activ)
-    this)
-  (forward [this [_ _ mu nesterov?]]
-    (when nesterov? (axpy! mu v w))
-    (forward op)
-    (forward activ)
-    this)
-  (backward [this]
-    (backward activ)
-    this)
-  (backward [this [_ eta lambda mu nesterov?]]
-    (let [eta-avg (- (/ (double eta) n))]
-      (when nesterov? (axpy! (- (double mu)) v w))
-      (backward op)
-      (axpby! eta-avg diff-weights-vec mu v)
-      (axpy! eta-avg diff-bias-vec b)
-      (axpby! 1.0 v (inc (* eta-avg (double lambda))) w)
-      this)))
-
-(defn sgd-layer [fact bluep op activ]
-  (let [n (first (shape (desc bluep)))]
-    (let-release [w (weights op)
-                  v (zero w)]
-      (->SGDLayer fact bluep op activ n v w
-                  (diff-weights op) (bias op) (diff-bias op)))))
-
-(defmethod print-method SGDLayer
-  [layer ^java.io.Writer w]
-  (let [bluep (blueprint layer)]
-    (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                       :shape (info bluep :shape)
-                       :topology (info bluep :topology)
-                       :activation (info bluep :activation)}))))
-
-(deftype AdamLayer [fact bluep op activ ^long n
-                    s r w g
-                    b diff-bias-vec]
-  Releaseable
-  (release [_]
-    (release op)
-    (release activ)
-    (release s)
-    (release r)
-    (release w))
-  Object
-  (hashCode [_]
-    (-> (hash (info bluep :topology)) (hash-combine (info activ :activation))
-        (hash-combine (weights op)) (hash-combine (bias op))))
-  (equals [_ layer]
-    (and (satisfies? Parameters layer)
-         (= (info bluep :topology) (info layer :topology))
-         (= (info activ :activation) (info layer :activation))
-         (= (bias op) (bias layer)) (= (weights op) (weights layer))))
-  (toString [_]
-    (str bluep))
-  Info
-  (info [x]
-    (assoc (into (info op) (info activ)) :shape (info bluep :shape)
-           :batch n :algorithm :adam :topology (info bluep :topology) ))
-  (info [x info-type]
-    (case info-type
-      :batch n
-      :algorithm :adam
-      (or (info activ info-type) (info op info-type) (info bluep info-type))))
-  DiamondFactoryProvider
-  (diamond-factory [_]
-    fact)
-  BlueprintProvider
-  (blueprint [_]
-    bluep)
-  Transfer
-  (input [this]
-    (input op))
-  (output [_]
-    (output activ))
-  DiffTransfer
-  (diff-input [_]
-    (diff-input activ))
-  (diff-z [_]
-    (diff-output activ))
-  (diff-output [_]
-    (diff-output op))
-  Parameters
-  (weights [_]
-    (weights op))
-  (bias [_]
-    (bias op))
-  ParametersSeq
-  (parameters [_]
-    (parameters op))
-  IFn
-  (invoke [_]
-    (op)
-    (activ))
-  Backprop
-  (forward [this]
-    (forward activ)
-    this)
-  (forward [this _]
-    (forward op)
-    (forward activ)
-    this)
-  (backward [this]
-    (backward activ)
-    this)
-  (backward [this [t eta lambda rho1 rho2 epsilon]]
-    (let [t (inc (long t))
-          eta (double (or eta 0.001))
-          lambda (double (or lambda 0.0))
-          rho1 (double (or rho1 0.9))
-          rho2 (double (or rho2 0.999))
-          epsilon (double (or epsilon 1e-6))
-          eta-avg (- (/ (double eta) n))]
-      (backward op)
-      (scal! (/ 1.0 n) g)
-      (axpby! (- 1.0 rho1) g rho1 s)
-      (axpby! (- 1.0 rho2) (sqr! g) rho2 r)
-      (linear-frac! (/ (- eta) (- 1.0 (pow rho1 t))) s 0.0
-                    (/ 1.0 (sqrt (- 1.0 (pow rho2 t)))) (sqrt! r g) epsilon g)
-      (axpy! eta-avg diff-bias-vec b)
-      (axpby! 1.0 g (inc (* eta-avg lambda)) w)
-      this)))
-
-(defn adam-layer [fact bluep op activ]
-  (let [n (first (shape (desc bluep)))]
-    (let-release [w (weights op)
-                  s (zero w)
-                  r (zero w)]
-      (->AdamLayer fact bluep op activ n s r w
-                   (diff-weights op) (bias op) (diff-bias op)))))
-
-(defmethod print-method AdamLayer
-  [layer ^java.io.Writer w]
-  (let [bluep (blueprint layer)]
-    (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                       :shape (info bluep :shape)
-                       :topology (info bluep :topology)
-                       :activation (info bluep :activation)}))))
-
-(deftype DirectedLayerBlueprint [fact topology op-bluep activ-bluep]
-  Releaseable
-  (release [_]
-    (release op-bluep)
-    (release activ-bluep))
-  Object
-  (hashCode [_]
-    (-> (hash topology) (hash-combine activ-bluep) (hash-combine op-bluep)))
-  (equals [_ other]
-    (and (instance? DirectedLayerBlueprint other)
-         (= activ-bluep (.activ-bluep ^DirectedLayerBlueprint other))
-         (= op-bluep (.op-bluep ^DirectedLayerBlueprint other))))
-  (toString [_]
-    (pr-str {:shape (dims (desc activ-bluep))
-             :topology topology
-             :activation (info activ-bluep :activation)}))
-  Info
-  (info [x]
-    (assoc (into (info op-bluep) (info activ-bluep))
-           :shape (dims (desc activ-bluep)) :topology topology))
-  (info [x info-type]
-    (case info-type
-      :shape (dims (desc activ-bluep))
-      :topology topology
-      (or (info activ-bluep info-type) (info op-bluep info-type))))
-  DiamondFactoryProvider
-  (diamond-factory [_]
-    fact)
-  BlueprintProvider
-  (blueprint [this]
-    this)
-  DescProvider
-  (desc [_]
-    (desc activ-bluep))
-  TensorDescriptor
-  (shape [_]
-    (dims (desc activ-bluep)))
-  (data-type [_]
-    (tz/data-type (desc activ-bluep)))
-  (layout [_]
-    (strides (desc activ-bluep)))
-  IFn
-  (invoke [this prev-layer]
-    (let-release [src-tz (output prev-layer)
-                  op (op-bluep src-tz)
-                  activ (activ-bluep (output op))]
-      (->InferenceLayer fact this op activ)))
-  (invoke [this prev-layer prop-diff? optimization]
-    (let-release [src-tz (output prev-layer)
-                  z-tz (dnnl-tensor fact (desc op-bluep))
-                  a-tz (dnnl-tensor fact (desc activ-bluep))
-                  op (op-bluep src-tz z-tz prop-diff?)
-                  activ (activ-bluep z-tz a-tz)]
-      (let [training-layer (case optimization
-                             :sgd sgd-layer
-                             :adam adam-layer
-                             (dragan-says-ex
-                              "Requested optimization algorithm is not available in DNNL backend."
-                              {:optimization optimization}))]
-        (training-layer fact this op activ))))
-  (invoke [this prev-layer prop-diff?]
-    (.invoke this prev-layer prop-diff? :sgd)))
 
 (defn dnnl-fc-blueprint [fact eng src-desc dst-desc activ alpha beta weights-type]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
@@ -940,18 +647,6 @@
                             connect-output connect-diff (view-tz train-tz)
                             (view (output connect-output)) (view train-tz)
                             cost))))))
-
-(defmethod transfer! [InferenceLayer Object]
-  [source destination]
-  (transfer-weights-bias! source destination))
-
-(defmethod transfer! [AdamLayer Object]
-  [source destination]
-  (transfer-weights-bias! source destination))
-
-(defmethod transfer! [SGDLayer Object]
-  [source destination]
-  (transfer-weights-bias! source destination))
 
 (defn dnnl-convolution-op-blueprint
   [fact eng src-desc weights-desc dst-desc strides padding-l padding-r]
@@ -1104,12 +799,12 @@
   (desc [_]
     (dst-md pool-train-pd))
   TensorDescriptor
-  (shape [_]
-    (dims (dst-md pool-train-pd)))
-  (data-type [_]
-    (tz/data-type (dst-md pool-train-pd)))
-  (layout [_]
-    (strides (dst-md pool-train-pd)))
+  (shape [this]
+    (shape (desc this)))
+  (data-type [this]
+    (data-type (desc this)))
+  (layout [this]
+    (layout (desc this)))
   IFn
   (invoke [this prev-layer]
     (let-release [src-tz (output prev-layer)

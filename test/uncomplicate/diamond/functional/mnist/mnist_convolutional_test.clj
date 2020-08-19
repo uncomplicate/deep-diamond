@@ -67,9 +67,9 @@
                                  [(convo [32] [3 3] :relu)
                                   (convo [64] [3 3] :relu)
                                   (pooling [12 12] [2 2] :max)
-                                  ;;(dropout)
+                                  (dropout)
                                   (dense [128] :relu)
-                                  ;;(dropout)
+                                  (dropout)
                                   (dense [10] :softmax)])
                  net (init! (net-bp x-mb-tz :adam))
                  net-infer (net-bp x-mb-tz)
@@ -84,4 +84,4 @@
            (take 8 (mnist/dec-categories (native (infer net-infer test-images))))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
-;; "Elapsed time: 3387.181722 msecs"
+;; "Elapsed time: 3487.728516 msecs"

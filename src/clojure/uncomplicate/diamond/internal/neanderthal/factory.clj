@@ -26,7 +26,7 @@
                                dnnl-inner-product-blueprint dnnl-fc-blueprint
                                dnnl-universal-cost dnnl-custom-cost]]
              [factory :refer [->FloatTensorEngine]]]
-            [uncomplicate.diamond.internal.neanderthal.fully-connected
+            [uncomplicate.diamond.internal.neanderthal.directed
              :refer [neanderthal-fc-blueprint]]))
 
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
@@ -42,6 +42,8 @@ Please contribute towards making it possible, or use on of the supported types."
     true)
   DiamondFactoryProvider
   (diamond-factory [this]
+    this)
+  (native-diamond-factory [this]
     this)
   FlowProvider
   (flow [_]
@@ -77,8 +79,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-activ-blueprint this eng src-desc src-desc activ alpha beta))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
-  (fc-blueprint [this src-desc dst-desc activ alpha beta _]
-    (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta))
+  (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
+    (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta weights-type))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))
