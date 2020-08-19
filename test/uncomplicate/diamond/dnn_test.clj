@@ -595,9 +595,9 @@
     (facts
      "Dropout forward test."
      (forward drop-train nil) => drop-train
-     (seq (div! (output drop-train) (.mask-tz drop-train))) => (repeat 32 1.0))
+     (view (div! (output drop-train) (.mask-tz drop-train))) => (vctr src-tz (repeat 32 1.0)))
 
     (facts
      "Dropout backward test."
      (backward drop-train nil)
-     (seq (div! (output drop-train) (.mask-tz drop-train))) => (repeat 32 1.0))))
+     (view (div! (output drop-train) (.mask-tz drop-train))) => (vctr src-tz (repeat 32 1.0)))))

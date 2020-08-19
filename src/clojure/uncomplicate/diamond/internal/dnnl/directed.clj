@@ -15,8 +15,7 @@
              [real :refer [nrm2 asum]]
              [block :refer [buffer]]
              [math :refer [sqrt pow]]
-             [vect-math :refer [sqr! linear-frac! sqrt! mul!]]
-             [random :refer [rand-normal! rng-state]]]
+             [vect-math :refer [sqr! linear-frac! sqrt! mul!]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
              :refer [Transfer input output connector view-tz shape layout
@@ -31,8 +30,12 @@
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
-             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]])
-  (:import clojure.lang.IFn))
+             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]]
+            [uncomplicate.diamond.internal.neanderthal.fully-connected
+             :refer [->FullyConnectedBlueprint ->GaussianDropoutBlueprint]])
+  (:import clojure.lang.IFn
+           [uncomplicate.diamond.internal.neanderthal.fully_connected
+            FullyConnectedBlueprint GaussianDropoutBlueprint]))
 
 (defn dnnl-contiguous-desc [md]
   (let-release [shape (dims md)
@@ -1162,116 +1165,9 @@
   [source destination]
   destination)
 
-;; ================================ Binary ======================================
-
-(deftype IdentityLayer [prev-layer]
-  Transfer
-  (input [_]
-    (input prev-layer))
-  (output [_]
-    (output prev-layer))
-  ParametersSeq
-  (parameters [_]
-    [])
-  IFn
-  (invoke [_]
-    (output prev-layer)))
-
-(deftype DnnlGaussianDropoutLayer [fact strm bluep prev-layer ^double sd rand-state
-                                   mask-tz data-conn revert-data-conn]
-  Releaseable
-  (release [_]
-    (release mask-tz))
-  Info
-  (info [this]
-    {:rand-state rand-state
-     :mask mask-tz
-     :data (info (output data-conn))})
-  (info [this info-type]
-    (case info-type
-      :rand-state rand-state
-      :mask mask-tz
-      :data (info (output data-conn))
-      (info bluep info-type)))
-  DiamondFactoryProvider
-  (diamond-factory [_]
-    fact)
-  Transfer
-  (input [_]
-    (input data-conn))
-  (output [_]
-    (input data-conn))
-  DiffTransfer
-  (diff-input [_]
-    (input data-conn))
-  (diff-z [_]
-    (diff-z prev-layer))
-  (diff-output [_]
-    (input data-conn))
-  ParametersSeq
-  (parameters [_]
-    [])
-  IFn
-  (invoke [this]
-    (input data-conn))
-  Backprop
-  (forward [this _]
-    (data-conn)
-    (mul! (output data-conn) (rand-normal! rand-state 1.0 sd mask-tz))
-    (revert-data-conn)
-    this)
-  (forward [this]
-    this)
-  (backward [this _]
-    (data-conn)
-    (mul! (output data-conn) mask-tz)
-    (revert-data-conn)
-    this)
-  (backward [this]
-    this))
-
-;;TODO move to neanderthal!
-(deftype DnnlGaussianDropoutBlueprint [fact ^double sd data-desc mask-desc]
-  Releaseable
-  (release [_]
-    (release mask-desc))
-  DiamondFactoryProvider
-  (diamond-factory [_]
-    fact)
-  BlueprintProvider
-  (blueprint [this]
-    this)
-  DescProvider
-  (desc [_]
-    data-desc)
-  TensorDescriptor
-  (shape [this]
-    (dims data-desc))
-  (data-type [this]
-    (tz/data-type data-desc))
-  (layout [this]
-    (strides data-desc))
-  IFn
-  (invoke [this prev-layer]
-    (->IdentityLayer prev-layer))
-  (invoke [this prev-layer _ _]
-    (let-release [src-tz (output prev-layer)
-                  data-conn (connector src-tz data-desc)
-                  revert-data-conn (revert data-conn)
-                  mask-tz (dnnl-tensor fact mask-desc)]
-      (->DnnlGaussianDropoutLayer fact (flow fact) this prev-layer
-                                  sd (rng-state mask-tz)
-                                  mask-tz data-conn revert-data-conn))))
+;; ====================== Dropout ====================================================
 
 (defn dnnl-gaussian-dropout-blueprint [fact src-desc sd]
   (let-release [src-desc (desc src-desc)
                 mask-desc (dnnl-contiguous-desc src-desc)]
-    (->DnnlGaussianDropoutBlueprint fact sd src-desc mask-desc)))
-
-(defmethod transfer! [IdentityLayer Object]
-  [source destination]
-  destination)
-
-(defmethod transfer! [DnnlGaussianDropoutLayer Object]
-  [source destination]
-  destination)
+    (->GaussianDropoutBlueprint fact sd src-desc mask-desc)))

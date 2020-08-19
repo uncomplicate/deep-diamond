@@ -16,20 +16,19 @@
              [real :refer [entry! nrm2 asum]]
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
+             [random :refer [rand-normal! rng-state]]
              [block :refer [buffer]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond
-             [tensor :as tz
-              :refer [Transfer input output connector view-tz revert shape layout
-                      TensorDescriptor shape]]]
+             [tensor :refer [Transfer input output connector view-tz revert shape
+                             layout TensorDescriptor]]]
             [uncomplicate.diamond.internal
-             [protocols
-              :refer [Parameters bias weights ParametersSeq parameters
-                      BlueprintProvider DiamondFactoryProvider DiffParameters
-                      diff-bias diff-weights Backprop forward backward blueprint
-                      create-tensor activ-blueprint DiffTransfer diff-input diff-output]]
-             [utils :refer [transfer-weights-bias!]]]
-            [uncomplicate.diamond.internal.dnnl.core :refer [memory-desc data-type]])
+             [protocols :refer [Parameters bias weights ParametersSeq parameters
+                                BlueprintProvider DiamondFactoryProvider DiffParameters
+                                diff-bias diff-weights Backprop forward backward
+                                blueprint create-tensor activ-blueprint DiffTransfer
+                                diff-input diff-output diff-z]]
+             [utils :refer [transfer-weights-bias!]]])
   (:import clojure.lang.IFn))
 
 (deftype FullyConnectedInference [fact bluep ones activ
@@ -424,3 +423,108 @@
 (defmethod transfer! [FullyConnectedSGD Object]
   [source destination]
   (transfer-weights-bias! source destination))
+
+;; ================================ Gaussian Dropout ======================================
+
+(deftype IdentityLayer [prev-layer]
+  Transfer
+  (input [_]
+    (input prev-layer))
+  (output [_]
+    (output prev-layer))
+  ParametersSeq
+  (parameters [_]
+    [])
+  IFn
+  (invoke [_]
+    (output prev-layer)))
+
+(deftype GaussianDropoutLayer [fact bluep prev-layer ^double sd rand-state
+                               mask-tz data-conn revert-data-conn]
+  Releaseable
+  (release [_]
+    (release mask-tz))
+  Info
+  (info [this]
+    {:rand-state rand-state
+     :mask mask-tz
+     :data (info (output data-conn))})
+  (info [this info-type]
+    (case info-type
+      :rand-state rand-state
+      :mask mask-tz
+      :data (info (output data-conn))
+      (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    (input data-conn))
+  (output [_]
+    (input data-conn))
+  DiffTransfer
+  (diff-input [_]
+    (input data-conn))
+  (diff-z [_]
+    (diff-z prev-layer))
+  (diff-output [_]
+    (input data-conn))
+  ParametersSeq
+  (parameters [_]
+    [])
+  IFn
+  (invoke [this]
+    (input data-conn))
+  Backprop
+  (forward [this _]
+    (data-conn)
+    (mul! (output data-conn) (rand-normal! rand-state 1.0 sd mask-tz))
+    (revert-data-conn)
+    this)
+  (forward [this]
+    this)
+  (backward [this _]
+    (data-conn)
+    (mul! (output data-conn) mask-tz)
+    (revert-data-conn)
+    this)
+  (backward [this]
+    this))
+
+(deftype GaussianDropoutBlueprint [fact ^double sd data-desc mask-desc]
+  Releaseable
+  (release [_]
+    (release mask-desc))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  BlueprintProvider
+  (blueprint [this]
+    this)
+  TensorDescriptor
+  (shape [this]
+    (shape data-desc))
+  (data-type [this]
+    (data-type data-desc))
+  (layout [this]
+    (layout data-desc))
+  IFn
+  (invoke [this prev-layer]
+    (->IdentityLayer prev-layer))
+  (invoke [this prev-layer _ _]
+    (let-release [src-tz (output prev-layer)
+                  data-conn (connector src-tz data-desc)
+                  revert-data-conn (revert data-conn)
+                  mask-tz (create-tensor fact data-desc false)]
+      (->GaussianDropoutLayer fact this prev-layer
+                              sd (rng-state mask-tz)
+                              mask-tz data-conn revert-data-conn))))
+
+(defmethod transfer! [IdentityLayer Object]
+  [source destination]
+  destination)
+
+(defmethod transfer! [GaussianDropoutLayer Object]
+  [source destination]
+  destination)

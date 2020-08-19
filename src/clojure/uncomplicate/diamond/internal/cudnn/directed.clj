@@ -17,15 +17,25 @@
               :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
                       blueprint create-tensor DiffTransfer diff-input diff-output diff-z
                       ParametersSeq Parameters DiffParameters]]
-             [utils :refer [transfer-weights-bias!]]]
+             [utils :refer [transfer-weights-bias! default-strides]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]
              [tensor :refer [cudnn-tensor-desc cudnn-tensor]]]
             [uncomplicate.diamond.internal.neanderthal.fully-connected
-             :refer [->FullyConnectedBlueprint]])
+             :refer [->FullyConnectedBlueprint ->GaussianDropoutBlueprint]])
   (:import clojure.lang.IFn
-           uncomplicate.diamond.internal.neanderthal.fully_connected.FullyConnectedBlueprint))
+           [uncomplicate.diamond.internal.neanderthal.fully_connected
+            FullyConnectedBlueprint GaussianDropoutBlueprint]))
+
+(defn cudnn-contiguous-desc [md]
+  (let [s (shape md)]
+    (if (and (= :float (data-type md))
+             (= (size md) (apply * Float/BYTES s)))
+      md
+      (cudnn-tensor-desc s :float (default-strides s)))))
+
+;; ========================== Sum =======================================
 
 (deftype CuDnnSum [cudnn-hdl scale-src src scale-dst dst]
   IFn
@@ -295,6 +305,11 @@
                   weights-desc (cudnn-tensor-desc weights-shape (data-type dst-desc) :oi)
                   activ-bluep (cudnn-activ-blueprint fact activ alpha)]
       (->FullyConnectedBlueprint fact activ-bluep src-desc bias-desc weights-desc dst-desc))))
+
+(extend-type FullyConnectedBlueprint
+  DescProvider
+  (desc [this]
+    (.dst-desc this)))
 
 ;; ============================= Cost Function ========================================
 
@@ -970,3 +985,10 @@
 (defmethod transfer! [CuDnnPoolingTrainingLayer Object]
   [source destination]
   destination)
+
+;; ====================== Dropout ====================================================
+
+(defn cudnn-gaussian-dropout-blueprint [fact src-desc sd]
+  (let-release [src-desc (desc src-desc)
+                mask-desc (cudnn-contiguous-desc src-desc)]
+    (->GaussianDropoutBlueprint fact sd src-desc mask-desc)))

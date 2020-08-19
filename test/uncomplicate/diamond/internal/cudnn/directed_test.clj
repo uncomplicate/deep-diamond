@@ -36,7 +36,8 @@
   (test-convolution-training fact)
   (test-pooling-max fact)
   (test-pooling-avg fact)
-  (test-sequential-network-convolution-adam fact))
+  (test-sequential-network-convolution-adam fact)
+  (test-gaussian-dropout fact))
 
 #_(with-release [fact (cudnn-factory)]
   (bench-wide-layers fact))

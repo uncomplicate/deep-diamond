@@ -34,7 +34,7 @@
                              cudnn-tensor-desc]]
              [directed :refer [cudnn-sum-blueprint cudnn-activ-blueprint cudnn-fc-blueprint
                                cudnn-universal-cost cudnn-custom-cost cudnn-pooling-blueprint
-                               cudnn-convolution-layer-blueprint]]])
+                               cudnn-convolution-layer-blueprint cudnn-gaussian-dropout-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -394,6 +394,8 @@ Please contribute towards making it possible, or use on of the supported types."
                                        activ alpha))
   (pooling-blueprint [this _ dst-desc algo strides kernel padding-l padding-r]
     (cudnn-pooling-blueprint this dst-desc algo strides kernel (or padding-l padding-r)))
+  (gaussian-dropout-blueprint [this src-desc sd]
+    (cudnn-gaussian-dropout-blueprint this src-desc sd))
   CostFactory
   (quadratic-cost [_ prev-layer train-tz]
     (cudnn-universal-cost prev-layer train-tz quadratic-cost!))
