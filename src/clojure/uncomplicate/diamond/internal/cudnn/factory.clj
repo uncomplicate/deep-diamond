@@ -26,13 +26,14 @@
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
+            [uncomplicate.diamond.internal.neanderthal.directed :refer [neanderthal-fc-blueprint]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
              [core :refer [cudnn-handle get-cudnn-stream ndims dims
                            strides transform-tensor set-tensor scale-tensor add-tensor]]
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler
                              cudnn-tensor-desc]]
-             [directed :refer [cudnn-sum-blueprint cudnn-activ-blueprint cudnn-fc-blueprint
+             [directed :refer [cudnn-sum-blueprint cudnn-activ-blueprint
                                cudnn-universal-cost cudnn-custom-cost cudnn-pooling-blueprint
                                cudnn-convolution-layer-blueprint cudnn-gaussian-dropout-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
@@ -380,18 +381,18 @@ Please contribute towards making it possible, or use on of the supported types."
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   DnnFactory
-  (activ-blueprint [this _ activ coef _]
-    (cudnn-activ-blueprint this activ coef))
+  (activ-blueprint [this src-desc activ coef _]
+    (cudnn-activ-blueprint this src-desc activ coef))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dragan-says-ex "cuDNN engine does not implement inner product blueprint."))
-  (fc-blueprint [this src-desc dst-desc activ alpha beta _]
-    (cudnn-fc-blueprint this src-desc dst-desc activ alpha beta))
+  (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
+    (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta weights-type))
   (convolution-blueprint [this src-desc weights-desc dst-desc activ
                           strides padding-l padding-r alpha _]
-    (cudnn-convolution-layer-blueprint this src-desc weights-desc dst-desc
+    (cudnn-convolution-layer-blueprint this src-desc weights-desc dst-desc activ
                                        strides (or padding-l padding-r)
                                        (vec (repeat (count strides) 1));;TODO see about dilation
-                                       activ alpha))
+                                        alpha))
   (pooling-blueprint [this _ dst-desc algo strides kernel padding-l padding-r]
     (cudnn-pooling-blueprint this dst-desc algo strides kernel (or padding-l padding-r)))
   (gaussian-dropout-blueprint [this src-desc sd]

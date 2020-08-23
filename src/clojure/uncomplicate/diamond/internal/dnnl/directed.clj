@@ -24,7 +24,7 @@
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters
                       BlueprintProvider DiamondFactoryProvider DiffParameters
-                      diff-bias diff-weights Backprop forward backward blueprint
+                      diff-weights Backprop forward backward blueprint
                       DiffTransfer diff-output diff-input diff-z]]
              [utils :refer [transfer-weights-bias! default-strides]]]
             [uncomplicate.diamond.internal.dnnl
@@ -365,14 +365,12 @@
     {:bias (info bias-tz)
      :weights (info weights-tz)
      :dst (info dst-tz)
-     :diff-weights (info diff-weights-tz)
-     :diff-bias (info diff-bias-tz)})
+     :diff-weights (info diff-weights-tz)})
   (info [this info-type]
     (case info-type
       :bias (info bias-tz)
       :weights (info weights-tz)
       :dst (info dst-tz)
-      :diff-bias (info diff-bias-tz)
       :diff-weights (info diff-weights-tz)
       nil))
   Transfer
@@ -394,8 +392,6 @@
   (parameters [_]
     [weights-tz bias-tz])
   DiffParameters
-  (diff-bias [_]
-    diff-bias-tz)
   (diff-weights [_]
     post-diff-weights-tz)
   IFn
@@ -550,6 +546,11 @@
 
 ;; ================================ Directed Layer ==================================
 
+(extend-type DirectedLayerBlueprint
+  DescProvider
+  (desc [this]
+    (desc (.activ-bluep this))))
+
 (defn dnnl-fc-blueprint [fact eng src-desc dst-desc activ alpha beta weights-type]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
                  dst-desc (memory-desc [(first (shape dst-desc)) (apply * (rest (shape dst-desc)))]
@@ -557,6 +558,8 @@
     (let-release [ip-bluep (dnnl-inner-product-blueprint fact eng src-desc dst-desc weights-type)
                   activ-bluep (dnnl-activ-blueprint fact eng ip-bluep activ alpha beta)]
       (->DirectedLayerBlueprint fact :fc ip-bluep activ-bluep))))
+
+;; ============================= Cost Function ========================================
 
 (deftype DnnlUniversalCost [strm prev-layer
                             sum-prim sum-args
@@ -861,6 +864,11 @@
   destination)
 
 ;; ====================== Dropout ====================================================
+
+(extend-type GaussianDropoutBlueprint
+  DescProvider
+  (desc [this]
+    (.data-desc this)))
 
 (defn dnnl-gaussian-dropout-blueprint [fact src-desc sd]
   (let-release [src-desc (desc src-desc)

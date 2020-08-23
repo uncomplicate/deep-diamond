@@ -53,7 +53,6 @@
   (parameters [this]))
 
 (defprotocol DiffParameters
-  (diff-bias [this])
   (diff-weights [this]))
 
 (defprotocol DiffTransfer

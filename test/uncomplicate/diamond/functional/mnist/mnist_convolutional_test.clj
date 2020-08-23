@@ -29,7 +29,6 @@
 (defonce test-images (map-tensor test-images-file [10000 1 28 28] :uint8 :nchw :read 16))
 (defonce test-labels (map-tensor test-labels-file [10000] :uint8 :x :read 8))
 
-
 (defonce train-labels-float (transfer! train-labels (tensor [60000] :float :x)))
 (defonce y-train (mnist/enc-categories train-labels-float))
 (defonce test-labels-float (transfer! test-labels (tensor [10000] :float :x)))
