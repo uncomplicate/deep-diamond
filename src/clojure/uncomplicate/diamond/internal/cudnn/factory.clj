@@ -344,9 +344,6 @@ Please contribute towards making it possible, or use on of the supported types."
     this)
   (native-diamond-factory [_]
     native-diamond-fact)
-  Wrapper
-  (extract [_]
-    (extract ctx))
   FlowProvider
   (flow [_]
     hstream)
@@ -388,13 +385,11 @@ Please contribute towards making it possible, or use on of the supported types."
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
     (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta weights-type))
   (convolution-blueprint [this src-desc weights-desc dst-desc activ
-                          strides padding-l padding-r alpha _]
+                          strides padding dilation alpha _]
     (cudnn-convolution-layer-blueprint this src-desc weights-desc dst-desc activ
-                                       strides (or padding-l padding-r)
-                                       (vec (repeat (count strides) 1));;TODO see about dilation
-                                        alpha))
-  (pooling-blueprint [this _ dst-desc algo strides kernel padding-l padding-r]
-    (cudnn-pooling-blueprint this dst-desc algo strides kernel (or padding-l padding-r)))
+                                       strides padding dilation alpha))
+  (pooling-blueprint [this _ dst-desc algo strides kernel padding]
+    (cudnn-pooling-blueprint this dst-desc algo strides kernel padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (cudnn-gaussian-dropout-blueprint this src-desc sd))
   CostFactory

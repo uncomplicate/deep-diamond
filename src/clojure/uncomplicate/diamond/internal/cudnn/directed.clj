@@ -37,27 +37,27 @@
 
 ;; ========================== Sum =======================================
 
-(deftype CuDnnSum [cudnn-hdl scale-src src scale-dst dst]
+(deftype CUDnnSum [cudnn-hdl scale-src src scale-dst dst]
   IFn
   (invoke [this]
     (axpby! scale-src src scale-dst dst)))
 
-(deftype CuDnnSumBlueprint [cudnn-hdl scale-src scale-dst]
+(deftype CUDnnSumBlueprint [cudnn-hdl scale-src scale-dst]
   IFn
   (invoke [this src-and-dst]
-    (->CuDnnSum cudnn-hdl scale-src src-and-dst scale-dst src-and-dst))
+    (->CUDnnSum cudnn-hdl scale-src src-and-dst scale-dst src-and-dst))
   (invoke [this src dst]
-    (->CuDnnSum cudnn-hdl scale-src src scale-dst dst)))
+    (->CUDnnSum cudnn-hdl scale-src src scale-dst dst)))
 
 (defn cudnn-sum-blueprint
   ([cudnn-hdl scale]
-   (->CuDnnSumBlueprint cudnn-hdl scale 0.0))
+   (->CUDnnSumBlueprint cudnn-hdl scale 0.0))
   ([cudnn-hdl scale-src scale-dst]
-   (->CuDnnSumBlueprint cudnn-hdl scale-src scale-dst)))
+   (->CUDnnSumBlueprint cudnn-hdl scale-src scale-dst)))
 
 ;; ================================ Activation =============================================
 
-(deftype CuDnnActivationInference [cudnn-hdl bluep activation-desc
+(deftype CUDnnActivationInference [cudnn-hdl bluep activation-desc
                                    a-tz one zero linear]
   Releaseable
   (release [_]
@@ -83,7 +83,7 @@
                           zero a-tz (buffer a-tz)))
     a-tz))
 
-(deftype CuDnnLinearActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero]
+(deftype CUDnnLinearActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero]
   Releaseable
   (release [_]
     true)
@@ -119,7 +119,7 @@
     (copy! a-tz z-tz)
     this))
 
-(deftype CuDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz da-tz one zero]
+(deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz da-tz one zero]
   Releaseable
   (release [_]
     (release da-tz))
@@ -161,7 +161,7 @@
                          zero z-tz (buffer z-tz))
     this))
 
-(deftype CuDnnActivationBlueprint [fact activ ad data-desc]
+(deftype CUDnnActivationBlueprint [fact activ ad data-desc]
   Releaseable
   (release [_]
     (release ad))
@@ -184,29 +184,29 @@
     (layout data-desc))
   IFn
   (invoke [this src-tz]
-    (->CuDnnActivationInference (handle fact) this ad src-tz
+    (->CUDnnActivationInference (handle fact) this ad src-tz
                                 (cast-prim (data-accessor src-tz) 1.0)
                                 (cast-prim (data-accessor src-tz) 0.0)
                                 (or (= :linear activ) (= :identity activ))))
   (invoke [this src-tz dst-tz]
     (cond
       (or (= :linear activ) (= :identity activ))
-      (->CuDnnLinearActivationTraining (handle fact) this ad src-tz dst-tz
+      (->CUDnnLinearActivationTraining (handle fact) this ad src-tz dst-tz
                                        (cast-prim (data-accessor src-tz) 1.0)
                                        (cast-prim (data-accessor dst-tz) 0.0))
       (or (= :sigmoid activ) (:logistic activ))
       (let-release [diff-tz (create-tensor fact dst-tz false)]
-        (->CuDnnActivationTraining (handle fact) this ad src-tz dst-tz diff-tz
+        (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz diff-tz
                                    (cast-prim (data-accessor src-tz) 1.0)
                                    (cast-prim (data-accessor dst-tz) 0.0)))
       :default
-      (->CuDnnActivationTraining (handle fact) this ad src-tz dst-tz (view-tz dst-tz)
+      (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz (view-tz dst-tz)
                                  (cast-prim (data-accessor src-tz) 1.0)
                                  (cast-prim (data-accessor dst-tz) 0.0)))))
 
 ;; ================================ Softmax =============================================
 
-(deftype CuDnnSoftmaxInference [cudnn-hdl bluep z-tz one zero]
+(deftype CUDnnSoftmaxInference [cudnn-hdl bluep z-tz one zero]
   Releaseable
   (release [_]
     true)
@@ -230,7 +230,7 @@
                      one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
     z-tz))
 
-(deftype CuDnnSoftmaxTraining [cudnn-hdl bluep z-tz da-tz one zero]
+(deftype CUDnnSoftmaxTraining [cudnn-hdl bluep z-tz da-tz one zero]
   Releaseable
   (release [_]
     (release da-tz))
@@ -270,7 +270,7 @@
                       zero z-tz (buffer z-tz))
     this))
 
-(deftype CuDnnSoftmaxBlueprint [fact data-desc]
+(deftype CUDnnSoftmaxBlueprint [fact data-desc]
   Releaseable
   (release [_]
     true)
@@ -293,23 +293,23 @@
     (layout data-desc))
   IFn
   (invoke [this src-tz]
-    (->CuDnnSoftmaxInference (handle fact) this src-tz
+    (->CUDnnSoftmaxInference (handle fact) this src-tz
                              (cast-prim (data-accessor src-tz) 1.0)
                              (cast-prim (data-accessor src-tz) 0.0)))
   (invoke [this src-tz dst-tz]
-    (->CuDnnSoftmaxTraining (handle fact) this src-tz (view-tz dst-tz)
+    (->CUDnnSoftmaxTraining (handle fact) this src-tz (view-tz dst-tz)
                             (cast-prim (data-accessor src-tz) 1.0)
                             (cast-prim (data-accessor dst-tz) 0.0))))
 
 (defn cudnn-activ-blueprint [fact data-desc activ coef]
   (if (= :softmax activ)
-    (->CuDnnSoftmaxBlueprint fact data-desc)
+    (->CUDnnSoftmaxBlueprint fact data-desc)
     (let-release [ad (activation-descriptor activ true coef)]
-      (->CuDnnActivationBlueprint fact activ ad data-desc))))
+      (->CUDnnActivationBlueprint fact activ ad data-desc))))
 
 ;; ============================= Cost Function ========================================
 
-(deftype CuDnnUniversalCost [prev-layer
+(deftype CUDnnUniversalCost [prev-layer
                              connect-output connect-diff train-tz
                              a-y y cost]
   Releaseable
@@ -346,12 +346,12 @@
   (let [train-desc (desc train-tz)]
     (let-release [connect-output (connector (output prev-layer) train-desc)
                   connect-diff (connector train-desc (diff-input prev-layer))]
-      (->CuDnnUniversalCost prev-layer
+      (->CUDnnUniversalCost prev-layer
                             connect-output connect-diff train-tz
                             (view (input connect-diff)) (view train-tz)
                             cost))))
 
-(deftype CuDnnCustomCost [prev-layer
+(deftype CUDnnCustomCost [prev-layer
                           connect-output connect-diff train-tz
                           a y a-y cost]
   Releaseable
@@ -387,7 +387,7 @@
   (let [train-desc (desc train-tz)]
     (let-release [connect-output (connector (output prev-layer) train-desc)
                   connect-diff (connector train-desc (diff-z prev-layer))]
-      (->CuDnnCustomCost prev-layer
+      (->CUDnnCustomCost prev-layer
                          connect-output connect-diff train-tz
                          (view (output connect-output)) (view train-tz)
                          (view (input connect-diff))
@@ -395,7 +395,7 @@
 
 ;; ================================ Convolution ===============================================
 
-(deftype CuDnnConvolutionInference [fact cudnn-hdl bluep one zero
+(deftype CUDnnConvolutionInference [fact cudnn-hdl bluep one zero
                                     conv-desc filter-desc conv-fwd-algo
                                     src-conn bias-tz weights-tz dst-tz workspace]
   Releaseable
@@ -439,7 +439,7 @@
     (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
     dst-tz))
 
-(deftype CuDnnConvolutionTraining [fact cudnn-hdl bluep da one zero
+(deftype CUDnnConvolutionTraining [fact cudnn-hdl bluep da one zero
                                    prop-diff? conv-desc filter-desc
                                    conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
                                    src-conn bias-tz weights-tz dst-tz
@@ -520,7 +520,7 @@
       (diff-src-conn))
     this))
 
-(deftype CuDnnConvolutionBlueprint [fact conv-desc
+(deftype CUDnnConvolutionBlueprint [fact conv-desc
                                     conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
                                     src-desc weights-desc filter-desc bias-desc dst-desc]
   ;; TODO implement equals
@@ -581,7 +581,7 @@
                   workspace (mem-alloc (convolution-fwd-get-workspace-size
                                         (handle fact) conv-desc conv-fwd-algo
                                         src-desc filter-desc dst-desc))]
-      (->CuDnnConvolutionInference fact (handle fact) this
+      (->CUDnnConvolutionInference fact (handle fact) this
                                         (cast-prim (data-accessor a-tz) 1.0)
                                         (cast-prim (data-accessor a-tz) 0.0)
                                         conv-desc filter-desc conv-fwd-algo
@@ -603,7 +603,7 @@
                                                      (handle fact) conv-desc conv-bwd-weights-algo
                                                      src-desc dst-desc filter-desc))))]
         (let [da (data-accessor dst-tz)]
-          (->CuDnnConvolutionTraining fact (handle fact) this da
+          (->CUDnnConvolutionTraining fact (handle fact) this da
                                       (cast-prim da 1.0) (cast-prim da 0.0)
                                       prop-diff? conv-desc filter-desc
                                       conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
@@ -626,7 +626,7 @@
                                                                   filter-desc dst-desc src-desc)
                 conv-bwd-weights-algo (convolution-bwd-filter-get-algo (handle fact) conv-desc
                                                                        src-desc dst-desc filter-desc)]
-    (->CuDnnConvolutionBlueprint fact conv-desc
+    (->CUDnnConvolutionBlueprint fact conv-desc
                                  conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
                                  src-desc weights-desc filter-desc bias-desc dst-desc)))
 
@@ -649,7 +649,7 @@
 
 ;; ================================ Pooling =============================================
 
-(deftype CuDnnPoolingInferenceLayer [fact cudnn-hdl bluep pooling-desc
+(deftype CUDnnPoolingInferenceLayer [fact cudnn-hdl bluep pooling-desc
                                      src-tz dst-tz one zero]
   Releaseable
   (release [_]
@@ -678,7 +678,7 @@
                      one src-tz (buffer src-tz) zero dst-tz (buffer dst-tz))
     dst-tz))
 
-(deftype CuDnnPoolingTrainingLayer [fact cudnn-hdl bluep pooling-desc
+(deftype CUDnnPoolingTrainingLayer [fact cudnn-hdl bluep pooling-desc
                                     src-tz dst-tz diff-dst-tz
                                     one zero prop-diff?]
   Releaseable
@@ -729,7 +729,7 @@
                         src-tz (buffer src-tz) zero src-tz (buffer src-tz)))
     this))
 
-(deftype CuDnnPoolingBlueprint [fact algo pd dst-desc]
+(deftype CUDnnPoolingBlueprint [fact algo pd dst-desc]
   Releaseable
   (release [_]
     (release pd))
@@ -759,14 +759,14 @@
   IFn
   (invoke [this prev-layer]
     (let-release [dst-tz (cudnn-tensor fact dst-desc)]
-      (->CuDnnPoolingInferenceLayer fact (handle fact) this pd
+      (->CUDnnPoolingInferenceLayer fact (handle fact) this pd
                                     (view-tz (output prev-layer)) dst-tz
                                     (cast-prim (data-accessor dst-tz) 1.0)
                                     (cast-prim (data-accessor dst-tz) 0.0))))
   (invoke [this prev-layer prop-diff? _]
     (let-release [dst-tz (cudnn-tensor fact dst-desc)
                   diff-dst-tz (cudnn-tensor fact dst-desc)]
-      (->CuDnnPoolingTrainingLayer fact (handle fact) this pd
+      (->CUDnnPoolingTrainingLayer fact (handle fact) this pd
                                    (view-tz (output prev-layer)) dst-tz diff-dst-tz
                                    (cast-prim (data-accessor dst-tz) 1.0)
                                    (cast-prim (data-accessor dst-tz) 0.0)
@@ -775,13 +775,13 @@
 (defn cudnn-pooling-blueprint
   [fact dst-desc algo strides kernel padding]
   (let-release [pool-desc (pooling-descriptor algo kernel strides padding)]
-    (->CuDnnPoolingBlueprint fact algo pool-desc (desc dst-desc))))
+    (->CUDnnPoolingBlueprint fact algo pool-desc (desc dst-desc))))
 
-(defmethod transfer! [CuDnnPoolingInferenceLayer Object]
+(defmethod transfer! [CUDnnPoolingInferenceLayer Object]
   [source destination]
   destination)
 
-(defmethod transfer! [CuDnnPoolingTrainingLayer Object]
+(defmethod transfer! [CUDnnPoolingTrainingLayer Object]
   [source destination]
   destination)
 

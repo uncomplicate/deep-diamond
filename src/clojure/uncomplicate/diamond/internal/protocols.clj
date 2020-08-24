@@ -32,9 +32,8 @@
   (inner-product-blueprint [this src-desc dst-desc weights-type])
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type])
   (convolution-blueprint [this src-desc kernel-desc dst-desc activ
-                          strides padding-l padding-r alpha beta])
-  (pooling-blueprint [this src-desc dst-desc algo
-                      strides kernel padding-l padding-r])
+                          strides padding dilation alpha beta])
+  (pooling-blueprint [this src-desc dst-desc algo strides kernel padding])
   (gaussian-dropout-blueprint [this src-desc sd]))
 
 (defprotocol CostFactory

@@ -85,7 +85,7 @@
    (fully-connected dst-desc activ nil)))
 
 (defn coerce-conv-shapes [src-shape kernel-shape dst-shape
-                          strides padding-l padding-r]
+                          strides padding dilation];;TODO dilation
   (let [cnt (count src-shape)
         [n ic & idhw] src-shape
         [n oc :as dst-shape] (if (< (count dst-shape) cnt)
@@ -93,14 +93,15 @@
                                dst-shape)
         [_ _ & kdhw :as kernel-shape] (if (< (count kernel-shape) cnt)
                                         (into [oc ic] kernel-shape)
-                                        kernel-shape)]
+                                        kernel-shape)
+        kdhw-dilated (map (fn [^long k ^long d]
+                            (inc (* (dec k) d)))
+                          kdhw dilation)]
     [kernel-shape (if (< (count dst-shape) cnt)
                     (into dst-shape
-                          (map (fn [i k s pl pr]
-                                 (inc (quot (+ (- (long i) (long k))
-                                               (long pl) (long pr))
-                                            (long s))))
-                               idhw kdhw strides padding-l padding-r))
+                          (map (fn [^long i ^long k ^long s ^long p]
+                                 (inc (quot (+ (- i k) (* 2 p)) s)))
+                               idhw kdhw-dilated strides padding))
                     dst-shape)]))
 
 (defn convolution
@@ -108,13 +109,13 @@
   ([fact src-desc weights-desc dst-desc activ args]
    (let [conv-dim (- (count (shape src-desc)) 2)
          strides (or (:strides args) (vec (repeat conv-dim 1)))
-         padding-l (or (:padding-l args) (:padding args) (vec (repeat conv-dim 0)))
-         padding-r (or (:padding-r args) (:padding args) (vec (repeat conv-dim 0)))
+         padding (or (:padding args) (vec (repeat conv-dim 0)))
+         dilation (or (:dilation args) (vec (repeat conv-dim 1)))
          alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
          beta (or (:beta args) 0.0)
          [weights-shape dst-shape] (coerce-conv-shapes (shape src-desc) (shape weights-desc)
                                                        (shape dst-desc)
-                                                       strides padding-l padding-r)
+                                                       strides padding dilation)
          weights-desc (if (= weights-shape (shape weights-desc))
                         weights-desc
                         (desc weights-shape (data-type weights-desc) (layout weights-desc)))
@@ -124,7 +125,7 @@
      (if (= (count (shape src-desc)) (count weights-shape) (count dst-shape))
        (api/convolution-blueprint (api/diamond-factory fact)
                                   src-desc weights-desc dst-desc activ
-                                  strides padding-l padding-r alpha beta)
+                                  strides padding dilation alpha beta)
        (dragan-says-ex "TODO message."))))
   ([fact src-desc weights-desc dst-desc activ]
    (convolution fact src-desc weights-desc dst-desc activ nil))
@@ -158,22 +159,20 @@
   "TODO"
   ([fact src-desc kernel dst-desc algo args]
    (let [conv-dim (count kernel)
-         padding-l (or (:padding-l args) (:padding args) (vec (repeat conv-dim 0)))
-         padding-r (or (:padding-r args) (:padding args) (vec (repeat conv-dim 0)))
-         strides (or (:strides args) (vec (map (fn [^long s ^long d ^long p-l ^long p-r]
-                                                 (quot (+ s p-l p-r) d))
+         padding (or (:padding args) (vec (repeat conv-dim 0)))
+         strides (or (:strides args) (vec (map (fn [^long s ^long d ^long p]
+                                                 (quot (+ s p p) d))
                                                (take-last conv-dim (shape src-desc))
                                                (take-last conv-dim (shape dst-desc))
-                                               padding-l padding-r)))
+                                               padding)))
          dst-desc (coerce-pooling-dst src-desc dst-desc)]
      (api/pooling-blueprint (api/diamond-factory fact)
-                            src-desc dst-desc algo
-                            strides kernel padding-l padding-r)))
+                            src-desc dst-desc algo strides kernel padding)))
   ([fact src-desc kernel dst-desc algo]
    (pooling fact src-desc kernel dst-desc algo nil))
   ([dst-desc kernel algo args]
    (fn
-     ([fact src-desc]
+     ([fact src-desc];;TODO coerce here too.
       (pooling fact src-desc kernel dst-desc algo args))))
   ([dst-desc kernel algo]
    (pooling dst-desc kernel algo nil)))

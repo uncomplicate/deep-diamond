@@ -339,12 +339,15 @@ Please contribute towards making it possible, or use on of the supported types."
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
     (dnnl-fc-blueprint this eng src-desc dst-desc activ alpha beta weights-type))
   (convolution-blueprint [this src-desc weights-desc dst-desc activ
-                          strides padding-l padding-r alpha beta]
-    (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ
-                                      strides padding-l padding-r alpha beta))
-  (pooling-blueprint [this src-desc dst-desc algo strides kernel padding-l padding-r]
+                          strides padding dilation alpha beta]
+    (let [dilation (map dec dilation)]
+      (if (= 0 (apply max dilation))
+        (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ
+                                          strides padding padding alpha beta)
+        "TODO dilated convolution")))
+  (pooling-blueprint [this src-desc dst-desc algo strides kernel padding]
     (dnnl-pooling-blueprint this eng src-desc dst-desc algo
-                            strides kernel padding-l padding-r))
+                            strides kernel padding padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (dnnl-gaussian-dropout-blueprint this src-desc sd))
   CostFactory
