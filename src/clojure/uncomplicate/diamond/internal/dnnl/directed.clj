@@ -8,17 +8,17 @@
 
 (ns uncomplicate.diamond.internal.dnnl.directed
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info]]
+             [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [axpy! axpby! view zero dim transfer! scal! copy!]]
+             [core :refer [axpy! axpby! zero dim transfer! scal! copy! view-vctr]]
              [real :refer [nrm2 asum]]
              [block :refer [buffer]]
              [math :refer [sqrt pow]]
              [vect-math :refer [sqr! linear-frac! sqrt! mul!]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
-             :refer [Transfer input output connector view-tz shape layout
+             :refer [Transfer input output connector shape layout
                      TensorDescriptor shape revert]]
             [uncomplicate.diamond.internal
              [protocols
@@ -605,7 +605,7 @@
                                (dnnl-args args (input connect-diff)
                                           (output connect-output) train-tz)
                                connect-output connect-diff train-tz
-                               (view (input connect-diff))
+                               (view-vctr (input connect-diff))
                                cost))))))
 
 (deftype DnnlCustomCost [strm prev-layer sum-prim sum-args
@@ -647,8 +647,8 @@
           (->DnnlCustomCost strm prev-layer sum-prim
                             (dnnl-args args (input connect-diff)
                                        (output connect-output) train-tz)
-                            connect-output connect-diff (view-tz train-tz)
-                            (view (output connect-output)) (view train-tz)
+                            connect-output connect-diff (view train-tz)
+                            (view-vctr (output connect-output)) (view-vctr train-tz)
                             cost))))))
 
 (defn dnnl-convolution-op-blueprint

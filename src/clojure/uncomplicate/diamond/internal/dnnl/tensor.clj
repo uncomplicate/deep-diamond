@@ -8,16 +8,16 @@
 
 (ns uncomplicate.diamond.internal.dnnl.tensor
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info]]
+             [core :refer [Releaseable release let-release with-release Info info Viewable view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.protocols :refer [Magma Monoid Foldable Applicative pure]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
              [block :refer [entry-width data-accessor buffer count-entries contiguous?]]]
             [uncomplicate.neanderthal.internal.api
-             :refer [Viewable view flow FactoryProvider EngineProvider DataAccessorProvider
+             :refer [flow FactoryProvider EngineProvider DataAccessorProvider
                      Container raw copy MemoryContext set-all compatible? factory native-factory
-                     create-vector]]
+                     create-vector DenseContainer view-vctr]]
             [uncomplicate.neanderthal.internal.host.buffer-block :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
@@ -79,15 +79,15 @@
   ConnectorCreator
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
-      (if (satisfies? TensorContainer out);;TODO use view for everything releaseable
-        (view-tz out)
+      (if (satisfies? Viewable out);;TODO use view for everything releaseable
+        (view out)
         out)
       (let [out-tz (output out)]
         (if (equal-desc? in-desc out-tz)
-          (view-tz out-tz)
+          (view out-tz)
           (let [fact (diamond-factory out-tz)]
             (let-release [in-tz (dnnl-tensor fact in-desc)]
-              (dnnl-transformer (dnnl-engine fact) (flow fact) in-tz (view-tz out-tz)))))))))
+              (dnnl-transformer (dnnl-engine fact) (flow fact) in-tz (view out-tz)))))))))
 
 (defmethod print-method dnnl_memory_desc_t
   [^dnnl_memory_desc_t d ^java.io.Writer w]
@@ -103,7 +103,7 @@
     (release reorder))
   Revert
   (revert [_]
-    (dnnl-transformer eng strm (view-tz out-tz) (view-tz in-tz)))
+    (dnnl-transformer eng strm (view out-tz) (view in-tz)))
   Transfer
   (input [_]
     in-tz)
@@ -192,7 +192,7 @@
           (->DnnlBatcher eng strm reorder-prim
                          (fwd-args (buffer src-sub) (buffer dst-sub))
                          (buffer src-sub) (buffer dst-sub)
-                         (view-tz src-tz) (view-tz dst-tz)
+                         (view src-tz) (view dst-tz)
                          mb-size
                          ((dims src-tz) 0) ((strides src-sub) 0)
                          (entry-bytes (data-type src-tz))
@@ -292,7 +292,7 @@
       (nil? y) false
       (identical? x y) true
       (and (instance? DnnlTensor y) (equal-desc? tz-mem (desc y)))
-      (= (view x) (view y))
+      (= (view-vctr x) (view-vctr y))
       :default false))
   (toString [this]
     (pr-str {:shape (dims tz-mem) :data-type (data-type tz-mem) :layout (strides tz-mem)}))
@@ -354,18 +354,9 @@
       (copy eng x res)))
   (native [x]
     x)
-  Viewable
-  (view [this]
-    (let [ewidth (entry-width (data-accessor neand-fact))
-          n (apply * (dims tz-mem))]
-      (if (= (* (long n) ewidth) (size tz-mem))
-        (create-vector neand-fact false (data tz-mem) n
-                       (/ (.position ^Pointer (ptr tz-mem)) ewidth) 1)
-        (dragan-says-ex "Strided tensors cannot be viewed as vectors."
-                        {:tensor (info this)}))))
   Seqable
   (seq [this]
-    (seq (view this)))
+    (seq (view-vctr this)))
   MemoryContext
   (compatible? [_ y]
     (compatible? neand-fact (factory y)))
@@ -398,11 +389,11 @@
     (dragan-says-ex "Tensors do not support editing of specific entries. Please use tensor's vector view."))
   (alter [x f]
     (check-contiguous x)
-    (alter (view x) f)
+    (alter (view-vctr x) f)
     x)
   (alter [x i f]
     (check-contiguous x)
-    (alter (view x) i f)
+    (alter (view-vctr x) i f)
     x)
   VectorSpace
   (dim [_]
@@ -443,9 +434,21 @@
     (data-type tz-mem))
   (layout [_]
     (strides tz-mem))
-  TensorContainer
-  (view-tz [_]
+  Viewable
+  (view [this]
     (->DnnlTensor diamond-fact neand-fact eng false tz-mem n c))
+  DenseContainer
+  (view-vctr [this]
+    (let [ewidth (entry-width (data-accessor neand-fact))
+          n (apply * (dims tz-mem))]
+      (if (= (* (long n) ewidth) (size tz-mem))
+        (create-vector neand-fact false (data tz-mem) n
+                       (/ (.position ^Pointer (ptr tz-mem)) ewidth) 1)
+        (dragan-says-ex "Strided tensors cannot be viewed as vectors."
+                        {:tensor (info this)}))))
+  TensorContainer
+  (view-tz [this]
+    this)
   (view-tz [_ sub]
     (let-release [sub-desc (if (number? sub)
                              (submemory-desc tz-mem sub)
@@ -463,9 +466,9 @@
   ConnectorCreator
   (connector [in-tz out-desc]
     (if (equal-desc? tz-mem out-desc)
-      (view-tz in-tz)
+      (view in-tz)
       (let-release [out-tz (dnnl-tensor diamond-fact neand-fact eng out-desc)]
-        (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view-tz in-tz) out-tz)))))
+        (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view in-tz) out-tz)))))
 
 (defn dnnl-tensor
   ([diamond-fact neand-fact eng mem-desc]
@@ -493,7 +496,7 @@
   (.write w (str x))
   (.write w "\n")
   (when (contiguous? x)
-    (print-method (doall (take *print-length* (seq (view x)))) w)))
+    (print-method (doall (take *print-length* (seq (view-vctr x)))) w)))
 
 (defmethod transfer! [DnnlTensor DnnlTensor]
   [source destination]
@@ -505,21 +508,21 @@
 
 (defmethod transfer! [Object DnnlTensor]
   [source destination]
-  (transfer! source (view destination))
+  (transfer! source (view-vctr destination))
   destination)
 
 (defmethod transfer! [DnnlTensor Object]
   [source destination]
-  (transfer! (view source) destination))
+  (transfer! (view-vctr source) destination))
 
 (defmethod transfer! [Object DnnlTransformer]
   [source destination]
-  (transfer! source (view (input destination)))
+  (transfer! source (view-vctr (input destination)))
   destination)
 
 (defmethod transfer! [DnnlTransformer Object]
   [source destination]
-  (transfer! (view (output source)) destination))
+  (transfer! (view-vctr (output source)) destination))
 
 (defmethod transfer! [DnnlTensor DnnlTransformer]
   [source destination]

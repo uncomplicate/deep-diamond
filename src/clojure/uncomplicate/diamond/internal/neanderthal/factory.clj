@@ -8,11 +8,11 @@
 
 (ns uncomplicate.diamond.internal.neanderthal.factory
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release]]
+             [core :refer [Releaseable release let-release view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal.native :refer [factory-by-type]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
-            [uncomplicate.diamond.tensor :refer [*diamond-factory* view-tz output]]
+            [uncomplicate.diamond.tensor :refer [*diamond-factory*  output]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
@@ -62,11 +62,11 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor [this tensor-desc _]
     (dnnl-tensor this tensor-desc))
   (create-transformer [_ in-tz out-tz]
-    (dnnl-transformer eng strm (view-tz in-tz) (view-tz out-tz)))
+    (dnnl-transformer eng strm (view in-tz) (view out-tz)))
   (create-shuffler [_ src-tz dst-tz]
-    (dnnl-shuffler eng strm (view-tz src-tz) (view-tz dst-tz)))
+    (dnnl-shuffler eng strm (view src-tz) (view dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
-    (dnnl-batcher eng strm (view-tz src-tz) (view-tz dst-tz) mb-size))
+    (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
   (create-sum [_ scale dst]
     (dnnl-sum-blueprint eng strm scale dst))
   (create-sum [_ scale-src src scale-dst dst]
@@ -88,8 +88,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost!))
   (crossentropy-cost [this prev-layer train-tz]
     (dnnl-custom-cost eng strm prev-layer train-tz
-                        (partial crossentropy-cost!
-                                 ((dims (output prev-layer)) 0)))))
+                      (partial crossentropy-cost!
+                               ((dims (output prev-layer)) 0)))))
 
 (defn neanderthal-factory
   ([eng strm]

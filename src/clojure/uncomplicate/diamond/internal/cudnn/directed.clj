@@ -1,16 +1,16 @@
 (ns uncomplicate.diamond.internal.cudnn.directed
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info]]
+             [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecuda.core :refer [mem-alloc]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! axpy! view dim copy! transfer! raw zero]]
+             [core :refer [axpby! axpy! dim copy! transfer! raw zero view-vctr]]
              [block :refer [cast-prim data-accessor buffer]]
              [math :refer [sqrt pow]]
              [vect-math :refer [sqr! linear-frac! sqrt!]]]
             [uncomplicate.diamond
              [tensor :as tz
-              :refer [Transfer input output connector view-tz revert shape layout
+              :refer [Transfer input output connector revert shape layout
                       TensorDescriptor shape]]]
             [uncomplicate.diamond.internal
              [protocols
@@ -200,7 +200,7 @@
                                    (cast-prim (data-accessor src-tz) 1.0)
                                    (cast-prim (data-accessor dst-tz) 0.0)))
       :default
-      (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz (view-tz dst-tz)
+      (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz (view dst-tz)
                                  (cast-prim (data-accessor src-tz) 1.0)
                                  (cast-prim (data-accessor dst-tz) 0.0)))))
 
@@ -297,7 +297,7 @@
                              (cast-prim (data-accessor src-tz) 1.0)
                              (cast-prim (data-accessor src-tz) 0.0)))
   (invoke [this src-tz dst-tz]
-    (->CUDnnSoftmaxTraining (handle fact) this src-tz (view-tz dst-tz)
+    (->CUDnnSoftmaxTraining (handle fact) this src-tz (view dst-tz)
                             (cast-prim (data-accessor src-tz) 1.0)
                             (cast-prim (data-accessor dst-tz) 0.0))))
 
@@ -348,7 +348,7 @@
                   connect-diff (connector train-desc (diff-input prev-layer))]
       (->CUDnnUniversalCost prev-layer
                             connect-output connect-diff train-tz
-                            (view (input connect-diff)) (view train-tz)
+                            (view-vctr (input connect-diff)) (view-vctr train-tz)
                             cost))))
 
 (deftype CUDnnCustomCost [prev-layer
@@ -389,8 +389,8 @@
                   connect-diff (connector train-desc (diff-z prev-layer))]
       (->CUDnnCustomCost prev-layer
                          connect-output connect-diff train-tz
-                         (view (output connect-output)) (view train-tz)
-                         (view (input connect-diff))
+                         (view-vctr (output connect-output)) (view-vctr train-tz)
+                         (view-vctr (input connect-diff))
                          cost))))
 
 ;; ================================ Convolution ===============================================
@@ -760,14 +760,14 @@
   (invoke [this prev-layer]
     (let-release [dst-tz (cudnn-tensor fact dst-desc)]
       (->CUDnnPoolingInferenceLayer fact (handle fact) this pd
-                                    (view-tz (output prev-layer)) dst-tz
+                                    (view (output prev-layer)) dst-tz
                                     (cast-prim (data-accessor dst-tz) 1.0)
                                     (cast-prim (data-accessor dst-tz) 0.0))))
   (invoke [this prev-layer prop-diff? _]
     (let-release [dst-tz (cudnn-tensor fact dst-desc)
                   diff-dst-tz (cudnn-tensor fact dst-desc)]
       (->CUDnnPoolingTrainingLayer fact (handle fact) this pd
-                                   (view-tz (output prev-layer)) dst-tz diff-dst-tz
+                                   (view (output prev-layer)) dst-tz diff-dst-tz
                                    (cast-prim (data-accessor dst-tz) 1.0)
                                    (cast-prim (data-accessor dst-tz) 0.0)
                                    prop-diff?))))

@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.cudnn.cudnn-tensor-test
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons.core :refer [with-release]]
-            [uncomplicate.neanderthal.core :refer [dim asum native transfer! view]]
+            [uncomplicate.neanderthal.core :refer [dim asum native transfer!]]
             [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor offset! view-tz]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]

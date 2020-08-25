@@ -8,17 +8,17 @@
 
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release]]
+             [core :refer [Releaseable release let-release view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [native :refer [factory-by-type]]
              [block :refer [data-accessor]]]
             [uncomplicate.neanderthal.internal.api :as neand
-             :refer [FlowProvider Blas BlasPlus sum view factory amax RandomNumberGenerator
+             :refer [FlowProvider Blas BlasPlus sum view-vctr factory amax RandomNumberGenerator
                      VectorMath rand-uniform rand-normal swap copy set-all]]
             [uncomplicate.neanderthal.internal.host.lapack :refer [with-lapack-check]]
             [uncomplicate.diamond.tensor
-             :refer [*diamond-factory* view-tz output shape data-type layout]]
+             :refer [*diamond-factory* output shape data-type layout]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
@@ -139,8 +139,8 @@ Please contribute towards making it possible, or use on of the supported types."
   (amax [_ x]
     (tensor-amax CBLAS/isamax ^RealBufferAccessor (data-accessor (factory x)) ^DnnlTensor x))
   (sum [_ x]
-    (let [view-x (view x)]
-      (sum (neand/engine x) (view x))))
+    (let [view-x (view-vctr x)]
+      (sum (neand/engine x) (view-vctr x))))
   (set-all [_ alpha x]
     (tensor-laset LAPACK/slaset alpha ^DnnlTensor x))
   (axpby [_ alpha x beta y]
@@ -265,29 +265,29 @@ Please contribute towards making it possible, or use on of the supported types."
   RandomNumberGenerator
   (rand-uniform [_ rng-stream lower upper x]
     (check-contiguous x)
-    (let [vx (view x)]
+    (let [vx (view-vctr x)]
       (rand-uniform (neand/engine x) rng-stream lower upper vx))
     x)
   (rand-normal [_ rng-stream mu sigma x]
     (check-contiguous x)
-    (let [vx (view x)]
+    (let [vx (view-vctr x)]
       (rand-normal (neand/engine x) rng-stream mu sigma vx))
     x))
 
 (deftype ViewTensorEngine []
   Blas
   (swap [_ x y]
-    (let [vx (view x)]
-      (swap (neand/engine vx) vx (view y)))
+    (let [vx (view-vctr x)]
+      (swap (neand/engine vx) vx (view-vctr y)))
     x)
   (copy [_ x y]
-    (let [vx (view x)]
-      (copy (neand/engine vx) vx (view y)))
+    (let [vx (view-vctr x)]
+      (copy (neand/engine vx) vx (view-vctr y)))
     y)
   BlasPlus
   (set-all [_ alpha x]
-    (let [vx (view x)]
-      (set-all (neand/engine vx) alpha (view x)))
+    (let [vx (view-vctr x)]
+      (set-all (neand/engine vx) alpha (view-vctr x)))
     x))
 
 (deftype DnnlFactory [eng strm master tensor-engines]
@@ -319,11 +319,11 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor [this tensor-desc _]
     (dnnl-tensor this tensor-desc))
   (create-transformer [_ in-tz out-tz]
-    (dnnl-transformer eng strm (view-tz in-tz) (view-tz out-tz)))
+    (dnnl-transformer eng strm (view in-tz) (view out-tz)))
   (create-shuffler [_ src-tz dst-tz]
-    (dnnl-shuffler eng strm (view-tz src-tz) (view-tz dst-tz)))
+    (dnnl-shuffler eng strm (view src-tz) (view dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
-    (dnnl-batcher eng strm (view-tz src-tz) (view-tz dst-tz) mb-size))
+    (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
   (create-sum [_ scale dst]
     (dnnl-sum-blueprint eng strm scale dst))
   (create-sum [_ scale-src src scale-dst dst]

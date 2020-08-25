@@ -1,9 +1,9 @@
 (ns uncomplicate.diamond.internal.network
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release Info info with-release]]
+             [core :refer [Releaseable release let-release Info info with-release view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
-            [uncomplicate.diamond.tensor :refer [Transfer input output view-tz tensor]]
+            [uncomplicate.diamond.tensor :refer [Transfer input output tensor]]
             [uncomplicate.diamond.internal.protocols
              :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
                      diamond-factory native-diamond-factory DiffTransfer diff-input diff-output
@@ -153,7 +153,7 @@
     (format "[%s]" (apply str layer-blueprints)))
   IFn
   (invoke [_ input-tz optimization]
-    (let [input-tz (view-tz input-tz)]
+    (let [input-tz (view input-tz)]
       (loop [bps (next layer-blueprints)
              backward-layers [((first layer-blueprints) input-tz false optimization)]]
         (if bps
@@ -168,7 +168,7 @@
     (if (keyword? optimization-or-input-tz)
       (let-release [input-tz (tensor fact src-desc)]
         (this input-tz optimization-or-input-tz))
-      (let [input-tz (view-tz optimization-or-input-tz)]
+      (let [input-tz (view optimization-or-input-tz)]
         (loop [bps (next layer-blueprints)
                forward-layers [((first layer-blueprints) input-tz)]]
           (if bps

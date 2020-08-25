@@ -8,14 +8,14 @@
 
 (ns uncomplicate.diamond.dnn
   (:require [uncomplicate.commons
-             [core :refer [with-release let-release release]]
+             [core :refer [with-release let-release release view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [ncols view transfer!]]
+             [core :refer [ncols transfer! view-vctr]]
              [random :refer [rand-normal! rand-uniform! rng-state]]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* shape input output batcher TensorContainer
-                     tensor data-type layout view-tz desc]]
+                     tensor data-type layout desc]]
             [uncomplicate.diamond.internal
              [protocols :as api]
              [network :refer [sequential-network]]]))
@@ -199,7 +199,7 @@
       :mean-absolute api/mean-absolute-cost
       :crossentropy api/crossentropy-cost
       (dragan-says-ex "This cost function is not supported." {:cost cost-kw}))
-    (api/diamond-factory layer) layer (view-tz train-tz)))
+    (api/diamond-factory layer) layer (view train-tz)))
   ([layer cost-kw]
    (let-release [train-tz (tensor (output layer) (output layer))]
      (cost layer train-tz cost-kw)))
@@ -213,7 +213,7 @@
    (network *diamond-factory* src-desc layers)))
 
 (defn init! [net!]
-  (with-release [rng (rng-state (view (api/bias (first (api/layers net!)))))]
+  (with-release [rng (rng-state (view-vctr (api/bias (first (api/layers net!)))))]
     (doseq [layer (api/layers net!)]
       (doseq [params (api/parameters layer)]
         (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape params))))) params))))

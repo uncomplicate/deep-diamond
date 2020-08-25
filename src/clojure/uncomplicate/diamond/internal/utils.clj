@@ -61,7 +61,7 @@ Please use a copy or create a transformer."
           (if (< 0 i)
             (do (aset res (dec i) (* (aget res i) (long (get shape i))))
                 (recur res  (dec i)))
-           (vec res)))))))
+            (vec res)))))))
 
 (defn transfer-weights-bias! [source destination]
   (transfer! (bias source) (bias destination))

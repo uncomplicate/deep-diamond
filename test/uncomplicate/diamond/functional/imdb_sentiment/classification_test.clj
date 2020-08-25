@@ -5,7 +5,7 @@
             [clojure.string :as string]
             [uncomplicate.commons [core :refer [with-release let-release]]]
             [uncomplicate.neanderthal
-             [core :refer [transfer transfer! view native view-ge mrows ge
+             [core :refer [transfer transfer! view-vctr native view-ge mrows ge
                            cols mv! rk! raw col row nrm2 scal! ncols dim rows]]
              [real :refer [entry! entry]]
              [native :refer [native-float fv fge]]
@@ -94,8 +94,8 @@
                  crossentropy-cost (cost net y-mb-tz :crossentropy)
                  x-batcher (batcher x-tz (input net))
                  y-batcher (batcher y-tz y-mb-tz)]
-    (transfer! x-train (view x-tz))
-    (transfer! y-train (view y-tz))
+    (transfer! x-train (view-vctr x-tz))
+    (transfer! y-train (view-vctr y-tz))
     (facts "Adam gradient descent - IMDB sentiment classification."
            (time (train net x-batcher y-batcher crossentropy-cost 5 [])) => (roughly 0.3 0.2)
            (transfer! net net-infer)

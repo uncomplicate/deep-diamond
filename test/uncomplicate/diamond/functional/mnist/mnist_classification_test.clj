@@ -5,7 +5,7 @@
              [utils :refer [random-access channel]]]
             [uncomplicate.neanderthal
              [core :refer [subvector view-ge transfer transfer! dim entry ge mrows
-                           transfer! view amax imax col native]]
+                           transfer! view-vctr amax imax col native]]
              [real :refer [entry!]]
              [native :as neand :refer [native-byte native-float fge]]]
             [uncomplicate.diamond
@@ -28,17 +28,17 @@
 (defonce test-labels (map-tensor test-labels-file [10000] :uint8 :x :read 8))
 
 (defn enc-categories [val-tz]
-  (let [val-vector (view val-tz)]
+  (let [val-vector (view-vctr val-tz)]
     (let-release [cat-tz (tensor val-tz [(first (shape val-tz)) (inc (long (amax val-vector)))] :float :nc )
-                  cat-matrix (view-ge (view cat-tz) (second (shape cat-tz)) (first (shape cat-tz)))]
+                  cat-matrix (view-ge (view-vctr cat-tz) (second (shape cat-tz)) (first (shape cat-tz)))]
       (dotimes [j (dim val-vector)]
         (entry! cat-matrix (entry val-vector j) j 1.0))
       cat-tz)))
 
 (defn dec-categories [cat-tz]
-  (let [cat-matrix (view-ge (view cat-tz) (second (shape cat-tz)) (first (shape cat-tz)))]
+  (let [cat-matrix (view-ge (view-vctr cat-tz) (second (shape cat-tz)) (first (shape cat-tz)))]
     (let-release [val-tz (tensor cat-tz [(first (shape cat-tz))] :float :x)
-                  val-vector (view val-tz)]
+                  val-vector (view-vctr val-tz)]
       (dotimes [j (dim val-vector)]
         (entry! val-vector j (imax (col cat-matrix j))))
       val-tz)))

@@ -11,7 +11,7 @@
              [core :refer [Releaseable release let-release with-release Info info]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [rk! mm! mv! trans axpy! axpby! view view-ge mrows
+             [core :refer [rk! mm! mv! trans axpy! axpby! view-vctr view-ge mrows
                            ncols vctr zero dim transfer! raw]]
              [real :refer [entry! nrm2 asum]]
              [math :refer [sqr pow sqrt]]
@@ -186,13 +186,13 @@
                     bias-tz (create-tensor fact bias-desc false)
                     weights-tz (create-tensor fact weights-desc false)
                     dst-tz (create-tensor fact dst-desc false)
-                    x (view-ge (view (output src-conn))
+                    x (view-ge (view-vctr (output src-conn))
                                (apply * (rest src-shape)) (long (get src-shape 0)))
-                    b (view bias-tz)
+                    b (view-vctr bias-tz)
                     ones (entry! (vctr x (ncols x)) 1.0)]
         (->InnerProductInference fact this ones
-                                 b (trans (view-ge (view weights-tz) (mrows x) (dim b)))
-                                 x (view-ge (view dst-tz) (dim b) (ncols x))
+                                 b (trans (view-ge (view-vctr weights-tz) (mrows x) (dim b)))
+                                 x (view-ge (view-vctr dst-tz) (dim b) (ncols x))
                                  src-conn bias-tz weights-tz dst-tz))))
   (invoke [this src-tz dst-tz prop-diff? _]
     (let [src-shape (shape src-tz)]
@@ -201,12 +201,12 @@
                     weights-tz (create-tensor fact weights-desc false)
                     diff-src-conn (revert src-conn)
                     diff-weights-tz (zero weights-tz);;TODO raw should be enough.
-                    x (view-ge (view (output src-conn))
+                    x (view-ge (view-vctr (output src-conn))
                                (apply * (rest src-shape)) (long (get src-shape 0)))
-                    b (view bias-tz)
-                    w (trans (view-ge (view weights-tz) (mrows x) (dim b)))
-                    diff-w (trans (view-ge (view diff-weights-tz) (mrows x) (dim b)))
-                    a (view-ge (view dst-tz) (dim b) (ncols x))
+                    b (view-vctr bias-tz)
+                    w (trans (view-ge (view-vctr weights-tz) (mrows x) (dim b)))
+                    diff-w (trans (view-ge (view-vctr diff-weights-tz) (mrows x) (dim b)))
+                    a (view-ge (view-vctr dst-tz) (dim b) (ncols x))
                     ones (entry! (vctr x (ncols x)) 1.0)]
         (->InnerProductTraining fact this ones prop-diff?
                                 b w x a diff-w b
@@ -219,13 +219,13 @@
          dst-type (data-type dst-desc)
          weights-shape [(dst-shape 1) (apply * (rest (shape src-desc)))]
          weights-type (or weights-type (data-type src-desc) dst-type)]
-    (let-release [dst-desc (create-tensor-desc fact
-                                               [(dst-shape 0) (apply * (rest dst-shape))]
-                                               (or (data-type dst-desc) (data-type src-desc))
-                                               :nc)
-                  bias-desc (create-tensor-desc fact [(dst-shape 1)] (data-type dst-desc) :x)
-                  weights-desc (create-tensor-desc fact weights-shape weights-type :oi)]
-      (->InnerProductBlueprint fact src-desc weights-desc bias-desc dst-desc)))))
+     (let-release [dst-desc (create-tensor-desc fact
+                                                [(dst-shape 0) (apply * (rest dst-shape))]
+                                                (or (data-type dst-desc) (data-type src-desc))
+                                                :nc)
+                   bias-desc (create-tensor-desc fact [(dst-shape 1)] (data-type dst-desc) :x)
+                   weights-desc (create-tensor-desc fact weights-shape weights-type :oi)]
+       (->InnerProductBlueprint fact src-desc weights-desc bias-desc dst-desc)))))
 
 (deftype InferenceLayer [fact bluep op activ]
   Releaseable
@@ -365,7 +365,7 @@
                 op (op-bluep src-tz z-tz prop-diff? true)
                 activ (activ-bluep z-tz a-tz)]
     (->SGDLayer fact bluep op activ (first (shape bluep))
-                (view (diff-weights op)) (view (weights op)) (view (bias op)))))
+                (view-vctr (diff-weights op)) (view-vctr (weights op)) (view-vctr (bias op)))))
 
 (defmethod print-method SGDLayer
   [layer ^java.io.Writer w]
@@ -467,11 +467,11 @@
                 a-tz (create-tensor fact activ-bluep false)
                 op (op-bluep src-tz z-tz prop-diff? false)
                 activ (activ-bluep z-tz a-tz)
-                w (view (weights op))
+                w (view-vctr (weights op))
                 s (zero w)
                 r (zero w)]
     (->AdamLayer fact bluep op activ (first (shape bluep))
-                 s r w (view (diff-weights op)) (view (bias op)))))
+                 s r w (view-vctr (diff-weights op)) (view-vctr (bias op)))))
 
 (defmethod print-method AdamLayer
   [layer ^java.io.Writer w]

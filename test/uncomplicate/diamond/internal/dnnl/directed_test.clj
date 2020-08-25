@@ -10,7 +10,7 @@
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
-             [core :refer [transfer! view native view-ge cols]]
+             [core :refer [transfer! native view-vctr view-ge cols]]
              [real :refer [entry! entry]]
              [native :refer [fv]]
              [random :refer [rand-uniform!]]
@@ -36,15 +36,15 @@
          (transfer! [-0.5 0 0.2 1 0.3 -0.7] src-tz)
          (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights ip-infer))
          (transfer! [-0.1 0.2] (bias ip-infer))
-         (view (ip-infer)) => (fv -0.81 0.72999996)
-         (view (input ip-infer)) => (fv -0.5 0 0.2 1 0.3 -0.7)
-         (view (output ip-infer)) => (fv -0.81 0.72999996)
+         (view-vctr (ip-infer)) => (fv -0.81 0.72999996)
+         (view-vctr (input ip-infer)) => (fv -0.5 0 0.2 1 0.3 -0.7)
+         (view-vctr (output ip-infer)) => (fv -0.81 0.72999996)
          (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights ip-train))
          (transfer! [-0.1 0.2] (bias ip-train))
-         (view (ip-train)) => (fv -0.81 0.72999996)
-         (transfer! [-0.1 0.8299999594688416] (view (output ip-train)))
+         (view-vctr (ip-train)) => (fv -0.81 0.72999996)
+         (transfer! [-0.1 0.8299999594688416] (view-vctr (output ip-train)))
          (backward ip-train) => ip-train
-         (view (diff-weights ip-train)) => (fv 0.05 0 -0.020000001 -0.1 -0.030000001 0.07
+         (view-vctr (diff-weights ip-train)) => (fv 0.05 0 -0.020000001 -0.1 -0.030000001 0.07
                                                -0.415 0.0 0.166 0.83 0.249 -0.581)))
 
 (facts "Inner product backprop step by step."
@@ -57,15 +57,15 @@
          (transfer! [-0.5] src-tz)
          (transfer! [-0.1] (weights ip-infer))
          (transfer! [ 0.2] (bias ip-infer))
-         (view (ip-infer)) => (fv 0.25)
-         (view (input ip-infer)) => (fv -0.5)
-         (view (output ip-infer)) => (fv 0.25)
+         (view-vctr (ip-infer)) => (fv 0.25)
+         (view-vctr (input ip-infer)) => (fv -0.5)
+         (view-vctr (output ip-infer)) => (fv 0.25)
          (transfer! [-0.1] (weights ip-train))
          (transfer! [0.2] (bias ip-train))
-         (view (ip-train)) => (fv 0.25)
-         (transfer! [0.4] (view (output ip-train)))
+         (view-vctr (ip-train)) => (fv 0.25)
+         (transfer! [0.4] (view-vctr (output ip-train)))
          (backward ip-train) => ip-train
-         (view (diff-weights ip-train)) => (fv -0.2)))
+         (view-vctr (diff-weights ip-train)) => (fv -0.2)))
 
 (with-release [fact (dnnl-factory)]
   (test-sum fact)

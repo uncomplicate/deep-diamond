@@ -11,7 +11,7 @@
             [uncomplicate.commons
              [core :refer [with-release release]]]
             [uncomplicate.neanderthal
-             [core :refer [asum view transfer! native entry entry! dim]]
+             [core :refer [asum view-vctr transfer! native entry entry! dim]]
              [block :refer [buffer contiguous?]]]
             [uncomplicate.diamond.tensor :refer :all])
   (:import clojure.lang.ExceptionInfo))
@@ -95,7 +95,7 @@
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native sub-y)) => [0.0 1.0 2.0]
            (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
-           (seq (native (view (offset! sub-y 1)))) => [3.0 4.0 5.0]
+           (seq (native (view-vctr (offset! sub-y 1)))) => [3.0 4.0 5.0]
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native (offset! sub-z 1))) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))
@@ -110,56 +110,56 @@
                  transform (transformer tz-x tz-y)
                  sub-transform (transformer tz-sub-x tz-sub-y)]
     (facts "Tensor transformer"
-           (entry (view (native (transfer! (range) tz-x))) 119) => 119.0
-           (entry (view (native tz-y)) 119) => 0.0
+           (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
+           (entry (view-vctr (native tz-y)) 119) => 0.0
            (buffer (input transform)) => (buffer tz-x)
            (buffer (output transform)) => (buffer tz-y)
            (transform) => tz-y
            (asum tz-y) => (asum tz-x)
-           (entry (view (native tz-y)) 119) => 119.0
+           (entry (view-vctr (native tz-y)) 119) => 119.0
            (transfer! (range 0 1000 10) tz-x)
            (sub-transform) => tz-sub-y
-           (entry (view (native tz-y)) 34) => 310.0)))
+           (entry (view-vctr (native tz-y)) 34) => 310.0)))
 
 (defn test-pull-different [fact]
   (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)
                  tz-y-desc (desc [2 3 4 5] :float :nhwc)
                  connection (connector tz-x tz-y-desc)]
     (facts "Tensor pull connector with different destination"
-           (entry (view (native (transfer! (range) tz-x))) 119) => 119.0
+           (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
            (identical? (buffer (input connection)) (buffer tz-x)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => false
-           (entry (native (view (connection))) 119) => 119.0)))
+           (entry (native (view-vctr (connection))) 119) => 119.0)))
 
 (defn test-pull-same [fact]
   (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)
                  tz-y-desc (desc [2 3 4 5] :float :nchw)
                  connection (connector tz-x tz-y-desc)]
     (facts "Tensor pull connector with the same destination"
-           (entry (view (native (transfer! (range) tz-x))) 119) => 119.0
+           (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
            (identical? (buffer (input connection)) (buffer tz-x)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => true
-           (entry (native (view (connection))) 119) => 119.0)))
+           (entry (native (view-vctr (connection))) 119) => 119.0)))
 
 (defn test-push-different [fact]
   (with-release [tz-y (tensor fact [2 3 4 5] :float :nchw)
                  tz-x-desc (desc [2 3 4 5] :float :nhwc)
                  connection (connector tz-x-desc tz-y)]
     (facts "Tensor push connector with different destination"
-           (entry (native (transfer! (range) (view (input connection)))) 119) => 119.0
+           (entry (native (transfer! (range) (view-vctr (input connection)))) 119) => 119.0
            (identical? (buffer (output connection)) (buffer tz-y)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => false
-           (entry (native (view (connection))) 119) => 119.0)))
+           (entry (native (view-vctr (connection))) 119) => 119.0)))
 
 (defn test-push-same [fact]
   (with-release [tz-y (tensor fact [2 3 4 5] :float :nchw)
                  tz-x-desc (desc [2 3 4 5] :float :nchw)
                  connection (connector tz-x-desc tz-y)]
     (facts "Tensor push connector with the same destination"
-           (entry (native (transfer! (range) (view (input connection)))) 119) => 119.0
+           (entry (native (transfer! (range) (view-vctr (input connection)))) 119) => 119.0
            (identical? (buffer (output connection)) (buffer tz-y)) => true
            (identical? (buffer (input connection)) (buffer (output connection))) => true
-           (entry (native (view (connection))) 119) => 119.0)))
+           (entry (native (view-vctr (connection))) 119) => 119.0)))
 
 (defn test-shuffler [fact]
   (with-release [tz-x (tensor fact [6 2 1 1] :float [2 1 1 1])

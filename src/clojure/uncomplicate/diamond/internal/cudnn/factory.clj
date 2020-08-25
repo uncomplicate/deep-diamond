@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.cudnn.factory
   (:require [clojure.java.io :as io]
             [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Wrapper extract]]
+             [core :refer [Releaseable release let-release with-release view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.core :refer [op]]
             [uncomplicate.clojurecuda
@@ -19,7 +19,7 @@
              [cuda :refer [cuda-float cuda-double cuda-long cuda-int cuda-byte]]
              [block :refer [buffer offset]]]
             [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
-            [uncomplicate.diamond.tensor :refer [shape data-type layout view-tz output]]
+            [uncomplicate.diamond.tensor :refer [shape data-type layout output]]
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
                                 CostFactory DnnFactory]]
@@ -128,28 +128,28 @@ Please contribute towards making it possible, or use on of the supported types."
 
 (defn tensor-method
   ([method x]
-   (let [vx (view x)]
+   (let [vx (view-vctr x)]
      (check-contiguous x)
      (method (engine vx) vx)))
   ([method x y]
-   (let [vx (view x)]
+   (let [vx (view-vctr x)]
      (check-contiguous x y)
-     (method (engine vx) vx (view y))))
+     (method (engine vx) vx (view-vctr y))))
   ([method x y z]
-   (let [vx (view x)]
+   (let [vx (view-vctr x)]
      (check-contiguous x y z)
-     (method (engine vx) vx (view y) (view z)))))
+     (method (engine vx) vx (view-vctr y) (view-vctr z)))))
 
 (defn tensor-math
   ([method a y]
-   (let [va (view a)]
+   (let [va (view-vctr a)]
      (check-contiguous a y)
-     (method (engine va) va (view y))
+     (method (engine va) va (view-vctr y))
      y))
   ([method a b y]
-   (let [va (view a)]
+   (let [va (view-vctr a)]
      (check-contiguous a b y)
-     (method (engine va) va (view b) (view y))
+     (method (engine va) va (view-vctr b) (view-vctr y))
      y)))
 
 (deftype TensorEngine [cudnn-hdl modl hstream cast ^long byte-cnt]
@@ -207,8 +207,8 @@ Please contribute towards making it possible, or use on of the supported types."
   (abs [_ a y]
     (tensor-math abs a y))
   (linear-frac [_ a b scalea shifta scaleb shiftb y]
-    (let [va (view a)]
-      (linear-frac (engine va) va (view b) scalea shifta scaleb shiftb (view y))
+    (let [va (view-vctr a)]
+      (linear-frac (engine va) va (view-vctr b) scalea shifta scaleb shiftb (view-vctr y))
       y))
   (fmod [_ a b y]
     (tensor-math fmod a b y)
@@ -230,7 +230,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (pow [_ a b y]
     (tensor-math pow a b y))
   (powx [_ a b y]
-    (powx (engine (view a)) (view a) b (view y))
+    (powx (engine (view-vctr a)) (view-vctr a) b (view-vctr y))
     y)
   (hypot [_ a b y]
     (tensor-math hypot a b y))
@@ -316,10 +316,10 @@ Please contribute towards making it possible, or use on of the supported types."
     (dragan-says-ex INEFFICIENT_OPERATION_MSG))
   RandomNumberGenerator
   (rand-uniform [_ rng-stream lower upper x]
-    (rand-uniform (engine (view x)) rng-stream lower upper (view x))
+    (rand-uniform (engine (view-vctr x)) rng-stream lower upper (view-vctr x))
     x)
   (rand-normal [_ rng-stream mu sigma x]
-    (rand-normal (engine (view x)) rng-stream mu sigma (view x))
+    (rand-normal (engine (view-vctr x)) rng-stream mu sigma (view-vctr x))
     x))
 
 (deftype CUDnnFactory [ctx hstream cudnn-hdl master
@@ -365,11 +365,11 @@ Please contribute towards making it possible, or use on of the supported types."
         (set-all (engine res) 0 res))
       res))
   (create-transformer [_ in-tz out-tz]
-    (cudnn-transformer cudnn-hdl (view-tz in-tz) (view-tz out-tz)))
+    (cudnn-transformer cudnn-hdl (view in-tz) (view out-tz)))
   (create-shuffler [_ src-tz dst-tz]
-    (cudnn-shuffler cudnn-hdl (view-tz src-tz) (view-tz dst-tz)))
+    (cudnn-shuffler cudnn-hdl (view src-tz) (view dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
-    (cudnn-batcher cudnn-hdl (view-tz src-tz) (view-tz dst-tz) mb-size))
+    (cudnn-batcher cudnn-hdl (view src-tz) (view dst-tz) mb-size))
   (create-sum [_ scale _]
     (cudnn-sum-blueprint cudnn-hdl scale))
   (create-sum [_ scale-src _ scale-dst _]
