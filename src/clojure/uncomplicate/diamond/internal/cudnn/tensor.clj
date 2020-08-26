@@ -118,7 +118,7 @@
         (let [padding-4 (repeat (- 4 (count shape)) 1)]
           (tensor-descriptor (into shape padding-4) dtype (into (layout md) padding-4)))))))
 
-(extend-type CUFilterDescriptor ;;TODO macro-ize with CUTeensorDescriptor
+(extend-type CUFilterDescriptor
   TensorDescriptor
   (shape [this]
     (.dims this))

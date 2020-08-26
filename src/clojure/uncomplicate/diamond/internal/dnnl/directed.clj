@@ -25,7 +25,8 @@
               :refer [Parameters bias weights ParametersSeq parameters
                       BlueprintProvider DiamondFactoryProvider DiffParameters
                       diff-weights Backprop forward backward blueprint
-                      DiffTransfer diff-output diff-input diff-z]]
+                      DiffTransfer diff-output diff-input diff-z
+                      LinearBackprop backward-diff]]
              [utils :refer [transfer-weights-bias! default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -413,8 +414,9 @@
     (execute! strm fwd-prim fwd-args)
     this)
   (backward [this]
-    (backward this 1.0 0.0 1.0 0.0))
-  (backward [this scal-diff-w scal-g scal-diff-b scal-b]
+    (backward-diff this 1.0 0.0 1.0 0.0))
+  LinearBackprop
+  (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]
     (bwd-src-conn)
     (diff-dst-conn)
     (execute! strm bwd-weights-prim bwd-weights-args)
@@ -432,7 +434,22 @@
 
 (deftype DnnlProductBlueprint [fact weights-desc bias-desc infer-pd
                                train-pd bwd-weights-pd bwd-data-pd]
-  ;; TODO implement equals
+  Object
+  (hashCode [_]
+    (-> (hash weights-desc) (hash-combine bias-desc)))
+  (equals [_ other]
+    (and (instance? DnnlProductBlueprint other)
+         (= bias-desc (.bias-desc ^DnnlProductBlueprint other))
+         (equal-desc? (src-md infer-pd) (src-md (.infer-pd ^DnnlProductBlueprint other)))
+         (equal-desc? (weights-md infer-pd) (weights-md (.infer-pd ^DnnlProductBlueprint other)))
+         (equal-desc? (dst-md infer-pd) (dst-md (.infer-pd ^DnnlProductBlueprint other)))
+         (equal-desc? (src-md train-pd) (src-md (.train-pd ^DnnlProductBlueprint other)))
+         (equal-desc? (weights-md train-pd) (weights-md (.train-pd ^DnnlProductBlueprint other)))
+         (equal-desc? (dst-md train-pd) (dst-md (.train-pd ^DnnlProductBlueprint other)))))
+  (toString [this]
+    (pr-str {:src (src-md infer-pd)
+             :weights (weights-md infer-pd)
+             :dst (dst-md infer-pd)}))
   Releaseable
   (release [_]
     (release weights-desc)

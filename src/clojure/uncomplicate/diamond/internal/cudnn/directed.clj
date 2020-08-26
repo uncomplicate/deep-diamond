@@ -16,7 +16,7 @@
              [protocols
               :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
                       blueprint create-tensor DiffTransfer diff-input diff-output diff-z
-                      ParametersSeq Parameters DiffParameters]]
+                      ParametersSeq Parameters DiffParameters LinearBackprop backward-diff]]
              [utils :refer [transfer-weights-bias! default-strides]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
@@ -513,8 +513,9 @@
     (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
     this)
   (backward [this]
-    (backward this one zero one zero))
-  (backward [this scal-diff-w scal-g scal-diff-b scal-b]
+    (backward-diff this one zero one zero))
+  LinearBackprop
+  (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]
     (convolution-bwd-filter cudnn-hdl conv-desc conv-bwd-weights-algo
                             (cast-prim da scal-diff-w)
                             (output src-conn) (buffer (output src-conn))
@@ -536,7 +537,17 @@
 (deftype CUDnnConvolutionBlueprint [fact conv-desc
                                     conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
                                     src-desc weights-desc filter-desc bias-desc dst-desc]
-  ;; TODO implement equals
+  Object
+  (hashCode [_]
+    (-> (hash src-desc) (hash-combine weights-desc)
+        (hash-combine bias-desc) (hash-combine dst-desc)))
+  (equals [_ other]
+    (and (instance? CUDnnConvolutionBlueprint other)
+         (equal-desc? src-desc (.src-desc ^CUDnnConvolutionBlueprint other))
+         (equal-desc? weights-desc (.weights-desc ^CUDnnConvolutionBlueprint other))
+         (equal-desc? dst-desc (.dst-desc ^CUDnnConvolutionBlueprint other))))
+  (toString [this]
+    (pr-str {:src src-desc :weights weights-desc :dst dst-desc}))
   Releaseable
   (release [_]
     (release conv-desc)
@@ -631,7 +642,7 @@
                 dtype (data-type dst-desc)
                 weights-desc (cudnn-tensor-desc (shape weights-desc) dtype nil)
                 filter-desc (filter-descriptor (shape weights-desc) dtype :nchw);;TODO generalize?
-                bias-desc (cudnn-tensor-desc [1 (get (dims dst-desc) 1)] dtype :nc);;TODO maybe I'd need to do into etc.
+                bias-desc (cudnn-tensor-desc [1 (get (dims dst-desc) 1)] dtype :nc)
                 conv-desc (convolution-descriptor :cross-correleation dtype padding strides dilation)
                 conv-fwd-algo (convolution-fwd-get-algo (handle fact) conv-desc
                                                         src-desc filter-desc dst-desc)

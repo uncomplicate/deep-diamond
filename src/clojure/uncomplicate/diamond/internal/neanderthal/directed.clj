@@ -25,9 +25,10 @@
             [uncomplicate.diamond.internal
              [protocols :refer [Parameters bias weights ParametersSeq parameters
                                 BlueprintProvider DiamondFactoryProvider DiffParameters
-                                diff-weights Backprop forward backward
-                                blueprint create-tensor activ-blueprint DiffTransfer
-                                diff-input diff-output diff-z create-tensor-desc]]
+                                diff-weights Backprop forward backward blueprint
+                                create-tensor activ-blueprint DiffTransfer diff-input
+                                diff-output diff-z create-tensor-desc LinearBackprop
+                                backward-diff]]
              [utils :refer [transfer-weights-bias!]]])
   (:import clojure.lang.IFn))
 
@@ -136,8 +137,9 @@
     (rk! 1.0 b ones (mm! 1.0 w a-1 0.0 z))
     this)
   (backward [this]
-    (backward this 1.0 0.0 1.0 0.0))
-  (backward [this scal-diff-w scal-g scal-diff-b scal-b]
+    (backward-diff this 1.0 0.0 1.0 0.0))
+  LinearBackprop
+  (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]
     (mm! scal-diff-w z (trans a-1) scal-g diff-w)
     (mv! scal-diff-b z ones scal-b diff-b)
     (when prop-diff?
@@ -146,7 +148,16 @@
     this))
 
 (deftype InnerProductBlueprint [fact src-desc weights-desc bias-desc dst-desc]
-  ;; TODO implement equals
+  Object
+  (hashCode [_]
+    (-> (hash src-desc) (hash-combine weights-desc)
+        (hash-combine bias-desc) (hash-combine dst-desc)))
+  (equals [_ other]
+    (and (instance? InnerProductBlueprint other)
+         (= src-desc (.src-desc ^InnerProductBlueprint other))
+         (= dst-desc (.dst-desc ^InnerProductBlueprint other))))
+  (toString [this]
+    (pr-str {:src src-desc :weights weights-desc :dst dst-desc}))
   Releaseable
   (release [_]
     (release src-desc)
@@ -200,7 +211,7 @@
                     bias-tz (create-tensor fact bias-desc false)
                     weights-tz (create-tensor fact weights-desc false)
                     diff-src-conn (revert src-conn)
-                    diff-weights-tz (zero weights-tz);;TODO raw should be enough.
+                    diff-weights-tz (raw weights-tz)
                     x (view-ge (view-vctr (output src-conn))
                                (apply * (rest src-shape)) (long (get src-shape 0)))
                     b (view-vctr bias-tz)
@@ -355,7 +366,7 @@
   (backward [this [_ eta lambda mu nesterov?]]
     (let [eta-avg (- (/ (double eta) n))]
       (when nesterov? (axpy! (- (double mu)) v w))
-      (backward op eta-avg mu eta-avg 1.0);;TODO rename to backward-diff or something
+      (backward-diff op eta-avg mu eta-avg 1.0)
       (axpby! 1.0 v (inc (* eta-avg (double lambda))) w)
       this)))
 
@@ -454,7 +465,7 @@
           epsilon (double (or epsilon 1e-6))
           eta-avg (- (/ (double eta) n))
           scal-n (/ 1.0 n)]
-      (backward op scal-n 0.0 eta-avg 1.0)
+      (backward-diff op scal-n 0.0 eta-avg 1.0)
       (axpby! (- 1.0 rho1) g rho1 s)
       (axpby! (- 1.0 rho2) (sqr! g) rho2 r)
       (linear-frac! (/ (- eta) (- 1.0 (pow rho1 t))) s 0.0
