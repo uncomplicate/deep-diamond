@@ -56,7 +56,8 @@
 (defn ^:private not-available []
   (throw (UnsupportedOperationException. "Not available in CUDA. Please use a host instance.")))
 
-(declare ->CUDnnTensor cudnn-transformer cudnn-tensor cudnn-shuffler cudnn-tensor-desc)
+(declare ->CUDnnTensor cudnn-transformer cudnn-tensor ->CUDnnShuffler
+         cudnn-batcher cudnn-tensor-desc)
 
 (defn cudnn-shape-padding [shape]
   (into shape (repeat (- 4 (count shape)) 1)))
@@ -97,9 +98,7 @@
   ConnectorCreator
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
-      (if (satisfies? Viewable out)
-        (view out)
-        out)
+      (view out)
       (let [out-tz (output out)]
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
@@ -130,9 +129,7 @@
   ConnectorCreator
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
-      (if (satisfies? Viewable out)
-        (view out)
-        out)
+      (view out)
       (let [out-tz (output out)]
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
@@ -154,6 +151,9 @@
     (release out-tz))
   Revert
   (revert [_]
+    (cudnn-transformer cudnn-hdl (view in-tz) (view out-tz)))
+  Viewable
+  (view [_]
     (cudnn-transformer cudnn-hdl (view in-tz) (view out-tz)))
   Transfer
   (input [_]
@@ -200,6 +200,9 @@
     (release dst-tz)
     (release src-sub)
     (release dst-sub))
+  Viewable
+  (view [_]
+    (cudnn-batcher cudnn-hdl (view src-tz) (view dst-tz) mb-size))
   Transfer
   (input [_]
     src-tz)
@@ -241,14 +244,19 @@
     (let-release [src-sub (view-tz src-tz mb-size)
                   dst-sub (view-tz dst-tz mb-size)]
       (->CUDnnBatcher cudnn-hdl src-sub dst-sub
-                      (view src-tz) (view dst-tz) mb-size
-                      ((dims src-tz) 0) ((strides src-sub) 0) (entry-width (data-accessor src-sub))
-                      ((dims dst-tz) 0) ((strides dst-sub) 0) (entry-width (data-accessor dst-sub))))))
+                      src-tz dst-tz mb-size
+                      ((dims src-tz) 0) ((strides src-sub) 0)
+                      (entry-width (data-accessor src-sub))
+                      ((dims dst-tz) 0) ((strides dst-sub) 0)
+                      (entry-width (data-accessor dst-sub))))))
 
 (deftype CUDnnShuffler [cudnn-hdl batcher]
   Releaseable
   (release [_]
     (release batcher))
+  Viewable
+  (view [_]
+    (->CUDnnShuffler cudnn-hdl (view batcher)))
   Transfer
   (input [_]
     (input batcher))
@@ -276,7 +284,6 @@
 
 (defn cudnn-shuffler [cudnn-hdl src-tz dst-tz]
   (->CUDnnShuffler cudnn-hdl (cudnn-batcher cudnn-hdl src-tz dst-tz 1)))
-
 
 ;; ================================ Tensor ======================================
 
@@ -450,7 +457,8 @@
          (->CUDnnTensor diamond-fact
                         (tensor-engine diamond-fact (data-type tdesc))
                         vect-view master buf 0 tdesc))
-       (throw (ex-info "Insufficient buffer size." {:size (size tdesc) :buffer-size (cuda/size buf)})))))
+       (throw (ex-info "Insufficient buffer size."
+                       {:size (size tdesc) :buffer-size (cuda/size buf)})))))
   ([diamond-fact tdesc]
    (let [tdesc (desc tdesc)]
      (let-release [buf (mem-alloc (max 1 (size tdesc)))]

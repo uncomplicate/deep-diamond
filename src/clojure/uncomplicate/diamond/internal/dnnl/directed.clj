@@ -48,14 +48,15 @@
 
 ;; ================================ Sum ======================================
 
-(deftype DnnlSum [strm dst sum-prim sum-args]
+(deftype DnnlSum [strm dst-tz sum-prim sum-args]
   Releaseable
   (release [_]
-    (release sum-prim))
+    (release sum-prim)
+    (release dst-tz))
   IFn
   (invoke [this]
     (execute! strm sum-prim sum-args)
-    dst))
+    dst-tz))
 
 (deftype DnnlSumBlueprint [strm sum-pd]
   Releaseable
@@ -65,9 +66,9 @@
   (invoke [_ src-and-dst]
     (let-release [sum-prim (primitive sum-pd)]
       (->DnnlSum strm src-and-dst sum-prim (args (buffer src-and-dst)))))
-  (invoke [_ src dst]
+  (invoke [_ src-tz dst-tz]
     (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm dst sum-prim (dnnl-args args dst dst src)))))
+      (->DnnlSum strm dst-tz sum-prim (dnnl-args args dst-tz dst-tz src-tz)))))
 
 (defn dnnl-sum-blueprint
   ([eng strm scale dst]
@@ -81,6 +82,7 @@
                                   eltwise-fwd-prim eltwise-fwd-args]
   Releaseable
   (release [_]
+    (release a-tz)
     (release eltwise-fwd-prim))
   Info
   (info [this]
@@ -105,6 +107,8 @@
                                  eltwise-bwd-prim eltwise-bwd-args]
   Releaseable
   (release [_]
+    (release z-tz)
+    (release a-tz)
     (release eltwise-fwd-prim)
     (release eltwise-bwd-prim))
   Info
@@ -198,6 +202,8 @@
                               softmax-bwd-prim softmax-bwd-args]
   Releaseable
   (release [_]
+    (release z-tz)
+    (release da-tz)
     (release softmax-fwd-prim)
     (release softmax-bwd-prim))
   Info
@@ -567,9 +573,11 @@
                             a-y cost]
   Releaseable
   (release [_]
+    (release sum-prim)
     (release connect-output)
     (release connect-diff)
-    (release train-tz))
+    (release train-tz)
+    (release a-y))
   Transfer
   (input [this]
     (input connect-output))
@@ -612,6 +620,7 @@
                          connect-output connect-diff train-tz a y cost]
   Releaseable
   (release [_]
+    (release sum-prim)
     (release connect-output)
     (release connect-diff)
     (release train-tz))
@@ -650,6 +659,8 @@
                             connect-output connect-diff (view train-tz)
                             (view-vctr (output connect-output)) (view-vctr train-tz)
                             cost))))))
+
+;; =========================== Convolution =============================================
 
 (defn dnnl-convolution-op-blueprint
   [fact eng src-desc weights-desc dst-desc strides padding-l padding-r]

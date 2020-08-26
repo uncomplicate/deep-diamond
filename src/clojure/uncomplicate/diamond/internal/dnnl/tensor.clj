@@ -41,7 +41,7 @@
            org.bytedeco.dnnl.dnnl_memory_desc_t
            uncomplicate.diamond.tensor.TensorDescriptorImpl))
 
-(declare ->DnnlTensor dnnl-transformer dnnl-tensor dnnl-shuffler)
+(declare ->DnnlTensor dnnl-transformer dnnl-tensor dnnl-batcher ->DnnlShuffler)
 
 (extend-type java.util.Collection
   DescProvider
@@ -79,9 +79,7 @@
   ConnectorCreator
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
-      (if (satisfies? Viewable out);;TODO use view for everything releaseable
-        (view out)
-        out)
+      (view out)
       (let [out-tz (output out)]
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
@@ -104,6 +102,9 @@
   Revert
   (revert [_]
     (dnnl-transformer eng strm (view out-tz) (view in-tz)))
+  Viewable
+  (view [_]
+    (dnnl-transformer eng strm (view in-tz) (view out-tz)))
   Transfer
   (input [_]
     in-tz)
@@ -137,16 +138,19 @@
 ;; =================== Batcher ==================================================
 
 (deftype DnnlBatcher [eng strm reorder reorder-args
-                      src-submem dst-submem src-tz dst-tz ^long mb-size
+                      src-sub dst-sub src-tz dst-tz ^long mb-size
                       ^long src-cnt ^long src-stride-n ^long src-entry-width
                       ^long dst-cnt ^long dst-stride-n ^long dst-entry-width]
   Releaseable
   (release [_]
     (release src-tz)
     (release dst-tz)
-    (release src-submem)
-    (release dst-submem)
+    (release src-sub)
+    (release dst-sub)
     (release reorder))
+  Viewable
+  (view [_]
+    (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
   Transfer
   (input [_]
     src-tz)
@@ -169,8 +173,8 @@
           dst-n (long dst-n)]
       (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
         (do
-          (offset! src-submem (* src-entry-width src-stride-n src-n))
-          (offset! dst-submem (* dst-entry-width dst-stride-n dst-n))
+          (offset! src-sub (* src-entry-width src-stride-n src-n))
+          (offset! dst-sub (* dst-entry-width dst-stride-n dst-n))
           (execute! strm2 reorder reorder-args))
         (dragan-says-ex "Requested subtensor is outside of bounds."
                         {:src-index src-n :src-cnt src-cnt
@@ -192,7 +196,7 @@
           (->DnnlBatcher eng strm reorder-prim
                          (fwd-args (buffer src-sub) (buffer dst-sub))
                          (buffer src-sub) (buffer dst-sub)
-                         (view src-tz) (view dst-tz)
+                         src-tz dst-tz
                          mb-size
                          ((dims src-tz) 0) ((strides src-sub) 0)
                          (entry-bytes (data-type src-tz))
@@ -203,6 +207,9 @@
   Releaseable
   (release [_]
     (release batcher))
+  Viewable
+  (view [_]
+    (->DnnlShuffler strm (view batcher)))
   Transfer
   (input [_]
     (input batcher))
@@ -468,7 +475,8 @@
     (if (equal-desc? tz-mem out-desc)
       (view in-tz)
       (let-release [out-tz (dnnl-tensor diamond-fact neand-fact eng out-desc)]
-        (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view in-tz) out-tz)))))
+        (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact)
+                          (view in-tz) out-tz)))))
 
 (defn dnnl-tensor
   ([diamond-fact neand-fact eng mem-desc]

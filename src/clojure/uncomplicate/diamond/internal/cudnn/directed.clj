@@ -37,17 +37,21 @@
 
 ;; ========================== Sum =======================================
 
-(deftype CUDnnSum [cudnn-hdl scale-src src scale-dst dst]
+(deftype CUDnnSum [cudnn-hdl scale-src src-tz scale-dst dst-tz]
+  Releaseable
+  (release [_]
+    (release src-tz)
+    (release dst-tz))
   IFn
   (invoke [this]
-    (axpby! scale-src src scale-dst dst)))
+    (axpby! scale-src src-tz scale-dst dst-tz)))
 
 (deftype CUDnnSumBlueprint [cudnn-hdl scale-src scale-dst]
   IFn
   (invoke [this src-and-dst]
     (->CUDnnSum cudnn-hdl scale-src src-and-dst scale-dst src-and-dst))
-  (invoke [this src dst]
-    (->CUDnnSum cudnn-hdl scale-src src scale-dst dst)))
+  (invoke [this src-desc dst-desc]
+    (->CUDnnSum cudnn-hdl scale-src src-desc scale-dst dst-desc)))
 
 (defn cudnn-sum-blueprint
   ([cudnn-hdl scale]
@@ -61,7 +65,7 @@
                                    a-tz one zero linear]
   Releaseable
   (release [_]
-    true)
+    (release a-tz))
   Info
   (info [this]
     {:activation (info bluep :activation)
@@ -86,7 +90,8 @@
 (deftype CUDnnLinearActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero]
   Releaseable
   (release [_]
-    true)
+    (release z-tz)
+    (release a-tz))
   Info
   (info [this]
     {:activation (info bluep :activation)
@@ -122,6 +127,8 @@
 (deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz da-tz one zero]
   Releaseable
   (release [_]
+    (release z-tz)
+    (release a-tz)
     (release da-tz))
   Info
   (info [this]
@@ -164,6 +171,7 @@
 (deftype CUDnnActivationBlueprint [fact activ ad data-desc]
   Releaseable
   (release [_]
+    (release data-desc)
     (release ad))
   Info
   (info [this]
@@ -209,7 +217,7 @@
 (deftype CUDnnSoftmaxInference [cudnn-hdl bluep z-tz one zero]
   Releaseable
   (release [_]
-    true)
+    (release z-tz))
   Info
   (info [this]
     {:activation :softmax
@@ -233,6 +241,7 @@
 (deftype CUDnnSoftmaxTraining [cudnn-hdl bluep z-tz da-tz one zero]
   Releaseable
   (release [_]
+    (release z-tz)
     (release da-tz))
   Info
   (info [this]
@@ -273,7 +282,7 @@
 (deftype CUDnnSoftmaxBlueprint [fact data-desc]
   Releaseable
   (release [_]
-    true)
+    (release data-desc))
   Info
   (info [this]
     {:activation :softmax})
@@ -316,7 +325,9 @@
   (release [_]
     (release connect-output)
     (release connect-diff)
-    (release train-tz))
+    (release train-tz)
+    (release a-y)
+    (release y))
   Transfer
   (input [this]
     (input connect-output))
@@ -358,7 +369,10 @@
   (release [_]
     (release connect-output)
     (release connect-diff)
-    (release train-tz))
+    (release train-tz)
+    (release a)
+    (release y)
+    (release a-y))
   Transfer
   (input [this]
     (input connect-output))
@@ -400,7 +414,6 @@
                                     src-conn bias-tz weights-tz dst-tz workspace]
   Releaseable
   (release [_]
-    (release conv-desc)
     (release src-conn)
     (release bias-tz)
     (release weights-tz)
@@ -732,7 +745,8 @@
 (deftype CUDnnPoolingBlueprint [fact algo pd dst-desc]
   Releaseable
   (release [_]
-    (release pd))
+    (release pd)
+    (release dst-desc))
   Info
   (info [this]
     {:algo algo})

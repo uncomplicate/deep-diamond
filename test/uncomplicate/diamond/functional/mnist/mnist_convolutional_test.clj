@@ -1,11 +1,11 @@
 (ns uncomplicate.diamond.functional.mnist.mnist-convolutional-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons
-             [core :refer [let-release Releaseable release with-release]]
+             [core :refer [let-release Releaseable release with-release view]]
              [utils :refer [random-access channel]]]
             [uncomplicate.neanderthal
              [core :refer [subvector view-ge transfer transfer! dim entry ge mrows
-                           transfer! view amax imax col native]]
+                           transfer! amax imax col native]]
              [real :refer [entry!]]
              [native :as neand :refer [native-byte native-float fge]]]
             [uncomplicate.diamond

@@ -324,8 +324,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-shuffler eng strm (view src-tz) (view dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
     (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
-  (create-sum [_ scale dst]
-    (dnnl-sum-blueprint eng strm scale dst))
+  (create-sum [_ scale dst-tz]
+    (dnnl-sum-blueprint eng strm scale dst-tz))
   (create-sum [_ scale-src src scale-dst dst]
     (dnnl-sum-blueprint eng strm scale-src src scale-dst dst))
   (tensor-engine [this dtype]
