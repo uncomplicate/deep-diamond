@@ -710,7 +710,7 @@
                                         strides padding-l padding-r alpha beta]
   (let-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
                 dst-desc (memory-desc (shape dst-desc)
-                                      (or (tz/data-type dst-desc) (tz/data-type src-desc))
+                                      (or (tz/data-type dst-desc) (data-type src-desc))
                                       :any)
                 convolution-bluep (dnnl-convolution-op-blueprint fact eng src-desc weights-desc
                                                                  dst-desc strides padding-l padding-r)
@@ -839,7 +839,7 @@
   IFn
   (invoke [this prev-layer]
     (let-release [src-tz (output prev-layer)
-                  src-conn (connector src-tz (src-md pool-train-pd))
+                  src-conn (connector src-tz (src-md pool-infer-pd))
                   dst-tz (dnnl-tensor fact (dst-md pool-infer-pd))
                   pool-infer-prim (primitive pool-infer-pd)
                   pool-infer-args (fwd-args (buffer (output src-conn))
@@ -870,8 +870,10 @@
 
 (defn dnnl-pooling-blueprint
   [fact eng src-desc dst-desc algo strides kernel padding-l padding-r]
-  (let [src-desc (desc src-desc)
-        dst-desc (desc dst-desc)]
+  (let-release [src-desc (desc src-desc)
+                dst-desc (memory-desc (shape dst-desc)
+                                      (or (tz/data-type dst-desc) (data-type src-desc))
+                                      (or (tz/layout dst-desc) :any))]
     (with-release [pool-infer-desc (pooling-fwd-desc :inference algo src-desc dst-desc
                                                      kernel strides padding-l padding-r)
                    pool-train-desc (pooling-fwd-desc :training algo src-desc dst-desc

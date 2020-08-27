@@ -38,7 +38,7 @@
   (with-release [net-bp (network fact (desc [128 1 28 28] :float :nchw)
                                  [(convo [32] [3 3] :relu)
                                   (convo [64] [3 3] :relu)
-                                  (pooling [12 12] [2 2] :max);; TODO see whether I need dst-desc here... use default kernel equal to stride?
+                                  (pooling [2 2] :max)
                                   (dropout)
                                   (dense [128] :relu)
                                   (dropout)
@@ -65,7 +65,7 @@
                  net-bp (network x-mb-tz
                                  [(convo [32] [3 3] :relu)
                                   (convo [64] [3 3] :relu)
-                                  (pooling [12 12] [2 2] :max)
+                                  (pooling [2 2] :max)
                                   (dropout)
                                   (dense [128] :relu)
                                   (dropout)

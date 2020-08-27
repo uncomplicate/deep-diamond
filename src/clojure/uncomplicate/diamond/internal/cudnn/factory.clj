@@ -388,8 +388,8 @@ Please contribute towards making it possible, or use on of the supported types."
                           strides padding dilation alpha _]
     (cudnn-convolution-layer-blueprint this src-desc weights-desc dst-desc activ
                                        strides padding dilation alpha))
-  (pooling-blueprint [this _ dst-desc algo strides kernel padding]
-    (cudnn-pooling-blueprint this dst-desc algo strides kernel padding))
+  (pooling-blueprint [this src-desc dst-desc algo strides kernel padding]
+    (cudnn-pooling-blueprint this src-desc dst-desc algo strides kernel padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (cudnn-gaussian-dropout-blueprint this src-desc sd))
   CostFactory

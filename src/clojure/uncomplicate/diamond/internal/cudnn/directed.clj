@@ -798,9 +798,12 @@
                                    prop-diff?))))
 
 (defn cudnn-pooling-blueprint
-  [fact dst-desc algo strides kernel padding]
-  (let-release [pool-desc (pooling-descriptor algo kernel strides padding)]
-    (->CUDnnPoolingBlueprint fact algo pool-desc (desc dst-desc))))
+  [fact src-desc dst-desc algo strides kernel padding]
+  (let-release [dst-desc (cudnn-tensor-desc (shape dst-desc)
+                                            (or (tz/data-type dst-desc) (data-type src-desc))
+                                            (or (tz/layout dst-desc) (default-strides (shape dst-desc))))
+                pool-desc (pooling-descriptor algo kernel strides padding)]
+    (->CUDnnPoolingBlueprint fact algo pool-desc dst-desc)))
 
 (defmethod transfer! [CUDnnPoolingInferenceLayer Object]
   [source destination]

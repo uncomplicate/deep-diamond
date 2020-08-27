@@ -507,8 +507,7 @@
 
 (defn test-pooling-max [fact]
   (with-release [src-tz (tensor fact [2 1 4 4] :float :nchw)
-                 dst-desc (desc [2 1 2 2] :float :nchw)
-                 pool-bluep (pooling fact src-tz [2 2] dst-desc :max)
+                 pool-bluep (pooling fact src-tz [2 2] :max)
                  pool-infer (pool-bluep src-tz)
                  pool-train (pool-bluep src-tz true nil)]
 
@@ -540,8 +539,7 @@
 
 (defn test-pooling-avg [fact]
   (with-release [src-tz (tensor fact [2 1 4 4] :float :nchw)
-                 dst-desc (desc [2 1 2 2] :float :nchw)
-                 pool-bluep (pooling fact src-tz [2 2] dst-desc :avg)
+                 pool-bluep (pooling fact src-tz [2 2] :avg)
                  pool-infer (pool-bluep src-tz)
                  pool-train (pool-bluep src-tz true nil)]
 
@@ -575,7 +573,7 @@
                         train-tz (tensor fact [2 2] :float :nc)
                         net-bp (network fact input-tz
                                         [(convolution [1] [3 3] :relu)
-                                         (pooling [3 3] [2 2] :max);;TODO Maybe skip kernel and use default size equal to stride?
+                                         (pooling [2 2] :max);;TODO Maybe skip kernel and use default size equal to stride?
                                          (convolution [1] [2 2] :relu {:padding [1 1]})
                                          (fully-connected [4] :relu)
                                          (fully-connected [2] :softmax)])

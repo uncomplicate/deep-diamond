@@ -59,7 +59,7 @@
        :data-type (data-type dst-desc)
        :layout (layout dst-desc)})))
 
-(defn fully-connected ;;TODO this should get coerced src/dest!
+(defn fully-connected
   ([fact src-desc dst-desc activ args]
    (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
          beta (or (:beta args) 0.0)
@@ -70,7 +70,7 @@
    (fully-connected fact src-desc dst-desc activ nil))
   ([dst-desc activ args]
    (fn
-     ([fact src-desc];;TODO coerce must go here!!!!!
+     ([fact src-desc]
       (fully-connected fact src-desc dst-desc activ args))))
   ([dst-desc activ]
    (fully-connected dst-desc activ nil)))
@@ -78,9 +78,7 @@
 (defn dense
   "TODO Same as fully-connected."
   ([dst-desc activ args]
-   (fn
-     ([fact src-desc]
-      (fully-connected fact src-desc dst-desc activ args))))
+   (fully-connected dst-desc activ args))
   ([dst-desc activ]
    (fully-connected dst-desc activ nil)))
 
@@ -144,38 +142,36 @@
   ([dst-desc kernel-desc activ]
    (convolution dst-desc kernel-desc activ nil)))
 
-(defn coerce-pooling-dst [src-desc dst-desc]
-  (let [src-shape (shape src-desc)
-        dst-shape (shape dst-desc)
-        [n c] src-shape
+(defn coerce-pooling-dst [src-shape dst-shape]
+  (let [[n c] src-shape
         missing-cnt (- (count src-shape) (count dst-shape))]
     (if (= 0 missing-cnt)
-      dst-desc
-      {:shape (into (if (= 1 missing-cnt) [n] [n c]) dst-shape)
-       :data-type (data-type dst-desc)
-       :layout (layout dst-desc)})))
+      dst-shape
+      (into (if (= 1 missing-cnt) [n] [n c]) dst-shape))))
 
 (defn pooling
   "TODO"
-  ([fact src-desc kernel dst-desc algo args]
+  ([fact src-desc kernel algo args]
    (let [conv-dim (count kernel)
          padding (or (:padding args) (vec (repeat conv-dim 0)))
-         strides (or (:strides args) (vec (map (fn [^long s ^long d ^long p]
-                                                 (quot (+ s p p) d))
-                                               (take-last conv-dim (shape src-desc))
-                                               (take-last conv-dim (shape dst-desc))
-                                               padding)))
-         dst-desc (coerce-pooling-dst src-desc dst-desc)]
+         strides (or (:strides args) kernel)
+         dst-shape (coerce-pooling-dst
+                    (shape src-desc)
+                    (map (fn [^long src ^long stride ^long p]
+                           (quot (+ src p p) stride))
+                         (take-last conv-dim (shape src-desc))
+                         strides
+                         padding))]
      (api/pooling-blueprint (api/diamond-factory fact)
-                            src-desc dst-desc algo strides kernel padding)))
-  ([fact src-desc kernel dst-desc algo]
-   (pooling fact src-desc kernel dst-desc algo nil))
-  ([dst-desc kernel algo args]
+                            src-desc dst-shape algo strides kernel padding)))
+  ([fact src-desc kernel algo]
+   (pooling fact src-desc kernel algo nil))
+  ([kernel algo args]
    (fn
-     ([fact src-desc];;TODO coerce here too.
-      (pooling fact src-desc kernel dst-desc algo args))))
-  ([dst-desc kernel algo]
-   (pooling dst-desc kernel algo nil)))
+     ([fact src-desc]
+      (pooling fact src-desc kernel algo args))))
+  ([kernel algo]
+   (pooling kernel algo nil)))
 
 (defn dropout-mask [src-desc ^long mask-dim]
   (let [src-shape (shape src-desc)]
