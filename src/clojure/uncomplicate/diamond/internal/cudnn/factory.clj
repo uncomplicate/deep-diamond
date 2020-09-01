@@ -358,7 +358,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor-desc [this shape dtype format]
     (cudnn-tensor-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
-    (desc tz-desc))
+    (cudnn-tensor-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
   (create-tensor [this tensor-desc init]
     (let-release [res (cudnn-tensor this tensor-desc)]
       (when init
@@ -392,6 +392,10 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-pooling-blueprint this src-desc dst-desc algo strides kernel padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (cudnn-gaussian-dropout-blueprint this src-desc sd))
+  (create-workspace [_ byte-size]
+    (in-context
+     ctx
+     (mem-alloc (max 1 (long byte-size)))))
   CostFactory
   (quadratic-cost [_ prev-layer train-tz]
     (cudnn-universal-cost prev-layer train-tz quadratic-cost!))

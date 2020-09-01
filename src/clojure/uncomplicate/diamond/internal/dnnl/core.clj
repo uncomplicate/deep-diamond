@@ -541,30 +541,94 @@
 
 ;; ====================== Convolution ===========================================
 
-(defn convolution-fwd-desc
+(defn convolution-forward-desc
   "TODO"
-  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides padding-l padding-r]
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+    strides padding-l padding-r]
    (convolution-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
                               (enc-keyword dnnl-convolution-alg-kind alg-kind)
-                              (desc src-desc) (desc weights-desc) (desc bias-desc) (desc dst-desc)
-                              (long-array strides) (long-array padding-l) (long-array padding-r)))
+                              (desc src-desc) (desc weights-desc) (desc bias-desc)
+                              (desc dst-desc) (long-array strides)
+                              (long-array padding-l) (long-array padding-r)))
   ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides padding]
-   (convolution-fwd-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
-                         strides padding padding)))
+   (convolution-forward-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+                             strides padding padding)))
 
-(defn convolution-bwd-desc
+(defn dilated-convolution-forward-desc
+  "TODO"
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+    strides dilations padding-l padding-r]
+   (dilated-convolution-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                                      (enc-keyword dnnl-convolution-alg-kind alg-kind)
+                                      (desc src-desc) (desc weights-desc) (desc bias-desc)
+                                      (desc dst-desc)
+                                      (long-array strides) (long-array dilations)
+                                      (long-array padding-l) (long-array padding-r)))
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides dilations padding]
+   (dilated-convolution-forward-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+                                      strides dilations padding padding)))
+
+(defn convolution-fwd-desc
+  "TODO"
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+    strides dilations padding-l padding-r]
+   (if (= 0 (apply max dilations))
+     (convolution-forward-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+                               strides padding-l padding-r)
+     (dilated-convolution-forward-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+                                       strides dilations padding-l padding-r)))
+  ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides dilations padding]
+   (convolution-fwd-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
+                         strides dilations padding padding)))
+
+(defn convolution-backward-desc
   "TODO"
   ([alg-kind diff-src-desc weights-desc diff-dst-desc strides padding-l padding-r]
    (convolution-backward-data-desc* (enc-keyword dnnl-convolution-alg-kind alg-kind)
                                     (desc diff-src-desc) (desc weights-desc) (desc diff-dst-desc)
                                     (long-array strides)
                                     (long-array padding-l) (long-array padding-r)))
-  ([alg-kind src-desc diff-weights-desc diff-bias-desc diff-dst-desc strides padding-l padding-r]
+  ([alg-kind src-desc diff-weights-desc diff-bias-desc diff-dst-desc
+    strides padding-l padding-r]
    (convolution-backward-weights-desc* (enc-keyword dnnl-convolution-alg-kind alg-kind)
                                        (desc src-desc) (desc diff-weights-desc)
                                        (desc diff-bias-desc) (desc diff-dst-desc)
                                        (long-array strides)
                                        (long-array padding-l) (long-array padding-r))))
+
+(defn dilated-convolution-backward-desc
+  "TODO"
+  ([alg-kind diff-src-desc weights-desc diff-dst-desc strides dilations padding-l padding-r]
+   (dilated-convolution-backward-data-desc* (enc-keyword dnnl-convolution-alg-kind alg-kind)
+                                            (desc diff-src-desc) (desc weights-desc)
+                                            (desc diff-dst-desc)
+                                            (long-array strides) (long-array dilations)
+                                            (long-array padding-l) (long-array padding-r)))
+  ([alg-kind src-desc diff-weights-desc diff-bias-desc diff-dst-desc
+    strides dilations padding-l padding-r]
+   (dilated-convolution-backward-weights-desc* (enc-keyword dnnl-convolution-alg-kind alg-kind)
+                                               (desc src-desc) (desc diff-weights-desc)
+                                               (desc diff-bias-desc) (desc diff-dst-desc)
+                                               (long-array strides) (long-array dilations)
+                                               (long-array padding-l) (long-array padding-r))))
+
+(defn convolution-bwd-desc
+  "TODO"
+  ([alg-kind diff-src-desc weights-desc diff-dst-desc strides dilations padding-l padding-r]
+   (if (or (nil? dilations) (= 0 (apply max dilations)))
+     (convolution-backward-desc alg-kind diff-src-desc weights-desc diff-dst-desc
+                                strides padding-l padding-r)
+     (dilated-convolution-backward-desc alg-kind diff-src-desc weights-desc diff-dst-desc
+                                        strides dilations padding-l padding-r)))
+  ([alg-kind src-desc diff-weights-desc diff-bias-desc diff-dst-desc
+    strides dilations padding-l padding-r]
+   (if (or (nil? dilations) (= 0 (apply max dilations)))
+     (convolution-backward-desc alg-kind
+                                src-desc diff-weights-desc diff-bias-desc diff-dst-desc
+                                strides padding-l padding-r)
+     (dilated-convolution-backward-desc alg-kind
+                                        src-desc diff-weights-desc diff-bias-desc diff-dst-desc
+                                        strides dilations dilations padding-l padding-r))))
 
 ;; ====================== Pooling ===========================================
 

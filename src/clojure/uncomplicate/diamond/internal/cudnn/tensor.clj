@@ -103,7 +103,7 @@
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
           (let [fact (diamond-factory out-tz)]
-            (let-release [in-tz (cudnn-tensor fact in-desc)]
+            (let-release [in-tz (cudnn-tensor fact (view in-desc))]
               (cudnn-transformer (handle fact) in-tz (view out-tz)))))))))
 
 (defmethod print-method CUTensorDescriptor
@@ -125,7 +125,7 @@
   (data-type [this]
     (.data-type this))
   (layout [this]
-    (.strides this))
+    (.format this))
   ConnectorCreator
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
@@ -134,13 +134,13 @@
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
           (let [fact (diamond-factory out-tz)]
-            (let-release [in-tz (cudnn-tensor fact in-desc)]
+            (let-release [in-tz (cudnn-tensor fact (view in-desc))]
               (cudnn-transformer (handle fact) in-tz (view out-tz)))))))))
 
 (defmethod print-method CUFilterDescriptor
   [^CUFilterDescriptor d ^java.io.Writer w]
   (.write w (pr-str {:shape (.dims d) :data-type (.data-type d)
-                     :layout (.strides d) :format (.format d)})))
+                     :format (.format d)})))
 
 ;; =================== Transformer ==============================================
 
@@ -300,7 +300,8 @@
       (equals-block eng x y)
       :default false))
   (toString [this]
-    (pr-str {:shape (.dims cu-desc) :data-type (.data-type cu-desc) :layout (.strides cu-desc)}))
+    (pr-str {:shape (.dims cu-desc) :data-type (.data-type cu-desc)
+             :layout (.strides cu-desc)}))
   Info
   (info [x]
     {:data-type (.data-type cu-desc)
@@ -325,8 +326,8 @@
   Releaseable
   (release [_]
     (when master
-      (release buf)
-      (release cu-desc))
+      (release buf))
+    (release cu-desc)
     true)
   EngineProvider
   (engine [_]
@@ -345,8 +346,8 @@
   (data-accessor [_]
     (data-accessor vect-view))
   Container
-  (raw [_]
-    (cudnn-tensor diamond-fact cu-desc))
+  (raw [x]
+    (raw x diamond-fact))
   (raw [_ fact]
     (let [df (diamond-factory fact)]
       (create-tensor df (create-tensor-desc df cu-desc) false)))
@@ -419,7 +420,7 @@
     (.strides cu-desc))
   Viewable
   (view [_]
-    (->CUDnnTensor diamond-fact eng vect-view false buf ofst cu-desc))
+    (->CUDnnTensor diamond-fact eng vect-view false buf ofst (view cu-desc)))
   DenseContainer
   (view-vctr [_]
     vect-view)
@@ -428,9 +429,11 @@
     this)
   (view-tz [_ sub]
     (let-release [sub-desc (if (number? sub)
-                             (cudnn-tensor-desc (into [sub] (rest (dims cu-desc))) (.data-type cu-desc)
+                             (cudnn-tensor-desc (into [sub] (rest (dims cu-desc)))
+                                                (.data-type cu-desc)
                                                 (.strides cu-desc))
-                             (cudnn-tensor-desc (shape sub) (or (data-type sub) (.data-type cu-desc))
+                             (cudnn-tensor-desc (shape sub)
+                                                (or (data-type sub) (.data-type cu-desc))
                                                 (or (layout sub) (.strides cu-desc))))]
       (cudnn-tensor diamond-fact false buf sub-desc)))
   Offset
@@ -439,7 +442,7 @@
     (let [ofst (* (long n-ofst) (long (get (.strides cu-desc) 0)))]
       (->CUDnnTensor diamond-fact eng
                      (cu-block-vector (factory vect-view) false buf (dim this) ofst 1)
-                     false buf ofst cu-desc)))
+                     false buf ofst (view cu-desc))))
   ConnectorCreator
   (connector [in-tz out-desc]
     (if (equal-desc? cu-desc out-desc)

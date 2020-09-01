@@ -173,7 +173,8 @@
                                       0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
                  gpu-x (mem-alloc (size desc-x))
 
-                 desc-w (filter-descriptor [1 1 3 3] :float :nchw)
+                 desc-w (tensor-descriptor [1 1 3 3] :float :nchw)
+                 filter-w (filter-descriptor [1 1 3 3] :float :nchw)
                  host-w (float-array [-2 0 1 0 1 0 -1 -2 0])
                  gpu-w (mem-alloc (size desc-w))
 
@@ -185,10 +186,10 @@
                  gpu-z (mem-alloc (size desc-y))
 
                  convo-desc (convolution-descriptor :cross-correleation :float [0 0] [1 1] [1 1])
-                 convo-fwd-algo (convolution-fwd-get-algo cudnn-hdl convo-desc desc-x desc-w desc-y)
+                 convo-fwd-algo (convolution-fwd-get-algo cudnn-hdl convo-desc desc-x filter-w desc-y)
                  activ-desc (activation-descriptor :relu false 1.0)
                  convo-fwd-ws (mem-alloc (convolution-fwd-get-workspace-size
-                                          cudnn-hdl convo-desc convo-fwd-algo desc-x desc-w desc-y))]
+                                          cudnn-hdl convo-desc convo-fwd-algo desc-x filter-w desc-y))]
 
     (memcpy-host! host-x gpu-x)
     (memcpy-host! host-w gpu-w)
@@ -197,7 +198,7 @@
 
     (facts "Fused Convoluton ReLU forward operation."
            (convolution-fwd cudnn-hdl convo-desc convo-fwd-algo activ-desc (float 1.0) desc-x gpu-x
-                            desc-w gpu-w (float 2.0) gpu-z desc-bias gpu-bias desc-y gpu-y convo-fwd-ws)
+                            filter-w gpu-w (float 2.0) gpu-z desc-bias gpu-bias desc-y gpu-y convo-fwd-ws)
            => cudnn-hdl
            (seq (memcpy-host! gpu-y (float-array 8))) => [20.5 0.0 0.0 0.0 104.5 59.5 0.0 0.0]
            (seq (memcpy-host! gpu-z (float-array 8))) => (repeat 8 1.0))))
@@ -210,7 +211,8 @@
                  host-x (float-array [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                       0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
 
-                 desc-w (filter-descriptor [1 1 3 3] :float :nchw)
+                 desc-w (tensor-descriptor [1 1 3 3] :float :nchw)
+                 filter-w (filter-descriptor [1 1 3 3] :float :nchw)
                  gpu-w (mem-alloc (size desc-w))
                  gpu-dw (mem-alloc (size desc-w))
                  host-w (float-array [-2 0 1 0 1 0 -1 -2 0])
@@ -220,26 +222,26 @@
                  host-dy (float-array [0.2 0.3 0.8 1 1 1 1 1])
 
                  convo-desc (convolution-descriptor :cross-correleation :float [0 0] [1 1] [1 1])
-                 convo-fwd-algo (convolution-fwd-get-algo cudnn-hdl convo-desc desc-x desc-w desc-y)
+                 convo-fwd-algo (convolution-fwd-get-algo cudnn-hdl convo-desc desc-x filter-w desc-y)
 
                  convo-bwd-data-algo (convolution-bwd-data-get-algo cudnn-hdl convo-desc
-                                                                    desc-w desc-y desc-x)
+                                                                    filter-w desc-y desc-x)
                  convo-bwd-filter-algo (convolution-bwd-filter-get-algo cudnn-hdl convo-desc
-                                                                        desc-x desc-y desc-w)
+                                                                        desc-x desc-y filter-w)
                  convo-ws (mem-alloc (max (long (convolution-fwd-get-workspace-size
-                                                 cudnn-hdl convo-desc convo-fwd-algo desc-x desc-w desc-y))
+                                                 cudnn-hdl convo-desc convo-fwd-algo desc-x filter-w desc-y))
                                           (long (convolution-bwd-data-get-workspace-size
                                                  cudnn-hdl convo-desc convo-bwd-data-algo
-                                                 desc-w desc-y desc-x))
+                                                 filter-w desc-y desc-x))
                                           (long (convolution-bwd-filter-get-workspace-size
                                                  cudnn-hdl convo-desc convo-bwd-filter-algo
-                                                 desc-x desc-y desc-w))))]
+                                                 desc-x desc-y filter-w))))]
 
     (memcpy-host! host-x gpu-x)
     (memcpy-host! host-w gpu-w)
     (facts "Convoluton forward operation."
            (convolution-fwd cudnn-hdl convo-desc convo-fwd-algo (float 1.0) desc-x gpu-x
-                            desc-w gpu-w (float 0.0) desc-y gpu-y convo-ws) => cudnn-hdl
+                            filter-w gpu-w (float 0.0) desc-y gpu-y convo-ws) => cudnn-hdl
            (seq (memcpy-host! gpu-y (float-array 8)))
            => [18.0 -94.0 -21.0 -566.0 102.0 57.0 -78.0 -176.0])
 
@@ -248,14 +250,14 @@
     (facts "Convolution backward filter operation."
            (convolution-bwd-filter cudnn-hdl convo-desc convo-bwd-filter-algo
                                    (float 1.0) desc-x gpu-x desc-y gpu-y
-                                   (float 0.0) desc-w gpu-dw convo-ws) => cudnn-hdl
+                                   (float 0.0) filter-w gpu-dw convo-ws) => cudnn-hdl
            (map float (seq (memcpy-host! gpu-dw (float-array 9))))
            => (map float [251.9 230.9 93.6 217.0 186.0 233.0 81.0 198.6 415.0]))
 
 
     (facts "Convolution backward data operation."
            (convolution-bwd-data cudnn-hdl convo-desc convo-bwd-data-algo
-                                 (float 1.0) desc-w gpu-w desc-y gpu-y
+                                 (float 1.0) filter-w gpu-w desc-y gpu-y
                                  (float 0.0) desc-x gpu-x convo-ws) => cudnn-hdl
            (map float (seq (memcpy-host! gpu-x (float-array 32))))
            => (map float [-0.40000004 -0.6 0.20000002 0.3 -1.6 -1.8 1.0999999 1.0 -0.20000005

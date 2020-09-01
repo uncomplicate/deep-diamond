@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release view]]
-             [utils :refer [dragan-says-ex]]]
+             [utils :refer [dragan-says-ex direct-buffer]]]
             [uncomplicate.neanderthal
              [native :refer [factory-by-type]]
              [block :refer [data-accessor]]]
@@ -340,16 +340,15 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-fc-blueprint this eng src-desc dst-desc activ alpha beta weights-type))
   (convolution-blueprint [this src-desc weights-desc dst-desc activ
                           strides padding dilation alpha beta]
-    (let [dilation (map dec dilation)]
-      (if (= 0 (apply max dilation))
-        (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ
-                                          strides padding padding alpha beta)
-        "TODO dilated convolution")))
+    (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ
+                                      strides (mapv dec dilation) padding padding alpha beta))
   (pooling-blueprint [this src-desc dst-desc algo strides kernel padding]
     (dnnl-pooling-blueprint this eng src-desc dst-desc algo
                             strides kernel padding padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (dnnl-gaussian-dropout-blueprint this src-desc sd))
+  (create-workspace [_ byte-size]
+    (direct-buffer (max 1 (long byte-size))))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))

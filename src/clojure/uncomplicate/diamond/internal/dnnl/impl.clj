@@ -433,6 +433,42 @@
                                                         strides padding-l padding-r)
       conv-desc)))
 
+(defn dilated-convolution-forward-desc*
+  [prop-kind alg-kind
+   ^dnnl_memory_desc_t src-desc ^dnnl_memory_desc_t weights-desc
+   ^dnnl_memory_desc_t bias-desc ^dnnl_memory_desc_t
+   ^longs dst-desc ^longs strides ^longs dilations ^longs padding-l ^longs padding-r]
+  (let-release [conv-desc (dnnl_convolution_desc_t.)]
+    (with-check
+      (dnnl/dnnl_dilated_convolution_forward_desc_init
+       conv-desc (int prop-kind) (int alg-kind) src-desc weights-desc bias-desc dst-desc
+       strides dilations padding-l padding-r)
+      conv-desc)))
+
+(defn dilated-convolution-backward-data-desc*
+  [alg-kind
+   ^dnnl_memory_desc_t diff-src-desc ^dnnl_memory_desc_t weights-desc
+   ^dnnl_memory_desc_t ^longs diff-dst-desc
+   ^longs strides ^longs dilations ^longs padding-l ^longs padding-r]
+  (let-release [conv-desc (dnnl_convolution_desc_t.)]
+    (with-check
+      (dnnl/dnnl_dilated_convolution_backward_data_desc_init
+       conv-desc (int alg-kind) diff-src-desc weights-desc diff-dst-desc
+       strides dilations padding-l padding-r)
+      conv-desc)))
+
+(defn dilated-convolution-backward-weights-desc*
+  [alg-kind
+   ^dnnl_memory_desc_t src-desc ^dnnl_memory_desc_t diff-weights-desc
+   ^dnnl_memory_desc_t diff-bias-desc ^dnnl_memory_desc_t ^longs diff-dst-desc
+   ^longs strides ^longs dilations ^longs padding-l ^longs padding-r]
+  (let-release [conv-desc (dnnl_convolution_desc_t.)]
+    (with-check
+      (dnnl/dnnl_dilated_convolution_backward_weights_desc_init
+       conv-desc (int alg-kind) src-desc diff-weights-desc diff-bias-desc diff-dst-desc
+       strides dilations padding-l padding-r)
+      conv-desc)))
+
 ;; ======================== Pooling ================================================================
 
 (extend-type dnnl_pooling_desc_t

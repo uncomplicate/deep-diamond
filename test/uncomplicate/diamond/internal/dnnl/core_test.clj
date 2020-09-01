@@ -488,9 +488,9 @@
                       weights-desc (memory-desc [1 1 3 3] :float :nchw)
                       bias-desc (memory-desc [1] :float :x)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-desc (convolution-fwd-desc :inference :auto
-                                                      src-desc weights-desc bias-desc dst-desc
-                                                      [1 1] [0 0])
+                      conv-desc (convolution-forward-desc
+                                 :inference :auto src-desc weights-desc bias-desc dst-desc
+                                 [1 1] [0 0])
                       conv-pd (primitive-desc eng conv-desc)
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
@@ -514,9 +514,9 @@
                       weights-desc (memory-desc [1 1 3 3] :float :nchw)
                       bias-desc (memory-desc [1] :float :x)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-desc (convolution-fwd-desc :training :auto
-                                                      src-desc weights-desc bias-desc dst-desc
-                                                      [1 1] [0 0] [0 0])
+                      conv-desc (convolution-forward-desc
+                                 :training :auto src-desc weights-desc bias-desc dst-desc
+                                 [1 1] [0 0])
                       conv-pd (primitive-desc eng conv-desc)
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
@@ -532,9 +532,9 @@
 
                       diff-src-desc (memory-desc [2 1 4 4] :float :nchw)
                       diff-dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-bwd-data-desc (convolution-bwd-desc :auto diff-src-desc
-                                                               weights-desc diff-dst-desc
-                                                               [1 1] [0 0] [0 0])
+                      conv-bwd-data-desc (convolution-backward-desc
+                                          :auto diff-src-desc weights-desc diff-dst-desc
+                                          [1 1] [0 0] [0 0])
                       conv-bwd-data-pd (primitive-desc eng conv-bwd-data-desc conv-pd)
                       diff-src-vec (fv 32)
                       diff-dst-vec (fv [0.2 0.3 0.8 1 1 1 1 1])
@@ -542,10 +542,95 @@
                       diff-dst-mem (memory eng (diff-dst-md conv-bwd-data-pd) (buffer diff-dst-vec))
                       conv-bwd-data (primitive conv-bwd-data-pd)
                       conv-bwd-data-args (bwd-args diff-dst-mem weights-mem diff-src-mem)
-                      conv-bwd-weights-desc (convolution-bwd-desc :auto
-                                                                  src-desc weights-desc
-                                                                  bias-desc dst-desc
-                                                                  [1 1] [0 0] [0 0])
+                      conv-bwd-weights-desc (convolution-backward-desc
+                                             :auto src-desc weights-desc bias-desc dst-desc
+                                             [1 1] [0 0] [0 0])
+                      conv-bwd-weights-pd (primitive-desc eng conv-bwd-weights-desc conv-pd)
+                      diff-weights-vec (fv 9)
+                      diff-bias-vec (fv [1.5])
+                      diff-weights-mem (memory eng (diff-weights-md conv-bwd-weights-pd)
+                                               (buffer diff-weights-vec))
+                      diff-bias-mem (memory eng bias-desc (buffer diff-bias-vec))
+                      conv-bwd-weights (primitive conv-bwd-weights-pd)
+                      conv-bwd-weights-args (bwd-args src-mem diff-dst-mem
+                                                      diff-weights-mem diff-bias-mem)]
+         (primitive-kind conv-desc) => :convolution
+         (execute! s conv conv-args) => s
+         (seq dst-vec) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5]
+         diff-src-vec => (fv 32)
+         (execute! s conv-bwd-data conv-bwd-data-args) => s
+         (seq diff-src-vec)
+         => (map float [-0.4 -0.6 0.2 0.3 -1.6 -1.8 1.1 1.0 -0.2 0.09999999403953552
+                        0.3999999761581421 0.0 -0.8 -2.6 -2.0 0.0 -2.0 -2.0 1.0 1.0
+                        -2.0 -1.0 2.0 1.0 -1.0 -2.0 -1.0 0.0 -1.0 -3.0 -2.0 0.0])
+         (execute! s conv-bwd-weights conv-bwd-weights-args) => s
+         (seq diff-weights-vec) => (map float [251.9 230.9 93.6 217.0 186.0 233.0 81.0 198.6 415.0])
+         (entry diff-bias-vec 0) => (float 6.3)))
+
+(facts "Dilated convolution forward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-desc (memory-desc [2 1 4 4] :float :nchw)
+                      weights-desc (memory-desc [1 1 3 3] :float :nchw)
+                      bias-desc (memory-desc [1] :float :x)
+                      dst-desc (memory-desc [2 1 2 2] :float :nchw)
+                      conv-desc (dilated-convolution-forward-desc
+                                 :inference :auto src-desc weights-desc bias-desc dst-desc
+                                 [1 1] [0 0] [0 0])
+                      conv-pd (primitive-desc eng conv-desc)
+                      src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                  0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
+                      src-mem (memory eng (src-md conv-pd) (buffer src-vec))
+                      weights-vec (fv -2 0 1 0 1 0 -1 -2 0)
+                      weights-mem (memory eng (weights-md conv-pd) (buffer weights-vec))
+                      bias-vec (fv 0.5)
+                      bias-mem (memory eng bias-desc (buffer bias-vec))
+                      dst-vec (fv (* 2 1 2 2))
+                      dst-mem (memory eng (dst-md conv-pd) (buffer dst-vec))
+                      conv (primitive conv-pd)
+                      conv-args (fwd-args src-mem weights-mem bias-mem dst-mem)]
+         (primitive-kind conv-desc) => :convolution
+         (execute! s conv conv-args) => s
+         (seq dst-vec) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5]))
+
+(facts "Convolution backward."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-desc (memory-desc [2 1 4 4] :float :nchw)
+                      weights-desc (memory-desc [1 1 3 3] :float :nchw)
+                      bias-desc (memory-desc [1] :float :x)
+                      dst-desc (memory-desc [2 1 2 2] :float :nchw)
+                      conv-desc (dilated-convolution-forward-desc
+                                 :training :auto src-desc weights-desc bias-desc dst-desc
+                                 [1 1] [0 0] [0 0])
+                      conv-pd (primitive-desc eng conv-desc)
+                      src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+                                  0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
+                      src-mem (memory eng (src-md conv-pd) (buffer src-vec))
+                      weights-vec (fv -2 0 1 0 1 0 -1 -2 0)
+                      weights-mem (memory eng (weights-md conv-pd) (buffer weights-vec))
+                      bias-vec (fv 0.5)
+                      bias-mem (memory eng bias-desc (buffer bias-vec))
+                      dst-vec (fv 8)
+                      dst-mem (memory eng (dst-md conv-pd) (buffer dst-vec))
+                      conv (primitive conv-pd)
+                      conv-args (fwd-args src-mem weights-mem bias-mem dst-mem)
+
+                      diff-src-desc (memory-desc [2 1 4 4] :float :nchw)
+                      diff-dst-desc (memory-desc [2 1 2 2] :float :nchw)
+                      conv-bwd-data-desc (dilated-convolution-backward-desc
+                                          :auto diff-src-desc weights-desc diff-dst-desc
+                                          [1 1] [0 0] [0 0] [0 0])
+                      conv-bwd-data-pd (primitive-desc eng conv-bwd-data-desc conv-pd)
+                      diff-src-vec (fv 32)
+                      diff-dst-vec (fv [0.2 0.3 0.8 1 1 1 1 1])
+                      diff-src-mem (memory eng (diff-src-md conv-bwd-data-pd) (buffer diff-src-vec))
+                      diff-dst-mem (memory eng (diff-dst-md conv-bwd-data-pd) (buffer diff-dst-vec))
+                      conv-bwd-data (primitive conv-bwd-data-pd)
+                      conv-bwd-data-args (bwd-args diff-dst-mem weights-mem diff-src-mem)
+                      conv-bwd-weights-desc (dilated-convolution-backward-desc
+                                             :auto src-desc weights-desc bias-desc dst-desc
+                                             [1 1] [0 0] [0 0] [0 0])
                       conv-bwd-weights-pd (primitive-desc eng conv-bwd-weights-desc conv-pd)
                       diff-weights-vec (fv 9)
                       diff-bias-vec (fv [1.5])

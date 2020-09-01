@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.neanderthal.directed
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info]]
+             [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [core :refer [rk! mm! mv! trans axpy! axpby! view-vctr view-ge mrows
@@ -28,7 +28,8 @@
                                 diff-weights Backprop forward backward blueprint
                                 create-tensor activ-blueprint DiffTransfer diff-input
                                 diff-output diff-z create-tensor-desc LinearBackprop
-                                backward-diff]]
+                                backward-diff Workspace inf-ws-size train-ws-size
+                                neanderthal-factory]]
              [utils :refer [transfer-weights-bias!]]])
   (:import clojure.lang.IFn))
 
@@ -36,6 +37,7 @@
                                 src-conn bias-tz weights-tz dst-tz]
   Releaseable
   (release [_]
+    (release ones)
     (release b)
     (release w)
     (release a-1)
@@ -147,7 +149,7 @@
       (diff-src-conn))
     this))
 
-(deftype InnerProductBlueprint [fact src-desc weights-desc bias-desc dst-desc]
+(deftype InnerProductBlueprint [fact ones src-desc weights-desc bias-desc dst-desc]
   Object
   (hashCode [_]
     (-> (hash src-desc) (hash-combine weights-desc)
@@ -160,6 +162,7 @@
     (pr-str {:src src-desc :weights weights-desc :dst dst-desc}))
   Releaseable
   (release [_]
+    (release ones)
     (release src-desc)
     (release weights-desc)
     (release bias-desc)
@@ -194,22 +197,21 @@
   (invoke [this src-tz]
     (let [src-shape (shape src-tz)]
       (let-release [src-conn (connector src-tz src-desc)
-                    bias-tz (create-tensor fact bias-desc false)
-                    weights-tz (create-tensor fact weights-desc false)
-                    dst-tz (create-tensor fact dst-desc false)
+                    bias-tz (create-tensor fact (view bias-desc) false)
+                    weights-tz (create-tensor fact (view weights-desc) false)
+                    dst-tz (create-tensor fact (view dst-desc) false)
                     x (view-ge (view-vctr (output src-conn))
                                (apply * (rest src-shape)) (long (get src-shape 0)))
-                    b (view-vctr bias-tz)
-                    ones (entry! (vctr x (ncols x)) 1.0)]
-        (->InnerProductInference fact this ones
+                    b (view-vctr bias-tz)]
+        (->InnerProductInference fact this (view ones)
                                  b (trans (view-ge (view-vctr weights-tz) (mrows x) (dim b)))
                                  x (view-ge (view-vctr dst-tz) (dim b) (ncols x))
                                  src-conn bias-tz weights-tz dst-tz))))
   (invoke [this src-tz dst-tz prop-diff? _]
     (let [src-shape (shape src-tz)]
       (let-release [src-conn (connector src-tz src-desc)
-                    bias-tz (create-tensor fact bias-desc false)
-                    weights-tz (create-tensor fact weights-desc false)
+                    bias-tz (create-tensor fact (view bias-desc) false)
+                    weights-tz (create-tensor fact (view weights-desc) false)
                     diff-src-conn (revert src-conn)
                     diff-weights-tz (raw weights-tz)
                     x (view-ge (view-vctr (output src-conn))
@@ -217,26 +219,28 @@
                     b (view-vctr bias-tz)
                     w (trans (view-ge (view-vctr weights-tz) (mrows x) (dim b)))
                     diff-w (trans (view-ge (view-vctr diff-weights-tz) (mrows x) (dim b)))
-                    a (view-ge (view-vctr dst-tz) (dim b) (ncols x))
-                    ones (entry! (vctr x (ncols x)) 1.0)]
-        (->InnerProductTraining fact this ones prop-diff?
+                    a (view-ge (view-vctr dst-tz) (dim b) (ncols x))]
+        (->InnerProductTraining fact this (view ones) prop-diff?
                                 b w x a diff-w b
                                 src-conn bias-tz weights-tz dst-tz
                                 diff-weights-tz diff-src-conn)))))
 
 (defn inner-product-blueprint
   ([fact src-desc dst-desc weights-type]
-   (let [dst-shape (shape dst-desc)
+   (let [src-shape (shape src-desc)
+         dst-shape (shape dst-desc)
+         src-type (data-type src-desc)
          dst-type (data-type dst-desc)
-         weights-shape [(dst-shape 1) (apply * (rest (shape src-desc)))]
+         weights-shape [(get dst-shape 1) (apply * (rest src-shape))]
          weights-type (or weights-type (data-type src-desc) dst-type)]
      (let-release [dst-desc (create-tensor-desc fact
                                                 [(dst-shape 0) (apply * (rest dst-shape))]
-                                                (or (data-type dst-desc) (data-type src-desc))
+                                                (or dst-type src-type)
                                                 :nc)
-                   bias-desc (create-tensor-desc fact [(dst-shape 1)] (data-type dst-desc) :x)
-                   weights-desc (create-tensor-desc fact weights-shape weights-type :oi)]
-       (->InnerProductBlueprint fact src-desc weights-desc bias-desc dst-desc)))))
+                   bias-desc (create-tensor-desc fact [(dst-shape 1)] dst-type :x)
+                   weights-desc (create-tensor-desc fact weights-shape weights-type :oi)
+                   ones (entry! (vctr (neanderthal-factory fact src-type) (long (get src-shape 0))) 1.0)]
+       (->InnerProductBlueprint fact ones src-desc weights-desc bias-desc dst-desc)))))
 
 (deftype InferenceLayer [fact bluep op activ]
   Releaseable
@@ -376,7 +380,8 @@
                 op (op-bluep src-tz z-tz prop-diff? true)
                 activ (activ-bluep z-tz a-tz)]
     (->SGDLayer fact bluep op activ (first (shape bluep))
-                (view-vctr (diff-weights op)) (view-vctr (weights op)) (view-vctr (bias op)))))
+                (view-vctr (diff-weights op)) (view-vctr (weights op))
+                (view-vctr (bias op)))))
 
 (defmethod print-method SGDLayer
   [layer ^java.io.Writer w]
@@ -394,7 +399,9 @@
     (release activ)
     (release s)
     (release r)
-    (release w))
+    (release w)
+    (release g)
+    (release b))
   Object
   (hashCode [_]
     (-> (hash (info bluep :topology)) (hash-combine (info activ :activation))
@@ -530,6 +537,11 @@
     (data-type activ-bluep))
   (layout [_]
     (layout activ-bluep))
+  Workspace
+  (inf-ws-size [this]
+    (max (long (inf-ws-size op-bluep)) (long (inf-ws-size activ-bluep))))
+  (train-ws-size [this]
+    (max (long (train-ws-size op-bluep)) (long (inf-ws-size activ-bluep))))
   IFn
   (invoke [this prev-layer]
     (let-release [src-tz (output prev-layer)
@@ -557,7 +569,7 @@
                                                (or (data-type dst-desc) (data-type src-desc))
                                                :nc)
                   ip-bluep (inner-product-blueprint fact src-desc dst-desc weights-type)
-                  activ-bluep (activ-blueprint fact dst-desc activ alpha beta)]
+                  activ-bluep (activ-blueprint fact (view dst-desc) activ alpha beta)]
       (->DirectedLayerBlueprint fact :fc ip-bluep activ-bluep))))
 
 (defmethod transfer! [InferenceLayer Object]
@@ -591,12 +603,16 @@
                                mask-tz data-conn revert-data-conn]
   Releaseable
   (release [_]
-    (release mask-tz))
+    (release mask-tz)
+    (release data-conn)
+    (release revert-data-conn))
   Info
   (info [this]
     {:rand-state rand-state
      :mask mask-tz
-     :data (info (output data-conn))})
+     :data (info (output data-conn))
+     :topology (info bluep :topology)
+     :shape (info bluep :shape)})
   (info [this info-type]
     (case info-type
       :rand-state rand-state
@@ -643,7 +659,27 @@
 (deftype GaussianDropoutBlueprint [fact ^double sd data-desc mask-desc]
   Releaseable
   (release [_]
+    (release data-desc)
     (release mask-desc))
+  Object
+  (hashCode [_]
+    (-> (hash :gaussian-dropout) (hash-combine data-desc) (hash-combine mask-desc)))
+  (equals [_ other]
+    (and (instance? GaussianDropoutBlueprint other)
+         (= data-desc (.data-desc ^GaussianDropoutBlueprint other))
+         (= mask-desc (.mask-desc ^GaussianDropoutBlueprint other))))
+  (toString [this]
+    (pr-str {:shape (shape data-desc)
+             :topology :gaussian-dropout}))
+  Info
+  (info [x]
+    {:shape (shape data-desc)
+     :topology :gaussian-dropout})
+  (info [x info-type]
+    (case info-type
+      :shape (shape data-desc)
+      :topology :gaussian-dropout
+      nil))
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
@@ -664,7 +700,7 @@
     (let-release [src-tz (output prev-layer)
                   data-conn (connector src-tz data-desc)
                   revert-data-conn (revert data-conn)
-                  mask-tz (create-tensor fact data-desc false)]
+                  mask-tz (create-tensor fact (view data-desc) false)]
       (->GaussianDropoutLayer fact this prev-layer
                               sd (rng-state mask-tz)
                               mask-tz data-conn revert-data-conn))))

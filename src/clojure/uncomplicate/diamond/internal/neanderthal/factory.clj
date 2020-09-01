@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.neanderthal.factory
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release view]]
-             [utils :refer [dragan-says-ex]]]
+             [utils :refer [dragan-says-ex direct-buffer]]]
             [uncomplicate.neanderthal.native :refer [factory-by-type]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory*  output]]
@@ -81,6 +81,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
     (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta weights-type))
+  (create-workspace [_ byte-size]
+    (direct-buffer (max 1 (long byte-size))))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))

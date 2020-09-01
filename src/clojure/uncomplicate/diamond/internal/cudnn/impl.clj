@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.cudnn.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release with-release let-release Info
-                           Wrapper Wrappable wrap extract info]]
+                           Wrapper Wrappable wrap extract info Viewable view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecuda.internal
              [protocols :refer [size]]
@@ -64,7 +64,7 @@
 
 ;; =========================== Tensor Descriptor ============================
 
-(deftype CUTensorDescriptor [^cudnnTensorDescriptor td dims data-type strides]
+(deftype CUTensorDescriptor [^cudnnTensorDescriptor td dims data-type strides master]
   Object
   (hashCode [this]
     (hash (deref td)))
@@ -78,6 +78,9 @@
   DescProvider
   (desc [this]
     this)
+  Viewable
+  (view [_]
+    (CUTensorDescriptor. td dims data-type strides false))
   Info
   (info [td info-type]
     (case info-type
@@ -95,12 +98,13 @@
      :layout (.strides td)})
   Releaseable
   (release [this]
-    (locking td
-      (when-let [d @td]
-        (locking d
-          (with-check
-            (JCudnn/cudnnDestroyTensorDescriptor d)
-            (vreset! td nil)))))
+    (when master
+      (locking td
+        (when-let [d @td]
+          (locking d
+            (with-check
+              (JCudnn/cudnnDestroyTensorDescriptor d)
+              (vreset! td nil))))))
     true))
 
 (defn get-tensor-nd-descriptor* ^long [^cudnnTensorDescriptor td
@@ -130,7 +134,7 @@
           nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
       (->CUTensorDescriptor (volatile! td) (vec (take nbdims dims))
                             (dec-data-type (aget data-type 0))
-                            (vec (take nbdims strides))))))
+                            (vec (take nbdims strides)) true))))
 
 (defn tensor-descriptor* []
   (let [res (cudnnTensorDescriptor.)]
@@ -306,21 +310,23 @@
 ;; ======================== Filter ==============================
 
 (deftype CUFilterDescriptor [^cudnnFilterDescriptor fd
-                             ^cudnnTensorDescriptor td
-                             dims data-type format strides]
+                             dims data-type format master]
   Object
   (hashCode [this]
-    (hash (deref td)))
+    (hash (deref fd)))
   (equals [this other]
-    (= @td (extract other)))
+    (= @fd (extract other)))
   (toString [this]
-    (format "#CUFilterDescriptor[0x%s]" (Long/toHexString (native-pointer @td))))
+    (format "#CUFilterDescriptor[0x%s]" (Long/toHexString (native-pointer @fd))))
   Wrapper
   (extract [this]
-    @td)
+    @fd)
   DescProvider
   (desc [this]
     this)
+  Viewable
+  (view [_]
+    (CUFilterDescriptor. fd dims data-type format false))
   Info
   (info [td info-type]
     (case info-type
@@ -338,18 +344,13 @@
      :format (.format td)})
   Releaseable
   (release [this]
-    (locking td
-      (when-let [d @td]
-        (locking d
-          (with-check
-            (JCudnn/cudnnDestroyTensorDescriptor d)
-            (vreset! td nil)))))
-    (locking fd
-      (when-let [d @fd]
-        (locking d
-          (with-check
-            (JCudnn/cudnnDestroyFilterDescriptor d)
-            (vreset! fd nil)))))
+    (when master
+      (locking fd
+        (when-let [d @fd]
+          (locking d
+            (with-check
+              (JCudnn/cudnnDestroyFilterDescriptor d)
+              (vreset! fd nil))))))
     true))
 
 (defn get-filter-nd-descriptor* ^long [^cudnnFilterDescriptor fd
@@ -373,22 +374,14 @@
        :format (dec-format (aget format 0))}))
   Wrappable
   (wrap [fd]
-    (let [data-type-arr (int-array 1)
-          format-arr (int-array 1)
-          dims-arr (int-array JCudnn/CUDNN_DIM_MAX)
-          strides-arr (int-array JCudnn/CUDNN_DIM_MAX)
-          nbdims (get-filter-nd-descriptor* fd data-type-arr format-arr dims-arr)
-          format (aget format-arr 0)
-          data-type (aget data-type-arr 0)
-          dims (vec (take nbdims dims-arr))]
-      (let-release [td (if (< 4 nbdims)
-                         (tensor-nd-descriptor-ex* (tensor-descriptor*) format data-type dims-arr)
-                         (tensor-4d-descriptor* (tensor-descriptor*) format data-type dims))]
-        (get-tensor-nd-descriptor* td data-type-arr dims-arr strides-arr)
-        (->CUFilterDescriptor (volatile! fd) (volatile! td) dims
-                              (dec-data-type data-type)
-                              (dec-format format)
-                              (vec (take nbdims strides-arr)))))))
+    (let [data-type (int-array 1)
+          format (int-array 1)
+          dims (int-array JCudnn/CUDNN_DIM_MAX)
+          nbdims (get-filter-nd-descriptor* fd data-type format dims)]
+      (->CUFilterDescriptor (volatile! fd) (vec (take nbdims dims))
+                            (dec-data-type (aget data-type 0))
+                            (dec-format (aget format 0))
+                            true))))
 
 (defn filter-descriptor* []
   (let [res (cudnnFilterDescriptor.)]

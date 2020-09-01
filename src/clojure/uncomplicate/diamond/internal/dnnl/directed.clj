@@ -680,24 +680,24 @@
 ;; =========================== Convolution =============================================
 
 (defn dnnl-convolution-op-blueprint
-  [fact eng src-desc weights-desc dst-desc strides padding-l padding-r]
+  [fact eng src-desc weights-desc dst-desc strides dilation padding-l padding-r]
   (let [src-desc (desc src-desc)
         dst-desc (desc dst-desc)]
     (let-release [bias-desc (memory-desc [(get (dims dst-desc) 1)] (data-type dst-desc) :x)]
       (with-release [weights-desc (desc weights-desc)
                      conv-infer-desc (convolution-fwd-desc :inference :auto
                                                            src-desc weights-desc bias-desc dst-desc
-                                                           strides padding-l padding-r)
+                                                           strides dilation padding-l padding-r)
                      conv-train-desc (convolution-fwd-desc :training :auto
                                                            src-desc weights-desc bias-desc dst-desc
-                                                           strides padding-l padding-r)
+                                                           strides dilation padding-l padding-r)
                      conv-bwd-weights-desc (convolution-bwd-desc :auto
                                                                  src-desc weights-desc
                                                                  bias-desc dst-desc
-                                                                 strides padding-l padding-r)
+                                                                 strides dilation padding-l padding-r)
                      conv-bwd-data-desc (convolution-bwd-desc :auto
                                                               src-desc weights-desc dst-desc
-                                                              strides padding-l padding-r)]
+                                                              strides dilation padding-l padding-r)]
         (let-release [conv-infer-pd (primitive-desc eng conv-infer-desc)
                       conv-train-pd (primitive-desc eng conv-train-desc)
                       conv-bwd-weights-pd (primitive-desc eng conv-bwd-weights-desc conv-train-pd)
@@ -707,13 +707,13 @@
                                   conv-train-pd conv-bwd-weights-pd conv-bwd-data-pd))))))
 
 (defn dnnl-convolution-layer-blueprint [fact eng src-desc weights-desc dst-desc activ
-                                        strides padding-l padding-r alpha beta]
+                                        strides dilation padding-l padding-r alpha beta]
   (let-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
                 dst-desc (memory-desc (shape dst-desc)
                                       (or (tz/data-type dst-desc) (data-type src-desc))
                                       :any)
                 convolution-bluep (dnnl-convolution-op-blueprint fact eng src-desc weights-desc
-                                                                 dst-desc strides padding-l padding-r)
+                                                                 dst-desc strides dilation padding-l padding-r)
                 activ-bluep (dnnl-activ-blueprint fact eng convolution-bluep activ alpha beta)]
     (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep)))
 
@@ -729,7 +729,8 @@
   Info
   (info [this]
     {:algo (info bluep :algo)
-     :dst (info dst-tz)})
+     :dst (info dst-tz)
+     :shape (shape dst-tz)})
   (info [this info-type]
     (case info-type
       :algo (info bluep :algo)
@@ -766,7 +767,8 @@
   (info [this]
     {:algo (info bluep :algo)
      :dst (info dst-tz)
-     :workspace (info (desc workspace-tz))})
+     :workspace (info (desc workspace-tz))
+     :shape (shape dst-tz)})
   (info [this info-type]
     (case info-type
       :algo (info bluep :algo)
@@ -815,10 +817,14 @@
     (release pool-bwd-pd))
   Info
   (info [this]
-    {:algo algo})
+    {:algo algo
+     :shape (shape this)
+     :topology :pooling})
   (info [this info-type]
     (case info-type
       :algo algo
+      :shape (shape this)
+      :topology :pooling
       nil))
   DiamondFactoryProvider
   (diamond-factory [_]

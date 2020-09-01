@@ -9,6 +9,7 @@
 (ns uncomplicate.diamond.internal.cudnn.directed-test
   (:require [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.diamond.dnn-test :refer :all]
+            [uncomplicate.diamond.internal.protocols :refer [create-workspace *workspace*]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (with-release [fact (cudnn-factory)]

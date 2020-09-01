@@ -76,14 +76,14 @@
    (fully-connected dst-desc activ nil)))
 
 (defn dense
-  "TODO Same as fully-connected."
+  "Another name for fully-connected."
   ([dst-desc activ args]
    (fully-connected dst-desc activ args))
   ([dst-desc activ]
    (fully-connected dst-desc activ nil)))
 
 (defn coerce-conv-shapes [src-shape kernel-shape dst-shape
-                          strides padding dilation];;TODO dilation
+                          strides padding dilation]
   (let [cnt (count src-shape)
         [n ic & idhw] src-shape
         [n oc :as dst-shape] (if (< (count dst-shape) cnt)

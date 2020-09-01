@@ -34,7 +34,8 @@
   (convolution-blueprint [this src-desc kernel-desc dst-desc activ
                           strides padding dilation alpha beta])
   (pooling-blueprint [this src-desc dst-desc algo strides kernel padding])
-  (gaussian-dropout-blueprint [this src-desc sd]))
+  (gaussian-dropout-blueprint [this src-desc sd])
+  (create-workspace [this byte-size]))
 
 (defprotocol CostFactory
   (quadratic-cost [this last-layer train-tz])
@@ -68,3 +69,9 @@
 
 (defprotocol NeuralNetwork
   (layers [this]))
+
+(defprotocol Workspace
+  (inf-ws-size [this])
+  (train-ws-size [this]))
+
+(def ^:dynamic *workspace* nil)

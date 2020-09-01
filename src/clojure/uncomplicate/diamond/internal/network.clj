@@ -6,20 +6,29 @@
             [uncomplicate.diamond.tensor :refer [Transfer input output tensor]]
             [uncomplicate.diamond.internal.protocols
              :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
-                     diamond-factory native-diamond-factory DiffTransfer diff-input diff-output
-                     diff-z parameters]])
+                     diamond-factory native-diamond-factory DiffTransfer diff-input
+                     diff-output diff-z parameters Workspace inf-ws-size train-ws-size
+                     create-workspace *workspace*]])
   (:import clojure.lang.IFn))
+
+(extend-type java.lang.Object
+  Workspace
+  (inf-ws-size [this]
+    0)
+  (train-ws-size [this]
+    0))
 
 (defn invoke [f]
   (f))
 
 (defn ^:private layer-info [layer]
-  [(info layer :topology) (:shape (info layer :bias)) (info layer :activation)])
+  [(info layer :topology) (info layer :shape) (info layer :activation)])
 
-(deftype SequentialNetworkInference [x-tz forward-layers]
+(deftype SequentialNetworkInference [x-tz forward-layers workspace]
   Releaseable
   (release [_]
     (release x-tz)
+    (release workspace)
     (doseq [l forward-layers] (release l))
     true)
   Object
@@ -66,11 +75,14 @@
     (.write w "\n"))
   (.write w "]"))
 
-(deftype SequentialNetworkTraining [x-mb-tz forward-layers last-layer rest-backward-layers]
+(deftype SequentialNetworkTraining [x-mb-tz forward-layers last-layer
+                                    rest-backward-layers workspace]
   Releaseable
   (release [_]
     (release x-mb-tz)
-    (doseq [l forward-layers] (release l)))
+    (release workspace)
+    (doseq [l forward-layers] (release l))
+    true)
   Object
   (hashCode [_]
     (reduce hash-combine (hash :sequential) forward-layers))
@@ -133,7 +145,8 @@
     (.write w "\n"))
   (.write w "]"))
 
-(deftype SequentialNetworkBlueprint [fact src-desc layer-blueprints]
+(deftype SequentialNetworkBlueprint [fact src-desc layer-blueprints
+                                     inf-ws-size train-ws-size]
   Releaseable
   (release [_]
     (doseq [l layer-blueprints] (release l))
@@ -153,27 +166,32 @@
     (format "[%s]" (apply str layer-blueprints)))
   IFn
   (invoke [_ input-tz optimization]
-    (let [input-tz (view input-tz)]
-      (loop [bps (next layer-blueprints)
-             backward-layers [((first layer-blueprints) input-tz false optimization)]]
-        (if bps
-          (recur (next bps)
-                 (cons ((first bps) (first backward-layers) true optimization)
-                       backward-layers))
-          (->SequentialNetworkTraining input-tz
-                                       (reverse backward-layers)
-                                       (first backward-layers)
-                                       (rest backward-layers))))))
+    (let-release [input-tz (view input-tz)
+                  workspace (create-workspace fact train-ws-size)]
+      (binding [*workspace* workspace]
+        (loop [bps (next layer-blueprints)
+               backward-layers [((first layer-blueprints) input-tz false optimization)]]
+          (if bps
+            (recur (next bps)
+                   (cons ((first bps) (first backward-layers) true optimization)
+                         backward-layers))
+            (->SequentialNetworkTraining input-tz
+                                         (reverse backward-layers)
+                                         (first backward-layers)
+                                         (rest backward-layers)
+                                         workspace))))))
   (invoke [this optimization-or-input-tz]
     (if (keyword? optimization-or-input-tz)
       (let-release [input-tz (tensor fact src-desc)]
         (this input-tz optimization-or-input-tz))
-      (let [input-tz (view optimization-or-input-tz)]
-        (loop [bps (next layer-blueprints)
-               forward-layers [((first layer-blueprints) input-tz)]]
-          (if bps
-            (recur (next bps) (conj forward-layers ((first bps) (peek forward-layers))))
-            (->SequentialNetworkInference input-tz forward-layers))))))
+      (let-release [input-tz (view optimization-or-input-tz)
+                    workspace (create-workspace fact inf-ws-size)]
+        (binding [*workspace* workspace]
+          (loop [bps (next layer-blueprints)
+                 forward-layers [((first layer-blueprints) input-tz)]]
+            (if bps
+              (recur (next bps) (conj forward-layers ((first bps) (peek forward-layers))))
+              (->SequentialNetworkInference input-tz forward-layers workspace)))))))
   (invoke [this]
     (let-release [input-tz (tensor fact src-desc)]
       (this input-tz))))
@@ -183,7 +201,9 @@
                                  (conj lrs (layer-fn fact (peek lrs))))
                                [((first layers) fact src-desc)]
                                (rest layers))]
-    (->SequentialNetworkBlueprint fact src-desc layers)))
+    (->SequentialNetworkBlueprint fact src-desc layers
+                                  (apply max (map inf-ws-size layers))
+                                  (apply max (map train-ws-size layers)))))
 
 (defmethod transfer! [SequentialNetworkInference Object]
   [source destination]
