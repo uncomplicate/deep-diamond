@@ -56,11 +56,9 @@
                net (init! (net-bp x-mb-tz :adam))
                net-infer (net-bp x-mb-tz)
                crossentropy-cost (cost net y-mb-tz :crossentropy)
-               train-images (transfer! train-images (tensor [60000 1 28 28] :uint8 :nchw))
                x-train-bat (batcher train-images (input net))
                y-train (transfer! y-train (tensor y-train))
                y-train-bat (batcher y-train y-mb-tz)
-               test-images (transfer! test-images (tensor [10000 1 28 28] :uint8 :nchw))
                x-test-bat (batcher test-images (input net-infer))
                y-test (transfer! y-test (tensor y-test))
                y-test-bat (batcher (output net-infer) y-test)]
@@ -104,7 +102,6 @@
                  net-infer (net-bp)
                  crossentropy-cost (cost net :crossentropy)
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
-                 train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
            (time (train net train-images y-train crossentropy-cost 2 [])) => (roughly 0.25 0.1)
@@ -120,7 +117,6 @@
                  net (init! (net-bp :adam))
                  net-infer (net-bp)
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
-                 train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
            (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.1)
@@ -136,7 +132,6 @@
                  net (init! (net-bp :adam))
                  net-infer (net-bp)
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
-                 train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
            (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.1)
@@ -152,7 +147,6 @@
                  net (init! (net-bp :adam))
                  net-infer (net-bp)
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
-                 train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
            (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.15)
