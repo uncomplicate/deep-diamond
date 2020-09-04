@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.13.0-alpha"
+(defproject uncomplicate/deep-diamond "0.14.0-alpha"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
