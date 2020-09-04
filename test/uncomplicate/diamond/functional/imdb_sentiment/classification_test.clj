@@ -68,7 +68,6 @@
     (doall (map #(encode-review wmap %1 %2 %3) reviews (cols in) (cols out)))
     [in out]))
 
-
 (defonce data (doall (map #(encode-reviews wmap (shuffle %))
                       (split-at 25000 (read-imdb-master 50000)))))
 

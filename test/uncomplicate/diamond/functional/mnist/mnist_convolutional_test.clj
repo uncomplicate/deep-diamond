@@ -1,20 +1,15 @@
 (ns uncomplicate.diamond.functional.mnist.mnist-convolutional-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons
-             [core :refer [let-release Releaseable release with-release view]]
+             [core :refer [with-release]]
              [utils :refer [random-access channel]]]
             [uncomplicate.neanderthal
-             [core :refer [subvector view-ge transfer transfer! dim entry ge mrows
-                           transfer! amax imax col native]]
-             [real :refer [entry!]]
-             [native :as neand :refer [native-byte native-float fge]]]
+             [core :refer [transfer! native]]]
             [uncomplicate.diamond
-             [tensor :refer [tensor transformer connector transformer
-                             desc revert shape input output view-tz batcher with-diamond]]
+             [tensor :refer [tensor desc with-diamond]]
              [native :refer [map-tensor]]
-             [dnn :refer [dense convo fully-connected convolution pooling dropout
-                          network init! train cost infer]]
-             [metrics :refer [confusion-matrix contingency-totals classification-metrics]]]
+             [dnn :refer [dense convo pooling dropout network init! train infer]]
+             [metrics :refer [classification-metrics]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
             [uncomplicate.diamond.functional.mnist.mnist-classification-test :as mnist]))
@@ -36,8 +31,8 @@
 
 (defn test-mnist-convolutional [fact]
   (with-release [net-bp (network fact (desc [128 1 28 28] :float :nchw)
-                                 [(convo [32] [3 3] :relu)
-                                  (convo [64] [3 3] :relu)
+                                 [(convo [32] [5 5] :relu)
+                                  (convo [64] [5 5] :relu)
                                   (pooling [2 2] :max)
                                   (dropout)
                                   (dense [128] :relu)
@@ -51,8 +46,12 @@
     (facts "MNIST classification tests."
            (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.02 0.1)
            (transfer! net net-infer)
-           (take 8 (mnist/dec-categories (infer net-infer test-images)))
-           => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+           (with-release [inf (infer net-infer test-images)
+                          pred (mnist/dec-categories inf)
+                          metrics (:metrics (classification-metrics test-labels-float pred))]
+             (:accuracy metrics) => (roughly 0.985 0.005)
+             (:f1 metrics) => (roughly 0.985 0.005)
+             (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))))
 
 (with-release [fact (dnnl-factory)]
   (test-mnist-convolutional fact))
@@ -79,8 +78,12 @@
     (facts "cuDNN MNIST classification tests."
            (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.02 0.1)
            (transfer! net net-infer)
-           (with-release [out (infer net-infer test-images)]
-             (take 8 (mnist/dec-categories (native out))))
-           => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+           (with-release [inf (infer net-infer test-images)
+                          native-inf (native inf)
+                          pred (mnist/dec-categories native-inf)
+                          metrics (:metrics (classification-metrics test-labels-float pred))]
+             (:accuracy metrics) => (roughly 0.965 0.02)
+             (:f1 metrics) => (roughly 0.965 0.02)
+             (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))))
 
 ;; "Elapsed time: 3487.728516 msecs"
