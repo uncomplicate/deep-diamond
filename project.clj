@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.14.0-alpha"
+(defproject uncomplicate/deep-diamond "0.15.0-alpha"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -14,7 +14,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.10.1"]
                  [uncomplicate/neanderthal "0.36.0"]
-                 [org.bytedeco/dnnl-platform "1.6.1-1.5.4-20200830.144534-19"]
+                 [org.bytedeco/dnnl-platform "1.6.2-1.5.4"]
                  [org.jcuda/jcudnn "10.2.0"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
@@ -34,10 +34,7 @@
           :src-linenum-anchor-prefix "L"
           :output-path "docs/codox"}
 
-  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
-                       #_"-Dorg.bytedeco.javacpp.mklml.load=mkl_rt"
-                       #_"-Dorg.bytedeco.javacpp.pathsfirst=true"
-                       #_"-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"
+  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-XX:+UseLargePages"
                        #_"--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]

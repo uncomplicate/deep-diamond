@@ -65,8 +65,13 @@
   (facts "DNNL MNIST classification tests."
          (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.02 0.1)
          (transfer! net net-infer)
-         (take 8 (dec-categories (infer net-infer x-test-bat y-test-bat)))
-         => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))
+         (with-release [inf (infer net-infer test-images)
+                        pred (dec-categories inf)
+                        metrics (:metrics (classification-metrics test-labels-float pred))]
+           (:accuracy metrics) => (roughly 0.965 0.005)
+           (:f1 metrics) => (roughly 0.965 0.006)
+           (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+
 ;; "Elapsed time: 2074.615346 msecs"
 
 (with-diamond cudnn-factory []
@@ -89,8 +94,14 @@
     (facts "cuDNN MNIST classification tests."
            (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.02 0.1)
            (transfer! net net-infer)
-           (take 8 (dec-categories (native (infer net-infer x-test-bat y-test-bat))))
-           => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+           (with-release [inf (infer net-infer test-images)
+                          native-inf (native inf)
+                          pred (dec-categories native-inf)
+                          metrics (:metrics (classification-metrics test-labels-float pred))]
+             (:accuracy metrics) => (roughly 0.965 0.005)
+             (:f1 metrics) => (roughly 0.965 0.005)
+             (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))))
+
 ;; "Elapsed time: 213.328266 msecs"
 
 (defn test-mnist-classification-internal-input [fact]

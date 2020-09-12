@@ -22,9 +22,10 @@
              [protocols :refer [DescProvider desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
-             [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint
-                               dnnl-inner-product-blueprint dnnl-fc-blueprint
-                               dnnl-universal-cost dnnl-custom-cost]]
+             [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-fc-blueprint
+                               dnnl-inner-product-blueprint dnnl-universal-cost dnnl-custom-cost
+                               dnnl-convolution-layer-blueprint dnnl-gaussian-dropout-blueprint
+                               dnnl-pooling-blueprint]]
              [factory :refer [->FloatTensorEngine]]]
             [uncomplicate.diamond.internal.neanderthal.directed
              :refer [neanderthal-fc-blueprint]]))
@@ -81,6 +82,15 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
     (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta weights-type))
+  (convolution-blueprint [this src-desc weights-desc dst-desc activ
+                          strides padding dilation alpha beta]
+    (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ
+                                      strides (mapv dec dilation) padding padding alpha beta))
+  (pooling-blueprint [this src-desc dst-desc algo strides kernel padding]
+    (dnnl-pooling-blueprint this eng src-desc dst-desc algo
+                            strides kernel padding padding))
+  (gaussian-dropout-blueprint [this src-desc sd]
+    (dnnl-gaussian-dropout-blueprint this src-desc sd))
   (create-workspace [_ byte-size]
     (direct-buffer (max 1 (long byte-size))))
   CostFactory

@@ -14,47 +14,40 @@
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
             [uncomplicate.diamond.functional.mnist.mnist-classification-test :as mnist]))
 
-(defonce train-images-file (random-access "data/mnist/train-images.idx3-ubyte"))
-(defonce train-labels-file (random-access "data/mnist/train-labels.idx1-ubyte"))
-(defonce test-images-file (random-access "data/mnist/t10k-images.idx3-ubyte"))
-(defonce test-labels-file (random-access "data/mnist/t10k-labels.idx1-ubyte"))
+(def train-images-file (random-access "data/mnist/train-images.idx3-ubyte"))
+(def train-labels-file (random-access "data/mnist/train-labels.idx1-ubyte"))
+(def test-images-file (random-access "data/mnist/t10k-images.idx3-ubyte"))
+(def test-labels-file (random-access "data/mnist/t10k-labels.idx1-ubyte"))
 
-(defonce train-images (map-tensor train-images-file [60000 1 28 28] :uint8 :nchw :read 16))
-(defonce train-labels (map-tensor train-labels-file [60000] :uint8 :x :read 8))
-(defonce test-images (map-tensor test-images-file [10000 1 28 28] :uint8 :nchw :read 16))
-(defonce test-labels (map-tensor test-labels-file [10000] :uint8 :x :read 8))
+(def train-images (map-tensor train-images-file [60000 1 28 28] :uint8 :nchw :read 16))
+(def train-labels (map-tensor train-labels-file [60000] :uint8 :x :read 8))
+(def test-images (map-tensor test-images-file [10000 1 28 28] :uint8 :nchw :read 16))
+(def test-labels (map-tensor test-labels-file [10000] :uint8 :x :read 8))
 
-(defonce train-labels-float (transfer! train-labels (tensor [60000] :float :x)))
-(defonce y-train (mnist/enc-categories train-labels-float))
-(defonce test-labels-float (transfer! test-labels (tensor [10000] :float :x)))
-(defonce y-test (mnist/enc-categories test-labels-float))
+(def train-labels-float (transfer! train-labels (tensor [60000] :float :x)))
+(def y-train (mnist/enc-categories train-labels-float))
+(def test-labels-float (transfer! test-labels (tensor [10000] :float :x)))
+(def y-test (mnist/enc-categories test-labels-float))
 
-(defn test-mnist-convolutional [fact]
-  (with-release [net-bp (network fact (desc [128 1 28 28] :float :nchw)
-                                 [(convo [32] [5 5] :relu)
-                                  (convo [64] [5 5] :relu)
-                                  (pooling [2 2] :max)
-                                  (dropout)
-                                  (dense [128] :relu)
-                                  (dropout)
-                                  (dense [10] :softmax)])
-                 net (init! (net-bp :adam))
-                 net-infer (net-bp)
-                 train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
-                 train-labels-float (transfer! train-labels (tensor fact [60000] :float :x))
-                 y-train (mnist/enc-categories train-labels-float)]
-    (facts "MNIST classification tests."
-           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.02 0.1)
-           (transfer! net net-infer)
-           (with-release [inf (infer net-infer test-images)
-                          pred (mnist/dec-categories inf)
-                          metrics (:metrics (classification-metrics test-labels-float pred))]
-             (:accuracy metrics) => (roughly 0.985 0.005)
-             (:f1 metrics) => (roughly 0.985 0.005)
-             (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))))
-
-(with-release [fact (dnnl-factory)]
-  (test-mnist-convolutional fact))
+(with-release [net-bp (network (desc [128 1 28 28] :float :nchw)
+                               [(convo [32] [3 3] :relu)
+                                (convo [64] [3 3] :relu)
+                                (pooling [2 2] :max)
+                                (dropout)
+                                (dense [128] :relu)
+                                (dropout)
+                                (dense [10] :softmax)])
+               net (init! (net-bp :adam))
+               net-infer (net-bp)]
+  (facts "MNIST classification tests."
+         (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.02 0.1)
+         (transfer! net net-infer)
+         (with-release [inf (infer net-infer test-images)
+                        pred (mnist/dec-categories inf)
+                        metrics (:metrics (classification-metrics test-labels-float pred))]
+           (:accuracy metrics) => (roughly 0.985 0.005)
+           (:f1 metrics) => (roughly 0.985 0.005)
+           (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 ;; "Elapsed time: 52966.299469 msecs"
 
@@ -72,9 +65,9 @@
                  net (init! (net-bp x-mb-tz :adam))
                  net-infer (net-bp x-mb-tz)
                  train-images (transfer! train-images (tensor [60000 1 28 28] :float :nchw))
-                 y-train (transfer! y-train (tensor y-train))
+                 y-train (transfer! y-train (tensor [60000 10] :float :nchw))
                  test-images (transfer! test-images (tensor [10000 1 28 28] :float :nchw))
-                 y-test (transfer! y-test (tensor y-test))]
+                 y-test (transfer! y-test (tensor [10000 10] :float :nchw))]
     (facts "cuDNN MNIST classification tests."
            (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.02 0.1)
            (transfer! net net-infer)
