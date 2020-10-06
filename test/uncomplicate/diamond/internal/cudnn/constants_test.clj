@@ -14,22 +14,22 @@
        (remove identity (map #(= % (cudnn-data-type (dec-data-type %))) (range 8))) => [])
 
 (facts "cuDNN activation mode tests."
-       (remove identity (map #(= % (cudnn-activation-mode (dec-activation-mode %))) (range 0)))
+       (remove identity (map #(= % (cudnn-activation-mode (dec-activation-mode %))) (range 6)))
        => [])
 
 (facts "cuDNN convolution forward algorithm tests."
        (remove identity
-               (map #(= % (cudnn-convolution-fwd-algo (dec-convolution-fwd-algo %))) (range 0)))
+               (map #(= % (cudnn-convolution-fwd-algo (dec-convolution-fwd-algo %))) (range 9)))
        => [])
 
 (facts "cuDNN convolution backward data algorithm tests."
        (remove identity
                (map #(= % (cudnn-convolution-bwd-data-algo (dec-convolution-bwd-data-algo %)))
-                    (range 0)))
+                    (range 7)))
        => [])
 
 (facts "cuDNN convolution backward filter algorithm tests."
        (remove identity
                (map #(= % (cudnn-convolution-bwd-filter-algo (dec-convolution-bwd-filter-algo %)))
-                    (range 0)))
+                    (range 8)))
        => [])

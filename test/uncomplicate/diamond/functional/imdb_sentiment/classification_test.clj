@@ -22,7 +22,7 @@
 
 (defn read-imdb-master
   ([]
-   (->> (io/resource "uncomplicate/diamond/functional/imdb_sentiment/imdb_master.csv")
+   (->> (io/resource "imdb-sentiment/imdb_master.csv")
         (slurp)
         (csv/read-csv)
         (drop 1)))

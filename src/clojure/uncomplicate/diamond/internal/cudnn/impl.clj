@@ -24,8 +24,9 @@
            [jcuda.jcudnn JCudnn cudnnHandle cudnnStatus cudnnTensorDescriptor
             cudnnActivationDescriptor cudnnReduceTensorDescriptor cudnnIndicesType
             cudnnReduceTensorIndices cudnnReduceTensorOp cudnnConvolutionDescriptor
-            cudnnFilterDescriptor cudnnConvolutionFwdPreference
-            cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterPreference
+            cudnnFilterDescriptor cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgoPerf
+            cudnnConvolutionBwdFilterAlgoPerf #_cudnnConvolutionFwdPreference
+            #_cudnnConvolutionBwdDataPreference #_cudnnConvolutionBwdFilterPreference
             cudnnPoolingDescriptor]))
 
 (defn cudnn-error [^long err-code details]
@@ -430,29 +431,34 @@
     (JCudnn/cudnnSetConvolutionNdDescriptor cd (alength pad) pad stride dilation mode data-type)
     cd))
 
-(defn convolution-fwd-get-algo*
-  ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y preference limit-bytes]
-   (let-release [algo (int-array 1)]
+(defn convolution-fwd-find-algo*
+  ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y algo-count]
+   (let [algo-perf (make-array cudnnConvolutionFwdAlgoPerf algo-count)
+         algo-perf-count (int-array 1)]
      (with-check
-       (JCudnn/cudnnGetConvolutionForwardAlgorithm cudnn-handle desc-x desc-w cd desc-y
-                                                   preference limit-bytes algo)
-       (aget algo 0))))
-  ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y limit-bytes]
-   (convolution-fwd-get-algo* cudnn-handle cd desc-x desc-w desc-y
-                              cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT
-                              limit-bytes))
+       (JCudnn/cudnnFindConvolutionForwardAlgorithm cudnn-handle desc-x desc-w cd desc-y
+                                                    algo-count algo-perf-count algo-perf)
+       (take (aget algo-perf-count 0) algo-perf))))
   ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y]
-   (convolution-fwd-get-algo* cudnn-handle cd desc-x desc-w desc-y
-                              cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
-                              0)))
+   (convolution-fwd-find-algo* cudnn-handle cd desc-x desc-w desc-y 1)))
 
-(defn convolution-fwd-get-workspace-size*
-  [cudnn-handle cd algo desc-x ^cudnnFilterDescriptor desc-w desc-y]
-  (let-release [wsize (long-array 1)]
-    (with-check
-      (JCudnn/cudnnGetConvolutionForwardWorkspaceSize cudnn-handle desc-x desc-w
-                                                      cd desc-y algo wsize)
-      (aget wsize 0))))
+(defn convolution-fwd-algo* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+  (.algo algo-perf))
+
+(defn convolution-fwd-status* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+  (.status algo-perf))
+
+(defn convolution-fwd-memory* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+  (.memory algo-perf))
+
+(defn convolution-fwd-time* ^double [^cudnnConvolutionFwdAlgoPerf algo-perf]
+  (.time algo-perf))
+
+(defn convolution-fwd-determinism* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+  (.determinism algo-perf))
+
+(defn convolution-fwd-math-type* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+  (.mathType algo-perf))
 
 (defn convolution-fwd*
   ([cudnn-handle cd algo alpha desc-x buf-x ^cudnnFilterDescriptor desc-w buf-w
@@ -476,29 +482,16 @@
                                          beta desc-db buf-db)
     cudnn-handle))
 
-(defn convolution-bwd-data-get-algo*
-  ([cudnn-handle cd ^cudnnFilterDescriptor desc-w desc-dy desc-dx preference limit-bytes]
-   (let-release [algo (int-array 1)]
+(defn convolution-bwd-data-find-algo*
+  ([cudnn-handle cd ^cudnnFilterDescriptor desc-w desc-dy desc-dx algo-count]
+   (let [algo-perf (make-array cudnnConvolutionBwdDataAlgoPerf algo-count)
+         algo-perf-count (int-array 1)]
      (with-check
-       (JCudnn/cudnnGetConvolutionBackwardDataAlgorithm
-        cudnn-handle desc-w desc-dy cd desc-dx preference limit-bytes algo)
-       (aget algo 0))))
-  ([cudnn-handle cd ^cudnnFilterDescriptor desc-w desc-dy desc-dx limit-bytes]
-   (convolution-bwd-data-get-algo* cudnn-handle cd desc-w desc-dy desc-dx
-                                   cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT
-                                   limit-bytes))
+       (JCudnn/cudnnFindConvolutionBackwardDataAlgorithm cudnn-handle desc-w desc-dy cd desc-dx
+                                                         algo-count algo-perf-count algo-perf)
+       (take (aget algo-perf-count 0) algo-perf))))
   ([cudnn-handle cd ^cudnnFilterDescriptor desc-w desc-dy desc-dx]
-   (convolution-bwd-data-get-algo* cudnn-handle cd desc-w desc-dy desc-dx
-                                   cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_PREFER_FASTEST
-                                   0)))
-
-(defn convolution-bwd-data-get-workspace-size*
-  [cudnn-handle cd algo ^cudnnFilterDescriptor desc-w desc-dy desc-dx]
-  (let-release [wsize (long-array 1)]
-    (with-check
-      (JCudnn/cudnnGetConvolutionBackwardDataWorkspaceSize
-       cudnn-handle desc-w desc-dy cd desc-dx algo wsize)
-      (aget wsize 0))))
+   (convolution-bwd-data-find-algo* cudnn-handle cd desc-w desc-dy desc-dx 1)))
 
 (defn convolution-bwd-data*
   [cudnn-handle cd algo alpha desc-w buf-w desc-dy buf-dy
@@ -510,31 +503,16 @@
                                          beta desc-dx buf-dx)
     cudnn-handle))
 
-(defn convolution-bwd-filter-get-algo*
-  ([cudnn-handle cd desc-x desc-dy ^cudnnFilterDescriptor desc-dw preference limit-bytes]
-   (let-release [algo (int-array 1)]
+(defn convolution-bwd-filter-find-algo*
+  ([cudnn-handle cd desc-x desc-dy ^cudnnFilterDescriptor desc-dw preference algo-count]
+   (let [algo-perf (make-array cudnnConvolutionBwdFilterAlgoPerf algo-count)
+         algo-perf-count (int-array 1)]
      (with-check
-       (JCudnn/cudnnGetConvolutionBackwardFilterAlgorithm
-        cudnn-handle desc-x desc-dy cd desc-dw preference limit-bytes algo)
-       (aget algo 0))))
-  ([cudnn-handle cd desc-x desc-dy ^cudnnFilterDescriptor desc-dw limit-bytes]
-   (convolution-bwd-filter-get-algo*
-    cudnn-handle cd desc-x desc-dy desc-dw
-    cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT
-    limit-bytes))
-  ([cudnn-handle cd desc-x desc-dy ^cudnnFilterDescriptor desc-dw]
-   (convolution-bwd-filter-get-algo*
-    cudnn-handle cd desc-x desc-dy desc-dw
-    cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_PREFER_FASTEST
-    0)))
-
-(defn convolution-bwd-filter-get-workspace-size*
-  [cudnn-handle cd algo desc-x desc-dy ^cudnnFilterDescriptor desc-dw]
-  (let-release [wsize (long-array 1)]
-    (with-check
-      (JCudnn/cudnnGetConvolutionBackwardFilterWorkspaceSize
-       cudnn-handle desc-x desc-dy cd desc-dw algo wsize)
-      (aget wsize 0))))
+       (JCudnn/cudnnFindConvolutionBackwardFilterAlgorithm cudnn-handle desc-x desc-dy cd desc-dw
+                                                           algo-count algo-perf-count algo-perf)
+       (take (aget algo-perf-count 0) algo-perf))))
+  ([cudnn-handle cd desc-x desc-dy ^cudnnFilterDescriptor desc-dw preference]
+   (convolution-bwd-filter-find-algo* cudnn-handle cd desc-x desc-dy desc-dw preference 1)))
 
 (defn convolution-bwd-filter*
   [cudnn-handle cd algo alpha desc-x buf-x desc-dy buf-dy

@@ -156,7 +156,7 @@
                             (float 1.0) desc-x gpu-x (float 0.0) desc-x gpu-x)
            => cudnn-hdl
            (seq (memcpy-host! gpu-x (float-array 6)))
-           => (map float [0.06337894 0.4683105 0.4683105 0.0024282578 0.017942535 0.9796292]))
+           => (map float [0.06337894 0.4683105 0.4683105 0.002428258 0.017942535 0.9796292]))
 
     (facts "Softmax backward operation."
            (memcpy-host! host-dy gpu-dy)
@@ -164,7 +164,7 @@
                              (float 1.0) desc-x gpu-x desc-x gpu-dy (float 0.0) desc-x gpu-x)
            => cudnn-hdl
            (seq (memcpy-host! gpu-x (float-array 6)))
-           => (map float [0.06337894 -0.5316895 0.4683105 0.0024282578 0.017942535 -0.020370794]))))
+           => (map float [0.06337894 -0.5316895 0.4683105 0.002428258 0.017942535 -0.020370794]))))
 
 (with-default
   (with-release [cudnn-hdl (cudnn-handle default-stream)
@@ -186,10 +186,11 @@
                  gpu-z (mem-alloc (size desc-y))
 
                  convo-desc (convolution-descriptor :cross-correleation :float [0 0] [1 1] [1 1])
-                 convo-fwd-algo (convolution-fwd-get-algo cudnn-hdl convo-desc desc-x filter-w desc-y)
+                 convo-fwd-algo-perf (convolution-fwd-find-algo cudnn-hdl convo-desc desc-x filter-w desc-y)
+                 convo-fwd-algo (:algo convo-fwd-algo-perf)
                  activ-desc (activation-descriptor :relu false 1.0)
-                 convo-fwd-ws (mem-alloc (convolution-fwd-get-workspace-size
-                                          cudnn-hdl convo-desc convo-fwd-algo desc-x filter-w desc-y))]
+                 convo-fwd-ws (when (< 0 (long (:workspace-size convo-fwd-algo-perf)))
+                                (mem-alloc (:workspace-size convo-fwd-algo-perf)))]
 
     (memcpy-host! host-x gpu-x)
     (memcpy-host! host-w gpu-w)
@@ -222,20 +223,16 @@
                  host-dy (float-array [0.2 0.3 0.8 1 1 1 1 1])
 
                  convo-desc (convolution-descriptor :cross-correleation :float [0 0] [1 1] [1 1])
-                 convo-fwd-algo (convolution-fwd-get-algo cudnn-hdl convo-desc desc-x filter-w desc-y)
-
-                 convo-bwd-data-algo (convolution-bwd-data-get-algo cudnn-hdl convo-desc
-                                                                    filter-w desc-y desc-x)
-                 convo-bwd-filter-algo (convolution-bwd-filter-get-algo cudnn-hdl convo-desc
-                                                                        desc-x desc-y filter-w)
-                 convo-ws (mem-alloc (max (long (convolution-fwd-get-workspace-size
-                                                 cudnn-hdl convo-desc convo-fwd-algo desc-x filter-w desc-y))
-                                          (long (convolution-bwd-data-get-workspace-size
-                                                 cudnn-hdl convo-desc convo-bwd-data-algo
-                                                 filter-w desc-y desc-x))
-                                          (long (convolution-bwd-filter-get-workspace-size
-                                                 cudnn-hdl convo-desc convo-bwd-filter-algo
-                                                 desc-x desc-y filter-w))))]
+                 convo-fwd-algo-perf (convolution-fwd-find-algo cudnn-hdl convo-desc desc-x filter-w desc-y)
+                 convo-fwd-algo (:algo convo-fwd-algo-perf)
+                 convo-bwd-data-algo-perf (convolution-bwd-data-find-algo cudnn-hdl convo-desc
+                                                                          filter-w desc-y desc-x)
+                 convo-bwd-filter-algo-perf (convolution-bwd-filter-find-algo cudnn-hdl convo-desc
+                                                                              desc-x desc-y filter-w)
+                 convo-ws (mem-alloc (max 1
+                                          (long (:workspace-size convo-fwd-algo-perf))
+                                          (long (:workspace-size convo-bwd-data-algo-perf))
+                                          (long (:workspace-size convo-bwd-filter-algo-perf))))]
 
     (memcpy-host! host-x gpu-x)
     (memcpy-host! host-w gpu-w)
@@ -248,7 +245,7 @@
     (memcpy-host! host-dy gpu-y)
 
     (facts "Convolution backward filter operation."
-           (convolution-bwd-filter cudnn-hdl convo-desc convo-bwd-filter-algo
+           (convolution-bwd-filter cudnn-hdl convo-desc (:algo convo-bwd-filter-algo-perf)
                                    (float 1.0) desc-x gpu-x desc-y gpu-y
                                    (float 0.0) filter-w gpu-dw convo-ws) => cudnn-hdl
            (map float (seq (memcpy-host! gpu-dw (float-array 9))))
@@ -256,12 +253,12 @@
 
 
     (facts "Convolution backward data operation."
-           (convolution-bwd-data cudnn-hdl convo-desc convo-bwd-data-algo
+           (convolution-bwd-data cudnn-hdl convo-desc (:algo convo-bwd-data-algo-perf)
                                  (float 1.0) filter-w gpu-w desc-y gpu-y
                                  (float 0.0) desc-x gpu-x convo-ws) => cudnn-hdl
            (map float (seq (memcpy-host! gpu-x (float-array 32))))
-           => (map float [-0.40000004 -0.6 0.20000002 0.3 -1.6 -1.8 1.0999999 1.0 -0.20000005
-                          0.100000024 0.39999995 -8.940697E-8 -0.8000001 -2.6 -2.0 0.0 -2.0 -2.0
+           => (map float [-0.4 -0.6 0.2 0.3 -1.6 -1.8 1.1 1.0 -0.2
+                          0.099999994 0.39999998 0.0 -0.8 -2.6 -2.0 0.0 -2.0 -2.0
                           1.0 1.0 -2.0 -1.0 2.0 1.0 -1.0 -2.0 -1.0 0.0 -1.0 -3.0 -2.0 0.0]))))
 
 (with-release [cudnn-hdl (cudnn-handle default-stream)

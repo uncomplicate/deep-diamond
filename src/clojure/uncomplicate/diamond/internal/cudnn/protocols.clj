@@ -12,4 +12,4 @@
   (desc [this]))
 
 (defprotocol HandleProvider
-  (handle [_]))
+  (handle [this]))

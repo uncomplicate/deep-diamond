@@ -601,19 +601,11 @@
     (strides dst-desc))
   Workspace
   (inf-ws-size [this]
-    (convolution-fwd-get-workspace-size
-     (handle fact) conv-desc conv-fwd-algo
-     src-desc filter-desc dst-desc))
+    (:workspace-size conv-fwd-algo))
   (train-ws-size [this]
-    (max (long (convolution-fwd-get-workspace-size
-                (handle fact) conv-desc conv-fwd-algo
-                src-desc filter-desc dst-desc))
-         (long (convolution-bwd-data-get-workspace-size
-                (handle fact) conv-desc conv-bwd-data-algo
-                filter-desc dst-desc src-desc))
-         (long (convolution-bwd-filter-get-workspace-size
-                (handle fact) conv-desc conv-bwd-weights-algo
-                src-desc dst-desc filter-desc))))
+    (max (long (:workspace-size conv-fwd-algo))
+         (long (:workspace-size conv-bwd-data-algo))
+         (long (:workspace-size conv-bwd-weights-algo))))
   IFn
   (invoke [this src-tz]
     (let-release [src-conn (connector src-tz src-desc)
@@ -623,7 +615,7 @@
       (->CUDnnConvolutionInference fact (handle fact) this
                                         (cast-prim (data-accessor a-tz) 1.0)
                                         (cast-prim (data-accessor a-tz) 0.0)
-                                        conv-desc (view filter-desc) conv-fwd-algo
+                                        conv-desc (view filter-desc) (:algo conv-fwd-algo)
                                         src-conn bias-tz weights-tz a-tz *workspace*)))
   (invoke [this src-tz dst-tz prop-diff? _]
     (let [src-shape (shape src-desc)]
@@ -636,7 +628,7 @@
           (->CUDnnConvolutionTraining fact (handle fact) this da
                                       (cast-prim da 1.0) (cast-prim da 0.0)
                                       prop-diff? conv-desc (view filter-desc)
-                                      conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
+                                      (:algo conv-fwd-algo) (:algo conv-bwd-data-algo) (:algo conv-bwd-weights-algo)
                                       src-conn bias-tz weights-tz dst-tz
                                       diff-weights-tz diff-src-conn
                                       *workspace*))))))
@@ -650,12 +642,12 @@
                 filter-desc (filter-descriptor (shape weights-desc) dtype :nchw)
                 bias-desc (cudnn-tensor-desc [1 (get (dims dst-desc) 1)] dtype :nc)
                 conv-desc (convolution-descriptor :cross-correleation dtype padding strides dilation)
-                conv-fwd-algo (convolution-fwd-get-algo (handle fact) conv-desc
-                                                        src-desc filter-desc dst-desc)
-                conv-bwd-data-algo (convolution-bwd-data-get-algo (handle fact) conv-desc
-                                                                  filter-desc dst-desc src-desc)
-                conv-bwd-weights-algo (convolution-bwd-filter-get-algo (handle fact) conv-desc
-                                                                       src-desc dst-desc filter-desc)]
+                conv-fwd-algo (convolution-fwd-find-algo (handle fact) conv-desc
+                                                         src-desc filter-desc dst-desc)
+                conv-bwd-data-algo (convolution-bwd-data-find-algo (handle fact) conv-desc
+                                                                   filter-desc dst-desc src-desc)
+                conv-bwd-weights-algo (convolution-bwd-filter-find-algo (handle fact) conv-desc
+                                                                        src-desc dst-desc filter-desc)]
     (->CUDnnConvolutionBlueprint fact conv-desc
                                  conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
                                  src-desc weights-desc filter-desc bias-desc dst-desc)))

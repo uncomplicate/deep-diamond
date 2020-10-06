@@ -11,10 +11,10 @@
   (:import [jcuda.jcudnn cudnnTensorFormat cudnnDataType cudnnActivationMode
             cudnnReduceTensorOp cudnnReduceTensorIndices cudnnNanPropagation
             cudnnIndicesType cudnnSoftmaxAlgorithm cudnnSoftmaxMode
-            cudnnConvolutionMode cudnnConvolutionFwdAlgo cudnnConvolutionFwdPreference
+            cudnnConvolutionMode cudnnMathType cudnnDeterminism cudnnConvolutionFwdAlgo #_cudnnConvolutionFwdPreference
             cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgo
-            cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterAlgo
-            cudnnConvolutionBwdFilterPreference cudnnPoolingMode]))
+            #_cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterAlgo
+            #_cudnnConvolutionBwdFilterPreference cudnnPoolingMode]))
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
@@ -170,7 +170,7 @@
     (dragan-says-ex "This algorithm is not supported by cuDNN."
                     {:algo algo :available (keys cudnn-convolution-fwd-algo)})))
 
-(def ^:const cudnn-convolution-fwd-preference
+#_(def ^:const cudnn-convolution-fwd-preference
   {:no-workspace cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_NO_WORKSPACE
    :fastest cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
    :workspace-limit cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT})
@@ -215,12 +215,12 @@
     6 :fft-tiling
     7 :count))
 
-(def ^:const cudnn-convolution-bwd-data-preference
+#_(def ^:const cudnn-convolution-bwd-data-preference
   {:no-workspace cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_NO_WORKSPACE
    :fastest cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_PREFER_FASTEST
    :workspace-limit cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT})
 
-(def ^:const cudnn-convolution-bwd-filter-preference
+#_(def ^:const cudnn-convolution-bwd-filter-preference
   {:no-workspace cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_NO_WORKSPACE
    :fastest cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_PREFER_FASTEST
    :workspace-limit cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT})
@@ -232,3 +232,25 @@
    :avg-exclude-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
    :avg-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING
    :avg-include-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING})
+
+(defn dec-math-type [^long math-type]
+  (case math-type
+    0 :default
+    1 :tensor-op
+    2 :tensor-op-allow-conversion
+    3 :fma))
+
+(def ^:const cudnn-math-type
+  {:default cudnnMathType/CUDNN_DEFAULT_MATH
+   :tensor-op cudnnMathType/CUDNN_TENSOR_OP_MATH
+   :tensor-op-allow-conversion cudnnMathType/CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
+   :fma cudnnMathType/CUDNN_FMA_MATH})
+
+(defn dec-determinism [^long determinism]
+  (case determinism
+    0 cudnnDeterminism/CUDNN_NON_DETERMINISTIC
+    1 cudnnDeterminism/CUDNN_DETERMINISTIC))
+
+(def ^:const cudnn-determinism
+  {:non-deterministic cudnnDeterminism/CUDNN_NON_DETERMINISTIC
+   :deterministic cudnnDeterminism/CUDNN_DETERMINISTIC})

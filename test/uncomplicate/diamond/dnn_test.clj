@@ -81,9 +81,9 @@
 
     (facts
      "Activation inference test."
-     (view-vctr (activ-infer)) => (vctr src-tz [0.6681877970695496])
-     (view-vctr (input activ-infer)) => (vctr src-tz [0.6681877970695496])
-     (view-vctr (output activ-infer)) => (vctr src-tz [0.6681877970695496]))
+     (first (native (view-vctr (activ-infer)))) => (roughly 0.6681877374649048)
+     (first (native (view-vctr (input activ-infer)))) => (roughly 0.6681877374649048)
+     (first (native (view-vctr (output activ-infer)))) => (roughly 0.6681877374649048))
 
     (transfer! [-0.5] src-tz)
 

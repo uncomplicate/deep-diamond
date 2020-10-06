@@ -21,7 +21,7 @@
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce boston-housing-raw
-  (csv/read-csv (slurp (io/resource "uncomplicate/diamond/functional/boston_housing_prices/boston-housing.csv"))))
+  (csv/read-csv (slurp (io/resource "boston-housing-prices/boston-housing.csv"))))
 
 (defonce boston-housing
   (doall (shuffle (map #(mapv (fn [^String x] (Double/valueOf x)) %) (drop 1 boston-housing-raw)))))
@@ -86,5 +86,5 @@
 (with-release [fact (neanderthal-factory)]
   (test-boston-regression fact))
 
-(with-release [fact (cudnn-factory)];;TODO
+(with-release [fact (cudnn-factory)]
   (test-boston-regression fact))

@@ -409,8 +409,7 @@ Please contribute towards making it possible, or use on of the supported types."
 (JCudnn/setExceptionsEnabled false)
 
 (defn ^:private create-module [src dtype]
-  (with-release [prog (compile! (program src)
-                                [(str "-DTYPE=" dtype) "-arch=compute_30" "-default-device"])]
+  (with-release [prog (compile! (program src) [(str "-DTYPE=" dtype) "-default-device"])]
     (module prog)))
 
 (let [src (slurp (io/resource "uncomplicate/diamond/internal/cuda/blas-plus.cu"))]
