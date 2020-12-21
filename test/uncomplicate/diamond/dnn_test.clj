@@ -369,7 +369,7 @@
                         crossentropy-cost (cost net train-tz :crossentropy)]
            (transfer! (range 16) input-tz)
            (transfer! [0.9 0.1] train-tz)
-           (train net crossentropy-cost 3 []) => (roughly 1.7 1))))
+           (train net crossentropy-cost 3 []) => (roughly 1.7 1.1))))
 
 (defn my-fn ^double [xs]
   (+ (math/sin (entry xs 0))

@@ -68,8 +68,8 @@
          (with-release [inf (infer net-infer test-images)
                         pred (dec-categories inf)
                         metrics (:metrics (classification-metrics test-labels-float pred))]
-           (:accuracy metrics) => (roughly 0.965 0.005)
-           (:f1 metrics) => (roughly 0.965 0.006)
+           (:accuracy metrics) => (roughly 0.97 0.005)
+           (:f1 metrics) => (roughly 0.97 0.005)
            (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 ;; "Elapsed time: 2074.615346 msecs"
