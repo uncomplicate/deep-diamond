@@ -257,7 +257,11 @@
          (api/backward cost!)
          (api/backward net hyperparam)))
      (net)
-     (cost!))))
+     (cost!)))
+  ([net in-batcher out-batcher cost! options]
+   (map (fn [[epochs hyperparam]]
+          (train* net in-batcher out-batcher cost! epochs hyperparam))
+        options)))
 
 (defn train
   ([net cost! epochs hyperparam]
@@ -268,7 +272,7 @@
   ([net cost! options]
    (if (keyword? cost!)
      (with-release [cost! (cost net cost!)]
-       (train* net cost! options))
+       (doall (train* net cost! options)))
      (train* net cost! options)))
   ([net in out cost! epochs hyperparam]
    (cond (keyword? cost!)
@@ -284,13 +288,13 @@
   ([net in out cost! options]
    (cond (keyword? cost!)
          (with-release [cost! (cost net cost!)]
-           (train net in out cost! options))
+           (doall (train net in out cost! options)))
          (satisfies? TensorContainer in)
          (with-release [in-batcher (batcher in (input net))]
-           (train net in-batcher out cost! options))
+           (doall (train net in-batcher out cost! options)))
          (satisfies? TensorContainer out)
          (with-release [out-batcher (batcher out (api/diff-input cost!))]
-           (train* net in out-batcher cost! options))
+           (doall (train* net in out-batcher cost! options)))
          :default (train* net in out cost! options))))
 
 (defn ^:private infer* [net in-batcher out-batcher]
