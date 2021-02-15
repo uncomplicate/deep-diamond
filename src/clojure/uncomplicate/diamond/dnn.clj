@@ -71,7 +71,9 @@
   ([dst-desc activ args]
    (fn
      ([fact src-desc]
-      (fully-connected fact src-desc dst-desc activ args))))
+      (fully-connected fact src-desc dst-desc activ args))
+     ([src-desc]
+      (fully-connected *diamond-factory* src-desc dst-desc activ args))))
   ([dst-desc activ]
    (fully-connected dst-desc activ nil)))
 
@@ -130,15 +132,15 @@
   ([dst-desc kernel-desc activ args]
    (fn
      ([fact src-desc]
-      (convolution fact src-desc kernel-desc dst-desc activ args))))
+      (convolution fact src-desc kernel-desc dst-desc activ args))
+     ([src-desc]
+      (convolution *diamond-factory* src-desc kernel-desc dst-desc activ args))))
   ([dst-desc kernel-desc activ]
    (convolution dst-desc kernel-desc activ nil)))
 
 (defn convo
   ([dst-desc kernel-desc activ args]
-   (fn
-     ([fact src-desc]
-      (convolution fact src-desc kernel-desc dst-desc activ args))))
+   (convolution dst-desc kernel-desc activ args))
   ([dst-desc kernel-desc activ]
    (convolution dst-desc kernel-desc activ nil)))
 
@@ -169,7 +171,9 @@
   ([kernel algo args]
    (fn
      ([fact src-desc]
-      (pooling fact src-desc kernel algo args))))
+      (pooling fact src-desc kernel algo args))
+     ([src-desc]
+      (pooling *diamond-factory* src-desc kernel algo args))))
   ([kernel algo]
    (pooling kernel algo nil)))
 
@@ -184,7 +188,12 @@
   ([sd]
    (fn
      ([fact src-desc]
-      (dropout fact src-desc sd))))
+      (dropout fact src-desc sd)))
+   (fn
+     ([fact src-desc]
+      (dropout fact src-desc sd))
+     ([src-desc]
+      (dropout *diamond-factory* src-desc sd))))
   ([]
    (dropout 1.0)))
 
