@@ -423,7 +423,7 @@
   (with-check
     (JCudnn/cudnnSetConvolution2dDescriptor
      cd (get pad 0 0) (get pad 1 0) (get stride 0 1) (get stride 1 1)
-     (get dilation 0 1) (get dilation 0 1) mode data-type)
+     (get dilation 0 1) (get dilation 1 1) mode data-type)
     cd))
 
 (defn convolution-nd-descriptor* [cd ^ints pad ^ints stride ^ints dilation mode data-type]
