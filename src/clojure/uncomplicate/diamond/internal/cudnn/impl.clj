@@ -550,7 +550,7 @@
   (with-check
     (JCudnn/cudnnSetPooling2dDescriptor
      pd mode nan-opt (get kernel 0 0) (get kernel 1 0) (get padding 0 1) (get padding 1 1)
-     (get strides 0 1) (get strides 0 1))
+     (get strides 0 1) (get strides 1 1))
     pd))
 
 (defn pooling-nd-descriptor* [pd mode nan-opt ^ints kernel ^ints stride ^ints padding]
