@@ -34,6 +34,7 @@
                       Offset DiffTransfer diff-input diff-output]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
+             [tensor :as dnnl-tensor]
              [protocols :as dnnl :refer [data]]
              [core :as dnnl-core :refer [memory-desc]]]
             [uncomplicate.diamond.internal.cudnn
