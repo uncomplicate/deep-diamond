@@ -6,15 +6,15 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.19.1"
+(defproject uncomplicate/deep-diamond "0.20.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.10.1"]
+  :dependencies [[org.clojure/clojure "1.10.3"]
                  [uncomplicate/neanderthal "0.39.0"]
-                 [org.bytedeco/dnnl-platform "1.6.2-1.5.4"]
+                 [org.bytedeco/dnnl-platform "2.1.1-1.5.5"]
                  [org.jcuda/jcudnn "11.1.1"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
@@ -24,7 +24,7 @@
                                  *assert* false
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[midje "1.9.9"]
+                   :dependencies [[midje "1.9.10"]
                                   [org.clojure/data.csv "1.0.0"]]}}
 
   :repositories [["snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots/"

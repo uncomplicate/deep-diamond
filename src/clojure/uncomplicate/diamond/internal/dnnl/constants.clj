@@ -71,28 +71,43 @@
     3 :ab
     4 :abc
     5 :abcd
-    6 :abcde
-    7 :abcdef
-    8 :abdc
-    9 :abdec
-    10 :acb
-    11 :acbde
-    12 :acbdef
-    13 :acdb
-    14 :acdeb
-    15 :ba
-    16 :bac
-    17 :bacd
-    18 :bacde
-    19 :bca
-    20 :bcda
-    21 :bcdea
-    22 :cba
-    23 :cdba
-    24 :dcab
-    25 :cdeba
-    26 :decab
-    27 :defcab
+    6 :acbd
+    7 :abcde
+    8 :abcdef
+    9 :abcdefg
+    10 :abcdefgh
+    11 :abcdefghi
+    12 :abcdefghij
+    13 :abcdefghijk
+    14 :abcdefghijkl
+    15 :abdc
+    16 :abdec
+    17 :acb
+    18 :acbde
+    19 :acbdef
+    20 :acdb
+    21 :acdeb
+    22 :ba
+    23 :bac
+    24 :bacd
+    25 :bacde
+    26 :bca
+    27 :bcda
+    28 :bcdea
+    29 :cba
+    30 :cdba
+    31 :dcab
+    32 :cdeba
+    33 :decab
+    34 :defcab
+    35 :abced
+    36 :abcdfe
+    37 :abcdegf
+    38 :abcdefhg
+    39 :abcdefgih
+    40 :abcdefghji
+    41 :abcdefghikj
+    42 :abcdefghijlk
     (if (< 28 format dnnl/dnnl_format_tag_last) :opaque
         (dragan-says-ex "Unknown format." {:format format}))))
 
@@ -142,8 +157,15 @@
    :ab dnnl/dnnl_ab
    :abc dnnl/dnnl_abc
    :abcd dnnl/dnnl_abcd
+   :acbd dnnl/dnnl_acbd
    :abcde dnnl/dnnl_abcde
    :abcdef dnnl/dnnl_abcdef
+   :abcdefg dnnl/dnnl_abcdefg
+   :abcdefgh dnnl/dnnl_abcdefgh
+   :abcdefghi dnnl/dnnl_abcdefghi
+   :abcdefghij dnnl/dnnl_abcdefghij
+   :abcdefghijk dnnl/dnnl_abcdefghijk
+   :abcdefghijkl dnnl/dnnl_abcdefghijkl
    :abdc dnnl/dnnl_abdc
    :abdec dnnl/dnnl_abdec
    :acb dnnl/dnnl_acb
@@ -163,7 +185,15 @@
    :dcab dnnl/dnnl_dcab
    :cdeba dnnl/dnnl_cdeba
    :decab dnnl/dnnl_decab
-   :defcab dnnl/dnnl_defcab})
+   :defcab dnnl/dnnl_defcab
+   :abced dnnl/dnnl_abced
+   :abcdfe dnnl/dnnl_abcdfe
+   :abcdegf dnnl/dnnl_abcdegf
+   :abcdefhg dnnl/dnnl_abcdefhg
+   :abcdefgih dnnl/dnnl_abcdefgih
+   :abcdefghji dnnl/dnnl_abcdefghji
+   :abcdefghikj dnnl/dnnl_abcdefghikj
+   :abcdefghijlk dnnl/dnnl_abcdefghijlk})
 
 (defn dec-data-type [^long data-type]
   (case data-type
