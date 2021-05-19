@@ -31,7 +31,7 @@
                                 backward-diff Workspace inf-ws-size train-ws-size
                                 neanderthal-factory]]
              [utils :refer [transfer-weights-bias!]]])
-  (:import clojure.lang.IFn))
+  (:import [clojure.lang IFn AFn]))
 
 (deftype InnerProductInference [fact bluep ones b w a-1 z
                                 src-conn bias-tz weights-tz dst-tz]
@@ -74,7 +74,9 @@
   (invoke [_]
     (src-conn)
     (rk! 1.0 b ones (mm! 1.0 w a-1 0.0 z))
-    dst-tz))
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype InnerProductTraining [fact bluep ones prop-diff? b w a-1 z diff-w diff-b
                                src-conn bias-tz weights-tz dst-tz
@@ -133,6 +135,8 @@
     (src-conn)
     (rk! 1.0 b ones (mm! 1.0 w a-1 0.0 z))
     dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (src-conn)
@@ -223,7 +227,9 @@
         (->InnerProductTraining fact this (view ones) prop-diff?
                                 b w x a diff-w b
                                 src-conn bias-tz weights-tz dst-tz
-                                diff-weights-tz diff-src-conn)))))
+                                diff-weights-tz diff-src-conn))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn inner-product-blueprint
   ([fact src-desc dst-desc weights-type]
@@ -287,7 +293,9 @@
   IFn
   (invoke [_]
     (op)
-    (activ)))
+    (activ))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defmethod print-method InferenceLayer
   [layer ^java.io.Writer w]
@@ -355,6 +363,8 @@
   (invoke [_]
     (op)
     (activ))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (forward activ)
@@ -452,6 +462,8 @@
   (invoke [_]
     (op)
     (activ))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (forward activ)
@@ -558,7 +570,9 @@
                             {:optimization optimization}))]
       (training-layer fact this op-bluep activ-bluep src-tz prop-diff?)))
   (invoke [this prev-layer prop-diff?]
-    (.invoke this prev-layer prop-diff? :sgd)))
+    (.invoke this prev-layer prop-diff? :sgd))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn neanderthal-fc-blueprint [fact src-desc dst-desc activ alpha beta weights-type]
   (let [dst-shape (shape dst-desc)
@@ -597,7 +611,9 @@
     [])
   IFn
   (invoke [_]
-    (output prev-layer)))
+    (output prev-layer))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype GaussianDropoutLayer [fact bluep prev-layer ^double sd rand-state
                                mask-tz data-conn revert-data-conn]
@@ -640,6 +656,8 @@
   IFn
   (invoke [this]
     (input data-conn))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this _]
     (data-conn)
@@ -703,7 +721,9 @@
                   mask-tz (create-tensor fact (view data-desc) false)]
       (->GaussianDropoutLayer fact this prev-layer
                               sd (rng-state mask-tz)
-                              mask-tz data-conn revert-data-conn))))
+                              mask-tz data-conn revert-data-conn)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defmethod transfer! [IdentityLayer Object]
   [source destination]

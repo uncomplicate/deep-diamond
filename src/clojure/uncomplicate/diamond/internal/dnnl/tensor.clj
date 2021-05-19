@@ -36,7 +36,7 @@
              [constants :refer [entry-bytes]]
              [protocols :refer [DescProvider desc data ptr dnnl-engine]]])
   (:import org.bytedeco.javacpp.Pointer
-           [clojure.lang Seqable IFn]
+           [clojure.lang Seqable IFn AFn]
            [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable]
            org.bytedeco.dnnl.dnnl_memory_desc_t
            uncomplicate.diamond.tensor.TensorDescriptorImpl))
@@ -122,6 +122,8 @@
   (invoke [_ strm2]
     (execute! strm2 reorder reorder-args)
     out-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   ConnectorCreator
   (connector [this out-desc]
     (if (equal-desc? out-tz out-desc)
@@ -181,6 +183,8 @@
                          :dst-index dst-n :dst-cnt dst-cnt
                          :mb-size mb-size})))
     dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   ConnectorCreator
   (connector [this dst-desc]
     (if (equal-desc? dst-tz dst-desc)
@@ -229,6 +233,8 @@
         (batcher strm2 src-n dst-n)
         (recur (first cols) (rest cols) (inc dst-n))))
     (output batcher))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   ConnectorCreator
   (connector [this dst-desc]
     (if (equal-desc? (output batcher) dst-desc)
@@ -431,6 +437,8 @@
   IFn
   (invoke [this]
     this)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   DescProvider
   (desc [_]
     (desc tz-mem))

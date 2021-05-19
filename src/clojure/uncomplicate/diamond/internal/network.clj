@@ -9,7 +9,7 @@
                      diamond-factory native-diamond-factory DiffTransfer diff-input
                      diff-output diff-z parameters Workspace inf-ws-size train-ws-size
                      create-workspace *workspace*]])
-  (:import clojure.lang.IFn))
+  (:import [clojure.lang IFn AFn]))
 
 (extend-type java.lang.Object
   Workspace
@@ -65,7 +65,9 @@
     (dragan-says-ex "Inference network does not calculate gradients."))
   IFn
   (invoke [this]
-    (peek (mapv invoke forward-layers))))
+    (peek (mapv invoke forward-layers)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defmethod print-method SequentialNetworkInference
   [nn ^java.io.Writer w]
@@ -123,6 +125,8 @@
     (doseq [layer forward-layers]
       (layer))
     (output last-layer))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this hyperparam]
     (doseq [layer forward-layers]
@@ -194,7 +198,9 @@
               (->SequentialNetworkInference input-tz forward-layers workspace)))))))
   (invoke [this]
     (let-release [input-tz (tensor fact src-desc)]
-      (this input-tz))))
+      (this input-tz)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn sequential-network [fact src-desc layers]
   (let-release [layers (reduce (fn [lrs layer-fn]

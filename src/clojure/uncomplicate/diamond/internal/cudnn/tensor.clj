@@ -41,7 +41,7 @@
              [core :refer [tensor-descriptor equal-desc? size dims strides transform-tensor]]
              [protocols :refer [DescProvider desc handle]]
              [constants :refer [cudnn-format]]])
-  (:import [clojure.lang IFn ExceptionInfo]
+  (:import [clojure.lang IFn ExceptionInfo AFn]
            [uncomplicate.neanderthal.internal.api Block Changeable DataAccessor VectorSpace]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor
@@ -181,6 +181,8 @@
                       (cast-prim (data-accessor out-tz) 0.0)
                       out-tz (buffer out-tz) (offset out-tz))
     out-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   ConnectorCreator
   (connector [this out-desc]
     (if (equal-desc? out-tz out-desc)
@@ -234,6 +236,8 @@
                         {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt
                          :mb-size mb-size})))
     dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   ConnectorCreator
   (connector [this dst-desc]
     (if (equal-desc? dst-tz dst-desc)
@@ -277,6 +281,8 @@
         (batcher cudnn-hdl src-n dst-n)
         (recur (first cols) (rest cols) (inc dst-n))))
     (output batcher))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   ConnectorCreator
   (connector [this dst-desc]
     (if (equal-desc? (output batcher) dst-desc)
@@ -409,6 +415,8 @@
   IFn
   (invoke [this]
     this)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   DescProvider
   (desc [_]
     cu-desc)

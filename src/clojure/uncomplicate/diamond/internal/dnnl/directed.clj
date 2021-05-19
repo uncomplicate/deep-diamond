@@ -34,7 +34,7 @@
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]]
             [uncomplicate.diamond.internal.neanderthal.directed
              :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint]])
-  (:import clojure.lang.IFn
+  (:import [clojure.lang IFn AFn]
            [uncomplicate.diamond.internal.neanderthal.directed
             DirectedLayerBlueprint GaussianDropoutBlueprint]))
 
@@ -57,7 +57,9 @@
   IFn
   (invoke [this]
     (execute! strm sum-prim sum-args)
-    dst-tz))
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype DnnlSumBlueprint [strm sum-pd]
   Releaseable
@@ -69,7 +71,9 @@
       (->DnnlSum strm src-and-dst sum-prim (args (buffer src-and-dst)))))
   (invoke [_ src-tz dst-tz]
     (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm dst-tz sum-prim (dnnl-args args dst-tz dst-tz src-tz)))))
+      (->DnnlSum strm dst-tz sum-prim (dnnl-args args dst-tz dst-tz src-tz))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn dnnl-sum-blueprint
   ([eng strm scale dst]
@@ -101,7 +105,9 @@
   IFn
   (invoke [_]
     (execute! strm eltwise-fwd-prim eltwise-fwd-args)
-    a-tz))
+    a-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype DnnlActivationTraining [fact strm bluep z-tz a-tz
                                  eltwise-fwd-prim eltwise-fwd-args
@@ -136,6 +142,8 @@
   (invoke [_]
     (execute! strm eltwise-fwd-prim eltwise-fwd-args)
     a-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (execute! strm eltwise-fwd-prim eltwise-fwd-args)
@@ -180,7 +188,9 @@
                   eltw-bwd-args (dnnl-args eltwise-bwd-args src-tz dst-tz src-tz)]
       (->DnnlActivationTraining fact (flow fact) this src-tz dst-tz
                                 eltw-fwd-prim eltw-fwd-args
-                                eltw-bwd-prim eltw-bwd-args))))
+                                eltw-bwd-prim eltw-bwd-args)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn dnnl-activation-blueprint
   ([fact eng src-desc diff-desc activ alpha beta]
@@ -231,6 +241,8 @@
   (invoke [_]
     (execute! strm softmax-fwd-prim softmax-fwd-args)
     z-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (execute! strm softmax-fwd-prim softmax-fwd-args)
@@ -275,7 +287,9 @@
                   softmax-bwd-args (dnnl-args softmax-bwd-args src-tz diff-tz src-tz)]
       (->DnnlSoftmaxTraining fact (flow fact) this src-tz diff-tz
                              softmax-fwd-prim softmax-fwd-args
-                             softmax-bwd-prim softmax-bwd-args))))
+                             softmax-bwd-prim softmax-bwd-args)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn dnnl-softmax-blueprint [fact eng src-desc diff-desc]
   (let [src-desc (desc src-desc)
@@ -336,7 +350,9 @@
   (invoke [_]
     (src-conn)
     (execute! strm fwd-prim fwd-args)
-    dst-tz))
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype DnnlProductTraining [fact strm bluep
                               bias-tz weights-tz dst-tz
@@ -407,6 +423,8 @@
     (weights-conn)
     (execute! strm fwd-prim fwd-args)
     dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (src-conn)
@@ -537,7 +555,9 @@
                                fwd-prim fwd-args
                                bwd-src-conn diff-dst-conn diff-weights-conn
                                bwd-weights-prim bwd-weights-args
-                               nil nil nil nil nil)))))
+                               nil nil nil nil nil))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn dnnl-inner-product-blueprint
   ([fact eng src-desc dst-desc weights-type]
@@ -618,7 +638,9 @@
   (invoke [_]
     (connect-output)
     (execute! strm sum-prim sum-args)
-    (cost a-y)))
+    (cost a-y))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn dnnl-universal-cost [eng strm prev-layer train-tz cost]
   (let [train-desc (desc train-tz)]
@@ -662,7 +684,9 @@
   IFn
   (invoke [_]
     (connect-output)
-    (cost y a)))
+    (cost y a))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn dnnl-custom-cost [eng strm prev-layer train-tz cost]
   (let [train-desc (desc train-tz)]
@@ -748,7 +772,9 @@
   (invoke [_]
     (src-conn)
     (execute! strm pooling-fwd-prim pooling-fwd-args)
-    dst-tz))
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype DnnlPoolingTrainingLayer [fact strm bluep src-conn dst-tz workspace-tz
                                    pooling-fwd-prim pooling-fwd-args
@@ -793,6 +819,8 @@
     (src-conn)
     (execute! strm pooling-fwd-prim pooling-fwd-args)
     dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     this)
@@ -872,7 +900,9 @@
                                       pool-bwd-prim pool-bwd-args))
         (->DnnlPoolingTrainingLayer fact (flow fact) this src-conn dst-tz workspace-tz
                                     pool-train-prim pool-train-args
-                                    nil nil nil nil)))))
+                                    nil nil nil nil))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn dnnl-pooling-blueprint
   [fact eng src-desc dst-desc algo strides kernel padding-l padding-r]

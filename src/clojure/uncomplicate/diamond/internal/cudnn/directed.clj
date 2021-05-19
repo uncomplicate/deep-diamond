@@ -25,7 +25,7 @@
              [tensor :refer [cudnn-tensor-desc cudnn-tensor]]]
             [uncomplicate.diamond.internal.neanderthal.directed
              :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint]])
-  (:import clojure.lang.IFn
+  (:import [clojure.lang IFn AFn]
            [uncomplicate.diamond.internal.neanderthal.directed
             InnerProductBlueprint DirectedLayerBlueprint GaussianDropoutBlueprint]))
 
@@ -45,14 +45,18 @@
     (release dst-tz))
   IFn
   (invoke [this]
-    (axpby! scale-src src-tz scale-dst dst-tz)))
+    (axpby! scale-src src-tz scale-dst dst-tz))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype CUDnnSumBlueprint [cudnn-hdl scale-src scale-dst]
   IFn
   (invoke [this src-and-dst]
     (->CUDnnSum cudnn-hdl scale-src src-and-dst scale-dst src-and-dst))
   (invoke [this src-desc dst-desc]
-    (->CUDnnSum cudnn-hdl scale-src src-desc scale-dst dst-desc)))
+    (->CUDnnSum cudnn-hdl scale-src src-desc scale-dst dst-desc))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn cudnn-sum-blueprint
   ([cudnn-hdl scale]
@@ -86,7 +90,9 @@
       (activation-forward cudnn-hdl activation-desc
                           one a-tz (buffer a-tz)
                           zero a-tz (buffer a-tz)))
-    a-tz))
+    a-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype CUDnnLinearActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero]
   Releaseable
@@ -117,6 +123,8 @@
   (invoke [_]
     (copy! z-tz a-tz)
     a-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (copy! z-tz a-tz)
@@ -158,6 +166,8 @@
     (activation-forward cudnn-hdl activation-desc
                         one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
     a-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (activation-forward cudnn-hdl activation-desc
@@ -211,7 +221,9 @@
       :default
       (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz (view dst-tz)
                                  (cast-prim (data-accessor src-tz) 1.0)
-                                 (cast-prim (data-accessor dst-tz) 0.0)))))
+                                 (cast-prim (data-accessor dst-tz) 0.0))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 ;; ================================ Softmax =============================================
 
@@ -237,7 +249,9 @@
   (invoke [_]
     (softmax-forward cudnn-hdl :accurate :instance
                      one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
-    z-tz))
+    z-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype CUDnnSoftmaxTraining [cudnn-hdl bluep z-tz da-tz one zero]
   Releaseable
@@ -269,6 +283,8 @@
     (softmax-forward cudnn-hdl :accurate :instance
                      one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
     z-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (softmax-forward cudnn-hdl :accurate :instance
@@ -309,7 +325,9 @@
   (invoke [this src-tz dst-tz]
     (->CUDnnSoftmaxTraining (handle fact) this src-tz (view dst-tz)
                             (cast-prim (data-accessor src-tz) 1.0)
-                            (cast-prim (data-accessor dst-tz) 0.0))))
+                            (cast-prim (data-accessor dst-tz) 0.0)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn cudnn-activ-blueprint [fact data-desc activ coef]
   (if (= :softmax activ)
@@ -352,7 +370,9 @@
   (invoke [_]
     (connect-output)
     (axpy! -1.0 y a-y)
-    (cost a-y)))
+    (cost a-y))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn cudnn-universal-cost [prev-layer train-tz cost]
   (let [train-desc (desc train-tz)]
@@ -396,7 +416,9 @@
   IFn
   (invoke [_]
     (connect-output)
-    (cost y a)))
+    (cost y a))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn cudnn-custom-cost [prev-layer train-tz cost]
   (let [train-desc (desc train-tz)]
@@ -451,7 +473,9 @@
                      one (output src-conn) (buffer (output src-conn))
                      filter-desc (buffer weights-tz) zero dst-tz (buffer dst-tz) workspace)
     (add-tensor cudnn-hdl one bias-tz (buffer bias-tz) one dst-tz (buffer dst-tz))
-    dst-tz))
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype CUDnnConvolutionTraining [fact cudnn-hdl bluep da one zero
                                    prop-diff? conv-desc filter-desc
@@ -505,6 +529,8 @@
   (invoke [this]
     (forward this)
     dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (src-conn)
@@ -631,7 +657,9 @@
                                       (:algo conv-fwd-algo) (:algo conv-bwd-data-algo) (:algo conv-bwd-weights-algo)
                                       src-conn bias-tz weights-tz dst-tz
                                       diff-weights-tz diff-src-conn
-                                      *workspace*))))))
+                                      *workspace*)))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn cudnn-convolution-op-blueprint
   [fact src-desc weights-desc dst-desc strides padding dilation]
@@ -704,7 +732,9 @@
   (invoke [_]
     (pooling-forward cudnn-hdl pooling-desc
                      one src-tz (buffer src-tz) zero dst-tz (buffer dst-tz))
-    dst-tz))
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype CUDnnPoolingTrainingLayer [fact cudnn-hdl bluep pooling-desc
                                     src-tz dst-tz diff-dst-tz
@@ -741,6 +771,8 @@
   (invoke [this]
     (forward this nil)
     dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     this)
@@ -804,7 +836,9 @@
                                    (view (output prev-layer)) dst-tz diff-dst-tz
                                    (cast-prim (data-accessor dst-tz) 1.0)
                                    (cast-prim (data-accessor dst-tz) 0.0)
-                                   prop-diff?))))
+                                   prop-diff?)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (defn cudnn-pooling-blueprint
   [fact src-desc dst-desc algo strides kernel padding]
