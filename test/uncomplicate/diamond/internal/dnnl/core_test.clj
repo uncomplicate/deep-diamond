@@ -35,7 +35,7 @@
          (engine 0 :any) => (throws ExceptionInfo)))
 
 (facts "Memory descriptor by strides."
-       (with-release [strds [120 3 4 5]
+       (with-release [strds [120 1 20 4]
                       dimensions [2 3 4 5]
                       md (memory-desc dimensions :float strds)]
          (data-type md) => :float
@@ -328,7 +328,7 @@
        (with-release [eng (engine)
                       s (stream eng)
                       src-desc (memory-desc [2 2] :float :nc)
-                      weights-desc (memory-desc [3 2] :float :any)
+                      weights-desc (memory-desc [3 2] :float :io)
                       bias-desc (memory-desc [3] :float :x)
                       dst-desc (memory-desc [2 3] :float :nc)
                       ip-desc (inner-product-fwd-desc :training src-desc weights-desc bias-desc dst-desc)
@@ -371,7 +371,7 @@
          dst-vec => (fv 2.4 3.9 5.4 1.5 2.7 3.9)
          diff-src-vec => (fv 4)
          (execute! s ip-bwd-data ip-bwd-data-args) => s
-         diff-src-vec => (fv 0.51 0.64000004529953 0.9 1.2)
+         diff-src-vec => (fv 0.320000022649765 0.7100000381469727 0.6000000238418579 1.5)
          (execute! s ip-bwd-weights ip-bwd-weights-args) => s
          diff-weights-vec => (fv 1.4 1.6 1.6 1.9000000953674316 2.6 3.4)
          diff-bias-vec => (fv 1.2 1.3 1.8))

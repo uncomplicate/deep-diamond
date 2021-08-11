@@ -39,13 +39,10 @@
             DirectedLayerBlueprint GaussianDropoutBlueprint]))
 
 (defn dnnl-contiguous-desc [md]
-  (let-release [shape (dims md)
-                why-md (memory-desc shape (data-type md) (strides md))]
-    (if (and (= :float (data-type why-md))
-             (= (size why-md) (apply * Float/BYTES shape)))
-      why-md
-      (do (release why-md)
-          (memory-desc shape :float (default-strides shape))))))
+  (let [shape (dims md)]
+    (if (= (size md) (apply * Float/BYTES shape))
+      (dnnl/clone-desc md)
+      (memory-desc (dims md) :float (default-strides shape)))))
 
 ;; ================================ Sum ======================================
 

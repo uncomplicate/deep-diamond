@@ -148,6 +148,16 @@
   ^long [mem-desc]
   (.ndims ^dnnl_memory_desc_t (desc mem-desc)))
 
+(defn permute-axes
+  "Creates a new memory descriptor from the existing descriptor, but permutes axes according to `permutations`."
+  [in-desc permutations]
+  (permute-axes* (desc in-desc) (int-array permutations)))
+
+(defn clone-desc
+  "Clones a memory descriptor."
+  [in-desc]
+  (permute-axes* (desc in-desc) (int-array (range (ndims in-desc)))))
+
 (defn dims
   "Queries the dimensions of a memory descriptor."
   [mem-desc]

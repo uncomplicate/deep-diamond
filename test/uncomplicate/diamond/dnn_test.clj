@@ -178,7 +178,7 @@
                  fc (fc-bluep input-tz false :adam)
                  train-tz (tensor fact [1 2] :float :nc)
                  fc-output (cost fc train-tz :quadratic)]
-    (facts "Fully connected training layer"
+    (facts "Fully connected training layer - adam"
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
            (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
            (transfer! [-0.1 0.2] (bias fc))

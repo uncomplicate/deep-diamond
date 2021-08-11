@@ -61,6 +61,9 @@
     17 :logsoftmax
     18 :matmul
     19 :resampling
+    20 :pooling-v2
+    21 :reduction
+    22 :prelu
     (dragan-says-ex "Unknown primitive kind." {:primitive-kind primitive-kind})))
 
 (defn dec-format [^long format]
@@ -139,19 +142,26 @@
    :ihwo dnnl/dnnl_ihwo
    :iohw dnnl/dnnl_iohw
    :oidhw dnnl/dnnl_oidhw
+   :iodhw dnnl/dnnl_iodhw
    :dhwio dnnl/dnnl_dhwio
    :odhwi dnnl/dnnl_odhwi
    :idhwo dnnl/dnnl_idhwo
    :goiw dnnl/dnnl_goiw
+   :gowi dnnl/dnnl_gowi
+   :wigo dnnl/dnnl_wigo
    :goihw dnnl/dnnl_goihw
    :hwigo dnnl/dnnl_hwigo
    :giohw dnnl/dnnl_giohw
    :goidhw dnnl/dnnl_goidhw
+   :giodhw dnnl/dnnl_giodhw
+   :dhwigo dnnl/dnnl_dhwigo
    :tnc dnnl/dnnl_tnc
    :ntc dnnl/dnnl_ntc
    :ldnc dnnl/dnnl_ldnc
    :ldigo dnnl/dnnl_ldigo
    :ldgoi dnnl/dnnl_ldgoi
+   :ldio dnnl/dnnl_ldio
+   :ldoi dnnl/dnnl_ldoi
    :ldgo dnnl/dnnl_ldgo
    :a dnnl/dnnl_a
    :ab dnnl/dnnl_ab
@@ -251,9 +261,13 @@
    :gelu-tanh dnnl/dnnl_eltwise_gelu_tanh
    :gelu-erf dnnl/dnnl_eltwise_gelu_erf
    :swish dnnl/dnnl_eltwise_swish
+   :hardswish dnnl/dnnl_eltwise_hardswish
    :log dnnl/dnnl_eltwise_log
    :clip dnnl/dnnl_eltwise_clip
    :pow dnnl/dnnl_eltwise_pow
+   :logsigmoid dnnl/dnnl_eltwise_logsigmoid
+   :mish dnnl/dnnl_eltwise_mish
+   :clip-v2 dnnl/dnnl_eltwise_clip_v2
    :relu-dst-bwd dnnl/dnnl_eltwise_relu_use_dst_for_bwd
    :exp-dst-bwd dnnl/dnnl_eltwise_exp_use_dst_for_bwd
    :tanh-dst-bwd dnnl/dnnl_eltwise_tanh_use_dst_for_bwd
@@ -261,6 +275,7 @@
    :square-dst-bwd dnnl/dnnl_eltwise_sqrt_use_dst_for_bwd
    :logistic-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd
    :sigmoid-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd
+   :clip-v2-dst-bwd dnnl/dnnl_eltwise_clip_v2_use_dst_for_bwd
    :round dnnl/dnnl_eltwise_round})
 
 (defn entry-bytes ^long [data-type]
@@ -278,7 +293,11 @@
 (def ^:const dnnl-convolution-alg-kind
   {:auto dnnl/dnnl_convolution_auto
    :direct dnnl/dnnl_convolution_direct
-   :winograd dnnl/dnnl_convolution_direct})
+   :winograd dnnl/dnnl_convolution_winograd})
+
+(def ^:const dnnl-deconvolution-alg-kind
+  {:direct dnnl/dnnl_deconvolution_direct
+   :winograd dnnl/dnnl_deconvolution_winograd})
 
 (def ^:const dnnl-pooling-alg-kind
   {:max dnnl/dnnl_pooling_max
@@ -297,4 +316,12 @@
   {:add dnnl/dnnl_binary_add
    :mul dnnl/dnnl_binary_mul
    :max dnnl/dnnl_binary_max
-   :min dnnl/dnnl_binary_min})
+   :min dnnl/dnnl_binary_min
+   :div dnnl/dnnl_binary_div
+   :sub dnnl/dnnl_binary_sub
+   :ge dnnl/dnnl_binary_ge
+   :gt dnnl/dnnl_binary_gt
+   :le dnnl/dnnl_binary_le
+   :lt dnnl/dnnl_binary_lt
+   :eq dnnl/dnnl_binary_eq
+   :ne dnnl/dnnl_binary_ne})

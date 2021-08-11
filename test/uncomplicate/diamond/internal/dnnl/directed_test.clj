@@ -99,3 +99,16 @@
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
 ;; "Elapsed time: 4990.836368 msecs"
+
+
+
+#_(with-release [fact (dnnl-factory)]
+
+
+  (test-convolution-inference-relu fact)
+  ;;(test-convolution-inference fact)
+
+  ;; (test-pooling-avg fact)
+  ;; (test-sequential-network-convolution-adam fact)
+  ;; (test-gaussian-dropout fact)
+  )

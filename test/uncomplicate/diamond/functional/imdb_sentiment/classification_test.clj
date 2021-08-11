@@ -98,7 +98,7 @@
     (facts "Adam gradient descent - IMDB sentiment classification."
            (time (train net x-batcher y-batcher crossentropy-cost 5 [])) => (roughly 0.3 0.2)
            (transfer! net net-infer)
-           (binary-accuracy! y-mb-tz (net-infer)) => (roughly 1 0.20))))
+           (binary-accuracy! y-mb-tz (net-infer)) => (roughly 1 0.2))))
 
 (with-release [fact (dnnl-factory)]
   (test-imdb-classification fact))
