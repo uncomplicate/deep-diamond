@@ -98,8 +98,8 @@
                           native-inf (native inf)
                           pred (dec-categories native-inf)
                           metrics (:metrics (classification-metrics test-labels-float pred))]
-             (:accuracy metrics) => (roughly 0.965 0.005)
-             (:f1 metrics) => (roughly 0.965 0.005)
+             (:accuracy metrics) => (roughly 0.97 0.005)
+             (:f1 metrics) => (roughly 0.97 0.005)
              (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))))
 
 ;; "Elapsed time: 213.328266 msecs"

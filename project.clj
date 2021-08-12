@@ -18,7 +18,7 @@
                  [org.jcuda/jcudnn "11.4.1"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
-                             [lein-codox "0.10.6"]]
+                             [lein-codox "0.10.7"]]
                    :resource-paths ["data"]
                    :global-vars {*warn-on-reflection* true
                                  *assert* false

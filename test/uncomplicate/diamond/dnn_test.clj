@@ -158,19 +158,22 @@
            (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
            (transfer! [-0.1 0.2] (bias fc))
            (forward fc [nil 1 0 0 false]) => fc
-           (view-vctr (output fc)) => (vctr train-tz -0.8100000023841858 0.7299999594688416)
+           (nrm2 (axpy! -1 (view-vctr (output fc))
+                        (vctr train-tz -0.8100000023841858 0.7299999594688416))) => (roughly 0 0.0000001)
            (forward fc-output) => fc-output
            (transfer! [-0.71 -0.1] (view-vctr train-tz))
            (backward fc-output)
            (backward fc) => fc
            (backward fc [nil 1 0 0 false]) => fc
            (view-vctr input-tz) => (vctr train-tz -0.5 0 0.2 1.0 0.3 -0.69999999)
-           (view-vctr (weights fc))
-           => (vctr train-tz -0.15000000596046448 0.10000000149011612 0.2200000137090683
-                    -0.5999999642372131 -0.06999999284744263 0.0299999862909317
-                    0.6150000095367432 -0.699999988079071 -0.26600000262260437
-                    -0.7299999594688416 -0.04899999499320984 -0.11900001764297485)
-           (view-vctr (bias fc)) => (vctr train-tz 2.2351741790771484E-8 -0.6299999952316284))))
+           (nrm2 (axpy! -1 (view-vctr (weights fc))
+                        (vctr train-tz -0.15000000596046448 0.10000000149011612 0.2200000137090683
+                              -0.5999999642372131 -0.06999999284744263 0.0299999862909317
+                              0.6150000095367432 -0.699999988079071 -0.26600000262260437
+                              -0.7299999594688416 -0.04899999499320984 -0.11900001764297485)))
+           => (roughly 0 0.0000001)
+           (nrm2 (axpy! -1 (view-vctr (bias fc))
+                        (vctr train-tz 2.2351741790771484E-8 -0.6299999952316284))) => (roughly 0 0.0000001))))
 
 (defn test-fully-connected-training-adam [fact]
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -183,7 +186,8 @@
            (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
            (transfer! [-0.1 0.2] (bias fc))
            (forward fc []) => fc
-           (view-vctr (output fc)) => (vctr train-tz -0.8100000023841858 0.7299999594688416)
+           (nrm2 (axpy! -1 (view-vctr (output fc))
+                        (vctr train-tz -0.8100000023841858 0.7299999594688416))) => (roughly 0 0.0000001)
            (forward fc-output) => fc-output
            (transfer! [-0.71 -0.1] (view-vctr train-tz))
            (let [reflection-warn *warn-on-reflection*]
@@ -196,7 +200,8 @@
            (backward fc [1 1]) => fc
            (view-vctr input-tz) => (vctr train-tz -0.5 0 0.2 1.0 0.3 -0.69999999)
            (nrm2 (view-vctr (weights fc))) => (float 149791.78)
-           (view-vctr (bias fc)) => (vctr train-tz 2.2351741790771484E-8 -0.6299999952316284))))
+           (nrm2 (axpy! -1 (view-vctr (bias fc))
+                        (vctr train-tz 2.2351741790771484E-8 -0.6299999952316284)))))) => (roughly 0 0.0000001)
 
 (defn test-fully-connected-layer-1 [fact]
   (with-release [input-tz (tensor fact [1 1] :float :nc)
