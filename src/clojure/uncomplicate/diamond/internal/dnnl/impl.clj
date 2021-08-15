@@ -195,13 +195,6 @@
      (aset dims 0 n)
      (submemory-desc* parent-desc dims (long-array (alength dims))))))
 
-(defn permute-axes*
-  ([^dnnl_memory_desc_t in-desc ^ints permutations]
-   (let-release [res (dnnl_memory_desc_t.)]
-     (with-check
-       (dnnl/dnnl_memory_desc_permute_axes res in-desc permutations)
-       res))))
-
 (extend-type dnnl_memory_desc_t
   Info
   (info [this info-type]

@@ -490,9 +490,7 @@
                  conv-bluep (convolution fact [2 1 4 4] [1 1 3 3] [1] :linear)
                  ws (create-workspace fact (train-ws-size conv-bluep))]
     (binding [*workspace* ws]
-      (with-release [input-tz (tensor fact [2 1 4 4] :float :nchw)
-                     conv-bluep (convolution fact [2 1 4 4] [1 1 3 3] [1] :linear)
-                     conv (conv-bluep input-tz true)
+      (with-release [conv (conv-bluep input-tz true)
                      input-weights (connector (desc [1 1 3 3] :float :nchw) (weights conv))
                      output-weights (revert input-weights)
                      train-tz (tensor fact [2 1 2 2] :float :nchw)

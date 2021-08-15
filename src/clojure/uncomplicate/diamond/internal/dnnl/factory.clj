@@ -27,7 +27,7 @@
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc data DnnlEngineProvider]]
-             [core :refer [memory-desc engine stream memory dims size]]
+             [core :refer [memory-desc engine stream memory dims size primitive-cache-capacity!]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint
                                dnnl-inner-product-blueprint dnnl-fc-blueprint
@@ -358,6 +358,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-custom-cost eng strm prev-layer train-tz
                       (partial crossentropy-cost!
                                ((dims (output prev-layer)) 0)))))
+
+(primitive-cache-capacity! 0)
 
 (defn dnnl-factory
   ([eng strm]

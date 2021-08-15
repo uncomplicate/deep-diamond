@@ -325,3 +325,19 @@
    :lt dnnl/dnnl_binary_lt
    :eq dnnl/dnnl_binary_eq
    :ne dnnl/dnnl_binary_ne})
+
+(defn dec-format-kind [^long kind]
+  (case kind
+    1 :any
+    2 :blocked
+    3 :wino
+    4 :packed
+    0 :undef
+    :unknown))
+
+(def ^:const dnnl-format-kind
+  {:any dnnl/dnnl_format_kind_any
+   :blocked dnnl/dnnl_blocked
+   :wino dnnl/dnnl_format_kind_wino
+   :rnn-packed dnnl/dnnl_format_kind_rnn_packed
+   :undef dnnl/dnnl_format_kind_undef})

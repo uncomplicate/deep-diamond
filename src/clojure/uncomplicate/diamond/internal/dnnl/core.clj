@@ -51,6 +51,15 @@
   ([eng]
    (dec-engine-kind (engine-kind* (extract eng)))))
 
+(defn primitive-cache-capacity! [n]
+  (with-check (dnnl/dnnl_set_primitive_cache_capacity (int n))
+    n))
+
+(defn primitive-cache-capacity []
+  (let [res (int-array 1)]
+    (with-check (dnnl/dnnl_get_primitive_cache_capacity res)
+      (aget res 0))))
+
 ;; ===================== Stream ===============================================
 
 (defn stream
@@ -147,16 +156,6 @@
   "Queries the number of dimensions of a memory descriptor."
   ^long [mem-desc]
   (.ndims ^dnnl_memory_desc_t (desc mem-desc)))
-
-(defn permute-axes
-  "Creates a new memory descriptor from the existing descriptor, but permutes axes according to `permutations`."
-  [in-desc permutations]
-  (permute-axes* (desc in-desc) (int-array permutations)))
-
-(defn clone-desc
-  "Clones a memory descriptor."
-  [in-desc]
-  (permute-axes* (desc in-desc) (int-array (range (ndims in-desc)))))
 
 (defn dims
   "Queries the dimensions of a memory descriptor."

@@ -36,6 +36,7 @@
           :output-path "docs/codox"}
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-XX:+UseLargePages"
+                       #_"-XX:MaxDirectMemorySize=16g"
                        #_"--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]

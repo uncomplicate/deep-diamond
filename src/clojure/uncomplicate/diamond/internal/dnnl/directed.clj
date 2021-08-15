@@ -41,7 +41,7 @@
 (defn dnnl-contiguous-desc [md]
   (let [shape (dims md)]
     (if (= (size md) (apply * Float/BYTES shape))
-      (dnnl/clone-desc md)
+      md ;;TODO this should be somehow copied, perhaps...
       (memory-desc (dims md) :float (default-strides shape)))))
 
 ;; ================================ Sum ======================================
