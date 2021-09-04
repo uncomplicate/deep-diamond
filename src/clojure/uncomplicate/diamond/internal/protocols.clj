@@ -35,6 +35,7 @@
                           strides padding dilation alpha beta])
   (pooling-blueprint [this src-desc dst-desc algo strides kernel padding])
   (gaussian-dropout-blueprint [this src-desc sd])
+  (batch-norm-blueprint [this src-desc activ alpha beta])
   (create-workspace [this byte-size]))
 
 (defprotocol CostFactory

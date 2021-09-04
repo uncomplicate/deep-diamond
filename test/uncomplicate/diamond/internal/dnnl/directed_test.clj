@@ -67,7 +67,7 @@
          (backward ip-train) => ip-train
          (view-vctr (diff-weights ip-train)) => (fv -0.2)))
 
-(with-release [fact (dnnl-factory)]
+#_(with-release [fact (dnnl-factory)]
   (test-sum fact)
   (test-activation-relu fact)
   (test-activation-sigmoid fact)
@@ -94,7 +94,11 @@
   (test-pooling-max fact)
   (test-pooling-avg fact)
   (test-sequential-network-convolution-adam fact)
-  (test-gaussian-dropout fact))
+  (test-gaussian-dropout fact)
+  #_(test-batch-normalization fact))
+
+(with-release [fact (dnnl-factory)]
+  (test-batch-normalization fact))
 
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))

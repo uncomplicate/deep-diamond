@@ -19,7 +19,7 @@
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
              :refer [Transfer input output connector shape layout
-                     TensorDescriptor shape revert]]
+                     TensorDescriptor shape revert view-tz]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters
@@ -937,3 +937,204 @@
   (let-release [src-desc (desc src-desc)
                 mask-desc (dnnl-contiguous-desc src-desc)]
     (->GaussianDropoutBlueprint fact sd src-desc mask-desc)))
+
+;; ================================ Batch Normalization  ===========================================
+
+(deftype DnnlBatchNormalizationInference [fact strm bluep scaleshift-tz
+                                          a-tz gamma-tz beta-tz mean-tz var-tz;;TODO mean and var transfer
+                                          fwd-prim fwd-args]
+  Releaseable
+  (release [_]
+    (release a-tz)
+    (release scaleshift-tz)
+    (release mean-tz)
+    (release var-tz)
+    (release fwd-prim))
+  Info
+  (info [this]
+    {:scaleshift (info scaleshift-tz)
+     :a (info a-tz)})
+  (info [this info-type]
+    (case info-type
+      :scaleshift (info scaleshift-tz)
+      :a (info a-tz)
+      nil))
+  Transfer
+  (input [_]
+    a-tz)
+  (output [_]
+    a-tz)
+  Parameters
+  (weights [_]
+    gamma-tz)
+  (bias [_]
+    beta-tz)
+  ParametersSeq
+  (parameters [_]
+    [gamma-tz beta-tz mean-tz var-tz])
+  IFn
+  (invoke [_]
+    (execute! strm fwd-prim fwd-args)
+    a-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype DnnlBatchNormalizationTraining [fact strm bluep scaleshift-tz diff-scaleshift-tz
+                                         src-tz gamma-tz beta-tz dst-tz mean-tz var-tz
+                                         diff-gamma-tz diff-beta-tz post-diff-gamma-tz
+                                         fwd-prim fwd-args bwd-prim bwd-args]
+  Releaseable
+  (release [_]
+    (release scaleshift-tz)
+    (release diff-scaleshift-tz)
+    (release src-tz)
+    (release dst-tz)
+    (release mean-tz)
+    (release var-tz)
+    (release gamma-tz)
+    (release beta-tz)
+    (release diff-gamma-tz)
+    (release post-diff-gamma-tz)
+    (release diff-beta-tz)
+    (release fwd-prim)
+    (release fwd-args)
+    (release bwd-prim)
+    (release bwd-args))
+  Info
+  (info [this]
+    {:scaleshift (info scaleshift-tz)
+     :dst (info dst-tz)
+     :mean (info mean-tz)
+     :variance (info var-tz)})
+  (info [this info-type]
+    (case info-type
+      :scaleshift (info scaleshift-tz)
+      :dst (info dst-tz)
+      :mean (info mean-tz)
+      :variance (info var-tz)
+      nil))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    dst-tz)
+  DiffTransfer
+  (diff-input [_]
+    dst-tz)
+  (diff-output [_]
+    src-tz)
+  Parameters
+  (weights [_]
+    gamma-tz)
+  (bias [_]
+    beta-tz)
+  ParametersSeq
+  (parameters [_]
+    [gamma-tz beta-tz mean-tz var-tz])
+  DiffParameters
+  (diff-weights [_]
+    post-diff-gamma-tz)
+  IFn
+  (invoke [_]
+    (execute! strm fwd-prim fwd-args)
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
+  Backprop
+  (forward [this]
+    (execute! strm fwd-prim fwd-args)
+    this)
+  (backward [this]
+    (backward-diff this 1.0 0.0 1.0 0.0))
+  LinearBackprop
+  (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]
+    (execute! strm bwd-prim bwd-args)
+    (if (= 0.0 scal-g)
+      (when-not (= 1.0 scal-diff-w) (scal! scal-diff-w diff-gamma-tz))
+      (axpby! scal-diff-w diff-gamma-tz scal-g post-diff-gamma-tz))
+    (axpby! scal-diff-b diff-beta-tz scal-b beta-tz)
+    this))
+
+(deftype DnnlBatchNormalizationBlueprint [fact scaleshift-desc gamma-desc
+                                          bnorm-infer-pd bnorm-train-pd bnorm-bwd-pd]
+  ;; TODO Object hashCode and equals
+  Releaseable
+  (release [_]
+    (release bnorm-infer-pd)
+    (release bnorm-train-pd)
+    (release bnorm-bwd-pd))
+  Info
+  (info [this]
+    {});;TODO
+  (info [this info-type]
+    (case info-type
+      nil))
+  DescProvider
+  (desc [_]
+    (dst-md bnorm-train-pd))
+  TensorDescriptor
+  (shape [this]
+    (shape (desc this)))
+  (data-type [this]
+    (data-type (desc this)))
+  (layout [this]
+    (layout (desc this)))
+  IFn
+  (invoke [this src-tz]
+    (let-release [scaleshift-tz (dnnl-tensor fact scaleshift-desc)
+                  gamma-tz (view-tz scaleshift-tz gamma-desc)
+                  beta-tz (tz/offset! (view-tz scaleshift-tz gamma-desc) 1)
+                  mean-tz (dnnl-tensor fact gamma-desc)
+                  var-tz (dnnl-tensor fact gamma-desc)
+                  bnorm-fwd-prim (primitive bnorm-infer-pd)
+                  bnorm-fwd-args (dnnl-args batch-norm-fwd-args src-tz src-tz scaleshift-tz
+                                            mean-tz var-tz)]
+      (->DnnlBatchNormalizationInference fact (flow fact) this scaleshift-tz
+                                         src-tz gamma-tz beta-tz mean-tz var-tz
+                                         bnorm-fwd-prim bnorm-fwd-args)))
+  (invoke [this src-tz dst-tz _ post-process-diff?]
+    (let-release [scaleshift-tz (dnnl-tensor fact scaleshift-desc)
+                  diff-scaleshift-tz (dnnl-tensor fact scaleshift-desc)
+                  gamma-tz (view-tz scaleshift-tz gamma-desc)
+                  beta-tz (tz/offset! (view-tz scaleshift-tz gamma-desc) 1)
+                  mean-tz (dnnl-tensor fact gamma-desc)
+                  var-tz (dnnl-tensor fact gamma-desc)
+                  diff-gamma-tz (view-tz diff-scaleshift-tz gamma-desc)
+                  diff-beta-tz (tz/offset! (view-tz diff-scaleshift-tz gamma-desc) 1)
+                  post-diff-gamma-tz (if post-process-diff? (dnnl-tensor fact gamma-desc)
+                                         diff-gamma-tz)
+                  bnorm-fwd-prim (primitive bnorm-train-pd)
+                  bnorm-fwd-args (dnnl-args batch-norm-fwd-args src-tz src-tz scaleshift-tz
+                                            mean-tz var-tz)
+                  bnorm-bwd-prim (primitive bnorm-bwd-pd)
+                  bnorm-bwd-args (dnnl-args batch-norm-bwd-args src-tz src-tz scaleshift-tz
+                                            mean-tz var-tz dst-tz diff-scaleshift-tz)];;TODO check args order of batch-norm args and other args functions
+      (->DnnlBatchNormalizationTraining fact (flow fact) this scaleshift-tz diff-scaleshift-tz
+                                        src-tz gamma-tz beta-tz dst-tz mean-tz var-tz
+                                        diff-gamma-tz diff-beta-tz post-diff-gamma-tz
+                                        bnorm-fwd-prim bnorm-fwd-args
+                                        bnorm-bwd-prim bnorm-bwd-args)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn dnnl-batch-norm-op-blueprint
+  [fact eng data-desc]
+  (let [data-desc (desc data-desc)
+        c (get (dims data-desc) 1)
+        scaleshift-desc (memory-desc [2 c] :float :ab)
+        gamma-desc (memory-desc [1 c] :float :ab)]
+    (with-release [bnorm-infer-desc (batch-norm-fwd-desc :inference data-desc :scaleshift :global-stats)
+                   bnorm-train-desc (batch-norm-fwd-desc :training data-desc :scaleshift)
+                   bnorm-bwd-desc (batch-norm-bwd-desc :backward data-desc data-desc :scaleshift)]
+      (let-release [bnorm-infer-pd (primitive-desc eng bnorm-infer-desc)
+                    bnorm-train-pd (primitive-desc eng bnorm-train-desc)
+                    bnorm-bwd-pd (primitive-desc eng bnorm-bwd-desc bnorm-train-pd)]
+        (->DnnlBatchNormalizationBlueprint fact scaleshift-desc gamma-desc
+                                           bnorm-infer-pd bnorm-train-pd bnorm-bwd-pd)))))
+
+(defn dnnl-batch-norm-layer-blueprint [fact eng data-desc activ alpha beta]
+  (let-release [data-desc (memory-desc (shape data-desc) (or (tz/data-type data-desc) :float)
+                                       (or (tz/layout data-desc) (default-strides (shape data-desc))))
+                batch-norm-op-bluep (dnnl-batch-norm-op-blueprint fact eng data-desc)
+                activ-bluep (dnnl-activ-blueprint fact eng batch-norm-op-bluep activ alpha beta)]
+    (->DirectedLayerBlueprint fact :batch-normalization batch-norm-op-bluep activ-bluep)))

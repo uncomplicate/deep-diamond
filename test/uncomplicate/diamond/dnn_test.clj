@@ -21,7 +21,8 @@
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
              :refer [diff-weights forward backward layers diff-input diff-output
-                     weights bias *workspace* inf-ws-size train-ws-size create-workspace]]))
+                     weights bias *workspace* inf-ws-size train-ws-size create-workspace
+                     parameters]]))
 
 (defn test-sum [factory]
   (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
@@ -613,3 +614,24 @@
      "Dropout backward test."
      (backward drop-train nil)
      (view-vctr (div! (output drop-train) (.mask-tz drop-train))) => (vctr src-tz (repeat 32 1.0)))))
+
+(defn test-batch-normalization [fact]
+  (with-release [src-tz (tensor fact [2 1 2 2] :float :nchw)
+                 bnorm-bluep (batch-norm fact src-tz :linear nil)
+                 bnorm-infer (bnorm-bluep src-tz )]
+
+    (transfer! [-1 0 1 2 3 4 5 6] src-tz)
+    ;;(transfer! [0.5] (weights bnorm-infer))
+    ;;(transfer! [1.5] (bias bnorm-infer))
+    (doall (map transfer! [[0.5] [1.5] [2.5] [5.25]] (parameters bnorm-infer)))
+
+    (facts
+     "Batch normalization inference test."
+     (view-vctr (input bnorm-infer)) => (vctr src-tz [-1 0 1 2 3 4 5 6])
+     (view-vctr (bnorm-infer))
+     => (vctr src-tz [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
+                      1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
+     (view-vctr (output bnorm-infer))
+     => (vctr src-tz [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
+                      1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
+     (input bnorm-infer) => (output bnorm-infer))))

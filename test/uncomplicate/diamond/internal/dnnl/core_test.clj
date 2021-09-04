@@ -728,7 +728,7 @@
          (seq dst-vec) => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
                            1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586]))
 
-(facts "Batch normalization backward." ;;TODO check the numbers
+(facts "Batch normalization backward."
        (with-release [eng (engine)
                       s (stream eng)
                       data-desc (memory-desc [1 2 2 2] :float :nchw)

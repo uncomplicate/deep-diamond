@@ -310,6 +310,8 @@
   {:none dnnl/dnnl_normalization_flags_none
    :global-stats dnnl/dnnl_use_global_stats
    :scaleshift dnnl/dnnl_use_scaleshift
+   :scale dnnl/dnnl_use_scale
+   :shift dnnl/dnnl_use_shift
    :fuse-relu dnnl/dnnl_fuse_norm_relu})
 
 (def ^:const dnnl-binary-alg-kind

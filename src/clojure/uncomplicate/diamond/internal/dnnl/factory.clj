@@ -33,7 +33,7 @@
                                dnnl-inner-product-blueprint dnnl-fc-blueprint
                                dnnl-universal-cost dnnl-custom-cost
                                dnnl-convolution-layer-blueprint dnnl-pooling-blueprint
-                               dnnl-gaussian-dropout-blueprint]]])
+                               dnnl-gaussian-dropout-blueprint dnnl-batch-norm-layer-blueprint]]])
   (:import [uncomplicate.neanderthal.internal.host CBLAS LAPACK MKL]
            uncomplicate.neanderthal.internal.api.RealBufferAccessor
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor))
@@ -347,6 +347,8 @@ Please contribute towards making it possible, or use on of the supported types."
                             strides kernel padding padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (dnnl-gaussian-dropout-blueprint this src-desc sd))
+  (batch-norm-blueprint [this src-desc activ alpha beta]
+    (dnnl-batch-norm-layer-blueprint this eng src-desc activ alpha beta))
   (create-workspace [_ byte-size]
     (direct-buffer (max 1 (long byte-size))))
   CostFactory

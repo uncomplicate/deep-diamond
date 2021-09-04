@@ -188,14 +188,28 @@
   ([sd]
    (fn
      ([fact src-desc]
-      (dropout fact src-desc sd)))
-   (fn
-     ([fact src-desc]
       (dropout fact src-desc sd))
      ([src-desc]
       (dropout *diamond-factory* src-desc sd))))
   ([]
    (dropout 1.0)))
+
+(defn batch-norm
+  "TODO"
+  ([fact src-desc activ args]
+   (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
+         beta (or (:beta args) 0.0)]
+     (api/batch-norm-blueprint fact src-desc activ alpha beta)))
+  ([activ args]
+   (fn
+     ([fact src-desc]
+      (batch-norm fact src-desc activ args))
+     ([src-desc]
+      (batch-norm *diamond-factory* src-desc activ args))))
+  ([activ]
+   (batch-norm activ nil))
+  ([]
+   (batch-norm :linear nil)));;TODO change :linear to :identity
 
 (defn cost
   ([layer train-tz cost-kw]

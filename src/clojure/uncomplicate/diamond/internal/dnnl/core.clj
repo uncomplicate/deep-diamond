@@ -677,7 +677,7 @@
   "TODO"
   [prop-kind data-desc & flags]
   (batch-normalization-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
-                                     (desc data-desc) 1.0E-10
+                                     (desc data-desc) 1e-8
                                      (mask dnnl-normalization-flags flags)))
 
 (defn batch-norm-bwd-desc
@@ -685,9 +685,13 @@
   [prop-kind diff-data-desc data-desc & flags]
   (batch-normalization-backward-desc* (enc-keyword dnnl-backward-prop-kind prop-kind)
                                       (desc diff-data-desc) (desc data-desc)
-                                      1.0E-10 (mask dnnl-normalization-flags flags)))
+                                      1e-8 (mask dnnl-normalization-flags flags)))
 
 (defn batch-norm-fwd-args
+  ([src-and-dst]
+   (let-release [args (dnnl_exec_arg_t. 2)]
+     (args* args 0 dnnl/DNNL_ARG_SRC (extract src-and-dst))
+     (args* args 1 dnnl/DNNL_ARG_DST (extract src-and-dst))))
   ([src dst]
    (let-release [args (dnnl_exec_arg_t. 2)]
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src))
