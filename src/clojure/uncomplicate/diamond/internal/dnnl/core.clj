@@ -689,9 +689,7 @@
 
 (defn batch-norm-fwd-args
   ([src-and-dst]
-   (let-release [args (dnnl_exec_arg_t. 2)]
-     (args* args 0 dnnl/DNNL_ARG_SRC (extract src-and-dst))
-     (args* args 1 dnnl/DNNL_ARG_DST (extract src-and-dst))))
+   (batch-norm-fwd-args src-and-dst src-and-dst))
   ([src dst]
    (let-release [args (dnnl_exec_arg_t. 2)]
      (args* args 0 dnnl/DNNL_ARG_SRC (extract src))

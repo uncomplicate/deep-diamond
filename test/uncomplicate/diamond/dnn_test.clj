@@ -615,23 +615,53 @@
      (backward drop-train nil)
      (view-vctr (div! (output drop-train) (.mask-tz drop-train))) => (vctr src-tz (repeat 32 1.0)))))
 
-(defn test-batch-normalization [fact]
-  (with-release [src-tz (tensor fact [2 1 2 2] :float :nchw)
-                 bnorm-bluep (batch-norm fact src-tz :linear nil)
-                 bnorm-infer (bnorm-bluep src-tz )]
+(defn test-batch-normalization-inference [fact]
+  (with-release [input-tz (tensor fact [2 1 2 2] :float :nchw)
+                 bnorm-bluep (batch-norm fact input-tz :linear nil)
+                 bnorm-infer (bnorm-bluep input-tz)]
 
-    (transfer! [-1 0 1 2 3 4 5 6] src-tz)
-    ;;(transfer! [0.5] (weights bnorm-infer))
-    ;;(transfer! [1.5] (bias bnorm-infer))
+    (transfer! [-1 0 1 2 3 4 5 6] input-tz)
     (doall (map transfer! [[0.5] [1.5] [2.5] [5.25]] (parameters bnorm-infer)))
 
     (facts
      "Batch normalization inference test."
-     (view-vctr (input bnorm-infer)) => (vctr src-tz [-1 0 1 2 3 4 5 6])
+     (view-vctr (input bnorm-infer)) => (vctr input-tz [-1 0 1 2 3 4 5 6])
      (view-vctr (bnorm-infer))
-     => (vctr src-tz [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
-                      1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
+     => (vctr input-tz [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
+                        1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
      (view-vctr (output bnorm-infer))
-     => (vctr src-tz [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
-                      1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
+     => (vctr input-tz [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
+                        1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
      (input bnorm-infer) => (output bnorm-infer))))
+
+(defn test-batch-normalization-training [fact]
+  (with-release [input-tz (tensor fact [1 2 2 2] :float :nchw)
+                 bnorm-bluep (batch-norm fact input-tz :linear nil)
+                 bnorm-train (bnorm-bluep input-tz true)]
+
+    (transfer! [-1 0 1 2 3 4 5 6] input-tz)
+    (doall (map transfer! [[0.5 1.5] [1 1] [0 0] [0 0]] (parameters bnorm-infer)))
+
+    (facts
+     "Batch normalization forward test."
+
+     (doall (map transfer! [[0.5 1.4] [1 1] [0] [0]] (parameters bnorm-train)))
+     (view-vctr (input bnorm-train)) => (vctr input-tz [-1 0 1 2 3 4 5 6])
+     (forward bnorm-train [nil 1 0 0 false]) => bnorm-train
+     (seq (output bnorm-train))
+     => [0.32917964458465576 0.7763931751251221 1.223606824874878 1.6708203554153442
+         -1.0124611854553223 0.32917964458465576 1.6708203554153442 3.0124611854553223]
+     (map seq (parameters bnorm-train)) => [[0.5 1.5] [1 1] [0.5 4.5] [1.25 1.25]]
+
+     ;; (entry! (output pool-train) 0.0)
+     ;; (forward pool-train nil) => pool-train
+     ;; (view-vctr (input pool-train)) => (vctr input-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
+     ;;                                                 0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+     ;; (view-vctr (output pool-train)) => (vctr input-tz [35.25 8.25 21.0 56.25 35.25 21.0 8.25 56.25])
+     )
+    #_(facts
+     "Batch normalization backward test."
+     (entry! (diff-input pool-train) 2.0)
+     (backward pool-train nil)
+     (view-vctr (diff-output pool-train)) => (vctr input-tz (repeat 32 0.5)))
+    ))

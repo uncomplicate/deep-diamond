@@ -1104,7 +1104,7 @@
                   post-diff-gamma-tz (if post-process-diff? (dnnl-tensor fact gamma-desc)
                                          diff-gamma-tz)
                   bnorm-fwd-prim (primitive bnorm-train-pd)
-                  bnorm-fwd-args (dnnl-args batch-norm-fwd-args src-tz src-tz scaleshift-tz
+                  bnorm-fwd-args (dnnl-args batch-norm-fwd-args src-tz dst-tz scaleshift-tz
                                             mean-tz var-tz)
                   bnorm-bwd-prim (primitive bnorm-bwd-pd)
                   bnorm-bwd-args (dnnl-args batch-norm-bwd-args src-tz src-tz scaleshift-tz
