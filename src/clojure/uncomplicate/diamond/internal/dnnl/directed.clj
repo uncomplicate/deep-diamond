@@ -1107,8 +1107,8 @@
                   bnorm-fwd-args (dnnl-args batch-norm-fwd-args src-tz dst-tz scaleshift-tz
                                             mean-tz var-tz)
                   bnorm-bwd-prim (primitive bnorm-bwd-pd)
-                  bnorm-bwd-args (dnnl-args batch-norm-bwd-args src-tz src-tz scaleshift-tz
-                                            mean-tz var-tz dst-tz diff-scaleshift-tz)];;TODO check args order of batch-norm args and other args functions
+                  bnorm-bwd-args (dnnl-args batch-norm-bwd-args dst-tz src-tz scaleshift-tz
+                                            mean-tz var-tz src-tz diff-scaleshift-tz)];;TODO check args order of batch-norm args and other args functions
       (->DnnlBatchNormalizationTraining fact (flow fact) this scaleshift-tz diff-scaleshift-tz
                                         src-tz gamma-tz beta-tz dst-tz mean-tz var-tz
                                         diff-gamma-tz diff-beta-tz post-diff-gamma-tz

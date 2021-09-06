@@ -98,7 +98,8 @@
   #_(test-batch-normalization fact))
 
 (with-release [fact (dnnl-factory)]
-  (test-batch-normalization fact))
+  (test-batch-normalization-inference fact)
+  (test-batch-normalization-training fact))
 
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
