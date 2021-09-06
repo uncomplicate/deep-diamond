@@ -33,7 +33,7 @@
   (let [s (shape md)]
     (if (and (= :float (data-type md))
              (= (size md) (apply * Float/BYTES s)))
-      md
+      (view md)
       (cudnn-tensor-desc s :float (default-strides s)))))
 
 ;; ========================== Sum =======================================
@@ -861,9 +861,8 @@
 (extend-type GaussianDropoutBlueprint
   DescProvider
   (desc [this]
-    (view (.data-desc this))))
+    (view (.mask-desc this))))
 
 (defn cudnn-gaussian-dropout-blueprint [fact src-desc sd]
-  (let-release [src-desc (desc src-desc)
-                mask-desc (cudnn-contiguous-desc src-desc)]
-    (->GaussianDropoutBlueprint fact sd src-desc mask-desc)))
+  (let-release [mask-desc (cudnn-contiguous-desc (desc src-desc))]
+    (->GaussianDropoutBlueprint fact sd mask-desc)))

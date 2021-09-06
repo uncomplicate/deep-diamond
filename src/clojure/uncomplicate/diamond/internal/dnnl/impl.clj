@@ -38,7 +38,13 @@
           form# ~form]
       (if (= 0 status#)
         form#
-        (throw (dnnl-error status# (if (satisfies? Info form#) (info form#) (str form#))))))))
+        (throw (dnnl-error status# (if (satisfies? Info form#) (info form#) (str form#)))))))
+  ([status form details]
+   `(let [status# ~status
+          form# ~form]
+      (if (= 0 status#)
+        form#
+        (throw (dnnl-error status# ~details))))))
 
 (extend-type Pointer
   Releaseable
@@ -150,7 +156,8 @@
       (with-check
         (dnnl/dnnl_memory_desc_init_by_tag res (alength ^longs dims) ^longs dims
                                            ^long data-type tag)
-        res))))
+        res
+        {:tag (dec-format tag) :dims (vec dims) :data-type (dec-data-type data-type)}))))
 
 (extend-type java.lang.Integer
   BlockedDesc
@@ -159,7 +166,8 @@
       (with-check
         (dnnl/dnnl_memory_desc_init_by_tag res (alength ^longs dims) ^longs dims
                                            ^long data-type tag)
-        res))))
+        res
+        {:tag (dec-format tag) :dims (vec dims) :data-type (dec-data-type data-type)}))))
 
 (extend-type (class (long-array 0))
   BlockedDesc
@@ -168,7 +176,8 @@
       (with-check
         (dnnl/dnnl_memory_desc_init_by_strides res (alength ^longs dims) ^longs dims
                                                ^long data-type ^longs strides)
-        res))))
+        res
+        {:strides (vec strides) :dims (vec dims) :data-type (dec-data-type data-type)}))))
 
 (defn data-type* ^long [^dnnl_memory_desc_t mem-desc]
   (.data_type mem-desc))

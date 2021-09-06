@@ -57,7 +57,7 @@
   (data-type [this]
     (get this :data-type))
   (layout [this]
-    (or (get this :layout) (get this :format))))
+    (or (get this :layout) (get this :format) (get this :strides))))
 
 (defprotocol TensorContainer
   "An object that can be viewed as a tensor."

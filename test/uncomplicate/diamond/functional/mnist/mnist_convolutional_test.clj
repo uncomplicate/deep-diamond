@@ -8,7 +8,7 @@
             [uncomplicate.diamond
              [tensor :refer [tensor desc with-diamond]]
              [native :refer [map-tensor]]
-             [dnn :refer [dense convo pooling dropout network init! train infer]]
+             [dnn :refer [dense convo pooling dropout network init! train infer batch-norm]]
              [metrics :refer [classification-metrics]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
@@ -29,25 +29,27 @@
 (def test-labels-float (transfer! test-labels (tensor [10000] :float :x)))
 (def y-test (mnist/enc-categories test-labels-float))
 
-(with-release [net-bp (network (desc [128 1 28 28] :float :nchw)
-                               [(convo [32] [3 3] :relu)
-                                (convo [64] [3 3] :relu)
-                                (pooling [2 2] :max)
-                                (dropout)
-                                (dense [128] :relu)
-                                (dropout)
-                                (dense [10] :softmax)])
-               net (init! (net-bp :adam))
-               net-infer (net-bp)]
-  (facts "MNIST classification tests."
-         (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.02 0.1)
-         (transfer! net net-infer)
-         (with-release [inf (infer net-infer test-images)
-                        pred (mnist/dec-categories inf)
-                        metrics (:metrics (classification-metrics test-labels-float pred))]
-           (:accuracy metrics) => (roughly 0.985 0.005)
-           (:f1 metrics) => (roughly 0.985 0.005)
-           (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
+(with-diamond dnnl-factory []
+  (with-release [net-bp (network (desc [128 1 28 28] :float :nchw)
+                                 [(convo [32] [3 3] :relu)
+                                  (convo [64] [3 3] :relu)
+                                  (pooling [2 2] :max)
+                                  (dropout)
+                                  (dense [128] :relu)
+                                  ;;(batch-norm)
+                                  (dropout)
+                                  (dense [10] :softmax)])
+                 net (init! (net-bp :adam))
+                 net-infer (net-bp)]
+    (facts "MNIST classification tests."
+           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.02 0.1)
+           (transfer! net net-infer)
+           (with-release [inf (infer net-infer test-images)
+                          pred (mnist/dec-categories inf)
+                          metrics (:metrics (classification-metrics test-labels-float pred))]
+             (:accuracy metrics) => (roughly 0.985 0.005)
+             (:f1 metrics) => (roughly 0.985 0.005)
+             (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))))
 
 ;; "Elapsed time: 52966.299469 msecs"
 

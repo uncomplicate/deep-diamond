@@ -17,7 +17,7 @@
              [math :as math]]
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor connector transformer
-                             desc revert shape input output view-tz batcher]]
+                             desc shape input output view-tz batcher]]
              [dnn :refer [sum activation inner-product fully-connected
                           network init! train cost train]]
              [dnn-test :refer :all]]
@@ -67,7 +67,7 @@
          (backward ip-train) => ip-train
          (view-vctr (diff-weights ip-train)) => (fv -0.2)))
 
-#_(with-release [fact (dnnl-factory)]
+(with-release [fact (dnnl-factory)]
   (test-sum fact)
   (test-activation-relu fact)
   (test-activation-sigmoid fact)
@@ -95,7 +95,8 @@
   (test-pooling-avg fact)
   (test-sequential-network-convolution-adam fact)
   (test-gaussian-dropout fact)
-  #_(test-batch-normalization fact))
+  (test-batch-normalization-inference fact)
+  (test-batch-normalization-training fact))
 
 (with-release [fact (dnnl-factory)]
   (test-batch-normalization-inference fact)

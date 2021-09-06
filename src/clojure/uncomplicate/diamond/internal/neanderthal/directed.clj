@@ -600,18 +600,21 @@
 
 ;; ================================ Gaussian Dropout ======================================
 
-(deftype IdentityLayer [prev-layer]
+(deftype IdentityLayer [data-conn]
+  Releaseable
+  (release [_]
+    (release data-conn))
   Transfer
   (input [_]
-    (input prev-layer))
+    (input data-conn))
   (output [_]
-    (output prev-layer))
+    (output data-conn))
   ParametersSeq
   (parameters [_]
     [])
   IFn
   (invoke [_]
-    (output prev-layer))
+    (data-conn))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
@@ -642,10 +645,10 @@
   (input [_]
     (input data-conn))
   (output [_]
-    (input data-conn))
+    (output data-conn))
   DiffTransfer
   (diff-input [_]
-    (input data-conn))
+    (output data-conn))
   (diff-z [_]
     (diff-z prev-layer))
   (diff-output [_]
@@ -655,47 +658,43 @@
     [])
   IFn
   (invoke [this]
-    (input data-conn))
+    (data-conn))
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   Backprop
   (forward [this _]
     (data-conn)
     (mul! (output data-conn) (rand-normal! rand-state 1.0 sd mask-tz))
-    (revert-data-conn)
     this)
   (forward [this]
     this)
   (backward [this _]
     (data-conn)
     (mul! (output data-conn) mask-tz)
-    (revert-data-conn)
     this)
   (backward [this]
     this))
 
-(deftype GaussianDropoutBlueprint [fact ^double sd data-desc mask-desc]
+(deftype GaussianDropoutBlueprint [fact ^double sd mask-desc]
   Releaseable
   (release [_]
-    (release data-desc)
     (release mask-desc))
   Object
   (hashCode [_]
-    (-> (hash :gaussian-dropout) (hash-combine data-desc) (hash-combine mask-desc)))
+    (-> (hash :gaussian-dropout) (hash-combine mask-desc)))
   (equals [_ other]
     (and (instance? GaussianDropoutBlueprint other)
-         (= data-desc (.data-desc ^GaussianDropoutBlueprint other))
          (= mask-desc (.mask-desc ^GaussianDropoutBlueprint other))))
   (toString [this]
-    (pr-str {:shape (shape data-desc)
+    (pr-str {:shape (shape mask-desc)
              :topology :gaussian-dropout}))
   Info
   (info [x]
-    {:shape (shape data-desc)
+    {:shape (shape mask-desc)
      :topology :gaussian-dropout})
   (info [x info-type]
     (case info-type
-      :shape (shape data-desc)
+      :shape (shape mask-desc)
       :topology :gaussian-dropout
       nil))
   DiamondFactoryProvider
@@ -706,19 +705,20 @@
     this)
   TensorDescriptor
   (shape [this]
-    (shape data-desc))
+    (shape mask-desc))
   (data-type [this]
-    (data-type data-desc))
+    (data-type mask-desc))
   (layout [this]
-    (layout data-desc))
+    (layout mask-desc))
   IFn
   (invoke [this prev-layer]
-    (->IdentityLayer prev-layer))
+    (let-release [data-conn (connector (output prev-layer) (view mask-desc))]
+      (->IdentityLayer data-conn)))
   (invoke [this prev-layer _ _]
     (let-release [src-tz (output prev-layer)
-                  data-conn (connector src-tz data-desc)
+                  data-conn (connector src-tz (view mask-desc))
                   revert-data-conn (revert data-conn)
-                  mask-tz (create-tensor fact (view data-desc) false)]
+                  mask-tz (create-tensor fact (view mask-desc) false)]
       (->GaussianDropoutLayer fact this prev-layer
                               sd (rng-state mask-tz)
                               mask-tz data-conn revert-data-conn)))
