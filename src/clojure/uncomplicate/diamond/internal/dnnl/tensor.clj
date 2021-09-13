@@ -27,7 +27,8 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
                       neanderthal-factory tensor-engine native-diamond-factory Offset
-                      DiffTransfer diff-input diff-output create-tensor-desc layers parameters]]
+                      DiffTransfer diff-input diff-output create-tensor-desc layers parameters
+                      BlueprintProvider]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
@@ -441,6 +442,11 @@
     (AFn/applyToHelper this xs))
   DescProvider
   (desc [_]
+    (desc tz-mem))
+  BlueprintProvider
+  (inf-desc [_]
+    (desc tz-mem))
+  (train-desc [_]
     (desc tz-mem))
   TensorDescriptor
   (shape [_]
