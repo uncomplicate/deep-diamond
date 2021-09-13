@@ -109,6 +109,7 @@
 ;; This tests for SIGSEV regression from DNNL 2.1.1 -> 2.3
 ;; I suspect that the cause is DNNL's newly introduced primitive cache...
 ;; It is not fully fixed, but should not happen in normal use.
-#_(with-release [fact (dnnl-factory)]
+;; NO> the issue was caused by my bug. Blueprints should distinguish inf-desc and train-desc
+(with-release [fact (dnnl-factory)]
   (dotimes [i 10]
     (test-convolution-inference-relu fact)))

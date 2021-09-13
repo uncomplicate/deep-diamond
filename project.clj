@@ -13,7 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.10.3"]
-                 [uncomplicate/neanderthal "0.43.2"]
+                 [uncomplicate/neanderthal "0.43.3"]
                  [org.bytedeco/dnnl-platform "2.3-1.5.6"]
                  [org.jcuda/jcudnn "11.4.1"]]
 

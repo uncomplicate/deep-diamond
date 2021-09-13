@@ -29,7 +29,7 @@
                                 create-tensor activ-blueprint DiffTransfer diff-input
                                 diff-output diff-z create-tensor-desc LinearBackprop
                                 backward-diff Workspace inf-ws-size train-ws-size
-                                neanderthal-factory]]
+                                neanderthal-factory inf-desc train-desc]]
              [utils :refer [transfer-weights-bias!]]])
   (:import [clojure.lang IFn AFn]))
 
@@ -190,7 +190,12 @@
      :training {:src src-desc
                 :weights weights-desc
                 :dst dst-desc}})
-  TensorDescriptor
+  BlueprintProvider
+  (inf-desc [this]
+    dst-desc)
+  (train-desc [this]
+    dst-desc)
+  TensorDescriptor;;TODO try to remove this and not rely on it
   (shape [_]
     (shape dst-desc))
   (data-type [_]
@@ -275,7 +280,7 @@
   (diamond-factory [_]
     fact)
   BlueprintProvider
-  (blueprint [_]
+  (blueprint [_];;TODO remove
     bluep)
   Parameters
   (bias [_]
@@ -385,8 +390,8 @@
       this)))
 
 (defn sgd-layer [fact bluep op-bluep activ-bluep src-tz prop-diff?]
-  (let-release [z-tz (create-tensor fact op-bluep false)
-                a-tz (create-tensor fact activ-bluep false)
+  (let-release [z-tz (create-tensor fact (train-desc op-bluep) false)
+                a-tz (create-tensor fact (train-desc activ-bluep) false)
                 op (op-bluep src-tz z-tz prop-diff? true)
                 activ (activ-bluep z-tz a-tz)]
     (->SGDLayer fact bluep op activ (first (shape bluep))
@@ -493,8 +498,8 @@
       this)))
 
 (defn adam-layer [fact bluep op-bluep activ-bluep src-tz prop-diff?]
-  (let-release [z-tz (create-tensor fact op-bluep false)
-                a-tz (create-tensor fact activ-bluep false)
+  (let-release [z-tz (create-tensor fact (train-desc op-bluep) false)
+                a-tz (create-tensor fact (train-desc activ-bluep) false)
                 op (op-bluep src-tz z-tz prop-diff? false)
                 activ (activ-bluep z-tz a-tz)
                 w (view-vctr (weights op))
@@ -542,6 +547,10 @@
   BlueprintProvider
   (blueprint [this]
     this)
+  (inf-desc [this]
+    (inf-desc activ-bluep))
+  (train-desc [this]
+    (train-desc activ-bluep))
   TensorDescriptor
   (shape [_]
     (shape activ-bluep))
@@ -553,7 +562,7 @@
   (inf-ws-size [this]
     (max (long (inf-ws-size op-bluep)) (long (inf-ws-size activ-bluep))))
   (train-ws-size [this]
-    (max (long (train-ws-size op-bluep)) (long (inf-ws-size activ-bluep))))
+    (max (long (train-ws-size op-bluep)) (long (train-ws-size activ-bluep))))
   IFn
   (invoke [this prev-layer]
     (let-release [src-tz (output prev-layer)

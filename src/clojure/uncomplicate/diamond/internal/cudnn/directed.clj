@@ -17,7 +17,7 @@
               :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
                       blueprint create-tensor DiffTransfer diff-input diff-output diff-z
                       ParametersSeq Parameters DiffParameters LinearBackprop backward-diff
-                      Workspace inf-ws-size train-ws-size *workspace*]]
+                      Workspace inf-ws-size train-ws-size *workspace* inf-desc train-desc]]
              [utils :refer [transfer-weights-bias! default-strides]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
@@ -191,9 +191,11 @@
     (case info-type
       :activation activ
       nil))
-  DescProvider
-  (desc [_]
-    (view data-desc))
+  BlueprintProvider
+   (inf-desc [this]
+     (view data-desc))
+   (train-desc [this]
+     (view data-desc))
   TensorDescriptor
   (shape [_]
     (shape data-desc))
@@ -307,8 +309,10 @@
     (case info-type
       :activation :softmax
       nil))
-  DescProvider
-  (desc [_]
+  BlueprintProvider
+  (inf-desc [this]
+    (view data-desc))
+  (train-desc [this]
     (view data-desc))
   TensorDescriptor
   (shape [_]
@@ -615,8 +619,10 @@
   BlueprintProvider
   (blueprint [this]
     this)
-  DescProvider
-  (desc [_]
+  BlueprintProvider
+  (inf-desc [this]
+    (view dst-desc))
+  (train-desc [this]
     (view dst-desc))
   TensorDescriptor
   (shape [_]

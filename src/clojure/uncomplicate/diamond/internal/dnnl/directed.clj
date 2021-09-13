@@ -26,7 +26,7 @@
                       BlueprintProvider DiamondFactoryProvider DiffParameters
                       diff-weights Backprop forward backward blueprint
                       DiffTransfer diff-output diff-input diff-z
-                      LinearBackprop backward-diff]]
+                      LinearBackprop backward-diff inf-desc train-desc]]
              [utils :refer [transfer-weights-bias! default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -162,16 +162,18 @@
     (case info-type
       :activation activ
       nil))
-  DescProvider
-  (desc [_]
+  BlueprintProvider
+  (inf-desc [this]
+    (dst-md eltw-infer-pd))
+  (train-desc [this]
     (dst-md eltw-train-pd))
   TensorDescriptor
   (shape [this]
-    (shape (desc this)))
+    (shape (train-desc this)))
   (data-type [this]
-    (data-type (desc this)))
+    (data-type (train-desc this)))
   (layout [this]
-    (layout (desc this)))
+    (layout (train-desc this)))
   IFn
   (invoke [this src-tz]
     (let-release [eltw-fwd-prim (primitive eltw-infer-pd)
@@ -190,18 +192,19 @@
     (AFn/applyToHelper this xs)))
 
 (defn dnnl-activation-blueprint
-  ([fact eng src-desc diff-desc activ alpha beta]
-   (let [src-desc (desc src-desc)
+  ([fact eng inf-src-desc train-src-desc diff-desc activ alpha beta]
+   (let [inf-src-desc (desc inf-src-desc)
+         train-src-desc (desc train-src-desc)
          diff-desc (desc diff-desc)]
-     (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ src-desc alpha beta)
-                    eltw-train-desc (eltwise-fwd-desc :training activ src-desc alpha beta)
-                    eltw-bwd-desc (eltwise-bwd-desc activ diff-desc src-desc alpha beta)]
+     (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ inf-src-desc alpha beta)
+                    eltw-train-desc (eltwise-fwd-desc :training activ train-src-desc alpha beta)
+                    eltw-bwd-desc (eltwise-bwd-desc activ diff-desc train-src-desc alpha beta)]
        (let-release [eltw-infer-pd (primitive-desc eng eltw-infer-desc)
                      eltw-train-pd (primitive-desc eng eltw-train-desc)
                      eltw-bwd-pd (primitive-desc eng eltw-bwd-desc eltw-train-pd)]
          (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd)))))
   ([fact eng data-desc activ alpha beta]
-   (dnnl-activation-blueprint fact eng data-desc data-desc activ alpha beta)))
+   (dnnl-activation-blueprint fact eng data-desc data-desc data-desc activ alpha beta)))
 
 ;; ================================ Softmax =============================================
 
@@ -261,16 +264,18 @@
     (case info-type
       :activation :softmax
       nil))
-  DescProvider
-  (desc [_]
+  BlueprintProvider
+  (inf-desc [this]
+    (dst-md softmax-infer-pd))
+  (train-desc [this]
     (dst-md softmax-train-pd))
   TensorDescriptor
   (shape [this]
-    (shape (desc this)))
+    (shape (train-desc this)))
   (data-type [this]
-    (data-type (desc this)))
+    (data-type (train-desc this)))
   (layout [this]
-    (layout (desc this)))
+    (layout (train-desc this)))
   IFn
   (invoke [this src-tz]
     (let-release [softmax-fwd-prim (primitive softmax-infer-pd)
@@ -288,24 +293,25 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defn dnnl-softmax-blueprint [fact eng src-desc diff-desc]
-  (let [src-desc (desc src-desc)
+(defn dnnl-softmax-blueprint [fact eng inf-src-desc train-src-desc diff-desc]
+  (let [inf-src-desc (desc inf-src-desc)
+        train-src-desc (desc train-src-desc)
         diff-desc (desc diff-desc)]
-    (with-release [softmax-infer-desc (softmax-fwd-desc :inference src-desc 1);;TODO currently DNNL is optimized for 1
-                   softmax-train-desc (softmax-fwd-desc :training src-desc 1)
-                   softmax-bwd-desc (softmax-bwd-desc diff-desc src-desc 1)]
+    (with-release [softmax-infer-desc (softmax-fwd-desc :inference inf-src-desc 1);;TODO currently DNNL is optimized for 1
+                   softmax-train-desc (softmax-fwd-desc :training train-src-desc 1)
+                   softmax-bwd-desc (softmax-bwd-desc diff-desc train-src-desc 1)]
       (let-release [softmax-infer-pd (primitive-desc eng softmax-infer-desc)
                     softmax-train-pd (primitive-desc eng softmax-train-desc)
                     softmax-bwd-pd (primitive-desc eng softmax-bwd-desc softmax-train-pd)]
         (->DnnlSoftmaxBlueprint fact softmax-infer-pd softmax-train-pd softmax-bwd-pd)))))
 
 (defn dnnl-activ-blueprint
-  ([fact eng src-desc diff-desc activ alpha beta]
+  ([fact eng inf-src-desc train-src-desc diff-desc activ alpha beta]
    (if (= :softmax activ)
-     (dnnl-softmax-blueprint fact eng src-desc diff-desc)
-     (dnnl-activation-blueprint fact eng src-desc diff-desc activ alpha beta)))
+     (dnnl-softmax-blueprint fact eng inf-src-desc train-src-desc diff-desc)
+     (dnnl-activation-blueprint fact eng inf-src-desc train-src-desc diff-desc activ alpha beta)))
   ([fact eng data-desc activ alpha beta]
-   (dnnl-activ-blueprint fact eng data-desc data-desc activ alpha beta)))
+   (dnnl-activ-blueprint fact eng data-desc data-desc data-desc activ alpha beta)))
 
 ;; ================================ Inner Product & Convolution ====================================
 
@@ -492,8 +498,10 @@
      :training {:src (src-md train-pd)
                 :weights (weights-md train-pd)
                 :dst (dst-md train-pd)}})
-  DescProvider
-  (desc [_]
+  BlueprintProvider
+  (inf-desc [this]
+    (dst-md infer-pd))
+  (train-desc [this]
     (dst-md train-pd))
   IFn
   (invoke [this src-tz]
@@ -586,7 +594,7 @@
 
 ;; ================================ Directed Layer ==================================
 
-(extend-type DirectedLayerBlueprint
+#_(extend-type DirectedLayerBlueprint;;TODO remove
   DescProvider
   (desc [this]
     (desc (.activ-bluep this))))
@@ -596,7 +604,8 @@
                  dst-desc (memory-desc [(first (shape dst-desc)) (apply * (rest (shape dst-desc)))]
                                        (or (tz/data-type dst-desc) (tz/data-type src-desc)) :any)]
     (let-release [ip-bluep (dnnl-inner-product-blueprint fact eng src-desc dst-desc weights-type)
-                  activ-bluep (dnnl-activ-blueprint fact eng ip-bluep activ alpha beta)]
+                  activ-bluep (dnnl-activ-blueprint fact eng (inf-desc ip-bluep) (train-desc ip-bluep)
+                                                    (train-desc ip-bluep) activ alpha beta)]
       (->DirectedLayerBlueprint fact :fc ip-bluep activ-bluep))))
 
 ;; ============================= Cost Function ========================================
@@ -734,8 +743,13 @@
                                       (or (tz/data-type dst-desc) (data-type src-desc))
                                       :any)
                 convolution-bluep (dnnl-convolution-op-blueprint fact eng src-desc weights-desc
-                                                                 dst-desc strides dilation padding-l padding-r)
-                activ-bluep (dnnl-activ-blueprint fact eng convolution-bluep activ alpha beta)]
+                                                                 dst-desc strides dilation
+                                                                 padding-l padding-r)
+                activ-bluep (dnnl-activ-blueprint fact eng
+                                                  (inf-desc convolution-bluep)
+                                                  (train-desc convolution-bluep)
+                                                  (train-desc convolution-bluep)
+                                                  activ alpha beta)]
     (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep)))
 
 ;; ================================ Pooling =============================================
@@ -855,18 +869,17 @@
   (diamond-factory [_]
     fact)
   BlueprintProvider
-  (blueprint [this]
-    this)
-  DescProvider
-  (desc [_]
+  (inf-desc [this]
+    (dst-md pool-infer-pd))
+  (train-desc [this]
     (dst-md pool-train-pd))
   TensorDescriptor
   (shape [this]
-    (shape (desc this)))
+    (shape (train-desc this)))
   (data-type [this]
-    (data-type (desc this)))
+    (data-type (train-desc this)))
   (layout [this]
-    (layout (desc this)))
+    (layout (train-desc this)))
   IFn
   (invoke [this prev-layer]
     (let-release [src-tz (output prev-layer)
@@ -903,15 +916,19 @@
 
 (defn dnnl-pooling-blueprint
   [fact eng src-desc dst-desc algo strides kernel padding-l padding-r]
-  (let-release [src-desc (desc src-desc)
-                dst-desc (memory-desc (shape dst-desc)
-                                      (or (tz/data-type dst-desc) (data-type src-desc))
-                                      (or (tz/layout dst-desc) :any))]
-    (with-release [pool-infer-desc (pooling-fwd-desc :inference algo src-desc dst-desc
+  (let-release [inf-src-desc (inf-desc src-desc);;TODO maybe this could be with-release...
+                train-src-desc (train-desc src-desc)
+                inf-dst-desc (memory-desc (shape dst-desc)
+                                          (or (tz/data-type dst-desc) (data-type inf-src-desc))
+                                          (or (tz/layout dst-desc) :any))
+                train-dst-desc (memory-desc (shape dst-desc)
+                                            (or (tz/data-type dst-desc) (data-type train-src-desc))
+                                            (or (tz/layout dst-desc) :any))]
+    (with-release [pool-infer-desc (pooling-fwd-desc :inference algo inf-src-desc inf-dst-desc
                                                      kernel strides padding-l padding-r)
-                   pool-train-desc (pooling-fwd-desc :training algo src-desc dst-desc
+                   pool-train-desc (pooling-fwd-desc :training algo train-src-desc train-dst-desc
                                                      kernel strides padding-l padding-r)
-                   pool-bwd-desc (pooling-bwd-desc algo src-desc dst-desc
+                   pool-bwd-desc (pooling-bwd-desc algo train-src-desc train-dst-desc
                                                    kernel strides padding-l padding-r)]
       (let-release [pool-infer-pd (primitive-desc eng pool-infer-desc)
                     pool-train-pd (primitive-desc eng pool-train-desc)
@@ -928,13 +945,13 @@
 
 ;; ====================== Dropout ====================================================
 
-(extend-type GaussianDropoutBlueprint
+#_(extend-type GaussianDropoutBlueprint
   DescProvider
   (desc [this]
     (.mask-desc this)))
 
 (defn dnnl-gaussian-dropout-blueprint [fact src-desc sd]
-  (let-release [mask-desc (dnnl-contiguous-desc (desc src-desc))]
+  (let-release [mask-desc (dnnl-contiguous-desc (train-desc src-desc))]
     (->GaussianDropoutBlueprint fact sd mask-desc)))
 
 ;; ================================ Batch Normalization  ===========================================
@@ -1104,16 +1121,18 @@
      :training {:src (src-md train-pd)
                 :weights gamma-desc
                 :dst (dst-md train-pd)}})
-  DescProvider
-  (desc [_]
+  BlueprintProvider
+  (inf-desc [this]
+    (dst-md infer-pd))
+  (train-desc [this]
     (dst-md train-pd))
   TensorDescriptor
   (shape [this]
-    (shape (desc this)))
+    (shape (train-desc train-pd)))
   (data-type [this]
-    (data-type (desc this)))
+    (data-type (train-desc train-pd)))
   (layout [this]
-    (layout (desc this)))
+    (layout (train-desc train-pd)))
   IFn
   (invoke [this src-tz]
     (let-release [src-conn (connector src-tz data-desc)
@@ -1173,5 +1192,8 @@
 (defn dnnl-batch-norm-layer-blueprint [fact eng src-desc activ alpha beta]
   (let-release [data-desc (dnnl-contiguous-desc (desc src-desc))
                 batch-norm-op-bluep (dnnl-batch-norm-op-blueprint fact eng data-desc)
-                activ-bluep (dnnl-activ-blueprint fact eng batch-norm-op-bluep activ alpha beta)]
+                activ-bluep (dnnl-activ-blueprint fact eng (inf-desc batch-norm-op-bluep)
+                                                  (train-desc batch-norm-op-bluep)
+                                                  (train-desc batch-norm-op-bluep)
+                                                  activ alpha beta)]
     (->DirectedLayerBlueprint fact :batch-normalization batch-norm-op-bluep activ-bluep)))
