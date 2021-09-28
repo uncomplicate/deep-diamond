@@ -44,7 +44,6 @@
   (crossentropy-cost [this last-layer train-tz]))
 
 (defprotocol BlueprintProvider
-  (blueprint [this]);;TODO remove
   (inf-desc [this])
   (train-desc [this]))
 

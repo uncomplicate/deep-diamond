@@ -617,9 +617,6 @@
   (diamond-factory [_]
     fact)
   BlueprintProvider
-  (blueprint [this]
-    this)
-  BlueprintProvider
   (inf-desc [this]
     (view dst-desc))
   (train-desc [this]
@@ -815,9 +812,6 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  BlueprintProvider
-  (blueprint [this]
-    this)
   DescProvider
   (desc [_]
     (view dst-desc))

@@ -25,7 +25,7 @@
             [uncomplicate.diamond.internal
              [protocols :refer [Parameters bias weights ParametersSeq parameters
                                 BlueprintProvider DiamondFactoryProvider DiffParameters
-                                diff-weights Backprop forward backward blueprint
+                                diff-weights Backprop forward backward
                                 create-tensor activ-blueprint DiffTransfer diff-input
                                 diff-output diff-z create-tensor-desc LinearBackprop
                                 backward-diff Workspace inf-ws-size train-ws-size
@@ -195,7 +195,7 @@
     dst-desc)
   (train-desc [this]
     dst-desc)
-  TensorDescriptor;;TODO try to remove this and not rely on it
+  TensorDescriptor
   (shape [_]
     (shape dst-desc))
   (data-type [_]
@@ -279,9 +279,6 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  BlueprintProvider
-  (blueprint [_];;TODO remove
-    bluep)
   Parameters
   (bias [_]
     (bias op))
@@ -304,11 +301,10 @@
 
 (defmethod print-method InferenceLayer
   [layer ^java.io.Writer w]
-  (let [bluep (blueprint layer)]
-    (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                       :shape (info bluep :shape)
-                       :topology (info bluep :topology)
-                       :activation (info bluep :activation)}))))
+  (.write w (pr-str {:weights (weights layer) :bias (bias layer)
+                     :shape (info layer :shape)
+                     :topology (info layer :topology)
+                     :activation (info layer :activation)})))
 
 (deftype SGDLayer [fact bluep op activ ^long n v w b]
   Releaseable
@@ -341,9 +337,6 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  BlueprintProvider
-  (blueprint [_]
-    bluep)
   Transfer
   (input [this]
     (input op))
@@ -400,11 +393,10 @@
 
 (defmethod print-method SGDLayer
   [layer ^java.io.Writer w]
-  (let [bluep (blueprint layer)]
-    (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                       :shape (info bluep :shape)
-                       :topology (info bluep :topology)
-                       :activation (info bluep :activation)}))))
+  (.write w (pr-str {:weights (weights layer) :bias (bias layer)
+                     :shape (info layer :shape)
+                     :topology (info layer :topology)
+                     :activation (info layer :activation)})))
 
 (deftype AdamLayer [fact bluep op activ ^long n
                     s r w g b]
@@ -440,9 +432,6 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  BlueprintProvider
-  (blueprint [_]
-    bluep)
   Transfer
   (input [this]
     (input op))
@@ -510,11 +499,10 @@
 
 (defmethod print-method AdamLayer
   [layer ^java.io.Writer w]
-  (let [bluep (blueprint layer)]
-    (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                       :shape (info bluep :shape)
-                       :topology (info bluep :topology)
-                       :activation (info bluep :activation)}))))
+  (.write w (pr-str {:weights (weights layer) :bias (bias layer)
+                     :shape (info layer :shape)
+                     :topology (info layer :topology)
+                     :activation (info layer :activation)})))
 
 (deftype DirectedLayerBlueprint [fact topology op-bluep activ-bluep]
   Releaseable
@@ -545,8 +533,6 @@
   (diamond-factory [_]
     fact)
   BlueprintProvider
-  (blueprint [this]
-    this)
   (inf-desc [this]
     (inf-desc activ-bluep))
   (train-desc [this]
@@ -709,9 +695,6 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  BlueprintProvider
-  (blueprint [this]
-    this)
   TensorDescriptor
   (shape [this]
     (shape mask-desc))

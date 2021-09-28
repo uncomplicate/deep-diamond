@@ -98,18 +98,10 @@
   (test-batch-normalization-inference fact)
   (test-batch-normalization-training fact))
 
-(with-release [fact (dnnl-factory)]
-  (test-batch-normalization-inference fact)
-  (test-batch-normalization-training fact))
-
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
 ;; "Elapsed time: 4990.836368 msecs"
 
-;; This tests for SIGSEV regression from DNNL 2.1.1 -> 2.3
-;; I suspect that the cause is DNNL's newly introduced primitive cache...
-;; It is not fully fixed, but should not happen in normal use.
-;; NO> the issue was caused by my bug. Blueprints should distinguish inf-desc and train-desc
 (with-release [fact (dnnl-factory)]
   (dotimes [i 10]
     (test-convolution-inference-relu fact)))

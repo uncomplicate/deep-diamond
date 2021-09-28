@@ -24,7 +24,7 @@
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters
                       BlueprintProvider DiamondFactoryProvider DiffParameters
-                      diff-weights Backprop forward backward blueprint
+                      diff-weights Backprop forward backward
                       DiffTransfer diff-output diff-input diff-z
                       LinearBackprop backward-diff inf-desc train-desc]]
              [utils :refer [transfer-weights-bias! default-strides]]]
