@@ -15,7 +15,7 @@
             [uncomplicate.diamond.internal
              [protocols
               :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
-                      blueprint create-tensor DiffTransfer diff-input diff-output diff-z
+                      create-tensor DiffTransfer diff-input diff-output diff-z
                       ParametersSeq Parameters DiffParameters LinearBackprop backward-diff
                       Workspace inf-ws-size train-ws-size *workspace* inf-desc train-desc]]
              [utils :refer [transfer-weights-bias! default-strides]]]
