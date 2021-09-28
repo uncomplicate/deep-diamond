@@ -163,9 +163,9 @@
       :activation activ
       nil))
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     (dst-md eltw-infer-pd))
-  (train-desc [this]
+  (train-desc [_]
     (dst-md eltw-train-pd))
   TensorDescriptor
   (shape [this]
@@ -265,9 +265,9 @@
       :activation :softmax
       nil))
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     (dst-md softmax-infer-pd))
-  (train-desc [this]
+  (train-desc [_]
     (dst-md softmax-train-pd))
   TensorDescriptor
   (shape [this]
@@ -499,9 +499,9 @@
                 :weights (weights-md train-pd)
                 :dst (dst-md train-pd)}})
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     (dst-md infer-pd))
-  (train-desc [this]
+  (train-desc [_]
     (dst-md train-pd))
   IFn
   (invoke [this src-tz]
@@ -864,9 +864,9 @@
   (diamond-factory [_]
     fact)
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     (dst-md pool-infer-pd))
-  (train-desc [this]
+  (train-desc [_]
     (dst-md pool-train-pd))
   TensorDescriptor
   (shape [this]
@@ -1112,9 +1112,9 @@
                 :weights gamma-desc
                 :dst (dst-md train-pd)}})
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     (dst-md infer-pd))
-  (train-desc [this]
+  (train-desc [_]
     (dst-md train-pd))
   TensorDescriptor
   (shape [this]

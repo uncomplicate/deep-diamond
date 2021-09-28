@@ -191,9 +191,9 @@
                 :weights weights-desc
                 :dst dst-desc}})
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     dst-desc)
-  (train-desc [this]
+  (train-desc [_]
     dst-desc)
   TensorDescriptor
   (shape [_]
@@ -533,9 +533,9 @@
   (diamond-factory [_]
     fact)
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     (inf-desc activ-bluep))
-  (train-desc [this]
+  (train-desc [_]
     (train-desc activ-bluep))
   TensorDescriptor
   (shape [_]

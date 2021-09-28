@@ -192,10 +192,10 @@
       :activation activ
       nil))
   DescriptorProvider
-   (inf-desc [this]
-     (view data-desc))
-   (train-desc [this]
-     (view data-desc))
+  (inf-desc [_]
+    (view data-desc))
+  (train-desc [_]
+    (view data-desc))
   TensorDescriptor
   (shape [_]
     (shape data-desc))
@@ -310,9 +310,9 @@
       :activation :softmax
       nil))
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     (view data-desc))
-  (train-desc [this]
+  (train-desc [_]
     (view data-desc))
   TensorDescriptor
   (shape [_]
@@ -617,9 +617,9 @@
   (diamond-factory [_]
     fact)
   DescriptorProvider
-  (inf-desc [this]
+  (inf-desc [_]
     (view dst-desc))
-  (train-desc [this]
+  (train-desc [_]
     (view dst-desc))
   TensorDescriptor
   (shape [_]
@@ -657,7 +657,8 @@
           (->CUDnnConvolutionTraining fact (handle fact) this da
                                       (cast-prim da 1.0) (cast-prim da 0.0)
                                       prop-diff? conv-desc (view filter-desc)
-                                      (:algo conv-fwd-algo) (:algo conv-bwd-data-algo) (:algo conv-bwd-weights-algo)
+                                      (:algo conv-fwd-algo) (:algo conv-bwd-data-algo)
+                                      (:algo conv-bwd-weights-algo)
                                       src-conn bias-tz weights-tz dst-tz
                                       diff-weights-tz diff-src-conn
                                       *workspace*)))))
