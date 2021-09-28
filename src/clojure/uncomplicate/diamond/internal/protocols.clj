@@ -43,7 +43,7 @@
   (mean-absolute-cost [this last-layer train-tz])
   (crossentropy-cost [this last-layer train-tz]))
 
-(defprotocol BlueprintProvider
+(defprotocol DescriptorProvider
   (inf-desc [this])
   (train-desc [this]))
 

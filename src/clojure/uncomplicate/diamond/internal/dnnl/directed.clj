@@ -23,7 +23,7 @@
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters
-                      BlueprintProvider DiamondFactoryProvider DiffParameters
+                      DescriptorProvider DiamondFactoryProvider DiffParameters
                       diff-weights Backprop forward backward
                       DiffTransfer diff-output diff-input diff-z
                       LinearBackprop backward-diff inf-desc train-desc]]
@@ -162,7 +162,7 @@
     (case info-type
       :activation activ
       nil))
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     (dst-md eltw-infer-pd))
   (train-desc [this]
@@ -264,7 +264,7 @@
     (case info-type
       :activation :softmax
       nil))
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     (dst-md softmax-infer-pd))
   (train-desc [this]
@@ -498,7 +498,7 @@
      :training {:src (src-md train-pd)
                 :weights (weights-md train-pd)
                 :dst (dst-md train-pd)}})
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     (dst-md infer-pd))
   (train-desc [this]
@@ -593,11 +593,6 @@
    (dnnl-inner-product-blueprint fact eng src-desc dst-desc nil)))
 
 ;; ================================ Directed Layer ==================================
-
-#_(extend-type DirectedLayerBlueprint;;TODO remove
-  DescProvider
-  (desc [this]
-    (desc (.activ-bluep this))))
 
 (defn dnnl-fc-blueprint [fact eng src-desc dst-desc activ alpha beta weights-type]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
@@ -868,7 +863,7 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     (dst-md pool-infer-pd))
   (train-desc [this]
@@ -944,11 +939,6 @@
   destination)
 
 ;; ====================== Dropout ====================================================
-
-#_(extend-type GaussianDropoutBlueprint
-  DescProvider
-  (desc [this]
-    (.mask-desc this)))
 
 (defn dnnl-gaussian-dropout-blueprint [fact src-desc sd]
   (let-release [mask-desc (dnnl-contiguous-desc (train-desc src-desc))]
@@ -1121,7 +1111,7 @@
      :training {:src (src-md train-pd)
                 :weights gamma-desc
                 :dst (dst-md train-pd)}})
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     (dst-md infer-pd))
   (train-desc [this]

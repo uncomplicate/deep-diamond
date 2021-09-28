@@ -24,7 +24,7 @@
                              layout data-type TensorDescriptor]]]
             [uncomplicate.diamond.internal
              [protocols :refer [Parameters bias weights ParametersSeq parameters
-                                BlueprintProvider DiamondFactoryProvider DiffParameters
+                                DescriptorProvider DiamondFactoryProvider DiffParameters
                                 diff-weights Backprop forward backward
                                 create-tensor activ-blueprint DiffTransfer diff-input
                                 diff-output diff-z create-tensor-desc LinearBackprop
@@ -190,7 +190,7 @@
      :training {:src src-desc
                 :weights weights-desc
                 :dst dst-desc}})
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     dst-desc)
   (train-desc [this]
@@ -532,7 +532,7 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     (inf-desc activ-bluep))
   (train-desc [this]
@@ -695,6 +695,11 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
+  DescriptorProvider
+  (inf-desc [_]
+    (view mask-desc))
+  (train-desc [_]
+    (view mask-desc))
   TensorDescriptor
   (shape [this]
     (shape mask-desc))

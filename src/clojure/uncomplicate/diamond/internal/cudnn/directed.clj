@@ -14,7 +14,7 @@
                       TensorDescriptor shape]]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [BlueprintProvider DiamondFactoryProvider Backprop forward backward
+              :refer [DescriptorProvider DiamondFactoryProvider Backprop forward backward
                       create-tensor DiffTransfer diff-input diff-output diff-z
                       ParametersSeq Parameters DiffParameters LinearBackprop backward-diff
                       Workspace inf-ws-size train-ws-size *workspace* inf-desc train-desc]]
@@ -191,7 +191,7 @@
     (case info-type
       :activation activ
       nil))
-  BlueprintProvider
+  DescriptorProvider
    (inf-desc [this]
      (view data-desc))
    (train-desc [this]
@@ -309,7 +309,7 @@
     (case info-type
       :activation :softmax
       nil))
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     (view data-desc))
   (train-desc [this]
@@ -616,7 +616,7 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  BlueprintProvider
+  DescriptorProvider
   (inf-desc [this]
     (view dst-desc))
   (train-desc [this]
@@ -682,16 +682,6 @@
     (->CUDnnConvolutionBlueprint fact conv-desc
                                  conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
                                  src-desc weights-desc filter-desc bias-desc dst-desc)))
-
-(extend-type InnerProductBlueprint
-  DescProvider
-  (desc [this]
-    (view (desc (.dst-desc this)))))
-
-(extend-type DirectedLayerBlueprint
-  DescProvider
-  (desc [this]
-    (view (desc (.activ-bluep this)))))
 
 (defn cudnn-convolution-layer-blueprint [fact src-desc weights-desc dst-desc activ
                                          strides padding dilation alpha]
@@ -812,8 +802,10 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  DescProvider
-  (desc [_]
+  DescriptorProvider
+  (inf-desc [_]
+    (view dst-desc))
+  (train-desc [_]
     (view dst-desc))
   TensorDescriptor
   (shape [_]
@@ -857,11 +849,6 @@
   destination)
 
 ;; ====================== Dropout ====================================================
-
-(extend-type GaussianDropoutBlueprint
-  DescProvider
-  (desc [this]
-    (view (.mask-desc this))))
 
 (defn cudnn-gaussian-dropout-blueprint [fact src-desc sd]
   (let-release [mask-desc (cudnn-contiguous-desc (desc src-desc))]
