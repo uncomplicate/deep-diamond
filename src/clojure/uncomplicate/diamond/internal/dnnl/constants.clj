@@ -344,3 +344,14 @@
    :wino dnnl/dnnl_format_kind_wino
    :rnn-packed dnnl/dnnl_format_kind_rnn_packed
    :undef dnnl/dnnl_format_kind_undef})
+
+(def ^:const dnnl-reduction-alg-kind
+  {:max dnnl/dnnl_reduction_max
+   :min dnnl/dnnl_reduction_min
+   :mean dnnl/dnnl_reduction_mean
+   :mul dnnl/dnnl_reduction_mul
+   :sum dnnl/dnnl_reduction_sum
+   :norm-lp-max dnnl/dnnl_reduction_norm_lp_max
+   :norm-lp-sum dnnl/dnnl_reduction_norm_lp_sum
+   :norm-lp-power-p-max dnnl/dnnl_reduction_norm_lp_power_p_max
+   :norm-lp-power-p-sum dnnl/dnnl_reduction_norm_lp_power_p_sum})

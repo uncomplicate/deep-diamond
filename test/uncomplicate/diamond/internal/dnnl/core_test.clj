@@ -14,7 +14,8 @@
             [uncomplicate.neanderthal
              [core :refer [zero nrm2 entry! entry]]
              [native :refer [fv]]
-             [block :refer [buffer]]]
+             [block :refer [buffer]]
+             [math :refer [sqr sqrt]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer :all]
              [protocols :as api]])
@@ -794,3 +795,63 @@
          (execute! s add-prim add-args) => s
          (get-float buf0 0) => -300.0
          (get-float buf0 1) => 50.0))
+
+(facts "Reduction sum operation"
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-md (memory-desc [2 3 4 5] :float :nchw)
+                      src-buf (direct-buffer (size src-md))
+                      src (memory eng src-md src-buf)
+                      dst-md (memory-desc [2 3 4 1] :float :nchw)
+                      dst-buf (direct-buffer (size dst-md))
+                      dst (memory eng dst-md dst-buf)
+                      sum-desc (reduction-desc :sum src-md dst-md)
+                      sum-pd (primitive-desc eng sum-desc)
+                      sum-prim (primitive sum-pd)
+                      sum-args (fwd-args src dst)]
+         (dotimes [i 120]
+           (put-float src-buf i i))
+         (execute! s sum-prim sum-args) => s
+         (get-float dst-buf 0) => (float (apply + (range 5)))
+         (get-float dst-buf 1) => (float (apply + (range 5 10)))
+         (get-float dst-buf 2) => (float (apply + (range 10 15)))))
+
+(facts "Reduction max operation"
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-md (memory-desc [2 3 4 5] :float :nchw)
+                      src-buf (direct-buffer (size src-md))
+                      src (memory eng src-md src-buf)
+                      dst-md (memory-desc [1 3 1 1] :float :nchw)
+                      dst-buf (direct-buffer (size dst-md))
+                      dst (memory eng dst-md dst-buf)
+                      max-desc (reduction-desc :max src-md dst-md)
+                      max-pd (primitive-desc eng max-desc)
+                      max-prim (primitive max-pd)
+                      max-args (fwd-args src dst)]
+         (dotimes [i 120]
+           (put-float src-buf i i))
+         (execute! s max-prim max-args) => s
+         (get-float dst-buf 0) => 79.0
+         (get-float dst-buf 1) => 99.0
+         (get-float dst-buf 2) => 119.0))
+
+(facts "Reduction L2 operation"
+       (with-release [eng (engine)
+                      s (stream eng)
+                      src-md (memory-desc [2 3 4 5] :float :nchw)
+                      src-buf (direct-buffer (size src-md))
+                      src (memory eng src-md src-buf)
+                      dst-md (memory-desc [2 3 4 1] :float :nchw)
+                      dst-buf (direct-buffer (size dst-md))
+                      dst (memory eng dst-md dst-buf)
+                      norm-desc (reduction-desc :norm-lp-sum src-md dst-md 2.0 0.0)
+                      norm-pd (primitive-desc eng norm-desc)
+                      norm-prim (primitive norm-pd)
+                      norm-args (fwd-args src dst)]
+         (dotimes [i 120]
+           (put-float src-buf i i))
+         (execute! s norm-prim norm-args) => s
+         (get-float dst-buf 0) => (float (sqrt (apply + (map sqr (range 5)))))
+         (get-float dst-buf 1) => (float (sqrt (apply + (map sqr (range 5 10)))))
+         (get-float dst-buf 2) => (float (sqrt (apply + (map sqr (range 10 15)))))))

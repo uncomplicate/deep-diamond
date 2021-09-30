@@ -397,6 +397,7 @@
   ([alg-kind src-dst-desc]
    (binary-desc alg-kind src-dst-desc src-dst-desc src-dst-desc)))
 
+;; TODO src_0 and src are both code 1. Maybe this should become an universal args function, while args is rarelu used and should be renamed to multi-args.
 (defn binary-args
   ([src0 src1 dst]
    (let-release [args (dnnl_exec_arg_t. 3)]
@@ -738,3 +739,14 @@
      (args* args 4 dnnl/DNNL_ARG_VARIANCE (extract variance))
      (args* args 5 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))
      (args* args 6 dnnl/DNNL_ARG_DIFF_SCALE_SHIFT (extract diff-scaleshift)))))
+
+;; ======================= Reduction ========================================================
+
+(defn reduction-desc
+  "TODO"
+  ([alg-kind src-desc dst-desc p epsilon]
+   (reduction-desc* (enc-keyword dnnl-reduction-alg-kind alg-kind)
+                    (desc src-desc) (desc dst-desc) p epsilon))
+  ([alg-kind src-desc dst-desc]
+   (reduction-desc* (enc-keyword dnnl-reduction-alg-kind alg-kind)
+                    (desc src-desc) (desc dst-desc) 0.0 0.0)))

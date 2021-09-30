@@ -22,7 +22,8 @@
             dnnl_primitive dnnl_exec_arg_t dnnl_memory_desc_t dnnl_memory
             const_dnnl_op_desc_t dnnl_primitive_attr dnnl_eltwise_desc_t
             dnnl_inner_product_desc_t dnnl_softmax_desc_t dnnl_convolution_desc_t
-            dnnl_pooling_desc_t dnnl_batch_normalization_desc_t dnnl_binary_desc_t]))
+            dnnl_pooling_desc_t dnnl_batch_normalization_desc_t dnnl_binary_desc_t
+            dnnl_reduction_desc_t]))
 
 (defn dnnl-error
   ([^long err-code details]
@@ -530,3 +531,18 @@
                                                         diff-data-desc data-desc
                                                         (float epsilon) (int flags))
       bnrm-desc)))
+
+;; ======================= Reduction ========================================================
+
+(extend-type dnnl_reduction_desc_t
+  PrimitiveKind
+  (primitive-kind* [desc]
+    (.primitive_kind desc)))
+
+;; TODO decide whether to explicitly cast to int and float
+(defn reduction-desc* [alg-kind
+                       ^dnnl_memory_desc_t src-desc ^dnnl_memory_desc_t dst-desc
+                       p epsilon]
+  (let-release [rd (dnnl_reduction_desc_t.)]
+    (with-check (dnnl/dnnl_reduction_desc_init rd alg-kind src-desc dst-desc p epsilon)
+      rd)))
