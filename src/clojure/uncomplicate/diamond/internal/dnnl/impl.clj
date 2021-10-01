@@ -539,10 +539,20 @@
   (primitive-kind* [desc]
     (.primitive_kind desc)))
 
-;; TODO decide whether to explicitly cast to int and float
 (defn reduction-desc* [alg-kind
                        ^dnnl_memory_desc_t src-desc ^dnnl_memory_desc_t dst-desc
                        p epsilon]
   (let-release [rd (dnnl_reduction_desc_t.)]
-    (with-check (dnnl/dnnl_reduction_desc_init rd alg-kind src-desc dst-desc p epsilon)
+    (with-check (dnnl/dnnl_reduction_desc_init rd (int alg-kind) src-desc dst-desc
+                                               (float p) (float epsilon))
       rd)))
+
+;; ======================= Concat  ========================================================
+
+(defn concat* [^dnnl_memory_desc_t dst n concat-dimension ^dnnl_memory_desc_t src
+               ^dnnl_primitive_attr attr ^dnnl_engine eng]
+  (let-release [pd (dnnl_primitive_desc.)]
+    (with-check
+      (dnnl/dnnl_concat_primitive_desc_create pd dst (int n) (int concat-dimension)
+                                              (.position src 0) attr eng)
+      pd)))

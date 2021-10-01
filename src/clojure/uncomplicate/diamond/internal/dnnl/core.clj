@@ -750,3 +750,16 @@
   ([alg-kind src-desc dst-desc]
    (reduction-desc* (enc-keyword dnnl-reduction-alg-kind alg-kind)
                     (desc src-desc) (desc dst-desc) 0.0 0.0)))
+
+;; ======================= Concat ============================================================
+
+(defn concatenate
+  "TODO"
+  ([eng dst concat-dimension src & srcs]
+   (let [srcs (mapv desc (cons src srcs))
+         n (count srcs)]
+     (let-release [s (dnnl_memory_desc_t. n)]
+       (dotimes [i n]
+         (.position s i)
+         (.put s (srcs i)))
+       (wrap (concat* (desc dst) n concat-dimension s nil (extract eng)))))))
