@@ -29,9 +29,8 @@
              [protocols :refer [desc data DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims size primitive-cache-capacity!]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
-             [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint
-                               dnnl-inner-product-blueprint dnnl-fc-blueprint
-                               dnnl-universal-cost dnnl-custom-cost
+             [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-inner-product-blueprint
+                               dnnl-universal-cost dnnl-custom-cost dnnl-concat-blueprint
                                dnnl-convolution-layer-blueprint dnnl-pooling-blueprint
                                dnnl-gaussian-dropout-blueprint dnnl-batch-norm-layer-blueprint]]])
   (:import [uncomplicate.neanderthal.internal.host CBLAS LAPACK MKL]
@@ -349,6 +348,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-gaussian-dropout-blueprint this src-desc sd))
   (batch-norm-blueprint [this src-desc activ alpha beta]
     (dnnl-batch-norm-layer-blueprint this eng src-desc activ alpha beta))
+  (concat-blueprint [this concat-dimension src-descs]
+    (dnnl-concat-blueprint this eng concat-dimension src-descs))
   (create-workspace [_ byte-size]
     (direct-buffer (max 1 (long byte-size))))
   CostFactory

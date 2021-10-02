@@ -755,11 +755,11 @@
 
 (defn concatenate
   "TODO"
-  ([eng dst concat-dimension src & srcs]
-   (let [srcs (mapv desc (cons src srcs))
+  ([eng dst-desc concat-dimension & src-descs]
+   (let [srcs (mapv desc src-descs)
          n (count srcs)]
      (let-release [s (dnnl_memory_desc_t. n)]
        (dotimes [i n]
          (.position s i)
          (.put s (srcs i)))
-       (wrap (concat* (desc dst) n concat-dimension s nil (extract eng)))))))
+       (wrap (concat* (desc dst-desc) n concat-dimension s nil (extract eng)))))))

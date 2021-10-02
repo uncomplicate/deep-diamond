@@ -10,6 +10,7 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.core :refer [foldmap]]
             [uncomplicate.neanderthal
              [core :refer [axpy! axpby! zero dim transfer! scal! copy! view-vctr]]
              [real :refer [nrm2 asum]]
@@ -43,40 +44,6 @@
     (if (= (size md) (apply * Float/BYTES shape))
       md ;;TODO this should be somehow copied, perhaps...
       (memory-desc (dims md) :float (default-strides shape)))))
-
-;; ================================ Sum ======================================
-
-(deftype DnnlSum [strm dst-tz sum-prim sum-args]
-  Releaseable
-  (release [_]
-    (release sum-prim)
-    (release dst-tz))
-  IFn
-  (invoke [this]
-    (execute! strm sum-prim sum-args)
-    dst-tz)
-  (applyTo [this xs]
-    (AFn/applyToHelper this xs)))
-
-(deftype DnnlSumBlueprint [strm sum-pd]
-  Releaseable
-  (release [_]
-    (release sum-pd))
-  IFn
-  (invoke [_ src-and-dst]
-    (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm src-and-dst sum-prim (args (buffer src-and-dst)))))
-  (invoke [_ src-tz dst-tz]
-    (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm dst-tz sum-prim (dnnl-args args dst-tz dst-tz src-tz))))
-  (applyTo [this xs]
-    (AFn/applyToHelper this xs)))
-
-(defn dnnl-sum-blueprint
-  ([eng strm scale dst]
-   (->DnnlSumBlueprint strm (sum! eng scale dst)))
-  ([eng strm scale-src src scale-dst dst]
-   (->DnnlSumBlueprint strm (sum! eng dst scale-dst dst scale-src src))))
 
 ;; ================================ Activation =============================================
 
@@ -1187,3 +1154,81 @@
                                                   (train-desc batch-norm-op-bluep)
                                                   activ alpha beta)]
     (->DirectedLayerBlueprint fact :batch-normalization batch-norm-op-bluep activ-bluep)))
+
+;; ================================ Sum ======================================
+
+(deftype DnnlSum [strm dst-tz sum-prim sum-args]
+  Releaseable
+  (release [_]
+    (release sum-prim)
+    (release dst-tz))
+  IFn
+  (invoke [this]
+    (execute! strm sum-prim sum-args)
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype DnnlSumBlueprint [strm sum-pd]
+  Releaseable
+  (release [_]
+    (release sum-pd))
+  IFn
+  (invoke [_ src-and-dst]
+    (let-release [sum-prim (primitive sum-pd)]
+      (->DnnlSum strm src-and-dst sum-prim (args (buffer src-and-dst)))))
+  (invoke [_ src-tz dst-tz]
+    (let-release [sum-prim (primitive sum-pd)]
+      (->DnnlSum strm dst-tz sum-prim (dnnl-args args dst-tz dst-tz src-tz))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn dnnl-sum-blueprint
+  ([eng strm scale dst]
+   (->DnnlSumBlueprint strm (sum! eng scale dst)))
+  ([eng strm scale-src src scale-dst dst]
+   (->DnnlSumBlueprint strm (sum! eng dst scale-dst dst scale-src src))))
+
+;; ================================ Concat ======================================
+
+(deftype DnnlConcat [strm dst-tz concat-prim concat-args]
+  Releaseable
+  (release [_]
+    (release concat-prim)
+    (release dst-tz))
+  IFn
+  (invoke [this]
+    (execute! strm concat-prim concat-args)
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype DnnlConcatBlueprint [fact concat-pd dst-desc]
+  Releaseable
+  (release [_]
+    (release concat-pd)
+    (release dst-desc))
+  ;;TODO info
+  IFn
+  (invoke [_ src-tzs]
+    (let-release [dst-tz (dnnl-tensor fact dst-desc)
+                  concat-prim (primitive concat-pd)
+                  concat-args (apply dnnl-args args dst-tz src-tzs)]
+      (->DnnlConcat (flow fact) dst-tz concat-prim concat-args)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn dnnl-concat-blueprint
+  ([fact eng ^long concat-dimension src-descs]
+   (let [src-shapes (map shape src-descs)
+         desc0 (first src-descs)
+         shape0 (shape desc0)
+         dst-dimension (foldmap + #(get % concat-dimension) src-shapes)]
+     (let-release [dst-desc (memory-desc (into (vec (take concat-dimension shape0))
+                                               (cons dst-dimension (drop (inc concat-dimension) shape0)))
+                                         (tz/data-type desc0) :any)]
+       (dnnl-concat-blueprint fact eng dst-desc concat-dimension src-descs))))
+  ([fact eng dst-desc concat-dimension src-descs]
+   (let-release [concat-pd (apply concatenate eng dst-desc concat-dimension src-descs)
+                 dst-desc (dst-md concat-pd)]
+     (->DnnlConcatBlueprint fact concat-pd dst-desc))))

@@ -103,5 +103,5 @@
 ;; "Elapsed time: 4990.836368 msecs"
 
 (with-release [fact (dnnl-factory)]
-  (dotimes [i 10]
-    (test-convolution-inference-relu fact)))
+  (test-concatenate-inference fact)
+  )

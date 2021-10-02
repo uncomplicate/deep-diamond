@@ -36,6 +36,7 @@
   (pooling-blueprint [this src-desc dst-desc algo strides kernel padding])
   (gaussian-dropout-blueprint [this src-desc sd])
   (batch-norm-blueprint [this src-desc activ alpha beta])
+  (concat-blueprint [this concat-dimension src-descs])
   (create-workspace [this byte-size]))
 
 (defprotocol CostFactory

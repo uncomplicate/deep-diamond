@@ -211,6 +211,24 @@
   ([]
    (batch-norm :linear nil)));;TODO change :linear to :identity
 
+(defn concatenate
+  ([fact ^long concat-dimension src-descs]
+   (api/concat-blueprint fact concat-dimension src-descs))
+  ([^long concat-dimension]
+   (fn
+     ([fact src-descs]
+      (concatenate fact concat-dimension src-descs))
+     ([src-descs]
+      (concatenate *diamond-factory* concat-dimension src-descs))))
+  ([]
+   (concatenate 0)))
+
+(defn conc
+  ([^long concat-dimension]
+   (concatenate concat-dimension))
+  ([]
+   (concatenate 0)))
+
 (defn cost
   ([layer train-tz cost-kw]
    ((case cost-kw
