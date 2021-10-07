@@ -613,13 +613,11 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype GaussianDropoutLayer [fact bluep prev-layer ^double sd rand-state
-                               mask-tz data-conn revert-data-conn]
+(deftype GaussianDropoutLayer [fact bluep prev-layer ^double sd rand-state mask-tz data-conn]
   Releaseable
   (release [_]
     (release mask-tz)
-    (release data-conn)
-    (release revert-data-conn))
+    (release data-conn))
   Info
   (info [this]
     {:rand-state rand-state
@@ -714,11 +712,8 @@
   (invoke [this prev-layer _ _]
     (let-release [src-tz (output prev-layer)
                   data-conn (connector src-tz (view mask-desc))
-                  revert-data-conn (revert data-conn)
                   mask-tz (create-tensor fact (view mask-desc) false)]
-      (->GaussianDropoutLayer fact this prev-layer
-                              sd (rng-state mask-tz)
-                              mask-tz data-conn revert-data-conn)))
+      (->GaussianDropoutLayer fact this prev-layer sd (rng-state mask-tz) mask-tz data-conn)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
