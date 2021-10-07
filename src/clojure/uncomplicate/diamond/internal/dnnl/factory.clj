@@ -31,7 +31,7 @@
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-inner-product-blueprint
                                dnnl-universal-cost dnnl-custom-cost dnnl-concat-blueprint
-                               dnnl-convolution-layer-blueprint dnnl-pooling-blueprint
+                               dnnl-convolution-layer-blueprint dnnl-pooling-blueprint dnnl-fc-blueprint
                                dnnl-gaussian-dropout-blueprint dnnl-batch-norm-layer-blueprint]]])
   (:import [uncomplicate.neanderthal.internal.host CBLAS LAPACK MKL]
            uncomplicate.neanderthal.internal.api.RealBufferAccessor
