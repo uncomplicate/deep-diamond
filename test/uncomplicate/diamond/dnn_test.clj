@@ -666,17 +666,29 @@
      => [-2.455202579498291 3.989145278930664 -0.6126827001571655 -0.9212599992752075
          -1.4489718675613403 0.9928141236305237 2.3612875938415527 -1.9051299095153809])))
 
-(defn test-concatenate-inference [fact]
+(defn test-concatenate [fact]
   (with-release [input0-tz (tensor fact [1 1 2 2] :float :nchw)
                  input1-tz (tensor fact [1 2 2 2] :float :nchw)
                  concat-bluep (concatenate fact 1 [input0-tz input1-tz])
-                 concat-op (concat-bluep [input0-tz input1-tz])]
+                 concat-inf (concat-bluep [input0-tz input1-tz])
+                 concat-train (concat-bluep [input0-tz input1-tz] true)]
 
     (transfer! (range 4) input0-tz)
     (transfer! (range 10 90 10) input1-tz)
 
+    (facts
+     "Concatenate inference test."
+     (seq (view-vctr (concat-inf))) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])
 
     (facts
-     "Concatenate operation test."
-     (seq (view-vctr (concat-op))) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]
-     )))
+     "Concatenate training test."
+     (forward concat-train nil) => concat-train
+     (seq (view-vctr (output concat-train))) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]
+
+     (transfer! (repeat 0.0) input0-tz)
+     (transfer! (repeat 0.0) input1-tz)
+
+     (seq (view-vctr input0-tz)) => [0.0 0.0 0.0 0.0]
+     (backward concat-train nil) => concat-train
+     (seq (view-vctr input0-tz)) => [0.0 1.0 2.0 3.0]
+     (seq (view-vctr input1-tz)) => [ 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))

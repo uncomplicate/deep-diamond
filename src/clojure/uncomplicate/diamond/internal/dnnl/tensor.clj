@@ -132,7 +132,7 @@
       (connector in-tz out-desc))))
 
 (defn dnnl-transformer [eng strm in-tz out-tz]
-  (with-release [reorder-pd (reorder eng (buffer in-tz) (buffer out-tz))]
+  (with-release [reorder-pd (reorder eng in-tz out-tz)]
     (let-release [reorder-prim (primitive reorder-pd)]
       (->DnnlTransformer eng strm reorder-prim
                          (fwd-args (buffer in-tz) (buffer out-tz))
@@ -196,7 +196,7 @@
   (let [mb-size (max 1 (long mb-size))]
     (let-release [src-sub (view-tz src-tz mb-size)
                   dst-sub (view-tz dst-tz mb-size)]
-      (with-release [reorder-pd (reorder eng (buffer src-sub) (buffer dst-sub))]
+      (with-release [reorder-pd (reorder eng src-sub dst-sub)]
         (let-release [reorder-prim (primitive reorder-pd)]
           (->DnnlBatcher eng strm reorder-prim
                          (fwd-args (buffer src-sub) (buffer dst-sub))
