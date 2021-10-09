@@ -104,4 +104,5 @@
 
 (with-release [fact (dnnl-factory)]
   (test-concatenate fact)
+  (test-split fact)
   )

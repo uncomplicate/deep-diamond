@@ -691,4 +691,31 @@
      (seq (view-vctr input0-tz)) => [0.0 0.0 0.0 0.0]
      (backward concat-train nil) => concat-train
      (seq (view-vctr input0-tz)) => [0.0 1.0 2.0 3.0]
-     (seq (view-vctr input1-tz)) => [ 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
+     (seq (view-vctr input1-tz)) => [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
+
+(defn test-split [fact]
+  (with-release [dst0-desc (desc [1 1 2 2] :float :nchw)
+                 dst1-desc (desc [1 2 2 2] :float :nchw)
+                 input-tz (tensor fact [1 3 2 2] :float :nchw)
+                 split-bluep (split fact 1 input-tz [dst0-desc dst1-desc])
+                 split-inf (split-bluep input-tz)
+                 split-train (split-bluep input-tz true)]
+
+    (transfer! [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0] input-tz)
+
+    (facts
+     "Split inference test."
+     (map (comp seq view-vctr) (split-inf)) => [[0.0 1.0 2.0 3.0]
+                                                [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]])
+
+    (facts
+     "Split training test."
+     (forward split-train nil) => split-train
+     (map (comp seq view-vctr) (output split-train)) => [[0.0 1.0 2.0 3.0]
+                                                         [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]]
+
+     (transfer! (repeat 0.0) input-tz)
+
+     (seq (view-vctr input-tz)) => (repeat 12 0.0)
+     (backward split-train nil) => split-train
+     (seq (view-vctr input-tz)) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))

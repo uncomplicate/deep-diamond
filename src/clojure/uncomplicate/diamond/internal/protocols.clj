@@ -37,6 +37,7 @@
   (gaussian-dropout-blueprint [this src-desc sd])
   (batch-norm-blueprint [this src-desc activ alpha beta])
   (concat-blueprint [this concat-dimension src-descs])
+  (split-blueprint [this src-desc split-dim dst-descs])
   (create-workspace [this byte-size]))
 
 (defprotocol CostFactory

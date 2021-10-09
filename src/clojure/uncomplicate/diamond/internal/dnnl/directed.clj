@@ -10,7 +10,7 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.fluokitten.core :refer [foldmap]]
+            [uncomplicate.fluokitten.core :refer [foldmap fmap]]
             [uncomplicate.neanderthal
              [core :refer [axpy! axpby! zero dim transfer! scal! copy! view-vctr]]
              [real :refer [nrm2 asum]]
@@ -1226,7 +1226,8 @@
   (release [_]
     (release concat-prim)
     (release dst-tz)
-    (doall (map release split-prims)))
+    (doseq [sp split-prims] (release sp))
+    true)
   Object
   (hashCode [_]
     (hash-combine (reduce hash-combine (hash :concat) src-tzs) dst-tz))
@@ -1269,6 +1270,8 @@
 (deftype DnnlConcatBlueprint [fact src-descs dst-desc concat-pd split-pds]
   Releaseable
   (release [_]
+    (doseq [sp split-pds] (release sp))
+    (doseq [sd src-descs] (release sd))
     (release concat-pd)
     (release dst-desc))
   Object
@@ -1297,13 +1300,15 @@
   (layout [_]
     (layout dst-desc))
   IFn
-  (invoke [_ src-tzs]
-    (let-release [dst-tz (dnnl-tensor fact dst-desc)
+  (invoke [_ prev-layer]
+    (let-release [src-tzs (fmap output prev-layer)
+                  dst-tz (dnnl-tensor fact dst-desc)
                   concat-prim (primitive concat-pd)
                   concat-args (apply dnnl-args args dst-tz src-tzs)]
       (->DnnlConcatInference (flow fact) src-tzs dst-tz concat-prim concat-args)))
-  (invoke [_ src-tzs prop-diff?]
-    (let-release [dst-tz (dnnl-tensor fact dst-desc)
+  (invoke [_ prev-layer prop-diff?]
+    (let-release [src-tzs (fmap output prev-layer)
+                  dst-tz (dnnl-tensor fact dst-desc)
                   concat-prim (primitive concat-pd)
                   concat-args (apply dnnl-args args dst-tz src-tzs)
                   split-prims (mapv primitive split-pds)
@@ -1316,7 +1321,7 @@
 
 (defn dnnl-concat-blueprint
   ([fact eng ^long conc-dim src-descs]
-   (let [src-shapes (map shape src-descs)
+   (let [src-shapes (fmap shape src-descs)
          desc0 (first src-descs)
          shape0 (shape desc0)
          dst-dimension (foldmap + #(get % conc-dim) src-shapes)]
@@ -1337,3 +1342,147 @@
                                  res))]
        (let-release [split-pds (mapv (partial reorder eng) dst-subs src-descs)]
          (->DnnlConcatBlueprint fact src-descs dst-desc concat-pd split-pds))))))
+
+;; ================================ Split ======================================
+
+(deftype DnnlSplitInference [strm src-tz dst-tzs split-prims split-args]
+  Releaseable
+  (release [_]
+    (doseq [sp split-prims] (release sp))
+    (doseq [dt dst-tzs] (release dt))
+    true)
+  Object
+  (hashCode [_]
+    (hash-combine (reduce hash-combine (hash :split) dst-tzs) src-tz))
+  (equals [_ layer]
+    (and (satisfies? Parameters layer)
+         (= :split (info layer :topology))
+         (= src-tz (input layer)) (= dst-tzs (output layer))))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    dst-tzs)
+  ParametersSeq
+  (parameters [_]
+    [])
+  IFn
+  (invoke [this]
+    (doall (map (partial execute! strm) split-prims split-args))
+    dst-tzs)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype DnnlSplitTraining [strm src-tz dst-tzs
+                            concat-prim concat-args
+                            split-prims split-args
+                            prop-diff?]
+  Releaseable
+  (release [_]
+    (release concat-prim)
+    (doseq [dt dst-tzs] (release dt))
+    (doseq [sp split-prims] (release sp)))
+  Object
+  (hashCode [_]
+    (hash-combine (reduce hash-combine (hash :split) dst-tzs) src-tz))
+  (equals [_ layer]
+    (and (satisfies? Parameters layer)
+         (= :split (info layer :topology))
+         (= src-tz (input layer)) (= dst-tzs (output layer))))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    dst-tzs)
+  DiffTransfer
+  (diff-input [_]
+    dst-tzs)
+  (diff-output [_]
+    src-tz)
+  ParametersSeq
+  (parameters [_]
+    [])
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    (doall (map (partial execute! strm) split-prims split-args))
+    this)
+  (backward [this]
+    this)
+  (backward [this _]
+    (when prop-diff?
+      (execute! strm concat-prim concat-args))
+    this)
+  IFn
+  (invoke [this]
+    (doall (map (partial execute! strm) split-prims split-args))
+    dst-tzs)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype DnnlSplitBlueprint [fact src-desc dst-descs concat-pd split-pds]
+  Releaseable
+  (release [_]
+    (release concat-pd)
+    (doseq [sp split-pds] (release sp))
+    (doseq [dd dst-descs] (release dd))
+    (release src-desc))
+  Object
+  (hashCode [_]
+    (hash-combine (reduce hash-combine (hash :split) dst-descs) src-desc))
+  (equals [_ other]
+    (and (instance? DnnlSplitBlueprint other)
+         (= dst-descs (.dst-descs ^DnnlSplitBlueprint other))
+         (= src-desc (.src-desc ^DnnlSplitBlueprint other))))
+  (toString [this]
+    (pr-str {:shape (shape this)
+             :topology :split}))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [_]
+    dst-descs)
+  (train-desc [_]
+    dst-descs)
+  ;; TensorDescriptor ;;TODO this complicates the whole tensor descriptor thingie. It would be best if I can do without this.
+  ;; (shape [_]
+  ;;   (fmap shape dst-descs))
+  ;; (data-type [_]
+  ;;   (fmap data-type dst-descs))
+  ;; (layout [_]
+  ;;   (fmap layout dst-descs))
+  IFn
+  (invoke [_ prev-layer]
+    (let-release [src-tz (output prev-layer)
+                  dst-tzs (fmap (partial dnnl-tensor fact) dst-descs)
+                  split-prims (mapv primitive split-pds)
+                  split-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
+      (->DnnlSplitInference (flow fact) src-tz dst-tzs split-prims split-args)))
+  (invoke [_ prev-layer prop-diff?]
+    (let-release [src-tz (output prev-layer)
+                  dst-tzs (fmap (partial dnnl-tensor fact) dst-descs)
+                  concat-prim (primitive concat-pd)
+                  concat-args (apply dnnl-args args src-tz dst-tzs)
+                  split-prims (mapv primitive split-pds)
+                  split-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
+      (->DnnlSplitTraining (flow fact) src-tz dst-tzs
+                            concat-prim concat-args split-prims split-args
+                            prop-diff?)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn dnnl-split-blueprint [fact eng src-desc split-dim dst-descs]
+  (let-release [concat-pd (apply concatenate eng src-desc split-dim dst-descs)
+                src-desc (dst-md concat-pd)]
+    (with-release [src-subs (loop [strd (vec (repeat (count (dims src-desc)) 0)) res [];;TODO this should be a function
+                                   dst-desc (first dst-descs) dst-descs (rest dst-descs)]
+                              (if dst-desc
+                                (recur (assoc strd split-dim (+ (long (strd split-dim))
+                                                                (long ((dims dst-desc) split-dim))))
+                                       (conj res (submemory-desc src-desc (dims dst-desc) strd))
+                                       (first dst-descs) (rest dst-descs))
+                                res))]
+      (let-release [split-pds (mapv (partial reorder eng) src-subs dst-descs)]
+        (->DnnlSplitBlueprint fact src-desc dst-descs concat-pd split-pds)))))

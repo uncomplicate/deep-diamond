@@ -229,6 +229,18 @@
   ([]
    (concatenate 0)))
 
+(defn split
+  ([fact ^long split-dim src-desc dst-descs]
+   (api/split-blueprint fact src-desc split-dim dst-descs));;TODO change arg order
+  ([^long split-dim dst-descs]
+   (fn
+     ([fact src-desc]
+      (split fact split-dim src-desc dst-descs))
+     ([src-desc]
+      (split *diamond-factory* split-dim src-desc dst-descs))))
+  ([dst-descs]
+   (split 0 dst-descs)))
+
 (defn cost
   ([layer train-tz cost-kw]
    ((case cost-kw
