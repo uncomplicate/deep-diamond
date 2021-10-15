@@ -533,7 +533,7 @@
      "Pooling inference test."
      (view-vctr (pool-infer)) => (vctr src-tz [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0])
      (view-vctr (input pool-infer)) => (vctr src-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
-                                                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+                                                     0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
      (view-vctr (output pool-infer)) => (vctr src-tz [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]))
 
     (facts
@@ -541,7 +541,7 @@
      (entry! (output pool-train) 0.0)
      (forward pool-train nil) => pool-train
      (view-vctr (input pool-train)) => (vctr src-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
-                                                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+                                                     0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
      (view-vctr (output pool-train)) => (vctr src-tz [98.0 30.0 38.0 175.0 98.0 38.0 30.0 175.0]))
 
     (facts
@@ -565,7 +565,7 @@
      "Pooling inference test."
      (view-vctr (pool-infer)) => (vctr src-tz [35.25 8.25 21.0 56.25 35.25 21.0 8.25 56.25])
      (view-vctr (input pool-infer)) => (vctr src-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
-                                                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+                                                     0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
      (view-vctr (output pool-infer)) => (vctr src-tz [35.25 8.25 21.0 56.25 35.25 21.0 8.25 56.25]))
 
     (facts
@@ -573,7 +573,7 @@
      (entry! (output pool-train) 0.0)
      (forward pool-train nil) => pool-train
      (view-vctr (input pool-train)) => (vctr src-tz [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
-                                                0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
+                                                     0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50])
      (view-vctr (output pool-train)) => (vctr src-tz [35.25 8.25 21.0 56.25 35.25 21.0 8.25 56.25]))
 
     (facts
@@ -719,3 +719,33 @@
      (seq (view-vctr input-tz)) => (repeat 12 0.0)
      (backward split-train nil) => split-train
      (seq (view-vctr input-tz)) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
+
+(defn test-parallel-network-detailed [fact]
+  (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)
+                 input1-tz (tensor fact [1 2 1 1] :float :nchw)
+                 net-bp (network fact [input0-tz input1-tz]
+                                 [[[(dense [1] :linear) (dense [2] :linear)]
+                                   [(dense [1] :linear)]]])
+                 net-train (net-bp [input0-tz input1-tz] true :adam)]
+    (let [parallel-layers (layers (first (layers net-train)))]
+      (transfer! [1] input0-tz)
+      (transfer! [2 3] input1-tz)
+
+      (facts
+       "Parallel training test."
+       (transfer! [0.1] (weights (first parallel-layers)))
+       (transfer! [10 20] (weights (second parallel-layers)))
+       (transfer! [0.1 0.2] (weights (parallel-layers 2)))
+       (forward net-train [0 1 0 0 false]) => net-train
+       (map (comp seq view-vctr) (output net-train))
+       => [[1.0 2.0] [0.800000011920929]]
+
+       (transfer! (repeat 0.0) input0-tz)
+       (transfer! (repeat 0.0) input1-tz)
+
+       (transfer! [0.5 1] (first (diff-input net-train)))
+       (transfer! [0.1] (second (diff-input net-train)))
+       (backward net-train [0 1 0 0 false]) => net-train
+       (map (comp seq view-vctr output) parallel-layers) => [[50.0] [0.5 1.0] [0.10000000149011612]]
+       (seq (view-vctr input0-tz)) => [5.0]
+       (seq (view-vctr input1-tz)) => [0.08000000566244125 0.1600000113248825]))))

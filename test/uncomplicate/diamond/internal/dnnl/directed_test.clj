@@ -96,13 +96,15 @@
   (test-sequential-network-convolution-adam fact)
   (test-gaussian-dropout fact)
   (test-batch-normalization-inference fact)
-  (test-batch-normalization-training fact))
+  (test-batch-normalization-training fact)
+  (test-concatenate fact)
+  (test-split fact))
 
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
 ;; "Elapsed time: 4990.836368 msecs"
 
 (with-release [fact (dnnl-factory)]
-  (test-concatenate fact)
-  (test-split fact)
+
+  (test-parallel-network-detailed fact)
   )

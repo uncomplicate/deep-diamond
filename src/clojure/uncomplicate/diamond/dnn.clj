@@ -18,7 +18,7 @@
                      tensor data-type layout desc]]
             [uncomplicate.diamond.internal
              [protocols :as api]
-             [network :refer [sequential-network]]]))
+             [network :refer [sequential-network parallel-network]]]))
 
 (defn sum
   ([^double scale dst]
@@ -259,10 +259,16 @@
   ([fact src-desc layers]
    (sequential-network (api/diamond-factory fact) src-desc layers))
   ([src-desc layers]
-   (network *diamond-factory* src-desc layers)))
+   (network *diamond-factory* src-desc layers))
+  ([layers]
+   (fn
+     ([fact src-descs]
+      (network fact src-descs layers))
+     ([src-descs]
+      (network *diamond-factory* src-descs layers)))))
 
 (defn init! [net!]
-  (with-release [rng (rng-state (view-vctr (api/bias (first (api/layers net!)))))]
+  (with-release [rng (rng-state (view-vctr (first (api/parameters (first (api/layers net!))))))]
     (doseq [layer (api/layers net!)]
       (doseq [params (api/parameters layer)]
         (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape params))))) params))))
