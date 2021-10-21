@@ -4,12 +4,13 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.core :refer [fmap join]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
-            [uncomplicate.diamond.tensor :refer [Transfer input output tensor]]
+            [uncomplicate.diamond.tensor :refer [Transfer input output tensor TensorDescriptor
+                                                 shape data-type layout]]
             [uncomplicate.diamond.internal.protocols
              :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
                      diamond-factory native-diamond-factory DiffTransfer diff-input
                      diff-output diff-z parameters Workspace inf-ws-size train-ws-size
-                     create-workspace *workspace*]])
+                     create-workspace *workspace* DescriptorProvider inf-desc train-desc]])
   (:import [clojure.lang IFn AFn]))
 
 (extend-type java.lang.Object
@@ -173,6 +174,18 @@
   NeuralNetwork
   (layers [_]
     (format "[%s]" (apply str layer-blueprints)))
+  DescriptorProvider
+  (inf-desc [_]
+    (inf-desc (peek layer-blueprints)))
+  (train-desc [_]
+    (train-desc (peek layer-blueprints)))
+  TensorDescriptor
+  (shape [_]
+    (shape (peek layer-blueprints)))
+  (data-type [_]
+    (data-type (peek layer-blueprints)))
+  (layout [_]
+    (layout (peek layer-blueprints)))
   Workspace
   (inf-ws-size [this]
     inf-ws-sz)
@@ -358,6 +371,18 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
+  DescriptorProvider
+  (inf-desc [_]
+    (fmap inf-desc layer-blueprints))
+  (train-desc [_]
+    (fmap train-desc layer-blueprints))
+  TensorDescriptor
+  (shape [_]
+    (fmap shape layer-blueprints))
+  (data-type [_]
+    (fmap data-type layer-blueprints))
+  (layout [_]
+    (fmap layout layer-blueprints))
   NeuralNetwork
   (layers [_]
     (format "[%s]" (apply str layer-blueprints)))
@@ -367,18 +392,20 @@
   (train-ws-size [this]
     (apply max (fmap train-ws-size layer-blueprints)))
   IFn
-  (invoke [this input-tz optimization]
-    (.invoke this input-tz false optimization))
-  (invoke [_ input-tzs prop-diff? optimization]
-    (->ParallelNetworkTraining input-tzs
-                               (fmap (fn [bp x]
-                                       (bp (view x) prop-diff? optimization))
-                                     layer-blueprints input-tzs)))
-  (invoke [this input-tzs]
-    (->ParallelNetworkInference input-tzs
-                                (fmap (fn [bp x]
-                                        (bp (view x)))
-                                      layer-blueprints input-tzs)))
+  (invoke [this prev-layer optimization]
+    (.invoke this prev-layer false optimization))
+  (invoke [_ prev-layer prop-diff? optimization]
+    (let [src-tzs (fmap output prev-layer)]
+      (->ParallelNetworkTraining src-tzs
+                                 (fmap (fn [bp x]
+                                         (bp (view x) prop-diff? optimization))
+                                       layer-blueprints src-tzs))))
+  (invoke [this prev-layer]
+    (let [src-tzs (fmap output prev-layer)]
+      (->ParallelNetworkInference src-tzs
+                                  (fmap (fn [bp x]
+                                          (bp (view x)))
+                                        layer-blueprints src-tzs))))
   (invoke [this]
     (let-release [input-tzs (fmap (partial tensor fact) src-descs)]
       (this input-tzs)))
@@ -392,6 +419,6 @@
                                 (apply max (map train-ws-size layers)))))
 
 (defn eval-layer [fact src-desc layer]
-  (if (sequential? src-desc)
-    (parallel-network fact src-desc layer)
+  (if (sequential? layer)
+    (parallel-network fact (if (sequential? src-desc) src-desc (train-desc src-desc)) layer)
     (layer fact src-desc)))

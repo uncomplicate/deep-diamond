@@ -655,17 +655,17 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   Backprop
+  (forward [this]
+    this)
   (forward [this _]
     (data-conn)
     (mul! (output data-conn) (rand-normal! rand-state 1.0 sd mask-tz))
     this)
-  (forward [this]
+  (backward [this]
     this)
   (backward [this _]
     (data-conn)
     (mul! (output data-conn) mask-tz)
-    this)
-  (backward [this]
     this))
 
 (deftype GaussianDropoutBlueprint [fact ^double sd mask-desc]

@@ -105,6 +105,8 @@
 ;; "Elapsed time: 4990.836368 msecs"
 
 (with-release [fact (dnnl-factory)]
-
-  (test-parallel-network-detailed fact)
-  )
+  (test-network-concat fact)
+  (test-network-split-concat fact)
+  (test-parallel-network-solo fact)
+  (test-parallel-network-concat fact)
+  (test-parallel-network-nested fact))

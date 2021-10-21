@@ -4,10 +4,8 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecuda.core :refer [mem-alloc]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! axpy! dim copy! transfer! raw zero view-vctr]]
-             [block :refer [cast-prim data-accessor buffer]]
-             [math :refer [sqrt pow]]
-             [vect-math :refer [sqr! linear-frac! sqrt!]]]
+             [core :refer [axpby! axpy! dim copy! transfer! raw view-vctr]]
+             [block :refer [cast-prim data-accessor buffer]]]
             [uncomplicate.diamond
              [tensor :as tz
               :refer [Transfer input output connector revert shape layout

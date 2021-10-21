@@ -12,11 +12,8 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.core :refer [foldmap fmap]]
             [uncomplicate.neanderthal
-             [core :refer [axpy! axpby! zero dim transfer! scal! copy! view-vctr]]
-             [real :refer [nrm2 asum]]
-             [block :refer [buffer]]
-             [math :refer [sqrt pow]]
-             [vect-math :refer [sqr! linear-frac! sqrt! mul!]]]
+             [core :refer [axpby! dim transfer! scal! view-vctr]]
+             [block :refer [buffer]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
              :refer [Transfer input output connector shape layout TensorDescriptor
@@ -1301,21 +1298,21 @@
     (layout dst-desc))
   IFn
   (invoke [_ prev-layer]
-    (let-release [src-tzs (fmap output prev-layer)
-                  dst-tz (dnnl-tensor fact dst-desc)
-                  concat-prim (primitive concat-pd)
-                  concat-args (apply dnnl-args args dst-tz src-tzs)]
-      (->DnnlConcatInference (flow fact) src-tzs dst-tz concat-prim concat-args)))
-  (invoke [_ prev-layer prop-diff?]
-    (let-release [src-tzs (fmap output prev-layer)
-                  dst-tz (dnnl-tensor fact dst-desc)
-                  concat-prim (primitive concat-pd)
-                  concat-args (apply dnnl-args args dst-tz src-tzs)
-                  split-prims (mapv primitive split-pds)
-                  split-args (mapv (partial fwd-args (buffer dst-tz)) (map buffer src-tzs))]
-      (->DnnlConcatTraining (flow fact) src-tzs dst-tz
-                            concat-prim concat-args split-prims split-args
-                            prop-diff?)))
+    (let [src-tzs (fmap output prev-layer)]
+      (let-release [dst-tz (dnnl-tensor fact dst-desc)
+                    concat-prim (primitive concat-pd)
+                    concat-args (apply dnnl-args args dst-tz src-tzs)]
+        (->DnnlConcatInference (flow fact) src-tzs dst-tz concat-prim concat-args))))
+  (invoke [_ prev-layer prop-diff? _]
+    (let [src-tzs (fmap output prev-layer)]
+      (let-release [dst-tz (dnnl-tensor fact dst-desc)
+                    concat-prim (primitive concat-pd)
+                    concat-args (apply dnnl-args args dst-tz src-tzs)
+                    split-prims (mapv primitive split-pds)
+                    split-args (mapv (partial fwd-args (buffer dst-tz)) (map buffer src-tzs))]
+        (->DnnlConcatTraining (flow fact) src-tzs dst-tz
+                              concat-prim concat-args split-prims split-args
+                              prop-diff?))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
@@ -1451,13 +1448,13 @@
     dst-descs)
   (train-desc [_]
     dst-descs)
-  ;; TensorDescriptor ;;TODO this complicates the whole tensor descriptor thingie. It would be best if I can do without this.
-  ;; (shape [_]
-  ;;   (fmap shape dst-descs))
-  ;; (data-type [_]
-  ;;   (fmap data-type dst-descs))
-  ;; (layout [_]
-  ;;   (fmap layout dst-descs))
+  TensorDescriptor
+  (shape [_]
+    (fmap shape dst-descs))
+  (data-type [_]
+    (fmap data-type dst-descs))
+  (layout [_]
+    (fmap layout dst-descs))
   IFn
   (invoke [_ prev-layer]
     (let-release [src-tz (output prev-layer)
@@ -1465,7 +1462,7 @@
                   split-prims (mapv primitive split-pds)
                   split-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
       (->DnnlSplitInference (flow fact) src-tz dst-tzs split-prims split-args)))
-  (invoke [_ prev-layer prop-diff?]
+  (invoke [_ prev-layer prop-diff? _]
     (let-release [src-tz (output prev-layer)
                   dst-tzs (fmap (partial dnnl-tensor fact) dst-descs)
                   concat-prim (primitive concat-pd)

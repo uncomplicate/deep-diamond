@@ -901,25 +901,30 @@
          (get-float dst-buf 121) => 1000.0
          (get-float dst-buf 220) => 100000.0))
 
-(facts "Concatenate operation with two heterogeneous sources"
+(facts "Concatenate operation with three heterogeneous sources"
        (with-release [eng (engine)
                       s (stream eng)
                       src0-md (memory-desc [1 1 2 1] :float :nchw)
                       src1-md (memory-desc [1 1 1 1] :float :nchw)
-                      dst-md (memory-desc [1 1 3 1] :float :nchw)
+                      src2-md (memory-desc [1 1 1 1] :float :nchw)
+                      dst-md (memory-desc [1 1 4 1] :float :nchw)
                       src0-buf (direct-buffer (size src0-md))
                       src0 (memory eng src1-md src0-buf)
                       src1-buf (direct-buffer (size src1-md))
                       src1 (memory eng src1-md src1-buf)
+                      src2-buf (direct-buffer (size src2-md))
+                      src2 (memory eng src2-md src2-buf)
                       dst-buf (direct-buffer (size dst-md))
                       dst (memory eng dst-md dst-buf)
-                      concat-pd (concatenate eng dst-md 2 src0-md src1-md)
+                      concat-pd (concatenate eng dst-md 2 src0-md src1-md src2-md)
                       concat-prim (primitive concat-pd)
-                      concat-args (args dst src0 src1)]
+                      concat-args (args dst src0 src1 src2)]
          (put-float src0-buf 0 1.0)
          (put-float src0-buf 1 2.0)
          (put-float src1-buf 0 10.0)
+         (put-float src2-buf 0 5.0)
          (execute! s concat-prim concat-args) => s
          (get-float dst-buf 0) => 1.0
          (get-float dst-buf 1) => 2.0
-         (get-float dst-buf 2) => 10.0))
+         (get-float dst-buf 2) => 10.0
+         (get-float dst-buf 3) => 5.0))

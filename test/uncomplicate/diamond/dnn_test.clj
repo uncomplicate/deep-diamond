@@ -669,21 +669,23 @@
 (defn test-concatenate [fact]
   (with-release [input0-tz (tensor fact [1 1 2 2] :float :nchw)
                  input1-tz (tensor fact [1 2 2 2] :float :nchw)
-                 concat-bluep (concatenate fact 1 [input0-tz input1-tz])
-                 concat-inf (concat-bluep [input0-tz input1-tz])
-                 concat-train (concat-bluep [input0-tz input1-tz] true)]
+                 concat-bluep (concatenate fact 1 [input0-tz input1-tz input0-tz])
+                 concat-inf (concat-bluep [input0-tz input1-tz input0-tz])
+                 concat-train (concat-bluep [input0-tz input1-tz input0-tz] true nil)]
 
     (transfer! (range 4) input0-tz)
     (transfer! (range 10 90 10) input1-tz)
 
     (facts
      "Concatenate inference test."
-     (seq (view-vctr (concat-inf))) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])
+     (seq (view-vctr (concat-inf)))
+     => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 0.0 1.0 2.0 3.0])
 
     (facts
      "Concatenate training test."
      (forward concat-train nil) => concat-train
-     (seq (view-vctr (output concat-train))) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]
+     (seq (view-vctr (output concat-train)))
+     => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 0.0 1.0 2.0 3.0]
 
      (transfer! (repeat 0.0) input0-tz)
      (transfer! (repeat 0.0) input1-tz)
@@ -699,7 +701,7 @@
                  input-tz (tensor fact [1 3 2 2] :float :nchw)
                  split-bluep (split fact 1 input-tz [dst0-desc dst1-desc])
                  split-inf (split-bluep input-tz)
-                 split-train (split-bluep input-tz true)]
+                 split-train (split-bluep input-tz true nil)]
 
     (transfer! [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0] input-tz)
 
@@ -720,7 +722,7 @@
      (backward split-train nil) => split-train
      (seq (view-vctr input-tz)) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
 
-(defn test-parallel-network-detailed [fact]
+(defn test-parallel-network-solo [fact]
   (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)
                  input1-tz (tensor fact [1 2 1 1] :float :nchw)
                  net-bp (network fact [input0-tz input1-tz]
@@ -732,20 +734,119 @@
       (transfer! [2 3] input1-tz)
 
       (facts
-       "Parallel training test."
+       "Parallel training test, solo."
        (transfer! [0.1] (weights (first parallel-layers)))
        (transfer! [10 20] (weights (second parallel-layers)))
        (transfer! [0.1 0.2] (weights (parallel-layers 2)))
        (forward net-train [0 1 0 0 false]) => net-train
-       (map (comp seq view-vctr) (output net-train))
-       => [[1.0 2.0] [0.800000011920929]]
+       (map (comp seq view-vctr) (output net-train)) => [[1.0 2.0] [0.800000011920929]]
 
        (transfer! (repeat 0.0) input0-tz)
        (transfer! (repeat 0.0) input1-tz)
 
        (transfer! [0.5 1] (first (diff-input net-train)))
        (transfer! [0.1] (second (diff-input net-train)))
+       (backward net-train)
        (backward net-train [0 1 0 0 false]) => net-train
-       (map (comp seq view-vctr output) parallel-layers) => [[50.0] [0.5 1.0] [0.10000000149011612]]
-       (seq (view-vctr input0-tz)) => [5.0]
-       (seq (view-vctr input1-tz)) => [0.08000000566244125 0.1600000113248825]))))
+       (map (comp seq view-vctr output) parallel-layers) => [[25.0] [0.5 1.0] [0.10000000149011612]]
+       (seq (view-vctr input0-tz)) => [2.5]
+       (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313]))))
+
+(defn test-network-concat [fact]
+  (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)
+                 input1-tz (tensor fact [1 2 1 1] :float :nchw)
+                 net-bp (network fact [input0-tz input1-tz]
+                                 [(conc 1)])
+                 net-train (net-bp [input0-tz input1-tz] true :adam)]
+    (let [parallel-layers 1]
+      (transfer! [1] input0-tz)
+      (transfer! [2 3] input1-tz)
+
+      (facts
+       "Network training test, concat."
+       (forward net-train [0 1 0 0 false]) => net-train
+       (seq (view-vctr (output net-train))) => [1.0 2.0 3.0]
+
+       (transfer! (repeat 0.0) input0-tz)
+       (transfer! (repeat 0.0) input1-tz)
+
+       (transfer! [0.5 1 0.1] (diff-input net-train))
+       (backward net-train [0 1 0 0 false]) => net-train
+       (seq (view-vctr input0-tz)) => [0.5]
+       (seq (view-vctr input1-tz)) => [1.0 0.10000000149011612]))))
+
+(defn test-network-split-concat [fact]
+  (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
+                 net-bp (network fact input-tz
+                                 [(split 1 [(desc [1 1 1 1] :float :nchw) (desc [1 2 1 1] :float :nchw) (desc [1 1 1 1] :float :nchw)]);; TODO I can discover split-dim from the descriptors. moreover, I just need split-dim, and that particular dimension! no need to change layout; :float and :nchw stay the same! (split 1 [1 2])
+                                  (conc 1)])
+                 net-train (net-bp input-tz true :adam)]
+    (facts
+       "Parallel training test, nested."
+       (transfer! [1 2 3 1] input-tz)
+       (forward net-train [0 1 0 0 false]) => net-train
+       (seq (view-vctr (output net-train))) => [1.0 2.0 3.0 1.0]
+       (transfer! (repeat 0.0) input-tz)
+       (transfer! [0.5 1 0.1 0.5] (diff-input net-train))
+       (backward net-train [0 1 0 0 false]) => net-train
+       (seq (view-vctr input-tz)) => [0.5 1.0 0.10000000149011612 0.5])))
+
+(defn test-parallel-network-concat [fact]
+  (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)
+                 input1-tz (tensor fact [1 2 1 1] :float :nchw)
+                 net-bp (network fact [input0-tz input1-tz]
+                                 [[[(dense [1] :linear) (dense [2] :linear)]
+                                   [(dense [1] :linear)]]
+                                  (conc 1)])
+                 net-train (net-bp [input0-tz input1-tz] true :adam)]
+    (let [parallel-layers (layers (first (layers net-train)))]
+      (transfer! [1] input0-tz)
+      (transfer! [2 3] input1-tz)
+
+      (facts
+       "Parallel training test, concat."
+       (transfer! [0.1] (weights (first parallel-layers)))
+       (transfer! [10 20] (weights (second parallel-layers)))
+       (transfer! [0.1 0.2] (weights (parallel-layers 2)))
+       (forward net-train [0 1 0 0 false]) => net-train
+       (seq (view-vctr (output net-train))) => [1.0 2.0 0.800000011920929]
+
+       (transfer! (repeat 0.0) input0-tz)
+       (transfer! (repeat 0.0) input1-tz)
+
+       (transfer! [0.5 1 0.1] (diff-input net-train))
+       (backward net-train [0 1 0 0 false]) => net-train
+       (map (comp seq view-vctr output) parallel-layers) => [[25.0] [0.5 1.0] [0.10000000149011612]]
+       (seq (view-vctr input0-tz)) => [2.5]
+       (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313]))))
+
+(defn test-parallel-network-nested [fact]
+  (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
+                 net-bp (network fact input-tz
+                                 [(split 1 [(desc [1 1 1 1] :float :nchw) (desc [1 2 1 1] :float :nchw) (desc [1 1 1 1] :float :nchw)]);; TODO I can discover split-dim from the descriptors. moreover, I just need split-dim, and that particular dimension! no need to change layout; :float and :nchw stay the same! (split 1 [1 2])
+                                  [[(dense [1] :linear) (dense [2] :linear)]
+                                   [(dense [1] :linear)]
+                                   [(dense [1] :linear) (dense [2] :linear)]]
+                                  (conc 1)]);;
+                 net-train (net-bp input-tz true :adam)]
+    (let [parallel-layers (layers (second (layers net-train)))]
+      (transfer! [1 2 3 1] input-tz)
+
+      (facts
+       "Parallel training test, nested."
+       (transfer! [0.1] (weights (first parallel-layers)))
+       (transfer! [10 20] (weights (second parallel-layers)))
+       (transfer! [0.1 0.2] (weights (parallel-layers 2)))
+       (transfer! [0.1] (weights (parallel-layers 3)))
+       (transfer! [10 20] (weights (parallel-layers 4)))
+       (forward net-train [0 1 0 0 false]) => net-train
+       (seq (view-vctr (output net-train))) => [1.0 2.0 0.800000011920929 1.0 2.0]
+
+       (transfer! (repeat 0.0) input-tz)
+       (transfer! [0.5 1 0.1 0.5 1] (diff-input net-train))
+       (backward net-train [0 1 0 0 false]) => net-train
+       (map (comp seq view-vctr output) parallel-layers)
+       => [[25.0] [0.5 1.0] [0.10000000149011612] [25.0] [0.5 1.0]]
+       (seq (view-vctr input-tz)) => [2.5 0.010000000707805157 0.020000001415610313 2.5]
+       (map (comp seq view-vctr) (output (first (layers net-train))))
+       => [[2.5] [0.010000000707805157 0.020000001415610313] [2.5]]))))

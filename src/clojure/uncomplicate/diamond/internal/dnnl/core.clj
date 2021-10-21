@@ -426,13 +426,14 @@
      (args* args 1 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src0))
      (args* args 2 (inc dnnl/DNNL_ARG_MULTIPLE_SRC) (extract src1))))
   ([dst src0 src1 & srcs]
-   (let [cnt (+ 2 (count srcs))]
+   (let [cnt (+ 3 (count srcs))]
      (let-release [args (dnnl_exec_arg_t. cnt)]
        (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
        (args* args 1 dnnl/DNNL_ARG_MULTIPLE_SRC (extract src0))
        (args* args 2 (inc dnnl/DNNL_ARG_MULTIPLE_SRC) (extract src1))
-       (doall (map #(args* args (+ dnnl/DNNL_ARG_MULTIPLE_SRC (int %2)) (extract %1))
-                   srcs (range 3 cnt)))
+       (doall (map (fn [^long i src]
+                     (args* args i (+ dnnl/DNNL_ARG_MULTIPLE_SRC (dec i)) (extract src)))
+                   (range 3 cnt) srcs))
        args))))
 
 (defn fwd-args

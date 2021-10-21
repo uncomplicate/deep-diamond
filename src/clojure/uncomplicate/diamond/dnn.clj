@@ -213,7 +213,7 @@
 
 (defn concatenate
   ([fact ^long concat-dimension src-descs]
-   (api/concat-blueprint fact concat-dimension src-descs))
+   (api/concat-blueprint fact concat-dimension (if (sequential? src-descs) src-descs (api/train-desc src-descs))))
   ([^long concat-dimension]
    (fn
      ([fact src-descs]
