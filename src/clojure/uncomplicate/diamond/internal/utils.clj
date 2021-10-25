@@ -67,3 +67,12 @@ Please use a copy or create a transformer."
   (transfer! (bias source) (bias destination))
   (transfer! (weights source) (weights destination))
   destination)
+
+(defn concat-strides [split-dim src-shape sub-shapes]
+  (let [stride-vec (vec (repeat (count src-shape) 0))]
+    (loop [strd 0 strds [] sub-shapes sub-shapes]
+      (if sub-shapes
+        (recur (+ strd (long (get (first sub-shapes) split-dim)))
+               (conj strds (assoc stride-vec split-dim strd))
+               (next sub-shapes))
+        strds))))

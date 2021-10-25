@@ -25,7 +25,7 @@
                       diff-weights Backprop forward backward
                       DiffTransfer diff-output diff-input diff-z
                       LinearBackprop backward-diff inf-desc train-desc]]
-             [utils :refer [transfer-weights-bias! default-strides]]]
+             [utils :refer [transfer-weights-bias! default-strides concat-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
@@ -1315,15 +1315,6 @@
                               prop-diff?))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
-
-(defn concat-strides [split-dim src-shape sub-shapes]
-  (let [stride-vec (vec (repeat (count src-shape) 0))]
-    (loop [strd 0 strds [] sub-shapes sub-shapes]
-      (if sub-shapes
-        (recur (+ strd (long (get (first sub-shapes) split-dim)))
-               (conj strds (assoc stride-vec split-dim strd))
-               (next sub-shapes))
-        strds))))
 
 (defn dnnl-concat-blueprint
   ([fact eng ^long conc-dim src-descs]
