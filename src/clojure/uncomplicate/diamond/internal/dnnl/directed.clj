@@ -1317,24 +1317,16 @@
     (AFn/applyToHelper this xs)))
 
 (defn dnnl-concat-blueprint
-  ([fact eng ^long conc-dim src-descs]
-   (let [src-shapes (fmap shape src-descs)
-         desc0 (first src-descs)
-         shape0 (shape desc0)
-         dst-dimension (foldmap + #(get % conc-dim) src-shapes)]
-     (let-release [dst-desc (memory-desc (into (vec (take conc-dim shape0))
-                                               (cons dst-dimension (drop (inc conc-dim) shape0)))
-                                         (tz/data-type desc0) :any)]
-       (dnnl-concat-blueprint fact eng dst-desc conc-dim src-descs))))
-  ([fact eng dst-desc conc-dim src-descs]
-   (let [src-dims (map dims src-descs)]
-     (let-release [concat-pd (apply concatenate eng dst-desc conc-dim src-descs)
-                   dst-desc (dst-md concat-pd)]
-       (with-release [dst-subs (mapv (partial submemory-desc dst-desc)
-                                     src-dims
-                                     (concat-strides conc-dim (dims dst-desc) src-dims))]
-         (let-release [split-pds (mapv (partial reorder eng) dst-subs src-descs)]
-           (->DnnlConcatBlueprint fact src-descs dst-desc concat-pd split-pds)))))))
+  [fact eng src-descs conc-dim dst-shape]
+  (let [src-dims (map dims src-descs)]
+    (let-release [dst-desc (memory-desc dst-shape (tz/data-type (first src-descs)) :any)
+                  concat-pd (apply concatenate eng dst-desc conc-dim src-descs)
+                  dst-desc (dst-md concat-pd)]
+      (with-release [dst-subs (mapv (partial submemory-desc dst-desc)
+                                    src-dims
+                                    (concat-strides conc-dim (dims dst-desc) src-dims))]
+        (let-release [split-pds (mapv (partial reorder eng) dst-subs src-descs)]
+          (->DnnlConcatBlueprint fact src-descs dst-desc concat-pd split-pds))))))
 
 ;; ================================ Split ======================================
 

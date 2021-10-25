@@ -10,6 +10,7 @@
   (:require [uncomplicate.commons
              [core :refer [with-release let-release release view]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.core :refer [fmap foldmap]]
             [uncomplicate.neanderthal
              [core :refer [ncols transfer! view-vctr]]
              [random :refer [rand-normal! rand-uniform! rng-state]]]
@@ -213,10 +214,14 @@
 
 (defn concatenate
   ([fact ^long concat-dimension src-descs]
-   (api/concat-blueprint fact concat-dimension
-                         (if (sequential? src-descs)
-                           src-descs
-                           (api/train-desc src-descs))))
+   (let [src-descs (if (sequential? src-descs) src-descs (api/train-desc src-descs))
+         src-shapes (fmap shape src-descs)
+         desc0 (first src-descs)
+         shape0 (shape desc0)
+         dst-dimension (foldmap + #(get % concat-dimension) src-shapes)]
+     (let-release [dst-shapes (into (vec (take concat-dimension shape0))
+                                    (cons dst-dimension (drop (inc concat-dimension) shape0)))]
+       (api/concat-blueprint fact src-descs concat-dimension dst-shapes))))
   ([^long concat-dimension]
    (fn
      ([fact src-descs]
