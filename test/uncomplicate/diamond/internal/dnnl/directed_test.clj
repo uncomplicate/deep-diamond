@@ -68,7 +68,6 @@
          (view-vctr (diff-weights ip-train)) => (fv -0.2)))
 
 (with-release [fact (dnnl-factory)]
-  (test-sum fact)
   (test-activation-relu fact)
   (test-activation-sigmoid fact)
   (test-fully-connected-inference fact)
@@ -98,15 +97,15 @@
   (test-batch-normalization-inference fact)
   (test-batch-normalization-training fact)
   (test-concatenate fact)
+  (test-branch fact)
+  (test-network-concat fact)
+  (test-network-branch-concat fact)
+  (test-parallel-network-solo fact)
+  (test-parallel-network-concat fact)
+  (test-parallel-network-nested fact)
+  (test-sum fact)
   (test-split fact))
 
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
 ;; "Elapsed time: 4990.836368 msecs"
-
-(with-release [fact (dnnl-factory)]
-  (test-network-concat fact)
-  (test-network-split-concat fact)
-  (test-parallel-network-solo fact)
-  (test-parallel-network-concat fact)
-  (test-parallel-network-nested fact))

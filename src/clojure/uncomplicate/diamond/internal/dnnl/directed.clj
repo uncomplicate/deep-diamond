@@ -1044,7 +1044,7 @@
     (-> (hash :batch-normalization) (hash-combine scaleshift-desc)))
   (equals [_ other]
     (and (instance? DnnlBatchNormalizationBlueprint other)
-         (= scaleshift-desc (.scaleshift-desc ^DnnlBatchNormalizationBlueprint other))
+         (equal-desc? scaleshift-desc (.scaleshift-desc ^DnnlBatchNormalizationBlueprint other))
          (equal-desc? (src-md infer-pd) (src-md (.infer-pd ^DnnlBatchNormalizationBlueprint other)))
          (equal-desc? (src-md train-pd) (src-md (.train-pd ^DnnlBatchNormalizationBlueprint other)))
          (equal-desc? (dst-md train-pd) (dst-md (.train-pd ^DnnlBatchNormalizationBlueprint other)))))
@@ -1116,7 +1116,7 @@
                   diff-src-conn (revert src-conn)
                   fwd-prim (primitive train-pd)
                   fwd-args (dnnl-args batch-norm-fwd-args (output src-conn) dst-tz scaleshift-tz
-                                            mean-tz var-tz)
+                                      mean-tz var-tz)
                   bwd-prim (primitive bwd-pd)
                   bwd-args (dnnl-args batch-norm-bwd-args dst-tz (output src-conn) scaleshift-tz
                                       mean-tz var-tz (output src-conn) diff-scaleshift-tz)]
@@ -1152,40 +1152,6 @@
                                                   activ alpha beta)]
     (->DirectedLayerBlueprint fact :batch-normalization batch-norm-op-bluep activ-bluep)))
 
-;; ================================ Sum ======================================
-
-(deftype DnnlSum [strm dst-tz sum-prim sum-args]
-  Releaseable
-  (release [_]
-    (release sum-prim)
-    (release dst-tz))
-  IFn
-  (invoke [this]
-    (execute! strm sum-prim sum-args)
-    dst-tz)
-  (applyTo [this xs]
-    (AFn/applyToHelper this xs)))
-
-(deftype DnnlSumBlueprint [strm sum-pd]
-  Releaseable
-  (release [_]
-    (release sum-pd))
-  IFn
-  (invoke [_ src-and-dst]
-    (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm src-and-dst sum-prim (args (buffer src-and-dst)))))
-  (invoke [_ src-tz dst-tz]
-    (let-release [sum-prim (primitive sum-pd)]
-      (->DnnlSum strm dst-tz sum-prim (dnnl-args args dst-tz dst-tz src-tz))))
-  (applyTo [this xs]
-    (AFn/applyToHelper this xs)))
-
-(defn dnnl-sum-blueprint
-  ([eng strm scale dst]
-   (->DnnlSumBlueprint strm (sum! eng scale dst)))
-  ([eng strm scale-src src scale-dst dst]
-   (->DnnlSumBlueprint strm (sum! eng dst scale-dst dst scale-src src))))
-
 ;; ================================ Concat ======================================
 
 (deftype DnnlConcatInference [strm src-tzs dst-tz concat-prim concat-args]
@@ -1193,13 +1159,6 @@
   (release [_]
     (release concat-prim)
     (release dst-tz))
-  Object
-  (hashCode [_]
-    (hash-combine (reduce hash-combine (hash :concat) src-tzs) dst-tz))
-  (equals [_ layer]
-    (and (satisfies? Parameters layer)
-         (= :concat (info layer :topology))
-         (= src-tzs (input layer)) (= dst-tz (output layer))))
   Transfer
   (input [_]
     src-tzs)
@@ -1217,21 +1176,14 @@
 
 (deftype DnnlConcatTraining [strm src-tzs dst-tz
                              concat-prim concat-args
-                             split-prims split-args
+                             branch-prims branch-args
                              prop-diff?]
   Releaseable
   (release [_]
     (release concat-prim)
     (release dst-tz)
-    (doseq [sp split-prims] (release sp))
+    (doseq [sp branch-prims] (release sp))
     true)
-  Object
-  (hashCode [_]
-    (hash-combine (reduce hash-combine (hash :concat) src-tzs) dst-tz))
-  (equals [_ layer]
-    (and (satisfies? Parameters layer)
-         (= :concat (info layer :topology))
-         (= src-tzs (input layer)) (= dst-tz (output layer))))
   Transfer
   (input [_]
     src-tzs)
@@ -1255,7 +1207,7 @@
     this)
   (backward [this _]
     (when prop-diff?
-      (doall (map (partial execute! strm) split-prims split-args)))
+      (doall (map (partial execute! strm) branch-prims branch-args)))
     this)
   IFn
   (invoke [this]
@@ -1264,10 +1216,10 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlConcatBlueprint [fact src-descs dst-desc concat-pd split-pds]
+(deftype DnnlConcatBlueprint [fact src-descs dst-desc concat-pd branch-pds]
   Releaseable
   (release [_]
-    (doseq [sp split-pds] (release sp))
+    (doseq [sp branch-pds] (release sp))
     (doseq [sd src-descs] (release sd))
     (release concat-pd)
     (release dst-desc))
@@ -1276,8 +1228,8 @@
     (hash-combine (reduce hash-combine (hash :concat) src-descs) dst-desc))
   (equals [_ other]
     (and (instance? DnnlConcatBlueprint other)
-         (= src-descs (.src-descs ^DnnlConcatBlueprint other))
-         (= dst-desc (.dst-desc ^DnnlConcatBlueprint other))))
+         (equal-desc? src-descs (.src-descs ^DnnlConcatBlueprint other))
+         (equal-desc? dst-desc (.dst-desc ^DnnlConcatBlueprint other))))
   (toString [this]
     (pr-str {:shape (shape this)
              :topology :concat}))
@@ -1308,41 +1260,35 @@
       (let-release [dst-tz (dnnl-tensor fact dst-desc)
                     concat-prim (primitive concat-pd)
                     concat-args (apply dnnl-args args dst-tz src-tzs)
-                    split-prims (mapv primitive split-pds)
-                    split-args (mapv (partial fwd-args (buffer dst-tz)) (map buffer src-tzs))]
+                    branch-prims (mapv primitive branch-pds)
+                    branch-args (mapv (partial fwd-args (buffer dst-tz)) (map buffer src-tzs))]
         (->DnnlConcatTraining (flow fact) src-tzs dst-tz
-                              concat-prim concat-args split-prims split-args
+                              concat-prim concat-args branch-prims branch-args
                               prop-diff?))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
 (defn dnnl-concat-blueprint
   [fact eng src-descs conc-dim dst-shape]
-  (let [src-dims (map dims src-descs)]
+  (let [src-dims (map shape src-descs)
+        src-descs (mapv desc src-descs)]
     (let-release [dst-desc (memory-desc dst-shape (tz/data-type (first src-descs)) :any)
                   concat-pd (apply concatenate eng dst-desc conc-dim src-descs)
                   dst-desc (dst-md concat-pd)]
       (with-release [dst-subs (mapv (partial submemory-desc dst-desc)
                                     src-dims
                                     (concat-strides conc-dim (dims dst-desc) src-dims))]
-        (let-release [split-pds (mapv (partial reorder eng) dst-subs src-descs)]
-          (->DnnlConcatBlueprint fact src-descs dst-desc concat-pd split-pds))))))
+        (let-release [branch-pds (mapv (partial reorder eng) dst-subs src-descs)]
+          (->DnnlConcatBlueprint fact src-descs dst-desc concat-pd branch-pds))))))
 
-;; ================================ Split ======================================
+;; ================================ Branch ======================================
 
-(deftype DnnlSplitInference [strm src-tz dst-tzs split-prims split-args]
+(deftype DnnlBranchInference [strm src-tz dst-tzs branch-prims branch-args]
   Releaseable
   (release [_]
-    (doseq [sp split-prims] (release sp))
+    (doseq [sp branch-prims] (release sp))
     (doseq [dt dst-tzs] (release dt))
     true)
-  Object
-  (hashCode [_]
-    (hash-combine (reduce hash-combine (hash :split) dst-tzs) src-tz))
-  (equals [_ layer]
-    (and (satisfies? Parameters layer)
-         (= :split (info layer :topology))
-         (= src-tz (input layer)) (= dst-tzs (output layer))))
   Transfer
   (input [_]
     src-tz)
@@ -1353,27 +1299,20 @@
     [])
   IFn
   (invoke [this]
-    (doall (map (partial execute! strm) split-prims split-args))
+    (doall (map (partial execute! strm) branch-prims branch-args))
     dst-tzs)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlSplitTraining [strm src-tz dst-tzs
-                            concat-prim concat-args
-                            split-prims split-args
-                            prop-diff?]
+(deftype DnnlBranchTraining [strm src-tz dst-tzs
+                             concat-prim concat-args
+                             branch-prims branch-args
+                             prop-diff?]
   Releaseable
   (release [_]
     (release concat-prim)
     (doseq [dt dst-tzs] (release dt))
-    (doseq [sp split-prims] (release sp)))
-  Object
-  (hashCode [_]
-    (hash-combine (reduce hash-combine (hash :split) dst-tzs) src-tz))
-  (equals [_ layer]
-    (and (satisfies? Parameters layer)
-         (= :split (info layer :topology))
-         (= src-tz (input layer)) (= dst-tzs (output layer))))
+    (doseq [sp branch-prims] (release sp)))
   Transfer
   (input [_]
     src-tz)
@@ -1391,7 +1330,7 @@
   (forward [this]
     this)
   (forward [this _]
-    (doall (map (partial execute! strm) split-prims split-args))
+    (doall (map (partial execute! strm) branch-prims branch-args))
     this)
   (backward [this]
     this)
@@ -1401,28 +1340,28 @@
     this)
   IFn
   (invoke [this]
-    (doall (map (partial execute! strm) split-prims split-args))
+    (doall (map (partial execute! strm) branch-prims branch-args))
     dst-tzs)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlSplitBlueprint [fact src-desc dst-descs concat-pd split-pds]
+(deftype DnnlBranchBlueprint [fact src-desc dst-descs concat-pd branch-pds]
   Releaseable
   (release [_]
     (release concat-pd)
-    (doseq [sp split-pds] (release sp))
+    (doseq [sp branch-pds] (release sp))
     (doseq [dd dst-descs] (release dd))
     (release src-desc))
   Object
   (hashCode [_]
-    (hash-combine (reduce hash-combine (hash :split) dst-descs) src-desc))
+    (hash-combine (reduce hash-combine (hash :branch) dst-descs) src-desc))
   (equals [_ other]
-    (and (instance? DnnlSplitBlueprint other)
-         (= dst-descs (.dst-descs ^DnnlSplitBlueprint other))
-         (= src-desc (.src-desc ^DnnlSplitBlueprint other))))
+    (and (instance? DnnlBranchBlueprint other)
+         (equal-desc? dst-descs (.dst-descs ^DnnlBranchBlueprint other))
+         (equal-desc? src-desc (.src-desc ^DnnlBranchBlueprint other))))
   (toString [this]
     (pr-str {:shape (shape this)
-             :topology :split}))
+             :topology :branch}))
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
@@ -1442,28 +1381,223 @@
   (invoke [_ prev-layer]
     (let-release [src-tz (output prev-layer)
                   dst-tzs (fmap (partial dnnl-tensor fact) dst-descs)
-                  split-prims (mapv primitive split-pds)
-                  split-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
-      (->DnnlSplitInference (flow fact) src-tz dst-tzs split-prims split-args)))
+                  branch-prims (mapv primitive branch-pds)
+                  branch-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
+      (->DnnlBranchInference (flow fact) src-tz dst-tzs branch-prims branch-args)))
   (invoke [_ prev-layer prop-diff? _]
     (let-release [src-tz (output prev-layer)
                   dst-tzs (fmap (partial dnnl-tensor fact) dst-descs)
                   concat-prim (primitive concat-pd)
                   concat-args (apply dnnl-args args src-tz dst-tzs)
-                  split-prims (mapv primitive split-pds)
-                  split-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
-      (->DnnlSplitTraining (flow fact) src-tz dst-tzs
-                            concat-prim concat-args split-prims split-args
+                  branch-prims (mapv primitive branch-pds)
+                  branch-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
+      (->DnnlBranchTraining (flow fact) src-tz dst-tzs
+                            concat-prim concat-args branch-prims branch-args
                             prop-diff?)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defn dnnl-split-blueprint [fact eng src-desc split-dim dst-descs]
-  (let [dst-dims (map dims dst-descs)]
-    (let-release [concat-pd (apply concatenate eng src-desc split-dim dst-descs)
+(defn dnnl-branch-blueprint [fact eng src-desc branch-dim dst-descs]
+  (let [dst-dims (map shape dst-descs)
+        dst-descs (mapv desc dst-descs)
+        src-desc (desc src-desc)]
+    (let-release [concat-pd (apply concatenate eng src-desc branch-dim dst-descs)
                   src-desc (dst-md concat-pd)]
       (with-release [src-subs (mapv (partial submemory-desc src-desc)
                                     dst-dims
-                                    (concat-strides split-dim (dims src-desc) dst-dims))]
-        (let-release [split-pds (mapv (partial reorder eng) src-subs dst-descs)]
-          (->DnnlSplitBlueprint fact src-desc dst-descs concat-pd split-pds))))))
+                                    (concat-strides branch-dim (dims src-desc) dst-dims))]
+        (let-release [branch-pds (mapv (partial reorder eng) src-subs dst-descs)]
+          (->DnnlBranchBlueprint fact src-desc dst-descs concat-pd branch-pds))))))
+
+;; ============================ Split ====================================================
+
+(deftype DnnlSplitInference [strm n src-tz]
+  Releaseable
+  (release [_]
+    (release src-tz))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    (vec (repeat n src-tz)))
+  ParametersSeq
+  (parameters [_]
+    [])
+  IFn
+  (invoke [this]
+    (output this))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype DnnlSplitTraining [strm n src-tz diff-tzs sum-prim sum-args prop-diff?]
+  Releaseable
+  (release [_]
+    (release sum-prim)
+    (doseq [dt diff-tzs] (release dt)))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    (vec (repeat n src-tz)))
+  DiffTransfer
+  (diff-input [_]
+    diff-tzs)
+  (diff-output [_]
+    src-tz)
+  ParametersSeq
+  (parameters [_]
+    [])
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    this)
+  (backward [this]
+    this)
+  (backward [this _]
+    (when prop-diff?
+      (execute! strm sum-prim sum-args))
+    this)
+  IFn
+  (invoke [this]
+    (output this))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype DnnlSplitBlueprint [fact n src-desc sum-pd]
+  Releaseable
+  (release [_]
+    (release sum-pd)
+    (release src-desc))
+  Object
+  (hashCode [_]
+    (-> (hash :split)
+        (hash-combine n)
+        (hash-combine src-desc)))
+  (equals [_ other]
+    (and (instance? DnnlSplitBlueprint other)
+         (= n (.n ^DnnlSplitBlueprint other))
+         (equal-desc? src-desc (.src-desc ^DnnlSplitBlueprint other))))
+  (toString [this]
+    (pr-str {:shape (shape this)
+             :topology :split}))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [this]
+    (train-desc this))
+  (train-desc [_]
+    (repeat n src-desc))
+  TensorDescriptor
+  (shape [_]
+    (repeat n (shape src-desc)))
+  (data-type [_]
+    (repeat n (data-type src-desc)))
+  (layout [_]
+    (repeat n (layout src-desc)))
+  IFn
+  (invoke [_ prev-layer]
+    (->DnnlSplitInference (flow fact) n (view (output prev-layer))))
+  (invoke [_ prev-layer prop-diff? _]
+    (let-release [src-tz (view (output prev-layer))
+                  diff-tzs (mapv (partial dnnl-tensor fact) (repeat n src-desc))
+                  sum-prim (primitive sum-pd)
+                  sum-args (apply dnnl-args args src-tz diff-tzs)]
+      (->DnnlSplitTraining (flow fact) n src-tz diff-tzs sum-prim sum-args prop-diff?)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn dnnl-split-blueprint [fact eng src-desc ^long n]
+  (let [src-desc (desc src-desc)]
+    (let-release [sum-pd (apply sum! eng src-desc (interleave (repeat (/ 1.0 n)) (repeat n src-desc)))]
+      (->DnnlSplitBlueprint fact n src-desc sum-pd))))
+
+;; ================================ Sum ======================================
+
+(deftype DnnlSum [strm src-tzs sum-prim sum-args diff-transformers prop-diff?]
+  Releaseable
+  (release [_]
+    (release sum-prim))
+  Transfer
+  (input [_]
+    src-tzs)
+  (output [_]
+    (first src-tzs))
+  DiffTransfer
+  (diff-input [_]
+    (first src-tzs))
+  (diff-output [_]
+    src-tzs)
+  ParametersSeq
+  (parameters [_]
+    [])
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    (execute! strm sum-prim sum-args)
+    this)
+  (backward [this]
+    this)
+  (backward [this _]
+    (when prop-diff?
+      (scal! (/ 1.0 (count src-tzs)) (first src-tzs))
+      (doseq [diff-trans diff-transformers]
+        (diff-trans)))
+    this)
+  IFn
+  (invoke [this]
+    (execute! strm sum-prim sum-args)
+    (first src-tzs))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(deftype DnnlSumBlueprint [fact eng src-descs sum-pd]
+  Releaseable
+  (release [_]
+    (release sum-pd)
+    (doseq [sd src-descs]
+      (release sd)))
+  Object
+  (hashCode [_]
+    (reduce hash-combine (hash :sum) src-descs))
+  (equals [_ other]
+    (and (instance? DnnlSumBlueprint other)
+         (equal-desc? src-descs (.src-descs ^DnnlSumBlueprint other))))
+  (toString [this]
+    (pr-str {:shape (shape this)
+             :topology :sum}))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [this]
+    (train-desc this))
+  (train-desc [_]
+    (dst-md sum-pd))
+  TensorDescriptor
+  (shape [_]
+    (shape (first src-descs)))
+  (data-type [_]
+    (data-type (first src-descs)))
+  (layout [_]
+    (layout (first src-descs)))
+  IFn
+  (invoke [this prev-layer]
+    (this prev-layer false nil))
+  (invoke [_ prev-layer prop-diff? _]
+    (let [src-tzs (fmap output prev-layer)
+          strm (flow fact)]
+      (let-release [sum-prim (primitive sum-pd)
+                    sum-args (apply dnnl-args args (first src-tzs) src-tzs)
+                    diff-transformers (mapv (partial dnnl-transformer eng strm (first src-tzs)) (rest src-tzs))]
+        (->DnnlSum (flow fact) src-tzs sum-prim sum-args diff-transformers prop-diff?))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn dnnl-sum-blueprint [fact eng src-descs]
+  (let [src-descs (mapv desc src-descs)
+        n (count src-descs)]
+    (let-release [sum-pd (apply sum! eng (first src-descs) (interleave (repeat 1.0) src-descs))]
+      (->DnnlSumBlueprint fact eng (mapv desc src-descs) sum-pd))))

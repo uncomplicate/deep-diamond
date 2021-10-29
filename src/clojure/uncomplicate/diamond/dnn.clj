@@ -21,17 +21,6 @@
              [protocols :as api]
              [network :refer [sequential-network parallel-network]]]))
 
-(defn sum
-  ([^double scale dst]
-   (let [dst (api/create-tensor-desc *diamond-factory* dst)]
-     (api/create-sum *diamond-factory* scale dst)))
-  ([^double scale-src src ^double scale-dst dst]
-   (sum *diamond-factory* scale-src src scale-dst dst))
-  ([fact scale-src src scale-dst dst]
-   (api/create-sum (api/diamond-factory fact)
-                   scale-src src
-                   scale-dst dst)))
-
 (defn activation
   ([fact src-desc activ alpha beta]
    (api/activ-blueprint (api/diamond-factory fact) src-desc activ alpha beta))
@@ -237,17 +226,37 @@
   ([]
    (concatenate 0)))
 
-(defn split
-  ([fact ^long split-dim src-desc dst-descs]
-   (api/split-blueprint fact src-desc split-dim dst-descs));;TODO change arg order
-  ([^long split-dim dst-descs]
+(defn branch
+  ([fact src-desc ^long branch-dim dst-descs]
+   (api/branch-blueprint fact src-desc branch-dim dst-descs))
+  ([^long branch-dim dst-descs]
    (fn
      ([fact src-desc]
-      (split fact split-dim src-desc dst-descs))
+      (branch fact src-desc branch-dim dst-descs))
      ([src-desc]
-      (split *diamond-factory* split-dim src-desc dst-descs))))
+      (branch *diamond-factory* src-desc branch-dim dst-descs))))
   ([dst-descs]
-   (split 0 dst-descs)))
+   (branch 0 dst-descs)))
+
+(defn split
+  ([fact src-desc ^long n]
+   (api/split-blueprint fact src-desc n))
+  ([^long n]
+   (fn
+     ([fact src-desc]
+      (split fact src-desc n))
+     ([src-desc]
+      (split *diamond-factory* src-desc n)))))
+
+(defn sum
+  ([fact src-descs]
+   (api/sum-blueprint fact src-descs))
+  ([]
+   (fn
+     ([fact src-desc]
+      (sum fact src-desc))
+     ([src-desc]
+      (sum *diamond-factory* src-desc)))))
 
 (defn cost
   ([layer train-tz cost-kw]

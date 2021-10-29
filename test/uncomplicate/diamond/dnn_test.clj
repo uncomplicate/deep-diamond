@@ -24,23 +24,6 @@
                      weights bias *workspace* inf-ws-size train-ws-size create-workspace
                      parameters]]))
 
-(defn test-sum [factory]
-  (with-release [tz-x (tensor factory [2 3 4 5] :float :nchw)
-                 tz-y (tensor factory [2 3 4 5] :float :nchw)
-                 sum-bp (sum factory 2.0 tz-x 3.0 tz-y)
-                 sum-xy (sum-bp tz-x tz-y)]
-    (facts
-     "Tensor sum test."
-     (entry (native (transfer! (range) (view-vctr tz-x))) 119) => 119.0
-     (entry (native (transfer! (range 0 10000 10) (view-vctr tz-y))) 119) => 1190.0
-     (entry (native (view-vctr tz-x)) 1) => 1.0
-     (entry (native (view-vctr tz-y)) 1) => 10.0
-     (sum-xy) => tz-y
-     (entry (native (view-vctr tz-x)) 1) => 1.0
-     (entry (native (view-vctr tz-y)) 1) => 32.0
-     (entry (native (view-vctr tz-x)) 119) => 119.0
-     (entry (native (view-vctr tz-y)) 119) => 3808.0)))
-
 (defn test-activation-relu [fact]
   (with-release [src-tz (tensor fact [1 3 2 1] :float :nchw)
                  dst-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -695,31 +678,31 @@
      (seq (view-vctr input0-tz)) => [0.0 1.0 2.0 3.0]
      (seq (view-vctr input1-tz)) => [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
 
-(defn test-split [fact]
+(defn test-branch [fact]
   (with-release [dst0-desc (desc [1 1 2 2] :float :nchw)
                  dst1-desc (desc [1 2 2 2] :float :nchw)
                  input-tz (tensor fact [1 3 2 2] :float :nchw)
-                 split-bluep (split fact 1 input-tz [dst0-desc dst1-desc])
-                 split-inf (split-bluep input-tz)
-                 split-train (split-bluep input-tz true nil)]
+                 branch-bluep (branch fact input-tz 1 [dst0-desc dst1-desc])
+                 branch-inf (branch-bluep input-tz)
+                 branch-train (branch-bluep input-tz true nil)]
 
     (transfer! [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0] input-tz)
 
     (facts
-     "Split inference test."
-     (map (comp seq view-vctr) (split-inf)) => [[0.0 1.0 2.0 3.0]
+     "Branch inference test."
+     (map (comp seq view-vctr) (branch-inf)) => [[0.0 1.0 2.0 3.0]
                                                 [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]])
 
     (facts
-     "Split training test."
-     (forward split-train nil) => split-train
-     (map (comp seq view-vctr) (output split-train)) => [[0.0 1.0 2.0 3.0]
+     "Branch training test."
+     (forward branch-train nil) => branch-train
+     (map (comp seq view-vctr) (output branch-train)) => [[0.0 1.0 2.0 3.0]
                                                          [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]]
 
      (transfer! (repeat 0.0) input-tz)
 
      (seq (view-vctr input-tz)) => (repeat 12 0.0)
-     (backward split-train nil) => split-train
+     (backward branch-train nil) => branch-train
      (seq (view-vctr input-tz)) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
 
 (defn test-parallel-network-solo [fact]
@@ -775,10 +758,10 @@
        (seq (view-vctr input0-tz)) => [0.5]
        (seq (view-vctr input1-tz)) => [1.0 0.10000000149011612]))))
 
-(defn test-network-split-concat [fact]
+(defn test-network-branch-concat [fact]
   (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
                  net-bp (network fact input-tz
-                                 [(split 1 [(desc [1 1 1 1] :float :nchw) (desc [1 2 1 1] :float :nchw) (desc [1 1 1 1] :float :nchw)]);; TODO I can discover split-dim from the descriptors. moreover, I just need split-dim, and that particular dimension! no need to change layout; :float and :nchw stay the same! (split 1 [1 2])
+                                 [(branch 1 [(desc [1 1 1 1] :float :nchw) (desc [1 2 1 1] :float :nchw) (desc [1 1 1 1] :float :nchw)]);; TODO I can discover branch-dim from the descriptors. moreover, I just need branch-dim, and that particular dimension! no need to change layout; :float and :nchw stay the same! (branch 1 [1 2])
                                   (conc 1)])
                  net-train (net-bp input-tz true :adam)]
     (facts
@@ -823,7 +806,7 @@
 (defn test-parallel-network-nested [fact]
   (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
                  net-bp (network fact input-tz
-                                 [(split 1 [(desc [1 1 1 1] :float :nchw) (desc [1 2 1 1] :float :nchw) (desc [1 1 1 1] :float :nchw)]);; TODO I can discover split-dim from the descriptors. moreover, I just need split-dim, and that particular dimension! no need to change layout; :float and :nchw stay the same! (split 1 [1 2])
+                                 [(branch 1 [(desc [1 1 1 1] :float :nchw) (desc [1 2 1 1] :float :nchw) (desc [1 1 1 1] :float :nchw)]);; TODO I can discover branch-dim from the descriptors. moreover, I just need branch-dim, and that particular dimension! no need to change layout; :float and :nchw stay the same! (branch 1 [1 2])
                                   [[(dense [1] :linear) (dense [2] :linear)]
                                    [(dense [1] :linear)]
                                    [(dense [1] :linear) (dense [2] :linear)]]
@@ -850,3 +833,48 @@
        (seq (view-vctr input-tz)) => [2.5 0.010000000707805157 0.020000001415610313 2.5]
        (map (comp seq view-vctr) (output (first (layers net-train))))
        => [[2.5] [0.010000000707805157 0.020000001415610313] [2.5]]))))
+
+(defn test-sum [fact]
+  (with-release [input0-tz (tensor fact [1 2 1 1] :float :nchw)
+                 input1-tz (tensor fact [1 2 1 1] :float :nchw)
+                 sum-bluep (sum fact [input0-tz input1-tz])
+                 sum-train (sum-bluep [input0-tz input1-tz] true nil)]
+
+    (transfer! [1 2] input0-tz)
+    (transfer! [3 4] input1-tz)
+
+    (facts
+     "Sum training test."
+     (forward sum-train nil) => sum-train
+     (seq (view-vctr (output sum-train))) => [4.0 6.0]
+
+     (transfer! [0 0] input1-tz)
+
+     (seq (view-vctr input1-tz)) => [0.0 0.0]
+     (backward sum-train nil) => sum-train
+     (seq (view-vctr input0-tz)) => [2.0 3.0]
+     (seq (view-vctr input1-tz)) => [2.0 3.0])))
+
+(defn test-split [fact]
+  (with-release [input-tz (tensor fact [1 2 1 1] :float :nchw)
+                 split-bluep (split fact input-tz 2)
+                 split-inf (split-bluep input-tz)
+                 split-train (split-bluep input-tz true nil)]
+
+    (transfer! [1.0 2.0] input-tz)
+
+    (facts
+     "Split inference test."
+     (map (comp seq view-vctr) (split-inf)) => [[1.0 2.0] [1.0 2.0]])
+
+    (facts
+     "Split training test."
+     (forward split-train nil) => split-train
+     (map (comp seq view-vctr) (output split-train)) => [[1.0 2.0] [1.0 2.0]]
+
+     (transfer! (repeat 0.0) input-tz)
+     (seq (view-vctr input-tz)) => [0.0 0.0]
+     (transfer! [1.0 2.0] (first (diff-input split-train)))
+     (transfer! [3.0 4.0] (second (diff-input split-train)))
+     (backward split-train nil) => split-train
+     (seq (view-vctr input-tz)) => [2.0 3.0])))
