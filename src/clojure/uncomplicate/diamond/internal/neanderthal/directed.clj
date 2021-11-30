@@ -29,7 +29,7 @@
                                 create-tensor activ-blueprint DiffTransfer diff-input
                                 diff-output diff-z create-tensor-desc LinearBackprop
                                 backward-diff Workspace inf-ws-size train-ws-size
-                                neanderthal-factory inf-desc train-desc]]
+                                neanderthal-factory inf-desc train-desc Initializable init]]
              [utils :refer [transfer-weights-bias!]]])
   (:import [clojure.lang IFn AFn]))
 
@@ -287,6 +287,10 @@
   ParametersSeq
   (parameters [_]
     (parameters op))
+  Initializable
+  (init [_ init-fn]
+    (init-fn (bias op))
+    (init-fn (weights op)))
   Transfer
   (input [this]
     (input op))
@@ -357,6 +361,10 @@
   ParametersSeq
   (parameters [_]
     (parameters op))
+  Initializable
+  (init [_ init-fn]
+    (init-fn (bias op))
+    (init-fn (weights op)))
   IFn
   (invoke [_]
     (op)
@@ -452,6 +460,10 @@
   ParametersSeq
   (parameters [_]
     (parameters op))
+  Initializable
+  (init [_ init-fn]
+    (init-fn (bias op))
+    (init-fn (weights op)))
   IFn
   (invoke [_]
     (op)
@@ -607,6 +619,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ _])
   IFn
   (invoke [_]
     (data-conn))
@@ -649,6 +663,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   IFn
   (invoke [this]
     (data-conn))

@@ -10,7 +10,8 @@
              :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
                      diamond-factory native-diamond-factory DiffTransfer diff-input
                      diff-output diff-z parameters Workspace inf-ws-size train-ws-size
-                     create-workspace *workspace* DescriptorProvider inf-desc train-desc]])
+                     create-workspace *workspace* DescriptorProvider inf-desc train-desc
+                     Initializable init]])
   (:import [clojure.lang IFn AFn]))
 
 (extend-type java.lang.Object
@@ -25,7 +26,6 @@
 
 (defn ^:private layer-info [layer]
   [(info layer :topology) (info layer :shape) (info layer :activation)])
-
 
 ;; ======================== Sequential network ==============================
 
@@ -60,6 +60,10 @@
   NeuralNetwork
   (layers [_]
     forward-layers)
+  Initializable
+  (init [_ init-fn]
+    (doseq [layer forward-layers]
+      (init layer init-fn)))
   Transfer
   (input [_] x-tz)
   (output [_] (output (peek forward-layers)))
@@ -115,6 +119,10 @@
   NeuralNetwork
   (layers [_]
     forward-layers)
+  Initializable
+  (init [_ init-fn]
+    (doseq [layer forward-layers]
+      (init layer init-fn)))
   Transfer
   (input [_] x-mb-tz)
   (output [_] (output last-layer))
@@ -279,6 +287,10 @@
   NeuralNetwork
   (layers [_]
     (join (fmap layers parallel-layers)))
+  Initializable
+  (init [_ init-fn]
+    (doseq [layer parallel-layers]
+      (init layer init-fn)))
   Transfer
   (input [_] x-tzs)
   (output [_]
@@ -324,6 +336,10 @@
   NeuralNetwork
   (layers [_]
     (join (fmap layers parallel-layers)))
+  Initializable
+  (init [_ init-fn]
+    (doseq [layer parallel-layers]
+      (init layer init-fn)))
   Transfer
   (input [_] x-mb-tzs)
   (output [_] (fmap output parallel-layers))
@@ -354,6 +370,7 @@
     this))
 
 ;; TODO print-method
+;; TODO transfer!
 
 (deftype ParallelNetworkBlueprint [fact src-descs layer-blueprints
                                    inf-ws-sz train-ws-sz]

@@ -24,7 +24,7 @@
                       DescriptorProvider DiamondFactoryProvider DiffParameters
                       diff-weights Backprop forward backward
                       DiffTransfer diff-output diff-input diff-z
-                      LinearBackprop backward-diff inf-desc train-desc]]
+                      LinearBackprop backward-diff inf-desc train-desc Initializable init]]
              [utils :refer [transfer-weights-bias! default-strides concat-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -738,6 +738,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   IFn
   (invoke [_]
     (src-conn)
@@ -784,6 +786,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   IFn
   (invoke [_]
     (src-conn)
@@ -944,6 +948,10 @@
   ParametersSeq
   (parameters [_]
     [gamma-tz beta-tz mean-tz var-tz])
+  Initializable
+  (init [_ init-fn]
+    (init-fn gamma-tz)
+    (init-fn beta-tz))
   IFn
   (invoke [_]
     (src-conn)
@@ -1010,6 +1018,10 @@
   ParametersSeq
   (parameters [_]
     [gamma-tz beta-tz mean-tz var-tz])
+  Initializable
+  (init [_ init-fn]
+    (init-fn gamma-tz)
+    (init-fn beta-tz))
   DiffParameters
   (diff-weights [_]
     post-diff-gamma-tz)
@@ -1152,6 +1164,16 @@
                                                   activ alpha beta)]
     (->DirectedLayerBlueprint fact :batch-normalization batch-norm-op-bluep activ-bluep)))
 
+(defmethod transfer! [DnnlBatchNormalizationInference Object]
+  [source destination]
+  (doall (map transfer! (parameters source) (parameters destination)))
+  destination)
+
+(defmethod transfer! [DnnlBatchNormalizationTraining Object]
+  [source destination]
+  (doall (map transfer! (parameters source) (parameters destination)))
+  destination)
+
 ;; ================================ Concat ======================================
 
 (deftype DnnlConcatInference [strm src-tzs dst-tz concat-prim concat-args]
@@ -1167,6 +1189,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   IFn
   (invoke [this]
     (execute! strm concat-prim concat-args)
@@ -1197,6 +1221,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   Backprop
   (forward [this]
     this)
@@ -1281,6 +1307,14 @@
         (let-release [branch-pds (mapv (partial reorder eng) dst-subs src-descs)]
           (->DnnlConcatBlueprint fact src-descs dst-desc concat-pd branch-pds))))))
 
+(defmethod transfer! [DnnlConcatInference Object]
+  [source destination]
+  destination)
+
+(defmethod transfer! [DnnlConcatTraining Object]
+  [source destination]
+  destination)
+
 ;; ================================ Branch ======================================
 
 (deftype DnnlBranchInference [strm src-tz dst-tzs branch-prims branch-args]
@@ -1297,6 +1331,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   IFn
   (invoke [this]
     (doall (map (partial execute! strm) branch-prims branch-args))
@@ -1326,6 +1362,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   Backprop
   (forward [this]
     this)
@@ -1409,6 +1447,14 @@
         (let-release [branch-pds (mapv (partial reorder eng) src-subs dst-descs)]
           (->DnnlBranchBlueprint fact src-desc dst-descs concat-pd branch-pds))))))
 
+(defmethod transfer! [DnnlBranchInference Object]
+  [source destination]
+  destination)
+
+(defmethod transfer! [DnnlBranchTraining Object]
+  [source destination]
+  destination)
+
 ;; ============================ Split ====================================================
 
 (deftype DnnlSplitInference [strm n src-tz]
@@ -1423,6 +1469,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   IFn
   (invoke [this]
     (output this))
@@ -1447,6 +1495,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   Backprop
   (forward [this]
     this)
@@ -1513,6 +1563,14 @@
     (let-release [sum-pd (apply sum! eng src-desc (interleave (repeat (/ 1.0 n)) (repeat n src-desc)))]
       (->DnnlSplitBlueprint fact n src-desc sum-pd))))
 
+(defmethod transfer! [DnnlSplitInference Object]
+  [source destination]
+  destination)
+
+(defmethod transfer! [DnnlSplitTraining Object]
+  [source destination]
+  destination)
+
 ;; ================================ Sum ======================================
 
 (deftype DnnlSum [strm src-tzs sum-prim sum-args diff-transformers prop-diff?]
@@ -1532,6 +1590,8 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [_ init-fn])
   Backprop
   (forward [this]
     this)
@@ -1601,3 +1661,7 @@
         n (count src-descs)]
     (let-release [sum-pd (apply sum! eng (first src-descs) (interleave (repeat 1.0) src-descs))]
       (->DnnlSumBlueprint fact eng (mapv desc src-descs) sum-pd))))
+
+(defmethod transfer! [DnnlSum Object]
+  [source destination]
+  destination)

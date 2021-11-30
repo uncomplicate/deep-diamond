@@ -285,10 +285,8 @@
       (network *diamond-factory* src-descs layers)))))
 
 (defn init! [net!]
-  (with-release [rng (rng-state (view-vctr (first (api/parameters (first (api/layers net!))))))]
-    (doseq [layer (api/layers net!)]
-      (doseq [params (api/parameters layer)]
-        (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape params))))) params))))
+  (with-release [rng (rng-state (view-vctr (input net!)))]
+    (api/init net! (fn [x] (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape x))))) x))))
   net!)
 
 (defn ^:private linear-decay
@@ -402,3 +400,5 @@
      (let-release [out (tensor net (into [(get (shape (input in)) 0)] (rest (shape net-out)))
                                (data-type net-out) (layout net-out))]
        (infer net in out)))))
+
+;;TODO train should be renamed to train! and infer! (perhaps)

@@ -397,7 +397,7 @@
   ([alg-kind src-dst-desc]
    (binary-desc alg-kind src-dst-desc src-dst-desc src-dst-desc)))
 
-;; TODO src_0 and src are both code 1. Maybe this should become an universal args function, while args is rarelu used and should be renamed to multi-args.
+;; TODO src_0 and src are both code 1. Maybe this should become an universal args function, while args is rarely used and should be renamed to multi-args.
 (defn binary-args
   ([src0 src1 dst]
    (let-release [args (dnnl_exec_arg_t. 3)]
