@@ -284,10 +284,13 @@
      ([src-descs]
       (network *diamond-factory* src-descs layers)))))
 
-(defn init! [net!]
-  (with-release [rng (rng-state (view-vctr (input net!)))]
-    (api/init net! (fn [x] (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape x))))) x))))
-  net!)
+(defn init!
+  ([net!]
+   (with-release [rng (rng-state (view-vctr (input net!)))]
+     (api/init net! (fn [x] (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape x))))) x))))
+   net!)
+  ([net! init-fn]
+   (api/init net! init-fn)))
 
 (defn ^:private linear-decay
   [^long t ^long tau ^double eta-0 ^double eta-tau]

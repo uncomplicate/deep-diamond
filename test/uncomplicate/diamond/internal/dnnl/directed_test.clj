@@ -22,7 +22,7 @@
                           network init! train cost train]]
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
-             :refer [diff-weights forward backward layers weights bias]]
+             :refer [diff-weights forward backward weights bias]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]])
   (:import clojure.lang.ExceptionInfo))
 
@@ -109,3 +109,8 @@
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
 ;; "Elapsed time: 4990.836368 msecs"
+
+;; TODO Implement toString and print-method
+;; explore ILookup and other Clojure interfaces for layers
+;; polish it a bit
+;; update cudnn with inf-desc changes

@@ -20,7 +20,7 @@
              [tensor :refer :all]
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
-             :refer [diff-weights forward backward layers diff-input diff-output
+             :refer [diff-weights forward backward diff-input diff-output
                      weights bias *workspace* inf-ws-size train-ws-size create-workspace
                      parameters]]))
 
@@ -269,16 +269,16 @@
                  quad-cost (cost net train-tz :quadratic)]
     (facts "Sequential network step by step."
            (transfer! [-0.5 -0.5] input-tz)
-           (transfer! [-0.1 -0.1] (weights (first (layers net))))
-           (transfer! [0.2 0.2] (bias (first (layers net))))
-           (transfer! [0.8 0.8] (weights (second (layers net))))
-           (transfer! [0.5 0.5] (bias (second (layers net))))
+           (transfer! [-0.1 -0.1] (weights (first net)))
+           (transfer! [0.2 0.2] (bias (first net)))
+           (transfer! [0.8 0.8] (weights (second net)))
+           (transfer! [0.5 0.5] (bias (second net)))
            (transfer! [0.25 0.25] train-tz)
            (train net quad-cost 1 [1 0 0 false]) => 0.056953115582683234
-           (entry (native (view-vctr (weights (first (layers net))))) 0) => (roughly 0.08)
-           (entry (native (view-vctr (bias (first (layers net))))) 0) => (roughly -0.16)
-           (entry (native (view-vctr (weights (second (layers net))))) 0) => 0.6875
-           (entry (native (view-vctr (bias (second (layers net))))) 0) => (roughly 0.05))))
+           (entry (native (view-vctr (weights (first net)))) 0) => (roughly 0.08)
+           (entry (native (view-vctr (bias (first net)))) 0) => (roughly -0.16)
+           (entry (native (view-vctr (weights (second net)))) 0) => 0.6875
+           (entry (native (view-vctr (bias (second net)))) 0) => (roughly 0.05))))
 
 (defn test-sequential-network-batched [fact]
   (with-release [input-tz (tensor fact [4 2] :float :nc)
@@ -294,16 +294,16 @@
                  quad-cost (cost net y-mb-tz :quadratic)]
     (facts "Sequential network step by step."
            (transfer! [-0.5 -0.5 5 5 0.5 0.5 -5 -5] input-tz)
-           (transfer! [-0.1 -0.1] (weights (first (layers net))))
-           (transfer! [0.2 0.2] (bias (first (layers net))))
-           (transfer! [0.8 0.8] (weights (second (layers net))))
-           (transfer! [0.5 0.5] (bias (second (layers net))))
+           (transfer! [-0.1 -0.1] (weights (first net)))
+           (transfer! [0.2 0.2] (bias (first net)))
+           (transfer! [0.8 0.8] (weights (second net)))
+           (transfer! [0.5 0.5] (bias (second net)))
            (transfer! [0.25 0.25 2.5 2.5] train-tz)
            (train net x-batcher y-batcher quad-cost 2 [1]) => (roughly 5.5345)
-           (entry (native (view-vctr (weights (first (layers net))))) 0) => (roughly 0.97108)
-           (entry (native (view-vctr (bias (first (layers net))))) 0) => (roughly 1.0245)
-           (entry (native (view-vctr (weights (second (layers net))))) 0) = (roughly 0.79295)
-           (entry (native (view-vctr (bias (second (layers net))))) 0) => (roughly -1.38267))))
+           (entry (native (view-vctr (weights (first net)))) 0) => (roughly 0.97108)
+           (entry (native (view-vctr (bias (first net)))) 0) => (roughly 1.0245)
+           (entry (native (view-vctr (weights (second net)))) 0) = (roughly 0.79295)
+           (entry (native (view-vctr (bias (second net)))) 0) => (roughly -1.38267))))
 
 (defn test-quadratic-cost [fact]
   (with-release [input-tz (tensor fact [2 1] :float :nc)
@@ -712,28 +712,27 @@
                                  [[[(dense [1] :linear) (dense [2] :linear)]
                                    [(dense [1] :linear)]]])
                  net-train (net-bp [input0-tz input1-tz] true :adam)]
-    (let [parallel-layers (layers (first (layers net-train)))]
-      (transfer! [1] input0-tz)
-      (transfer! [2 3] input1-tz)
+    (transfer! [1] input0-tz)
+    (transfer! [2 3] input1-tz)
 
-      (facts
-       "Parallel training test, solo."
-       (transfer! [0.1] (weights (first parallel-layers)))
-       (transfer! [10 20] (weights (second parallel-layers)))
-       (transfer! [0.1 0.2] (weights (parallel-layers 2)))
-       (forward net-train [0 1 0 0 false]) => net-train
-       (map (comp seq view-vctr) (output net-train)) => [[1.0 2.0] [0.800000011920929]]
+    (facts
+     "Parallel training test, solo."
+     (transfer! [0.1] (weights (get-in net-train [0 0 0])))
+     (transfer! [10 20] (weights (get-in net-train [0 0 1])))
+     (transfer! [0.1 0.2] (weights (get-in net-train [0 1 0])))
+     (forward net-train [0 1 0 0 false]) => net-train
+     (map (comp seq view-vctr) (output net-train)) => [[1.0 2.0] [0.800000011920929]]
 
-       (transfer! (repeat 0.0) input0-tz)
-       (transfer! (repeat 0.0) input1-tz)
+     (transfer! (repeat 0.0) input0-tz)
+     (transfer! (repeat 0.0) input1-tz)
 
-       (transfer! [0.5 1] (first (diff-input net-train)))
-       (transfer! [0.1] (second (diff-input net-train)))
-       (backward net-train)
-       (backward net-train [0 1 0 0 false]) => net-train
-       (map (comp seq view-vctr output) parallel-layers) => [[25.0] [0.5 1.0] [0.10000000149011612]]
-       (seq (view-vctr input0-tz)) => [2.5]
-       (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313]))))
+     (transfer! [0.5 1] (first (diff-input net-train)))
+     (transfer! [0.1] (second (diff-input net-train)))
+     (backward net-train)
+     (backward net-train [0 1 0 0 false]) => net-train
+     (map (comp seq view-vctr output) (first net-train)) => [[0.5 1.0] [0.10000000149011612]]
+     (seq (view-vctr input0-tz)) => [2.5]
+     (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313])))
 
 (defn test-network-concat [fact]
   (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)
@@ -782,26 +781,25 @@
                                    [(dense [1] :linear)]]
                                   (conc 1)])
                  net-train (net-bp [input0-tz input1-tz] true :adam)]
-    (let [parallel-layers (layers (first (layers net-train)))]
-      (transfer! [1] input0-tz)
-      (transfer! [2 3] input1-tz)
+    (transfer! [1] input0-tz)
+    (transfer! [2 3] input1-tz)
 
-      (facts
-       "Parallel training test, concat."
-       (transfer! [0.1] (weights (first parallel-layers)))
-       (transfer! [10 20] (weights (second parallel-layers)))
-       (transfer! [0.1 0.2] (weights (parallel-layers 2)))
-       (forward net-train [0 1 0 0 false]) => net-train
-       (seq (view-vctr (output net-train))) => [1.0 2.0 0.800000011920929]
+    (facts
+     "Parallel training test, concat."
+     (transfer! [0.1] (weights (get-in net-train [0 0 0])))
+     (transfer! [10 20] (weights (get-in net-train [0 0 1])))
+     (transfer! [0.1 0.2] (weights (get-in net-train [0 1 0])))
+     (forward net-train [0 1 0 0 false]) => net-train
+     (seq (view-vctr (output net-train))) => [1.0 2.0 0.800000011920929]
 
-       (transfer! (repeat 0.0) input0-tz)
-       (transfer! (repeat 0.0) input1-tz)
+     (transfer! (repeat 0.0) input0-tz)
+     (transfer! (repeat 0.0) input1-tz)
 
-       (transfer! [0.5 1 0.1] (diff-input net-train))
-       (backward net-train [0 1 0 0 false]) => net-train
-       (map (comp seq view-vctr output) parallel-layers) => [[25.0] [0.5 1.0] [0.10000000149011612]]
-       (seq (view-vctr input0-tz)) => [2.5]
-       (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313]))))
+     (transfer! [0.5 1 0.1] (diff-input net-train))
+     (backward net-train [0 1 0 0 false]) => net-train
+     (map (comp seq view-vctr output) (first net-train) =>) [[0.5 1.0] [0.10000000149011612]]
+     (seq (view-vctr input0-tz)) => [2.5]
+     (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313])))
 
 (defn test-parallel-network-nested [fact]
   (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
@@ -812,27 +810,26 @@
                                    [(dense [1] :linear) (dense [2] :linear)]]
                                   (conc 1)]);;
                  net-train (net-bp input-tz true :adam)]
-    (let [parallel-layers (layers (second (layers net-train)))]
-      (transfer! [1 2 3 1] input-tz)
+    (transfer! [1 2 3 1] input-tz)
 
-      (facts
-       "Parallel training test, nested."
-       (transfer! [0.1] (weights (first parallel-layers)))
-       (transfer! [10 20] (weights (second parallel-layers)))
-       (transfer! [0.1 0.2] (weights (parallel-layers 2)))
-       (transfer! [0.1] (weights (parallel-layers 3)))
-       (transfer! [10 20] (weights (parallel-layers 4)))
-       (forward net-train [0 1 0 0 false]) => net-train
-       (seq (view-vctr (output net-train))) => [1.0 2.0 0.800000011920929 1.0 2.0]
+    (facts
+     "Parallel training test, nested."
+     (transfer! [0.1] (weights (get-in net-train [1 0 0])))
+     (transfer! [10 20] (weights (get-in net-train [1 0 1])))
+     (transfer! [0.1 0.2] (weights (get-in net-train [1 1 0])))
+     (transfer! [0.1] (weights (get-in net-train [1 2 0])))
+     (transfer! [10 20] (weights (get-in net-train [1 2 1])))
+     (forward net-train [0 1 0 0 false]) => net-train
+     (seq (view-vctr (output net-train))) => [1.0 2.0 0.800000011920929 1.0 2.0]
 
-       (transfer! (repeat 0.0) input-tz)
-       (transfer! [0.5 1 0.1 0.5 1] (diff-input net-train))
-       (backward net-train [0 1 0 0 false]) => net-train
-       (map (comp seq view-vctr output) parallel-layers)
-       => [[25.0] [0.5 1.0] [0.10000000149011612] [25.0] [0.5 1.0]]
-       (seq (view-vctr input-tz)) => [2.5 0.010000000707805157 0.020000001415610313 2.5]
-       (map (comp seq view-vctr) (output (first (layers net-train))))
-       => [[2.5] [0.010000000707805157 0.020000001415610313] [2.5]]))))
+     (transfer! (repeat 0.0) input-tz)
+     (transfer! [0.5 1 0.1 0.5 1] (diff-input net-train))
+     (backward net-train [0 1 0 0 false]) => net-train
+     (map (comp seq view-vctr output) (second net-train))
+     => [[0.5 1.0] [0.10000000149011612] [0.5 1.0]]
+     (seq (view-vctr input-tz)) => [2.5 0.010000000707805157 0.020000001415610313 2.5]
+     (map (comp seq view-vctr) (output (get net-train 0)))
+     => [[2.5] [0.010000000707805157 0.020000001415610313] [2.5]])))
 
 (defn test-sum [fact]
   (with-release [input0-tz (tensor fact [1 2 1 1] :float :nchw)

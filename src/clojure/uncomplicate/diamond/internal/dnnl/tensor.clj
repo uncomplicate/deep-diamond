@@ -27,7 +27,7 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
                       neanderthal-factory tensor-engine native-diamond-factory Offset
-                      DiffTransfer diff-input diff-output create-tensor-desc layers parameters
+                      DiffTransfer diff-input diff-output create-tensor-desc parameters
                       DescriptorProvider]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl

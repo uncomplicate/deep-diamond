@@ -76,9 +76,6 @@
 (defprotocol LinearBackprop
   (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]))
 
-(defprotocol NeuralNetwork
-  (layers [this]))
-
 (defprotocol Workspace
   (inf-ws-size [this])
   (train-ws-size [this]))

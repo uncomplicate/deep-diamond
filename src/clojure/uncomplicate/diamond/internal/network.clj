@@ -7,12 +7,12 @@
             [uncomplicate.diamond.tensor :refer [Transfer input output tensor TensorDescriptor
                                                  shape data-type layout]]
             [uncomplicate.diamond.internal.protocols
-             :refer [NeuralNetwork layers Backprop forward backward DiamondFactoryProvider
+             :refer [Backprop forward backward DiamondFactoryProvider
                      diamond-factory native-diamond-factory DiffTransfer diff-input
-                     diff-output diff-z parameters Workspace inf-ws-size train-ws-size
+                     diff-output diff-z Workspace inf-ws-size train-ws-size
                      create-workspace *workspace* DescriptorProvider inf-desc train-desc
                      Initializable init]])
-  (:import [clojure.lang IFn AFn]))
+  (:import [clojure.lang IFn AFn Seqable Indexed ILookup]))
 
 (extend-type java.lang.Object
   Workspace
@@ -28,7 +28,6 @@
   [(info layer :topology) (info layer :shape) (info layer :activation)])
 
 ;; ======================== Sequential network ==============================
-
 (deftype SequentialNetworkInference [x-tz forward-layers workspace]
   Releaseable
   (release [_]
@@ -39,8 +38,10 @@
   Object
   (hashCode [_]
     (reduce hash-combine (hash :sequential) forward-layers))
-  (equals [_ n]
-    (and (satisfies? NeuralNetwork n) (= forward-layers (layers n))))
+  (equals [this other]
+    (if (= SequentialNetworkInference (type other))
+      (= forward-layers (seq other))
+      (= other this)))
   (toString [_]
     (format "[%s]" (apply str forward-layers)))
   Info
@@ -57,9 +58,21 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     (diamond-factory (peek forward-layers)))
-  NeuralNetwork
-  (layers [_]
-    forward-layers)
+  Seqable
+  (seq [x]
+    (seq forward-layers))
+  Indexed
+  (nth [_ i]
+    (nth forward-layers i))
+  (nth [_ i not-found]
+    (nth forward-layers i not-found))
+  (count [_]
+    (count forward-layers))
+  ILookup
+  (valAt [_ k]
+    (get forward-layers k))
+  (valAt [_ k not-found]
+    (get forward-layers k not-found))
   Initializable
   (init [_ init-fn]
     (doseq [layer forward-layers]
@@ -81,7 +94,7 @@
 (defmethod print-method SequentialNetworkInference
   [nn ^java.io.Writer w]
   (.write w "\n[\n")
-  (doseq [layer (layers nn)]
+  (doseq [layer nn]
     (.write w (pr-str layer))
     (.write w "\n"))
   (.write w "]"))
@@ -97,8 +110,10 @@
   Object
   (hashCode [_]
     (reduce hash-combine (hash :sequential) forward-layers))
-  (equals [_ n]
-    (and (satisfies? NeuralNetwork n) (= forward-layers (layers n))))
+  (equals [_ other]
+    (and (or (= SequentialNetworkTraining (type other))
+             (= SequentialNetworkInference (type other)))
+         (= forward-layers (seq other))))
   (toString [_]
     (format "[%s]" (apply str forward-layers)))
   Info
@@ -116,9 +131,21 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     (diamond-factory last-layer))
-  NeuralNetwork
-  (layers [_]
-    forward-layers)
+  Seqable
+  (seq [x]
+    (seq forward-layers))
+  Indexed
+  (nth [_ i]
+    (nth forward-layers i))
+  (nth [_ i not-found]
+    (nth forward-layers i not-found))
+  (count [_]
+    (count forward-layers))
+  ILookup
+  (valAt [_ k]
+    (get forward-layers k))
+  (valAt [_ k not-found]
+    (get forward-layers k not-found))
   Initializable
   (init [_ init-fn]
     (doseq [layer forward-layers]
@@ -158,7 +185,7 @@
 (defmethod print-method SequentialNetworkTraining
   [nn ^java.io.Writer w]
   (.write w "\n[\n")
-  (doseq [layer (layers nn)]
+  (doseq [layer nn]
     (.write w (pr-str layer))
     (.write w "\n"))
   (.write w "]"))
@@ -173,15 +200,13 @@
   (hashCode [_]
     (reduce hash-combine (hash :sequential) layer-blueprints))
   (equals [_ n]
-    (and (satisfies? NeuralNetwork n) (= layer-blueprints (layers n))))
+    (and (= SequentialNetworkBlueprint (type n))
+         (= layer-blueprints (.layer-blueprints ^SequentialNetworkBlueprint n))))
   (toString [_]
     (str layer-blueprints))
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
-  NeuralNetwork
-  (layers [_]
-    (format "[%s]" (apply str layer-blueprints)))
   DescriptorProvider
   (inf-desc [_]
     (inf-desc (peek layer-blueprints)))
@@ -213,7 +238,7 @@
                    (cons ((first bps) (first backward-layers) true optimization)
                          backward-layers))
             (->SequentialNetworkTraining input-tz
-                                         (reverse backward-layers)
+                                         (vec (reverse backward-layers))
                                          (first backward-layers)
                                          (rest backward-layers)
                                          workspace))))))
@@ -247,12 +272,12 @@
 
 (defmethod transfer! [SequentialNetworkInference Object]
   [source destination]
-  (doall (map transfer! (layers source) (layers destination)))
+  (doall (map transfer! source destination))
   destination)
 
 (defmethod transfer! [SequentialNetworkTraining Object]
   [source destination]
-  (doall (map transfer! (layers source) (layers destination)))
+  (doall (map transfer! source destination))
   destination)
 
 ;; ============== Parallel network =========================================
@@ -266,8 +291,10 @@
   Object
   (hashCode [_]
     (reduce hash-combine (hash :parallel) parallel-layers))
-  (equals [_ n]
-    (and (satisfies? NeuralNetwork n) (= parallel-layers (layers n))))
+  (equals [this other]
+    (if (= ParallelNetworkInference (type other))
+      (= parallel-layers (seq other))
+      (= other this)))
   (toString [_]
     (format "[%s]" (apply str parallel-layers)))
   Info
@@ -284,9 +311,21 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     (diamond-factory (peek parallel-layers)))
-  NeuralNetwork
-  (layers [_]
-    (join (fmap layers parallel-layers)))
+  Seqable
+  (seq [x]
+    (seq parallel-layers))
+  Indexed
+  (nth [_ i]
+    (nth parallel-layers i))
+  (nth [_ i not-found]
+    (nth parallel-layers i not-found))
+  (count [_]
+    (count parallel-layers))
+  ILookup
+  (valAt [_ k]
+    (get parallel-layers k))
+  (valAt [_ k not-found]
+    (get parallel-layers k not-found))
   Initializable
   (init [_ init-fn]
     (doseq [layer parallel-layers]
@@ -315,8 +354,10 @@
   Object
   (hashCode [_]
     (reduce hash-combine (hash :parallel) parallel-layers))
-  (equals [_ n]
-    (and (satisfies? NeuralNetwork n) (= parallel-layers (layers n))));;TODO sort out layers/parallel-layers
+  (equals [_ other]
+    (and (or (= ParallelNetworkTraining (type other))
+             (= ParallelNetworkInference (type other)))
+         (= parallel-layers (seq other))))
   (toString [_]
     (format "[%s]" (apply str parallel-layers)))
   Info
@@ -333,9 +374,21 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     (diamond-factory (peek parallel-layers)))
-  NeuralNetwork
-  (layers [_]
-    (join (fmap layers parallel-layers)))
+  Seqable
+  (seq [x]
+    (seq parallel-layers))
+  Indexed
+  (nth [_ i]
+    (nth parallel-layers i))
+  (nth [_ i not-found]
+    (nth parallel-layers i not-found))
+  (count [_]
+    (count parallel-layers))
+  ILookup
+  (valAt [_ k]
+    (get parallel-layers k))
+  (valAt [_ k not-found]
+    (get parallel-layers k not-found))
   Initializable
   (init [_ init-fn]
     (doseq [layer parallel-layers]
@@ -382,7 +435,8 @@
   (hashCode [_]
     (reduce hash-combine (hash :parallel) layer-blueprints))
   (equals [_ n]
-    (and (satisfies? NeuralNetwork n) (= layer-blueprints (layers n))))
+    (and (= ParallelNetworkBlueprint (type n))
+         (= layer-blueprints (.layer-blueprints ^ParallelNetworkBlueprint n))))
   (toString [_]
     (str layer-blueprints))
   DiamondFactoryProvider
@@ -400,9 +454,6 @@
     (fmap data-type layer-blueprints))
   (layout [_]
     (fmap layout layer-blueprints))
-  NeuralNetwork
-  (layers [_]
-    (format "[%s]" (apply str layer-blueprints)))
   Workspace
   (inf-ws-size [this]
     (apply max (fmap inf-ws-size layer-blueprints)))
