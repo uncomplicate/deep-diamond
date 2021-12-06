@@ -28,6 +28,7 @@
   [(info layer :topology) (info layer :shape) (info layer :activation)])
 
 ;; ======================== Sequential network ==============================
+
 (deftype SequentialNetworkInference [x-tz forward-layers workspace]
   Releaseable
   (release [_]
@@ -43,7 +44,8 @@
       (= forward-layers (seq other))
       (= other this)))
   (toString [_]
-    (format "[%s]" (apply str forward-layers)))
+    (format "#SequentialNetworkInference[input:%s, layers:%d, workspace:%d]"
+            (shape x-tz) (count forward-layers) (.capacity ^java.nio.Buffer workspace)));;TODO use vector instead of ByteBuffer
   Info
   (info [x]
     {:topology :sequential
@@ -93,11 +95,12 @@
 
 (defmethod print-method SequentialNetworkInference
   [nn ^java.io.Writer w]
-  (.write w "\n[\n")
+  (.write w "\n=======================================================================\n")
+  (.write w (str nn))
   (doseq [layer nn]
-    (.write w (pr-str layer))
-    (.write w "\n"))
-  (.write w "]"))
+    (.write w "\n-----------------------------------------------------------------------\n")
+    (.write w (pr-str layer)))
+  (.write w "\n=======================================================================\n"))
 
 (deftype SequentialNetworkTraining [x-mb-tz forward-layers last-layer
                                     rest-backward-layers workspace]
@@ -115,17 +118,18 @@
              (= SequentialNetworkInference (type other)))
          (= forward-layers (seq other))))
   (toString [_]
-    (format "[%s]" (apply str forward-layers)))
+    (format "#SequentialNetworkTraining[input:%s, layers:%d, workspace:%d]"
+            (shape x-mb-tz) (count forward-layers) (.capacity ^java.nio.Buffer workspace)))
   Info
   (info [x]
     {:topology :sequential
-     :batch (first (info (first forward-layers) :shape))
+     :batch (get (shape x-mb-tz) 0)
      :layers (fmap layer-info forward-layers)})
   (info [x info-type]
     (info [x info-type]
           (case info-type
             :topology :sequential
-            :batch (first (info (first forward-layers) :shape))
+            :batch (get (shape x-mb-tz) 0)
             :layers (fmap layer-info forward-layers)
             nil)))
   DiamondFactoryProvider
@@ -184,11 +188,12 @@
 
 (defmethod print-method SequentialNetworkTraining
   [nn ^java.io.Writer w]
-  (.write w "\n[\n")
+  (.write w "\n=======================================================================\n")
+  (.write w (str nn))
   (doseq [layer nn]
-    (.write w (pr-str layer))
-    (.write w "\n"))
-  (.write w "]"))
+    (.write w "\n-----------------------------------------------------------------------\n")
+    (.write w (pr-str layer)))
+  (.write w "\n=======================================================================\n"))
 
 (deftype SequentialNetworkBlueprint [fact src-desc layer-blueprints
                                      inf-ws-sz train-ws-sz]
@@ -204,9 +209,35 @@
          (= layer-blueprints (.layer-blueprints ^SequentialNetworkBlueprint n))))
   (toString [_]
     (str layer-blueprints))
+  Info
+  (info [this]
+    {:input (shape src-desc)
+     :shape (shape this)
+     :topology :sequential})
+  (info [this info-type]
+    (case info-type
+      :input (shape src-desc)
+      :shape (shape this)
+      :topology :sequential
+      nil))
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
+  Seqable
+  (seq [x]
+    (seq layer-blueprints))
+  Indexed
+  (nth [_ i]
+    (nth layer-blueprints i))
+  (nth [_ i not-found]
+    (nth layer-blueprints i not-found))
+  (count [_]
+    (count layer-blueprints))
+  ILookup
+  (valAt [_ k]
+    (get layer-blueprints k))
+  (valAt [_ k not-found]
+    (get layer-blueprints k not-found))
   DescriptorProvider
   (inf-desc [_]
     (inf-desc (peek layer-blueprints)))
@@ -259,6 +290,15 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method SequentialNetworkBlueprint
+  [nn ^java.io.Writer w]
+  (.write w "\n=======================================================================\n")
+  (.write w (str nn))
+  (doseq [layer nn]
+    (.write w "\n-----------------------------------------------------------------------\n")
+    (.write w (pr-str layer)))
+  (.write w "\n=======================================================================\n"))
+
 (declare eval-layer)
 
 (defn sequential-network [fact src-desc layers]
@@ -296,7 +336,8 @@
       (= parallel-layers (seq other))
       (= other this)))
   (toString [_]
-    (format "[%s]" (apply str parallel-layers)))
+    (format "#ParallelNetworkInference[input:%s, layers:%d]"
+            (fmap shape x-tzs) (count parallel-layers)))
   Info
   (info [x]
     {:topology :parallel
@@ -345,6 +386,15 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method ParallelNetworkInference
+  [nn ^java.io.Writer w]
+  (.write w "\n= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =\n")
+  (.write w (str nn))
+  (doseq [layer nn]
+    (.write w "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
+    (.write w (pr-str layer)))
+  (.write w "\n= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =\n"))
+
 (deftype ParallelNetworkTraining [x-mb-tzs parallel-layers]
   Releaseable
   (release [_]
@@ -359,16 +409,17 @@
              (= ParallelNetworkInference (type other)))
          (= parallel-layers (seq other))))
   (toString [_]
-    (format "[%s]" (apply str parallel-layers)))
+    (format "#ParallelNetworkTraining[input:%s, layers:%d]"
+            (fmap shape x-mb-tzs) (count parallel-layers)))
   Info
   (info [x]
     {:topology :parallel
-     :batch (first (info (first parallel-layers) :shape))
+     :batch (fmap (comp first shape) x-mb-tzs)
      :layers (fmap layer-info parallel-layers)})
   (info [x info-type]
     (case info-type
       :topology :parallel
-      :batch (first (info (first parallel-layers) :shape))
+      :batch (fmap (comp first shape) x-mb-tzs)
       :layers (fmap layer-info parallel-layers)
       nil))
   DiamondFactoryProvider
@@ -422,8 +473,14 @@
       (backward layer hyperparam))
     this))
 
-;; TODO print-method
-;; TODO transfer!
+(defmethod print-method ParallelNetworkTraining
+  [nn ^java.io.Writer w]
+  (.write w "\n= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =\n")
+  (.write w (str nn))
+  (doseq [layer nn]
+    (.write w "\n- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -\n")
+    (.write w (pr-str layer)))
+  (.write w "\n= = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = =\n"))
 
 (deftype ParallelNetworkBlueprint [fact src-descs layer-blueprints
                                    inf-ws-sz train-ws-sz]
@@ -439,6 +496,17 @@
          (= layer-blueprints (.layer-blueprints ^ParallelNetworkBlueprint n))))
   (toString [_]
     (str layer-blueprints))
+  Info
+  (info [this]
+    {:input (fmap shape src-descs)
+     :shape (shape this)
+     :topology :parallel})
+  (info [this info-type]
+    (case info-type
+      :input (fmap shape src-descs)
+      :shape (shape this)
+      :topology :parallel
+      nil))
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
@@ -490,3 +558,13 @@
   (if (sequential? layer)
     (parallel-network fact (if (sequential? src-desc) src-desc (train-desc src-desc)) layer)
     (layer fact src-desc)))
+
+(defmethod transfer! [ParallelNetworkInference Object]
+  [source destination]
+  (doall (map transfer! source destination))
+  destination)
+
+(defmethod transfer! [ParallelNetworkTraining Object]
+  [source destination]
+  (doall (map transfer! source destination))
+  destination)
