@@ -797,7 +797,7 @@
 
      (transfer! [0.5 1 0.1] (diff-input net-train))
      (backward net-train [0 1 0 0 false]) => net-train
-     (map (comp seq view-vctr output) (first net-train) =>) [[0.5 1.0] [0.10000000149011612]]
+     (map (comp seq view-vctr output) (first net-train)) => [[0.5 1.0] [0.10000000149011612]]
      (seq (view-vctr input0-tz)) => [2.5]
      (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313])))
 
