@@ -2,7 +2,10 @@
   (:require [uncomplicate.commons
              [core :refer [release let-release Info]]
              [utils :refer [dragan-says-ex cond-into]]]
-            [uncomplicate.diamond.internal.protocols :as api]))
+            [uncomplicate.fluokitten.protocols :refer [Magma Monoid Applicative Functor pure]]
+            [uncomplicate.diamond.internal
+             [protocols :as api]
+             [utils :refer [default-strides]]]))
 
 (def ^:dynamic *diamond-factory* nil)
 
@@ -87,6 +90,22 @@
      :shape shape
      :data-type data-type
      :layout layout})
+  Monoid
+  (id [_]
+    (let [zero-vec (vec (repeat (count shape) 0))]
+      (TensorDescriptorImpl. zero-vec data-type zero-vec)))
+  Applicative
+  (pure [x v]
+    (let [v-vec (vec (repeat (count shape) v))]
+      (TensorDescriptorImpl. v-vec data-type v-vec)))
+  (pure [x v vs]
+    (let [vs (into (into [v] vs) (repeat (- (count shape) (count vs) 1) 0))]
+      (TensorDescriptorImpl. vs data-type (default-strides vs))))
+  Functor
+  (fmap [x f]
+    (f x))
+  (fmap [x f xs]
+    (apply f x xs))
   TensorDescriptor
   (shape [_]
     shape)

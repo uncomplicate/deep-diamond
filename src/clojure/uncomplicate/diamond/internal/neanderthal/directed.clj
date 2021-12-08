@@ -163,7 +163,7 @@
          (= src-desc (.src-desc ^InnerProductBlueprint other))
          (= dst-desc (.dst-desc ^InnerProductBlueprint other))))
   (toString [this]
-    (pr-str {:src src-desc :weights weights-desc :dst dst-desc}))
+    (str {:src src-desc :weights weights-desc :dst dst-desc}))
   Releaseable
   (release [_]
     (release ones)
@@ -305,10 +305,9 @@
 
 (defmethod print-method InferenceLayer
   [layer ^java.io.Writer w]
-  (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                     :shape (info layer :shape)
-                     :topology (info layer :topology)
-                     :activation (info layer :activation)})))
+  (.write w (format "#InferenceLayer[topology%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+                    (info layer :topology) (info layer :shape) (info layer :activation)
+                    (pr-str (weights layer)) (pr-str (bias layer)))))
 
 (deftype SGDLayer [fact bluep op activ ^long n v w b]
   Releaseable
@@ -401,10 +400,9 @@
 
 (defmethod print-method SGDLayer
   [layer ^java.io.Writer w]
-  (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                     :shape (info layer :shape)
-                     :topology (info layer :topology)
-                     :activation (info layer :activation)})))
+  (.write w (format "#SGDLayer[topology:%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+                    (info layer :topology) (info layer :shape) (info layer :activation)
+                    (pr-str (weights layer)) (pr-str (bias layer)))))
 
 (deftype AdamLayer [fact bluep op activ ^long n
                     s r w g b]
@@ -511,10 +509,9 @@
 
 (defmethod print-method AdamLayer
   [layer ^java.io.Writer w]
-  (.write w (pr-str {:weights (weights layer) :bias (bias layer)
-                     :shape (info layer :shape)
-                     :topology (info layer :topology)
-                     :activation (info layer :activation)})))
+  (.write w (format "#AdamLayer[topology:%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+                    (info layer :topology) (info layer :shape) (info layer :activation)
+                    (pr-str (weights layer)) (pr-str (bias layer)))))
 
 (deftype DirectedLayerBlueprint [fact topology op-bluep activ-bluep]
   Releaseable
@@ -529,9 +526,9 @@
          (= activ-bluep (.activ-bluep ^DirectedLayerBlueprint other))
          (= op-bluep (.op-bluep ^DirectedLayerBlueprint other))))
   (toString [this]
-    (pr-str {:shape (shape this)
-             :topology topology
-             :activation (info activ-bluep :activation)}))
+    (str {:shape (shape this)
+          :topology topology
+          :activation (info activ-bluep :activation)}))
   Info
   (info [x]
     (assoc (into (info op-bluep) (info activ-bluep))
@@ -581,6 +578,10 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method DirectedLayerBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
 (defn neanderthal-fc-blueprint [fact src-desc dst-desc activ alpha beta weights-type]
   (let [dst-shape (shape dst-desc)
         weights-shape [(dst-shape 1) (apply * (rest (shape src-desc)))]]
@@ -591,7 +592,7 @@
                                                :nc)
                   ip-bluep (inner-product-blueprint fact src-desc dst-desc weights-type)
                   activ-bluep (activ-blueprint fact (view dst-desc) activ alpha beta)]
-      (->DirectedLayerBlueprint fact :fc ip-bluep activ-bluep))))
+      (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep))))
 
 (defmethod transfer! [InferenceLayer Object]
   [source destination]
@@ -611,6 +612,17 @@
   Releaseable
   (release [_]
     (release data-conn))
+  Object
+  (hashCode [_]
+    (hash-combine (hash :identity) (output data-conn)))
+  (equals [_ other]
+    (and (instance? IdentityLayer other)
+         (let [conn (.data-conn ^IdentityLayer other)]
+           (or (= (input data-conn) (input conn))
+               (= (output data-conn) (output conn))))))
+  (toString [this]
+    (str {:shape (shape (output data-conn))
+          :topology :identity}))
   Transfer
   (input [_]
     (input data-conn))
@@ -627,23 +639,37 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method IdentityLayer
+  [layer ^java.io.Writer w]
+  (.write w (format "#Identity[shape:%s]\n" (shape (output layer)))))
+
 (deftype GaussianDropoutLayer [fact bluep prev-layer ^double sd rand-state mask-tz data-conn]
   Releaseable
   (release [_]
     (release mask-tz)
     (release data-conn))
+  Object
+  (hashCode [_]
+    (hash-combine (hash :gaussian-dropout) mask-tz))
+  (equals [_ other]
+    (and (instance? GaussianDropoutLayer other)
+         (= mask-tz (.mask-tz ^GaussianDropoutLayer other))
+         (= (output data-conn) (output (.data-conn  ^GaussianDropoutLayer other)))))
+  (toString [this]
+    (str bluep))
   Info
   (info [this]
     {:rand-state rand-state
      :mask mask-tz
      :data (info (output data-conn))
-     :topology (info bluep :topology)
+     :topology :gaussian-dropout
      :shape (info bluep :shape)})
   (info [this info-type]
     (case info-type
       :rand-state rand-state
       :mask mask-tz
       :data (info (output data-conn))
+      :topology :gaussian-dropout
       (info bluep info-type)))
   DiamondFactoryProvider
   (diamond-factory [_]
@@ -684,6 +710,11 @@
     (mul! (output data-conn) mask-tz)
     this))
 
+(defmethod print-method GaussianDropoutLayer
+  [^GaussianDropoutLayer layer ^java.io.Writer w]
+  (.write w (format "#GaussianDropout[shape:%s]\n mask: %s\n"
+                    (shape (output layer)) (pr-str (.mask-tz layer)))))
+
 (deftype GaussianDropoutBlueprint [fact ^double sd mask-desc]
   Releaseable
   (release [_]
@@ -695,8 +726,8 @@
     (and (instance? GaussianDropoutBlueprint other)
          (= mask-desc (.mask-desc ^GaussianDropoutBlueprint other))))
   (toString [this]
-    (pr-str {:shape (shape mask-desc)
-             :topology :gaussian-dropout}))
+    (str {:shape (shape mask-desc)
+          :topology :gaussian-dropout}))
   Info
   (info [x]
     {:shape (shape mask-desc)
@@ -732,6 +763,10 @@
       (->GaussianDropoutLayer fact this prev-layer sd (rng-state mask-tz) mask-tz data-conn)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method GaussianDropoutBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
 
 (defmethod transfer! [IdentityLayer Object]
   [source destination]

@@ -12,7 +12,7 @@
              [utils :refer [dragan-says-ex mapped-buffer]]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
             [uncomplicate.diamond.internal
-             [protocols :refer [diamond-factory native-diamond-factory parameters layers]]
+             [protocols :refer [diamond-factory native-diamond-factory parameters]]
              [network :refer []]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [size]]
@@ -44,7 +44,7 @@
                           (dragan-says-ex "You can only :read or :read-write a channel!"))
                         (+ pos (size mapped-param))))
                     pos (parameters layer)))
-          0 (layers net))
+          0 net)
   channel)
 
 (defmethod transfer! [SequentialNetworkInference FileChannel]

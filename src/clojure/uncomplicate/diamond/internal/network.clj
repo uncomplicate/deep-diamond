@@ -25,7 +25,10 @@
   (f))
 
 (defn ^:private layer-info [layer]
-  [(info layer :topology) (info layer :shape) (info layer :activation)])
+  (let [nfo [(info layer :topology) (info layer :shape)]]
+    (if-let [act (info layer :activation)]
+      (conj nfo act)
+      nfo)))
 
 ;; ======================== Sequential network ==============================
 
@@ -292,12 +295,7 @@
 
 (defmethod print-method SequentialNetworkBlueprint
   [nn ^java.io.Writer w]
-  (.write w "\n=======================================================================\n")
-  (.write w (str nn))
-  (doseq [layer nn]
-    (.write w "\n-----------------------------------------------------------------------\n")
-    (.write w (pr-str layer)))
-  (.write w "\n=======================================================================\n"))
+  (.write w (str nn)))
 
 (declare eval-layer)
 
@@ -547,6 +545,10 @@
       (this input-tzs)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method ParallelNetworkBlueprint
+  [nn ^java.io.Writer w]
+  (.write w (str nn)))
 
 (defn parallel-network [fact src-descs parallel-layers]
   (let-release [layers (mapv (partial sequential-network fact) src-descs parallel-layers)]

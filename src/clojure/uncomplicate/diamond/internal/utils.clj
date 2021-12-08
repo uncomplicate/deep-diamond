@@ -11,7 +11,6 @@
              [core :refer [Wrapper Releaseable extract]]
              [utils :refer [dragan-says-ex with-check]]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
-            [uncomplicate.diamond.tensor :refer [layout]]
             [uncomplicate.diamond.internal.protocols :refer [weights bias]])
   (:import uncomplicate.neanderthal.internal.api.Block))
 
@@ -41,7 +40,7 @@
    (when-not (.isContiguous x)
      (dragan-says-ex "This operation is supported only on contiguous tensors.
 Please use a copy or create a transformer."
-                     {:strides (layout x)})))
+                     {:x (str x)})))
   ([^Block x ^Block y]
    (check-contiguous x)
    (check-contiguous y))

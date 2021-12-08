@@ -10,7 +10,7 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info Viewable view]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.fluokitten.protocols :refer [Magma Monoid Foldable Applicative pure]]
+            [uncomplicate.fluokitten.protocols :refer [Magma Monoid Applicative Functor]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
              [block :refer [entry-width data-accessor buffer count-entries contiguous?]]]
@@ -100,6 +100,19 @@
     (release in-tz)
     (release out-tz)
     (release reorder))
+  Object
+  (hashCode [_]
+    (-> (hash :transformer)
+        (hash-combine (shape in-tz))
+        (hash-combine (shape out-tz))))
+  (equals [_ other]
+    (and (instance? DnnlTransformer other)
+         (= (shape in-tz) (shape (.in-tz ^DnnlTransformer other)))
+         (= (shape out-tz) (shape (.out-tz ^DnnlTransformer other)))
+         (= out-tz (.out-tz ^DnnlTransformer other))))
+  (toString [this]
+    (str {:input in-tz
+          :output out-tz}))
   Revert
   (revert [_]
     (dnnl-transformer eng strm (view out-tz) (view in-tz)))
@@ -151,6 +164,20 @@
     (release src-sub)
     (release dst-sub)
     (release reorder))
+  Object
+  (hashCode [_]
+    (-> (hash :batcher)
+        (hash-combine (shape src-sub))
+        (hash-combine (shape dst-sub))))
+  (equals [_ other]
+    (and (instance? DnnlBatcher other)
+         (= (shape src-tz) (shape (.src-tz ^DnnlBatcher other)))
+         (= (shape dst-tz) (shape (.dst-tz ^DnnlBatcher other)))
+         (= src-tz (.src-tz ^DnnlBatcher other))))
+  (toString [this]
+    (str {:input src-tz
+          :output dst-tz
+          :mb-size mb-size}))
   Viewable
   (view [_]
     (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
@@ -383,6 +410,11 @@
     (dnnl-tensor diamond-fact (memory-desc (repeat (ndims tz-mem) 0)
                                            (data-type tz-mem)
                                            (repeat (ndims tz-mem) 0))))
+  Functor
+  (fmap [x f]
+    (f x))
+  (fmap [x f xs]
+   (apply f x xs))
   Applicative
   (pure [x v]
     (let-release [res (dnnl-tensor diamond-fact (memory-desc (repeat (ndims tz-mem) 1)

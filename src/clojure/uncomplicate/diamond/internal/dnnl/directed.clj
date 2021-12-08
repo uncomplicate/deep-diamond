@@ -565,7 +565,7 @@
     (let-release [ip-bluep (dnnl-inner-product-blueprint fact eng src-desc dst-desc weights-type)
                   activ-bluep (dnnl-activ-blueprint fact eng (inf-desc ip-bluep) (train-desc ip-bluep)
                                                     (train-desc ip-bluep) activ alpha beta)]
-      (->DirectedLayerBlueprint fact :fc ip-bluep activ-bluep))))
+      (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep))))
 
 ;; ============================= Cost Function ========================================
 
@@ -720,6 +720,17 @@
     (release src-conn)
     (release dst-tz)
     (release pooling-fwd-prim))
+  Object
+  (hashCode [_]
+    (-> (hash :pooling)
+        (hash-combine (shape (input src-conn)))
+        (hash-combine (shape dst-tz))))
+  (equals [_ other]
+    (and (instance? DnnlPoolingInferenceLayer other)
+         (= src-conn (.src-conn ^DnnlPoolingInferenceLayer other))
+         (= dst-tz (.dst-tz ^DnnlPoolingInferenceLayer other))))
+  (toString [this]
+    (str bluep))
   Info
   (info [this]
     {:algo (info bluep :algo)
@@ -748,6 +759,11 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method DnnlPoolingInferenceLayer
+  [^DnnlPoolingInferenceLayer layer ^java.io.Writer w]
+  (.write w (format "#Pooling[shape:%s, algo:%s]\n destination: %s\n"
+                    (shape (output layer)) (info layer :algo) (pr-str (.dst-tz layer)))))
+
 (deftype DnnlPoolingTrainingLayer [fact strm bluep src-conn dst-tz workspace-tz
                                    pooling-fwd-prim pooling-fwd-args
                                    diff-dst-conn diff-src-conn
@@ -761,6 +777,17 @@
     (release diff-dst-conn)
     (release diff-src-conn)
     (release pooling-bwd-prim))
+  Object
+  (hashCode [_]
+    (-> (hash :pooling)
+        (hash-combine (shape (input src-conn)))
+        (hash-combine (shape dst-tz))))
+  (equals [_ other]
+    (and (instance? DnnlPoolingTrainingLayer other)
+         (= src-conn (.src-conn ^DnnlPoolingTrainingLayer other))
+         (= dst-tz (.dst-tz ^DnnlPoolingTrainingLayer other))))
+  (toString [this]
+    (str bluep))
   Info
   (info [this]
     {:algo (info bluep :algo)
@@ -811,12 +838,31 @@
       (diff-src-conn))
     this))
 
+(defmethod print-method DnnlPoolingTrainingLayer
+  [^DnnlPoolingTrainingLayer layer ^java.io.Writer w]
+  (.write w (format "#Pooling[shape:%s, algo:%s]\n destination: %s\n"
+                    (shape (output layer)) (info layer :algo) (pr-str (.dst-tz layer)))))
+
 (deftype DnnlPoolingBlueprint [fact algo pool-infer-pd pool-train-pd pool-bwd-pd]
   Releaseable
   (release [_]
     (release pool-infer-pd)
     (release pool-train-pd)
     (release pool-bwd-pd))
+  Object
+  (hashCode [this]
+    (-> (hash :pooling)
+        (hash-combine algo)
+        (hash-combine (train-desc this))))
+  (equals [this other]
+    (and (instance? DnnlPoolingBlueprint other)
+         (= algo (.algo ^DnnlPoolingBlueprint other))
+         (= (inf-desc this) (inf-desc other))
+         (= (train-desc this) (train-desc other))))
+  (toString [this]
+    (str {:algo algo
+          :shape (shape this)
+          :topology :pooling}))
   Info
   (info [this]
     {:algo algo
@@ -877,6 +923,10 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method DnnlPoolingBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
 (defn dnnl-pooling-blueprint
   [fact eng src-desc dst-desc algo strides kernel padding-l padding-r]
   (let-release [inf-src-desc (inf-desc src-desc);;TODO maybe this could be with-release...
@@ -924,6 +974,23 @@
     (release mean-tz)
     (release var-tz)
     (release fwd-prim))
+  Object
+  (hashCode [_]
+    (-> (hash :batch-norm)
+        (hash-combine (shape gamma-tz))
+        (hash-combine (shape beta-tz))
+        (hash-combine (shape (input src-conn)))
+        (hash-combine (shape (output src-conn)))))
+  (equals [_ other]
+    (and (instance? DnnlBatchNormalizationInference other)
+         (= gamma-tz (.gamma-tz ^DnnlBatchNormalizationInference other))
+         (= beta-tz (.beta-tz ^DnnlBatchNormalizationInference other))
+         (= src-conn (.src-conn ^DnnlBatchNormalizationInference other))
+         (= mean-tz (.mean-tz ^DnnlBatchNormalizationInference other))
+         (= var-tz (.var-tz ^DnnlBatchNormalizationInference other))
+         (= (output src-conn) (output (.src-conn ^DnnlBatchNormalizationInference other)))))
+  (toString [this]
+    (str bluep))
   Info
   (info [this]
     {:gamma (info gamma-tz)
@@ -960,6 +1027,11 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method DnnlBatchNormalizationInference
+  [layer ^java.io.Writer w]
+  (.write w (format "#BatchNorm[]\n gamma:\n beta: \n output: %s\n"
+                    (weights layer) (bias layer) (pr-str (output layer)))))
+
 (deftype DnnlBatchNormalizationTraining [fact strm bluep scaleshift-tz diff-scaleshift-tz
                                          src-conn gamma-tz beta-tz dst-tz mean-tz var-tz
                                          diff-gamma-tz diff-beta-tz post-diff-gamma-tz
@@ -983,6 +1055,23 @@
     (release fwd-args)
     (release bwd-prim)
     (release bwd-args))
+  Object
+  (hashCode [_]
+    (-> (hash :batch-norm)
+        (hash-combine (shape gamma-tz))
+        (hash-combine (shape beta-tz))
+        (hash-combine (shape (input src-conn)))
+        (hash-combine (shape dst-tz))))
+  (equals [_ other]
+    (and (instance? DnnlBatchNormalizationTraining other)
+         (= gamma-tz (.gamma-tz ^DnnlBatchNormalizationTraining other))
+         (= beta-tz (.beta-tz ^DnnlBatchNormalizationTraining other))
+         (= src-conn (.src-conn ^DnnlBatchNormalizationTraining other))
+         (= mean-tz (.mean-tz ^DnnlBatchNormalizationTraining other))
+         (= var-tz (.var-tz ^DnnlBatchNormalizationTraining other))
+         (= dst-tz (.dst-tz ^DnnlBatchNormalizationTraining other))))
+  (toString [this]
+    (str bluep))
   Info
   (info [this]
     {:gamma (info gamma-tz)
@@ -1049,11 +1138,16 @@
     (diff-src-conn)
     this))
 
+(defmethod print-method DnnlBatchNormalizationTraining
+  [layer ^java.io.Writer w]
+  (.write w (format "#BatchNorm[]\n gamma:\n beta: \n output: %s\n"
+                    (weights layer) (bias layer) (pr-str (output layer)))))
+
 (deftype DnnlBatchNormalizationBlueprint [fact data-desc scaleshift-desc gamma-desc
                                           infer-pd train-pd bwd-pd]
   Object
   (hashCode [_]
-    (-> (hash :batch-normalization) (hash-combine scaleshift-desc)))
+    (-> (hash :batch-norm) (hash-combine scaleshift-desc)))
   (equals [_ other]
     (and (instance? DnnlBatchNormalizationBlueprint other)
          (equal-desc? scaleshift-desc (.scaleshift-desc ^DnnlBatchNormalizationBlueprint other))
@@ -1061,8 +1155,8 @@
          (equal-desc? (src-md train-pd) (src-md (.train-pd ^DnnlBatchNormalizationBlueprint other)))
          (equal-desc? (dst-md train-pd) (dst-md (.train-pd ^DnnlBatchNormalizationBlueprint other)))))
   (toString [this]
-    (pr-str {:src (src-md infer-pd)
-             :dst (dst-md infer-pd)}))
+    (pr-str {:topology :batch-norm
+             :shape (shape this)}))
   Releaseable
   (release [_]
     (release infer-pd)
@@ -1139,6 +1233,10 @@
                                         bwd-prim bwd-args)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method DnnlBatchNormalizationBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
 
 (defn dnnl-batch-norm-op-blueprint
   [fact eng data-desc]
