@@ -44,7 +44,7 @@
 
 ;; ================================ Activation =============================================
 
-(deftype DnnlActivationInference [fact strm bluep a-tz
+(deftype DnnlActivationInference [strm bluep a-tz
                                   eltwise-fwd-prim eltwise-fwd-args]
   Releaseable
   (release [_]
@@ -70,7 +70,7 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlActivationTraining [fact strm bluep z-tz a-tz
+(deftype DnnlActivationTraining [strm bluep z-tz a-tz
                                  eltwise-fwd-prim eltwise-fwd-args
                                  eltwise-bwd-prim eltwise-bwd-args]
   Releaseable
@@ -126,6 +126,9 @@
     (case info-type
       :activation activ
       nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   DescriptorProvider
   (inf-desc [_]
     (dst-md eltw-infer-pd))
@@ -142,14 +145,14 @@
   (invoke [this src-tz]
     (let-release [eltw-fwd-prim (primitive eltw-infer-pd)
                   eltw-fwd-args (fwd-args (buffer src-tz))]
-      (->DnnlActivationInference fact (flow fact) this src-tz
+      (->DnnlActivationInference (flow fact) this src-tz
                                  eltw-fwd-prim eltw-fwd-args)))
   (invoke [this src-tz dst-tz]
     (let-release [eltw-fwd-prim (primitive eltw-train-pd)
                   eltw-fwd-args (fwd-args (buffer src-tz) (buffer dst-tz))
                   eltw-bwd-prim (primitive eltw-bwd-pd)
                   eltw-bwd-args (dnnl-args eltwise-bwd-args src-tz dst-tz src-tz)]
-      (->DnnlActivationTraining fact (flow fact) this src-tz dst-tz
+      (->DnnlActivationTraining (flow fact) this src-tz dst-tz
                                 eltw-fwd-prim eltw-fwd-args
                                 eltw-bwd-prim eltw-bwd-args)))
   (applyTo [this xs]
@@ -172,7 +175,7 @@
 
 ;; ================================ Softmax =============================================
 
-(deftype DnnlSoftmaxTraining [fact strm bluep z-tz da-tz
+(deftype DnnlSoftmaxTraining [strm bluep z-tz da-tz
                               softmax-fwd-prim softmax-fwd-args
                               softmax-bwd-prim softmax-bwd-args]
   Releaseable
@@ -244,14 +247,14 @@
   (invoke [this src-tz]
     (let-release [softmax-fwd-prim (primitive softmax-infer-pd)
                   softmax-fwd-args (fwd-args (buffer src-tz))]
-      (->DnnlActivationInference fact (flow fact) this src-tz
+      (->DnnlActivationInference (flow fact) this src-tz
                                  softmax-fwd-prim softmax-fwd-args)))
   (invoke [this src-tz diff-tz]
     (let-release [softmax-fwd-prim (primitive softmax-train-pd)
                   softmax-fwd-args (fwd-args (buffer src-tz))
                   softmax-bwd-prim (primitive softmax-bwd-pd)
                   softmax-bwd-args (dnnl-args softmax-bwd-args src-tz diff-tz src-tz)]
-      (->DnnlSoftmaxTraining fact (flow fact) this src-tz diff-tz
+      (->DnnlSoftmaxTraining (flow fact) this src-tz diff-tz
                              softmax-fwd-prim softmax-fwd-args
                              softmax-bwd-prim softmax-bwd-args)))
   (applyTo [this xs]
@@ -279,7 +282,7 @@
 
 ;; ================================ Inner Product & Convolution ====================================
 
-(deftype DnnlProductInference [fact strm bluep
+(deftype DnnlProductInference [strm bluep
                                src-conn bias-tz weights-tz dst-tz
                                fwd-prim fwd-args]
   Releaseable
@@ -321,7 +324,7 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlProductTraining [fact strm bluep
+(deftype DnnlProductTraining [strm bluep
                               bias-tz weights-tz dst-tz
                               diff-weights-tz post-diff-weights-tz diff-bias-tz
                               src-conn weights-conn
@@ -476,7 +479,7 @@
                   fwd-prim (primitive infer-pd)
                   fwd-args (dnnl-args fwd-args (output src-conn)
                                       weights-tz bias-tz dst-tz)]
-      (->DnnlProductInference fact (flow fact) this
+      (->DnnlProductInference (flow fact) this
                               src-conn bias-tz weights-tz dst-tz
                               fwd-prim fwd-args)))
   (invoke [this src-tz dst-tz prop-diff? post-process-diff?]
@@ -510,7 +513,7 @@
                                                (output diff-dst-data-conn)
                                                (output weights-data-conn)
                                                (input diff-src-conn))]
-          (->DnnlProductTraining fact (flow fact) this bias-tz weights-tz dst-tz
+          (->DnnlProductTraining (flow fact) this bias-tz weights-tz dst-tz
                                  diff-weights-tz post-diff-weights-tz diff-bias-tz
                                  src-conn weights-conn
                                  fwd-prim fwd-args
@@ -518,7 +521,7 @@
                                  bwd-weights-prim bwd-weights-args
                                  diff-dst-data-conn weights-data-conn diff-src-conn
                                  bwd-data-prim bwd-data-args))
-        (->DnnlProductTraining fact (flow fact) this bias-tz weights-tz dst-tz
+        (->DnnlProductTraining (flow fact) this bias-tz weights-tz dst-tz
                                diff-weights-tz post-diff-weights-tz diff-bias-tz
                                src-conn weights-conn
                                fwd-prim fwd-args
@@ -741,6 +744,9 @@
       :algo (info bluep :algo)
       :dst (info dst-tz)
       (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     (input src-conn))
@@ -800,6 +806,9 @@
       :dst (info dst-tz)
       :workspace (info (desc workspace-tz))
       (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     (input src-conn))
@@ -1002,6 +1011,9 @@
       :beta (info beta-tz)
       :dst (info (output src-conn))
       nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     (input src-conn))
@@ -1089,6 +1101,9 @@
       :variance (info var-tz)
       :diff-diff-gamma (info diff-gamma-tz)
       nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     (input src-conn))
@@ -1145,6 +1160,11 @@
 
 (deftype DnnlBatchNormalizationBlueprint [fact data-desc scaleshift-desc gamma-desc
                                           infer-pd train-pd bwd-pd]
+  Releaseable
+  (release [_]
+    (release infer-pd)
+    (release train-pd)
+    (release bwd-pd))
   Object
   (hashCode [_]
     (-> (hash :batch-norm) (hash-combine scaleshift-desc)))
@@ -1157,11 +1177,6 @@
   (toString [this]
     (pr-str {:topology :batch-norm
              :shape (shape this)}))
-  Releaseable
-  (release [_]
-    (release infer-pd)
-    (release train-pd)
-    (release bwd-pd))
   Info
   (info [this info-type]
     (case info-type
@@ -1181,6 +1196,9 @@
      :training {:src (src-md train-pd)
                 :weights gamma-desc
                 :dst (dst-md train-pd)}})
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   DescriptorProvider
   (inf-desc [_]
     (dst-md infer-pd))
@@ -1274,11 +1292,34 @@
 
 ;; ================================ Concat ======================================
 
-(deftype DnnlConcatInference [strm src-tzs dst-tz concat-prim concat-args]
+(deftype DnnlConcatInference [fact strm bluep src-tzs dst-tz concat-prim concat-args]
   Releaseable
   (release [_]
     (release concat-prim)
     (release dst-tz))
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape %2))
+            (hash-combine (hash :concat) (shape dst-tz))
+            src-tzs))
+  (equals [_ other]
+    (and (instance? DnnlConcatInference other)
+         (= dst-tz (.dst-tz ^DnnlConcatInference other))
+         (= src-tzs (.src-tzs ^DnnlConcatInference other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (map info src-tzs)
+     :dst (info dst-tz)})
+  (info [this info-type]
+    (case info-type
+      :src (map info src-tzs)
+      :dst (info dst-tz)
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     src-tzs)
@@ -1296,7 +1337,11 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlConcatTraining [strm src-tzs dst-tz
+(defmethod print-method DnnlConcatInference
+  [layer ^java.io.Writer w]
+  (.write w (format "#Concat[srcs:%s, dst:%s]" (input layer) (output layer))))
+
+(deftype DnnlConcatTraining [fact strm bluep src-tzs dst-tz
                              concat-prim concat-args
                              branch-prims branch-args
                              prop-diff?]
@@ -1306,6 +1351,29 @@
     (release dst-tz)
     (doseq [sp branch-prims] (release sp))
     true)
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape %2))
+            (hash-combine (hash :concat) (shape dst-tz))
+            src-tzs))
+  (equals [_ other]
+    (and (instance? DnnlConcatTraining other)
+         (= src-tzs (.src-tzs ^DnnlConcatTraining other))
+         (= dst-tz (.dst-tz ^DnnlConcatTraining other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (map info src-tzs)
+     :dst (info dst-tz)})
+  (info [this info-type]
+    (case info-type
+      :src (map info src-tzs)
+      :dst (info dst-tz)
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     src-tzs)
@@ -1340,6 +1408,10 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method DnnlConcatTraining
+  [layer ^java.io.Writer w]
+  (.write w (format "#Concat[srcs:%s, dst:%s]" (input layer) (output layer))))
+
 (deftype DnnlConcatBlueprint [fact src-descs dst-desc concat-pd branch-pds]
   Releaseable
   (release [_]
@@ -1355,8 +1427,18 @@
          (equal-desc? src-descs (.src-descs ^DnnlConcatBlueprint other))
          (equal-desc? dst-desc (.dst-desc ^DnnlConcatBlueprint other))))
   (toString [this]
-    (pr-str {:shape (shape this)
+    (pr-str {:srcs (mapv shape src-descs)
+             :shape (shape this)
              :topology :concat}))
+  Info
+  (info [this]
+    {:src (map info src-descs)
+     :dst (info dst-desc)})
+  (info [this info-type]
+    (case info-type
+      :src (map info src-descs)
+      :dst (info dst-desc)
+      nil))
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
@@ -1373,24 +1455,28 @@
   (layout [_]
     (layout dst-desc))
   IFn
-  (invoke [_ prev-layer]
+  (invoke [this prev-layer]
     (let [src-tzs (fmap output prev-layer)]
       (let-release [dst-tz (dnnl-tensor fact dst-desc)
                     concat-prim (primitive concat-pd)
                     concat-args (apply dnnl-args args dst-tz src-tzs)]
-        (->DnnlConcatInference (flow fact) src-tzs dst-tz concat-prim concat-args))))
-  (invoke [_ prev-layer prop-diff? _]
+        (->DnnlConcatInference fact (flow fact) this src-tzs dst-tz concat-prim concat-args))))
+  (invoke [this prev-layer prop-diff? _]
     (let [src-tzs (fmap output prev-layer)]
       (let-release [dst-tz (dnnl-tensor fact dst-desc)
                     concat-prim (primitive concat-pd)
                     concat-args (apply dnnl-args args dst-tz src-tzs)
                     branch-prims (mapv primitive branch-pds)
                     branch-args (mapv (partial fwd-args (buffer dst-tz)) (map buffer src-tzs))]
-        (->DnnlConcatTraining (flow fact) src-tzs dst-tz
+        (->DnnlConcatTraining fact (flow fact) this src-tzs dst-tz
                               concat-prim concat-args branch-prims branch-args
                               prop-diff?))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method DnnlConcatBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
 
 (defn dnnl-concat-blueprint
   [fact eng src-descs conc-dim dst-shape]
@@ -1415,12 +1501,35 @@
 
 ;; ================================ Branch ======================================
 
-(deftype DnnlBranchInference [strm src-tz dst-tzs branch-prims branch-args]
+(deftype DnnlBranchInference [fact strm bluep src-tz dst-tzs branch-prims branch-args]
   Releaseable
   (release [_]
     (doseq [sp branch-prims] (release sp))
     (doseq [dt dst-tzs] (release dt))
     true)
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape %2))
+            (hash-combine (hash :branch) (shape src-tz))
+            dst-tzs))
+  (equals [_ other]
+    (and (instance? DnnlBranchInference other)
+         (= src-tz (.src-tz ^DnnlBranchInference other))
+         (= dst-tzs (.dst-tzs ^DnnlBranchInference other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:dst (map info dst-tzs)
+     :src (info src-tz)})
+  (info [this info-type]
+    (case info-type
+      :dst (map info dst-tzs)
+      :src (info src-tz)
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     src-tz)
@@ -1438,7 +1547,11 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlBranchTraining [strm src-tz dst-tzs
+(defmethod print-method DnnlBranchInference
+  [layer ^java.io.Writer w]
+  (.write w (format "#Branch[src:%s, dst:%s]" (input layer) (output layer))))
+
+(deftype DnnlBranchTraining [fact strm bluep src-tz dst-tzs
                              concat-prim concat-args
                              branch-prims branch-args
                              prop-diff?]
@@ -1447,6 +1560,29 @@
     (release concat-prim)
     (doseq [dt dst-tzs] (release dt))
     (doseq [sp branch-prims] (release sp)))
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape %2))
+            (hash-combine (hash :branch) (shape src-tz))
+            dst-tzs))
+  (equals [_ other]
+    (and (instance? DnnlBranchTraining other)
+         (= src-tz (.src-tz ^DnnlBranchTraining other))
+         (= dst-tzs (.dst-tzs ^DnnlBranchTraining other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:dst (map info dst-tzs)
+     :src (info src-tz)})
+  (info [this info-type]
+    (case info-type
+      :dst (map info dst-tzs)
+      :src (info src-tz)
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     src-tz)
@@ -1481,6 +1617,10 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method DnnlBranchTraining
+  [layer ^java.io.Writer w]
+  (.write w (format "#Branch[src:%s, dst:%s]" (input layer) (output layer))))
+
 (deftype DnnlBranchBlueprint [fact src-desc dst-descs concat-pd branch-pds]
   Releaseable
   (release [_]
@@ -1514,24 +1654,28 @@
   (layout [_]
     (fmap layout dst-descs))
   IFn
-  (invoke [_ prev-layer]
+  (invoke [this prev-layer]
     (let-release [src-tz (output prev-layer)
                   dst-tzs (fmap (partial dnnl-tensor fact) dst-descs)
                   branch-prims (mapv primitive branch-pds)
                   branch-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
-      (->DnnlBranchInference (flow fact) src-tz dst-tzs branch-prims branch-args)))
-  (invoke [_ prev-layer prop-diff? _]
+      (->DnnlBranchInference fact (flow fact) this src-tz dst-tzs branch-prims branch-args)))
+  (invoke [this prev-layer prop-diff? _]
     (let-release [src-tz (output prev-layer)
                   dst-tzs (fmap (partial dnnl-tensor fact) dst-descs)
                   concat-prim (primitive concat-pd)
                   concat-args (apply dnnl-args args src-tz dst-tzs)
                   branch-prims (mapv primitive branch-pds)
                   branch-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
-      (->DnnlBranchTraining (flow fact) src-tz dst-tzs
+      (->DnnlBranchTraining fact (flow fact) this src-tz dst-tzs
                             concat-prim concat-args branch-prims branch-args
                             prop-diff?)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method DnnlBranchBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
 
 (defn dnnl-branch-blueprint [fact eng src-desc branch-dim dst-descs]
   (let [dst-dims (map shape dst-descs)
@@ -1555,10 +1699,30 @@
 
 ;; ============================ Split ====================================================
 
-(deftype DnnlSplitInference [strm n src-tz]
+(deftype DnnlSplitInference [fact strm bluep n src-tz]
   Releaseable
   (release [_]
     (release src-tz))
+  Object
+  (hashCode [_]
+    (-> (hash :split) (hash-combine n) (hash-combine src-tz)))
+  (equals [_ other]
+    (and (instance? DnnlSplitInference other)
+         (= n (.n ^DnnlSplitInference other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (info src-tz)
+     :n n})
+  (info [this info-type]
+    (case info-type
+      :src (info src-tz)
+      :n n
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     src-tz)
@@ -1575,11 +1739,35 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlSplitTraining [strm n src-tz diff-tzs sum-prim sum-args prop-diff?]
+(defmethod print-method DnnlSplitInference
+  [^DnnlSplitInference layer ^java.io.Writer w]
+  (.write w (format "#Split[n:%d, src:%s]" (.n layer) (input layer))))
+
+(deftype DnnlSplitTraining [fact strm bluep n src-tz diff-tzs sum-prim sum-args prop-diff?]
   Releaseable
   (release [_]
     (release sum-prim)
     (doseq [dt diff-tzs] (release dt)))
+  Object
+  (hashCode [_]
+    (-> (hash :split) (hash-combine n) (hash-combine src-tz)))
+  (equals [_ other]
+    (and (instance? DnnlSplitTraining other)
+         (= n (.n ^DnnlSplitTraining other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (info src-tz)
+     :n n})
+  (info [this info-type]
+    (case info-type
+      :src (info src-tz)
+      :n n
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     src-tz)
@@ -1611,6 +1799,10 @@
     (output this))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method DnnlSplitTraining
+  [^DnnlSplitTraining layer ^java.io.Writer w]
+  (.write w (format "#Split[n:%d, src:%s]" (.n layer) (input layer))))
 
 (deftype DnnlSplitBlueprint [fact n src-desc sum-pd]
   Releaseable
@@ -1645,16 +1837,20 @@
   (layout [_]
     (repeat n (layout src-desc)))
   IFn
-  (invoke [_ prev-layer]
-    (->DnnlSplitInference (flow fact) n (view (output prev-layer))))
-  (invoke [_ prev-layer prop-diff? _]
+  (invoke [this prev-layer]
+    (->DnnlSplitInference fact (flow fact) this n (view (output prev-layer))))
+  (invoke [this prev-layer prop-diff? _]
     (let-release [src-tz (view (output prev-layer))
                   diff-tzs (mapv (partial dnnl-tensor fact) (repeat n src-desc))
                   sum-prim (primitive sum-pd)
                   sum-args (apply dnnl-args args src-tz diff-tzs)]
-      (->DnnlSplitTraining (flow fact) n src-tz diff-tzs sum-prim sum-args prop-diff?)))
+      (->DnnlSplitTraining fact (flow fact) this n src-tz diff-tzs sum-prim sum-args prop-diff?)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method DnnlSplitBlueprint
+  [^DnnlSplitBlueprint layer ^java.io.Writer w]
+  (.write w (format "#Split[n:%d, src:%s]" (.n layer) (input layer))))
 
 (defn dnnl-split-blueprint [fact eng src-desc ^long n]
   (let [src-desc (desc src-desc)]
@@ -1671,10 +1867,28 @@
 
 ;; ================================ Sum ======================================
 
-(deftype DnnlSum [strm src-tzs sum-prim sum-args diff-transformers prop-diff?]
+(deftype DnnlSum [fact strm bluep src-tzs
+                  sum-prim sum-args diff-transformers prop-diff?]
   Releaseable
   (release [_]
     (release sum-prim))
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-tzs))
+  (equals [_ other]
+    (and (instance? DnnlSum other) (= src-tzs (.src-tzs ^DnnlSum other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (map info src-tzs)})
+  (info [this info-type]
+    (case info-type
+      :src (map info src-tzs)
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     src-tzs)
@@ -1711,6 +1925,10 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method DnnlSum
+  [layer ^java.io.Writer w]
+  (.write w (format "#Sum[srcs:%s]" (input layer))))
+
 (deftype DnnlSumBlueprint [fact eng src-descs sum-pd]
   Releaseable
   (release [_]
@@ -1719,7 +1937,7 @@
       (release sd)))
   Object
   (hashCode [_]
-    (reduce hash-combine (hash :sum) src-descs))
+    (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-descs))
   (equals [_ other]
     (and (instance? DnnlSumBlueprint other)
          (equal-desc? src-descs (.src-descs ^DnnlSumBlueprint other))))
@@ -1744,15 +1962,20 @@
   IFn
   (invoke [this prev-layer]
     (this prev-layer false nil))
-  (invoke [_ prev-layer prop-diff? _]
+  (invoke [this prev-layer prop-diff? _]
     (let [src-tzs (fmap output prev-layer)
           strm (flow fact)]
       (let-release [sum-prim (primitive sum-pd)
                     sum-args (apply dnnl-args args (first src-tzs) src-tzs)
-                    diff-transformers (mapv (partial dnnl-transformer eng strm (first src-tzs)) (rest src-tzs))]
-        (->DnnlSum (flow fact) src-tzs sum-prim sum-args diff-transformers prop-diff?))))
+                    diff-transformers (mapv (partial dnnl-transformer eng strm (first src-tzs))
+                                            (rest src-tzs))]
+        (->DnnlSum fact (flow fact) this src-tzs sum-prim sum-args diff-transformers prop-diff?))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method DnnlSum
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
 
 (defn dnnl-sum-blueprint [fact eng src-descs]
   (let [src-descs (mapv desc src-descs)

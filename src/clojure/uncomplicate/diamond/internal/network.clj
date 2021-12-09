@@ -47,7 +47,7 @@
       (= forward-layers (seq other))
       (= other this)))
   (toString [_]
-    (format "#SequentialNetworkInference[input:%s, layers:%d, workspace:%d]"
+    (format "#SequentialNetwork[inference, input:%s, layers:%d, workspace:%d]"
             (shape x-tz) (count forward-layers) (.capacity ^java.nio.Buffer workspace)));;TODO use vector instead of ByteBuffer
   Info
   (info [x]
@@ -121,7 +121,7 @@
              (= SequentialNetworkInference (type other)))
          (= forward-layers (seq other))))
   (toString [_]
-    (format "#SequentialNetworkTraining[input:%s, layers:%d, workspace:%d]"
+    (format "#SequentialNetwork[train, input:%s, layers:%d, workspace:%d]"
             (shape x-mb-tz) (count forward-layers) (.capacity ^java.nio.Buffer workspace)))
   Info
   (info [x]
@@ -334,7 +334,7 @@
       (= parallel-layers (seq other))
       (= other this)))
   (toString [_]
-    (format "#ParallelNetworkInference[input:%s, layers:%d]"
+    (format "#ParallelNetwork[input:%s, layers:%d]"
             (fmap shape x-tzs) (count parallel-layers)))
   Info
   (info [x]
@@ -407,7 +407,7 @@
              (= ParallelNetworkInference (type other)))
          (= parallel-layers (seq other))))
   (toString [_]
-    (format "#ParallelNetworkTraining[input:%s, layers:%d]"
+    (format "#ParallelNetwork[input:%s, layers:%d]"
             (fmap shape x-mb-tzs) (count parallel-layers)))
   Info
   (info [x]

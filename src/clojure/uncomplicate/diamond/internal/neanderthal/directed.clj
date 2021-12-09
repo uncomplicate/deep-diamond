@@ -33,7 +33,7 @@
              [utils :refer [transfer-weights-bias!]]])
   (:import [clojure.lang IFn AFn]))
 
-(deftype InnerProductInference [fact bluep ones b w a-1 z
+(deftype InnerProductInference [ones b w a-1 z
                                 src-conn bias-tz weights-tz dst-tz]
   Releaseable
   (release [_]
@@ -78,7 +78,7 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype InnerProductTraining [fact bluep ones prop-diff? b w a-1 z diff-w diff-b
+(deftype InnerProductTraining [ones prop-diff? b w a-1 z diff-w diff-b
                                src-conn bias-tz weights-tz dst-tz
                                diff-weights-tz diff-src-conn]
   Releaseable
@@ -203,7 +203,7 @@
   (layout [_]
     (layout dst-desc))
   IFn
-  (invoke [this src-tz]
+  (invoke [_ src-tz]
     (let [src-shape (shape src-tz)]
       (let-release [src-conn (connector src-tz src-desc)
                     bias-tz (create-tensor fact (view bias-desc) false)
@@ -212,11 +212,11 @@
                     x (view-ge (view-vctr (output src-conn))
                                (apply * (rest src-shape)) (long (get src-shape 0)))
                     b (view-vctr bias-tz)]
-        (->InnerProductInference fact this (view ones)
+        (->InnerProductInference (view ones)
                                  b (trans (view-ge (view-vctr weights-tz) (mrows x) (dim b)))
                                  x (view-ge (view-vctr dst-tz) (dim b) (ncols x))
                                  src-conn bias-tz weights-tz dst-tz))))
-  (invoke [this src-tz dst-tz prop-diff? _]
+  (invoke [_ src-tz dst-tz prop-diff? _]
     (let [src-shape (shape src-tz)]
       (let-release [src-conn (connector src-tz src-desc)
                     bias-tz (create-tensor fact (view bias-desc) false)
@@ -229,7 +229,7 @@
                     w (trans (view-ge (view-vctr weights-tz) (mrows x) (dim b)))
                     diff-w (trans (view-ge (view-vctr diff-weights-tz) (mrows x) (dim b)))
                     a (view-ge (view-vctr dst-tz) (dim b) (ncols x))]
-        (->InnerProductTraining fact this (view ones) prop-diff?
+        (->InnerProductTraining (view ones) prop-diff?
                                 b w x a diff-w b
                                 src-conn bias-tz weights-tz dst-tz
                                 diff-weights-tz diff-src-conn))))
@@ -305,7 +305,7 @@
 
 (defmethod print-method InferenceLayer
   [layer ^java.io.Writer w]
-  (.write w (format "#InferenceLayer[topology%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+  (.write w (format "#Inference[topology%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
                     (info layer :topology) (info layer :shape) (info layer :activation)
                     (pr-str (weights layer)) (pr-str (bias layer)))))
 
@@ -400,7 +400,7 @@
 
 (defmethod print-method SGDLayer
   [layer ^java.io.Writer w]
-  (.write w (format "#SGDLayer[topology:%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+  (.write w (format "#SGD[topology:%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
                     (info layer :topology) (info layer :shape) (info layer :activation)
                     (pr-str (weights layer)) (pr-str (bias layer)))))
 
@@ -509,7 +509,7 @@
 
 (defmethod print-method AdamLayer
   [layer ^java.io.Writer w]
-  (.write w (format "#AdamLayer[topology:%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+  (.write w (format "#Adam[topology:%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
                     (info layer :topology) (info layer :shape) (info layer :activation)
                     (pr-str (weights layer)) (pr-str (bias layer)))))
 
@@ -608,7 +608,7 @@
 
 ;; ================================ Gaussian Dropout ======================================
 
-(deftype IdentityLayer [data-conn]
+(deftype IdentityLayer [fact data-conn]
   Releaseable
   (release [_]
     (release data-conn))
@@ -623,6 +623,9 @@
   (toString [this]
     (str {:shape (shape (output data-conn))
           :topology :identity}))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     (input data-conn))
@@ -712,7 +715,7 @@
 
 (defmethod print-method GaussianDropoutLayer
   [^GaussianDropoutLayer layer ^java.io.Writer w]
-  (.write w (format "#GaussianDropout[shape:%s]\n mask: %s\n"
+  (.write w (format "#GaussianDropout[shape:%s]\n output: %s\n"
                     (shape (output layer)) (pr-str (.mask-tz layer)))))
 
 (deftype GaussianDropoutBlueprint [fact ^double sd mask-desc]
@@ -755,7 +758,7 @@
   IFn
   (invoke [this prev-layer]
     (let-release [data-conn (connector (output prev-layer) (view mask-desc))]
-      (->IdentityLayer data-conn)))
+      (->IdentityLayer fact data-conn)))
   (invoke [this prev-layer _ _]
     (let-release [src-tz (output prev-layer)
                   data-conn (connector src-tz (view mask-desc))
