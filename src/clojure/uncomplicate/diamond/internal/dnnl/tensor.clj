@@ -548,9 +548,10 @@
 (defmethod print-method DnnlTensor
   [^DnnlTensor x ^java.io.Writer w]
   (.write w (str x))
-  (.write w "\n")
-  (when (contiguous? x)
-    (print-method (doall (take *print-length* (seq (view-vctr x)))) w)))
+  (.write w " ")
+  (if (contiguous? x)
+    (print-method (doall (take *print-length* (seq x))) w)
+    (.write w "(... non-printable ...)")))
 
 (defmethod transfer! [DnnlTensor DnnlTensor]
   [source destination]
