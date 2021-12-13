@@ -36,7 +36,7 @@
   (pooling-blueprint [this src-desc dst-desc algo strides kernel padding])
   (gaussian-dropout-blueprint [this src-desc sd])
   (batch-norm-blueprint [this src-desc activ alpha beta])
-  (concat-blueprint [this src-descs concat-dimension dst-shape])
+  (concat-blueprint [this src-descs conc-dim dst-type])
   (branch-blueprint [this src-desc split-dim dst-descs])
   (split-blueprint [this src-desc n])
   (sum-blueprint [this src-descs])

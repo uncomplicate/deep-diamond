@@ -652,7 +652,7 @@
 (defn test-concatenate [fact]
   (with-release [input0-tz (tensor fact [1 1 2 2] :float :nchw)
                  input1-tz (tensor fact [1 2 2 2] :float :nchw)
-                 concat-bluep (concatenate fact 1 [input0-tz input1-tz input0-tz])
+                 concat-bluep (concatenate fact 1 [input0-tz input1-tz input0-tz] nil)
                  concat-inf (concat-bluep [input0-tz input1-tz input0-tz])
                  concat-train (concat-bluep [input0-tz input1-tz input0-tz] true nil)]
 

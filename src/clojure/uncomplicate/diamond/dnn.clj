@@ -202,31 +202,32 @@
    (batch-norm :linear nil)));;TODO change :linear to :identity
 
 (defn concatenate
-  ([fact ^long concat-dimension src-descs]
-   (let [src-descs (if (sequential? src-descs) src-descs (api/train-desc src-descs))
-         src-shapes (fmap shape src-descs)
-         desc0 (first src-descs)
-         shape0 (shape desc0)
-         dst-dimension (foldmap + #(get % concat-dimension) src-shapes)]
-     (let-release [dst-shapes (into (vec (take concat-dimension shape0))
-                                    (cons dst-dimension (drop (inc concat-dimension) shape0)))]
-       (api/concat-blueprint fact src-descs concat-dimension dst-shapes))))
-  ([^long concat-dimension]
+  "TODO"
+  ([fact ^long conc-dim src-descs dst-type]
+   (let [src-descs (if (sequential? src-descs) src-descs (api/train-desc src-descs))]
+     (api/concat-blueprint fact src-descs conc-dim dst-type)))
+  ([fact conc-dim src-descs]
+   (concatenate fact conc-dim src-descs nil))
+  ([conc-dim dst-type]
    (fn
      ([fact src-descs]
-      (concatenate fact concat-dimension src-descs))
+      (concatenate fact conc-dim src-descs dst-type))
      ([src-descs]
-      (concatenate *diamond-factory* concat-dimension src-descs))))
+      (concatenate *diamond-factory* conc-dim src-descs dst-type))))
+  ([conc-dim]
+   (concatenate conc-dim nil))
   ([]
-   (concatenate 0)))
+   (concatenate 0 nil)))
 
 (defn conc
+  "TODO"
   ([^long concat-dimension]
    (concatenate concat-dimension))
   ([]
    (concatenate 0)))
 
 (defn branch
+  "TODO"
   ([fact src-desc ^long branch-dim dst-descs]
    (api/branch-blueprint fact src-desc branch-dim dst-descs))
   ([^long branch-dim dst-descs]
@@ -239,6 +240,7 @@
    (branch 0 dst-descs)))
 
 (defn split
+  "TODO"
   ([fact src-desc ^long n]
    (api/split-blueprint fact src-desc n))
   ([^long n]
@@ -249,6 +251,7 @@
       (split *diamond-factory* src-desc n)))))
 
 (defn sum
+  "TODO"
   ([fact src-descs]
    (api/sum-blueprint fact src-descs))
   ([]
@@ -259,6 +262,7 @@
       (sum *diamond-factory* src-desc)))))
 
 (defn cost
+  "TODO"
   ([layer train-tz cost-kw]
    ((case cost-kw
       :quadratic api/quadratic-cost
@@ -273,6 +277,7 @@
    (cost layer :quadratic)))
 
 (defn network
+  "TODO"
   ([fact src-desc layers]
    (sequential-network (api/diamond-factory fact) src-desc layers))
   ([src-desc layers]
@@ -285,6 +290,7 @@
       (network *diamond-factory* src-descs layers)))))
 
 (defn init!
+  "TODO"
   ([net!]
    (with-release [rng (rng-state (view-vctr (input net!)))]
      (api/init net! (fn [x] (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape x))))) x))))
@@ -341,6 +347,7 @@
         options)))
 
 (defn train
+  "TODO"
   ([net cost! epochs hyperparam]
    (if (keyword? cost!)
      (with-release [cost! (cost net cost!)]
@@ -390,6 +397,7 @@
     (output out-batcher)))
 
 (defn infer
+  "TODO"
   ([net in out]
    (cond (satisfies? TensorContainer in)
          (with-release [in-batcher (batcher in (input net))]

@@ -10,6 +10,7 @@
   (:require [uncomplicate.commons
              [core :refer [Wrapper Releaseable extract]]
              [utils :refer [dragan-says-ex with-check]]]
+            [uncomplicate.fluokitten.core :refer [foldmap]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
             [uncomplicate.diamond.internal.protocols :refer [weights bias]])
   (:import uncomplicate.neanderthal.internal.api.Block))
@@ -75,3 +76,7 @@ Please use a copy or create a transformer."
                (conj strds (assoc stride-vec split-dim strd))
                (next sub-shapes))
         strds))))
+
+(defn concat-dst-shape [conc-dim src-shapes]
+  (assoc (get src-shapes 0) conc-dim
+         (foldmap + #(get % conc-dim) src-shapes)))

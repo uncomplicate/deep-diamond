@@ -349,8 +349,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-gaussian-dropout-blueprint this src-desc sd))
   (batch-norm-blueprint [this src-desc activ alpha beta]
     (dnnl-batch-norm-layer-blueprint this eng src-desc activ alpha beta))
-  (concat-blueprint [this src-descs concat-dimension dst-shape]
-    (dnnl-concat-blueprint this eng src-descs concat-dimension dst-shape))
+  (concat-blueprint [this src-descs conc-dim dst-type]
+    (dnnl-concat-blueprint this eng src-descs conc-dim dst-type))
   (branch-blueprint [this src-desc branch-dim dst-descs]
     (dnnl-branch-blueprint this eng src-desc branch-dim dst-descs))
   (split-blueprint [this src-desc n]

@@ -25,7 +25,7 @@
                       diff-weights Backprop forward backward
                       DiffTransfer diff-output diff-input diff-z
                       LinearBackprop backward-diff inf-desc train-desc Initializable init]]
-             [utils :refer [transfer-weights-bias! default-strides concat-strides]]]
+             [utils :refer [transfer-weights-bias! default-strides concat-strides concat-dst-shape]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
@@ -1479,10 +1479,12 @@
   (.write w (str bp)))
 
 (defn dnnl-concat-blueprint
-  [fact eng src-descs conc-dim dst-shape]
-  (let [src-dims (map shape src-descs)
-        src-descs (mapv desc src-descs)]
-    (let-release [dst-desc (memory-desc dst-shape (tz/data-type (first src-descs)) :any)
+  [fact eng src-descs conc-dim dst-type]
+  (let [src-dims (mapv shape src-descs)
+        src-descs (mapv desc src-descs)
+        dst-type (or dst-type (tz/data-type (first src-descs)))
+        dst-shape (concat-dst-shape conc-dim src-dims)]
+    (let-release [dst-desc (memory-desc dst-shape dst-type :any)
                   concat-pd (apply concatenate eng dst-desc conc-dim src-descs)
                   dst-desc (dst-md concat-pd)]
       (with-release [dst-subs (mapv (partial submemory-desc dst-desc)

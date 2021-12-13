@@ -48,7 +48,7 @@
       (= other this)))
   (toString [_]
     (format "#SequentialNetwork[inference, input:%s, layers:%d, workspace:%d]"
-            (shape x-tz) (count forward-layers) (.capacity ^java.nio.Buffer workspace)));;TODO use vector instead of ByteBuffer
+            (shape x-tz) (count forward-layers) (.capacity ^java.nio.Buffer workspace)))
   Info
   (info [x]
     {:topology :sequential
