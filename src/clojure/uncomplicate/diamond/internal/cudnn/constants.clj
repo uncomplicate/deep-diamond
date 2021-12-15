@@ -113,7 +113,7 @@
     2 :tanh
     3 :clipped-relu
     4 :elu
-    5 :identity
+    5 :linear
     (dragan-says-ex "This mode is not supported by cuDNN."
                     {:mode mode :available (keys cudnn-activation-mode)})))
 

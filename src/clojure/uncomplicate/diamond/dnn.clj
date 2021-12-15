@@ -200,7 +200,7 @@
   ([activ]
    (batch-norm activ nil))
   ([]
-   (batch-norm :linear nil)));;TODO change :linear to :identity
+   (batch-norm :linear nil)))
 
 (defn concatenate
   "TODO"

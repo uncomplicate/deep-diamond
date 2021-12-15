@@ -253,6 +253,7 @@
    :abs dnnl/dnnl_eltwise_abs
    :sqrt dnnl/dnnl_eltwise_sqrt
    :linear dnnl/dnnl_eltwise_linear
+   :identity dnnl/dnnl_eltwise_linear
    :bounded-relu dnnl/dnnl_eltwise_bounded_relu
    :soft-relu dnnl/dnnl_eltwise_soft_relu
    :logistic dnnl/dnnl_eltwise_logistic
