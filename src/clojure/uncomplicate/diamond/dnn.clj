@@ -19,7 +19,8 @@
                      tensor data-type layout desc]]
             [uncomplicate.diamond.internal
              [protocols :as api]
-             [network :refer [sequential-network parallel-network]]]))
+             [network :refer [sequential-network parallel-network]]
+             [utils :refer [default-strides]]]))
 
 (defn activation
   ([fact src-desc activ alpha beta]
@@ -226,10 +227,27 @@
   ([]
    (concatenate 0)))
 
+(defn coerce-branch-dst [src-desc branch-dim dst-descs]
+  (let [src-shape (shape src-desc)]
+    (fmap (fn [dst-desc]
+            (let [dst-shape (shape dst-desc)
+                  dst-layout (layout dst-desc)
+                  dst-cnt (count dst-shape)]
+              (if (< 1 dst-cnt)
+                dst-desc
+                (let [dst-shape (assoc src-shape branch-dim (get dst-shape 0))]
+                  {:shape dst-shape
+                   :data-type (data-type dst-desc)
+                   :layout (if (or (keyword? dst-layout) (= dst-cnt (count src-shape)))
+                             dst-layout
+                             (default-strides dst-shape))}))))
+          dst-descs)))
+
 (defn branch
   "TODO"
   ([fact src-desc ^long branch-dim dst-descs]
-   (api/branch-blueprint fact src-desc branch-dim dst-descs))
+   (api/branch-blueprint fact src-desc branch-dim
+                         (coerce-branch-dst src-desc branch-dim dst-descs)))
   ([^long branch-dim dst-descs]
    (fn
      ([fact src-desc]

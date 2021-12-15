@@ -760,11 +760,29 @@
 (defn test-network-branch-concat [fact]
   (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
                  net-bp (network fact input-tz
-                                 [(branch 1 [(desc [1 1 1 1] :float :nchw) (desc [1 2 1 1] :float :nchw) (desc [1 1 1 1] :float :nchw)]);; TODO I can discover branch-dim from the descriptors. moreover, I just need branch-dim, and that particular dimension! no need to change layout; :float and :nchw stay the same! (branch 1 [1 2])
+                                 [(branch 1 [(desc [1 1 1 1] :float :nchw)
+                                             (desc [1 2 1 1] :float :nchw)
+                                             (desc [1 1 1 1] :float :nchw)])
                                   (conc 1)])
                  net-train (net-bp input-tz true :adam)]
     (facts
-       "Parallel training test, nested."
+     "Branch-concat test."
+       (transfer! [1 2 3 1] input-tz)
+       (forward net-train [0 1 0 0 false]) => net-train
+       (seq (view-vctr (output net-train))) => [1.0 2.0 3.0 1.0]
+       (transfer! (repeat 0.0) input-tz)
+       (transfer! [0.5 1 0.1 0.5] (diff-input net-train))
+       (backward net-train [0 1 0 0 false]) => net-train
+       (seq (view-vctr input-tz)) => [0.5 1.0 0.10000000149011612 0.5])))
+
+(defn test-network-branch-concat-simplified [fact]
+  (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
+                 net-bp (network fact input-tz
+                                 [(branch 1 [1 2 1])
+                                  (conc 1)])
+                 net-train (net-bp input-tz true :adam)]
+    (facts
+       "Branch-concat test, with simplified branch destination specification."
        (transfer! [1 2 3 1] input-tz)
        (forward net-train [0 1 0 0 false]) => net-train
        (seq (view-vctr (output net-train))) => [1.0 2.0 3.0 1.0]
@@ -804,7 +822,7 @@
 (defn test-parallel-network-nested [fact]
   (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
                  net-bp (network fact input-tz
-                                 [(branch 1 [(desc [1 1 1 1] :float :nchw) (desc [1 2 1 1] :float :nchw) (desc [1 1 1 1] :float :nchw)]);; TODO I can discover branch-dim from the descriptors. moreover, I just need branch-dim, and that particular dimension! no need to change layout; :float and :nchw stay the same! (branch 1 [1 2])
+                                 [(branch 1 [1 2 1])
                                   [[(dense [1] :linear) (dense [2] :linear)]
                                    [(dense [1] :linear)]
                                    [(dense [1] :linear) (dense [2] :linear)]]
