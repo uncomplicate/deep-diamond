@@ -18,17 +18,18 @@
               :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
                       NeanderthalFactoryProvider]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
+            [uncomplicate.diamond.internal.neanderthal.directed
+             :refer [neanderthal-fc-blueprint neanderthal-gaussian-dropout-blueprint]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [DescProvider desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-batcher dnnl-shuffler]]
-             [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-fc-blueprint
-                               dnnl-inner-product-blueprint dnnl-universal-cost dnnl-custom-cost
-                               dnnl-convolution-layer-blueprint dnnl-gaussian-dropout-blueprint
-                               dnnl-pooling-blueprint]]
-             [factory :refer [->FloatTensorEngine]]]
-            [uncomplicate.diamond.internal.neanderthal.directed
-             :refer [neanderthal-fc-blueprint]]))
+             [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-inner-product-blueprint
+                               dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
+                               dnnl-split-blueprint dnnl-concat-blueprint
+                               dnnl-batch-norm-layer-blueprint dnnl-pooling-blueprint
+                               dnnl-branch-blueprint dnnl-sum-blueprint]]
+             [factory :refer [->FloatTensorEngine]]]))
 
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the Neanderthal/DNNL platform.
@@ -68,10 +69,6 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-shuffler eng strm (view src-tz) (view dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
     (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
-  (create-sum [_ scale dst]
-    (dnnl-sum-blueprint eng strm scale dst))
-  (create-sum [_ scale-src src scale-dst dst]
-    (dnnl-sum-blueprint eng strm scale-src src scale-dst dst))
   (tensor-engine [this dtype]
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
@@ -90,7 +87,17 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-pooling-blueprint this eng src-desc dst-desc algo
                             strides kernel padding padding))
   (gaussian-dropout-blueprint [this src-desc sd]
-    (dnnl-gaussian-dropout-blueprint this src-desc sd))
+    (neanderthal-gaussian-dropout-blueprint this src-desc sd))
+  (batch-norm-blueprint [this src-desc activ alpha beta]
+    (dnnl-batch-norm-layer-blueprint this eng src-desc activ alpha beta))
+  (concat-blueprint [this src-descs conc-dim dst-type]
+    (dnnl-concat-blueprint this eng src-descs conc-dim dst-type))
+  (branch-blueprint [this src-desc branch-dim dst-descs]
+    (dnnl-branch-blueprint this eng src-desc branch-dim dst-descs))
+  (split-blueprint [this src-desc n]
+    (dnnl-split-blueprint this eng src-desc n))
+  (sum-blueprint [this src-descs]
+    (dnnl-sum-blueprint this eng src-descs))
   (create-workspace [_ byte-size]
     (direct-buffer (max 1 (long byte-size))))
   CostFactory

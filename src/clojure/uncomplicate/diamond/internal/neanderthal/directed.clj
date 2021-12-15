@@ -190,11 +190,14 @@
      :training {:src src-desc
                 :weights weights-desc
                 :dst dst-desc}})
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   DescriptorProvider
   (inf-desc [_]
-    dst-desc)
+    (view dst-desc))
   (train-desc [_]
-    dst-desc)
+    (view dst-desc))
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -288,9 +291,10 @@
   (parameters [_]
     (parameters op))
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (init-fn (bias op))
-    (init-fn (weights op)))
+    (init-fn (weights op))
+    this)
   Transfer
   (input [this]
     (input op))
@@ -361,9 +365,10 @@
   (parameters [_]
     (parameters op))
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (init-fn (bias op))
-    (init-fn (weights op)))
+    (init-fn (weights op))
+    this)
   IFn
   (invoke [_]
     (op)
@@ -459,9 +464,10 @@
   (parameters [_]
     (parameters op))
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (init-fn (bias op))
-    (init-fn (weights op)))
+    (init-fn (weights op))
+    this)
   IFn
   (invoke [_]
     (op)
@@ -635,7 +641,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ _])
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (data-conn))
@@ -693,7 +700,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   IFn
   (invoke [this]
     (data-conn))
@@ -766,6 +774,10 @@
       (->GaussianDropoutLayer fact this prev-layer sd (rng-state mask-tz) mask-tz data-conn)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defn neanderthal-gaussian-dropout-blueprint [fact src-desc sd]
+  (let-release [mask-desc (create-tensor-desc fact src-desc)]
+    (->GaussianDropoutBlueprint fact sd mask-desc)))
 
 (defmethod print-method GaussianDropoutBlueprint
   [bp ^java.io.Writer w]

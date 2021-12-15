@@ -2,21 +2,21 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.core :refer [foldmap fmap]]
             [uncomplicate.clojurecuda.core :refer [mem-alloc]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! axpy! dim copy! transfer! raw view-vctr]]
+             [core :refer [axpby! axpy! copy! transfer! raw view-vctr]]
              [block :refer [cast-prim data-accessor buffer]]]
             [uncomplicate.diamond
              [tensor :as tz
-              :refer [Transfer input output connector revert shape layout
-                      TensorDescriptor shape]]]
+              :refer [Transfer input output connector revert shape layout TensorDescriptor]]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [DescriptorProvider DiamondFactoryProvider Backprop forward backward
-                      create-tensor DiffTransfer diff-input diff-output diff-z
-                      ParametersSeq Parameters DiffParameters LinearBackprop backward-diff
-                      Workspace inf-ws-size train-ws-size *workspace* inf-desc train-desc]]
-             [utils :refer [transfer-weights-bias! default-strides]]]
+              :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
+                      DiffParameters Backprop forward backward DiffTransfer diff-input diff-output
+                      diff-z LinearBackprop backward-diff inf-desc train-desc Initializable init
+                      Workspace inf-ws-size train-ws-size *workspace* create-tensor]] ;;TODO do I need these?
+             [utils :refer [transfer-weights-bias! default-strides concat-strides concat-dst-shape]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]
@@ -34,38 +34,38 @@
       (view md)
       (cudnn-tensor-desc s :float (default-strides s)))))
 
+;;TODO remove
 ;; ========================== Sum =======================================
 
-(deftype CUDnnSum [cudnn-hdl scale-src src-tz scale-dst dst-tz]
-  Releaseable
-  (release [_]
-    (release src-tz)
-    (release dst-tz))
-  IFn
-  (invoke [this]
-    (axpby! scale-src src-tz scale-dst dst-tz))
-  (applyTo [this xs]
-    (AFn/applyToHelper this xs)))
+;; (deftype CUDnnSum [cudnn-hdl scale-src src-tz scale-dst dst-tz]
+;;   Releaseable
+;;   (release [_]
+;;     (release src-tz)
+;;     (release dst-tz))
+;;   IFn
+;;   (invoke [this]
+;;     (axpby! scale-src src-tz scale-dst dst-tz))
+;;   (applyTo [this xs]
+;;     (AFn/applyToHelper this xs)))
 
-(deftype CUDnnSumBlueprint [cudnn-hdl scale-src scale-dst]
-  IFn
-  (invoke [this src-and-dst]
-    (->CUDnnSum cudnn-hdl scale-src src-and-dst scale-dst src-and-dst))
-  (invoke [this src-desc dst-desc]
-    (->CUDnnSum cudnn-hdl scale-src src-desc scale-dst dst-desc))
-  (applyTo [this xs]
-    (AFn/applyToHelper this xs)))
+;; (deftype CUDnnSumBlueprint [cudnn-hdl scale-src scale-dst]
+;;   IFn
+;;   (invoke [this src-and-dst]
+;;     (->CUDnnSum cudnn-hdl scale-src src-and-dst scale-dst src-and-dst))
+;;   (invoke [this src-desc dst-desc]
+;;     (->CUDnnSum cudnn-hdl scale-src src-desc scale-dst dst-desc))
+;;   (applyTo [this xs]
+;;     (AFn/applyToHelper this xs)))
 
-(defn cudnn-sum-blueprint
-  ([cudnn-hdl scale]
-   (->CUDnnSumBlueprint cudnn-hdl scale 0.0))
-  ([cudnn-hdl scale-src scale-dst]
-   (->CUDnnSumBlueprint cudnn-hdl scale-src scale-dst)))
+;; (defn cudnn-sum-blueprint
+;;   ([cudnn-hdl scale]
+;;    (->CUDnnSumBlueprint cudnn-hdl scale 0.0))
+;;   ([cudnn-hdl scale-src scale-dst]
+;;    (->CUDnnSumBlueprint cudnn-hdl scale-src scale-dst)))
 
 ;; ================================ Activation =============================================
 
-(deftype CUDnnActivationInference [cudnn-hdl bluep activation-desc
-                                   a-tz one zero linear]
+(deftype CUDnnActivationInference [cudnn-hdl bluep activation-desc a-tz one zero linear]
   Releaseable
   (release [_]
     (release a-tz))
@@ -189,6 +189,9 @@
     (case info-type
       :activation activ
       nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   DescriptorProvider
   (inf-desc [_]
     (view data-desc))
@@ -307,6 +310,9 @@
     (case info-type
       :activation :softmax
       nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   DescriptorProvider
   (inf-desc [_]
     (view data-desc))
@@ -640,10 +646,10 @@
                   weights-tz (cudnn-tensor fact (view weights-desc))
                   a-tz (cudnn-tensor fact (view dst-desc))]
       (->CUDnnConvolutionInference fact (handle fact) this
-                                        (cast-prim (data-accessor a-tz) 1.0)
-                                        (cast-prim (data-accessor a-tz) 0.0)
-                                        conv-desc (view filter-desc) (:algo conv-fwd-algo)
-                                        src-conn bias-tz weights-tz a-tz *workspace*)))
+                                   (cast-prim (data-accessor a-tz) 1.0)
+                                   (cast-prim (data-accessor a-tz) 0.0)
+                                   conv-desc (view filter-desc) (:algo conv-fwd-algo)
+                                   src-conn bias-tz weights-tz a-tz *workspace*)))
   (invoke [this src-tz dst-tz prop-diff? _]
     (let [src-shape (shape src-desc)]
       (let-release [src-conn (connector src-tz src-desc)
@@ -702,6 +708,17 @@
   (release [_]
     (release src-tz)
     (release dst-tz))
+  Object
+  (hashCode [_]
+    (-> (hash :pooling)
+        (hash-combine (shape src-tz))
+        (hash-combine (shape dst-tz))))
+  (equals [_ other]
+    (and (instance? CUDnnPoolingInferenceLayer other)
+         (= src-tz (.src-tz ^CUDnnPoolingInferenceLayer other))
+         (= dst-tz (.dst-tz ^CUDnnPoolingInferenceLayer other))))
+  (toString [this]
+    (str bluep))
   Info
   (info [this]
     {:algo (info bluep :algo)
@@ -712,6 +729,9 @@
       :algo (info bluep :algo)
       :dst (info dst-tz)
       (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
   Transfer
   (input [_]
     src-tz)
@@ -720,6 +740,9 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (pooling-forward cudnn-hdl pooling-desc
@@ -727,6 +750,11 @@
     dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnPoolingInferenceLayer
+  [^CUDnnPoolingInferenceLayer layer ^java.io.Writer w]
+  (.write w (format "#Pooling[shape:%s, algo:%s]\n destination: %s\n"
+                    (shape (output layer)) (info layer :algo) (pr-str (.dst-tz layer)))))
 
 (deftype CUDnnPoolingTrainingLayer [fact cudnn-hdl bluep pooling-desc
                                     src-tz dst-tz diff-dst-tz
@@ -736,6 +764,17 @@
     (release src-tz)
     (release dst-tz)
     (release diff-dst-tz))
+  Object
+  (hashCode [_]
+    (-> (hash :pooling)
+        (hash-combine (shape src-tz))
+        (hash-combine (shape dst-tz))))
+  (equals [_ other]
+    (and (instance? CUDnnPoolingTrainingLayer other)
+         (= src-tz (.src-tz ^CUDnnPoolingTrainingLayer other))
+         (= dst-tz (.dst-tz ^CUDnnPoolingTrainingLayer other))))
+  (toString [this]
+    (str bluep))
   Info
   (info [this]
     {:algo (info bluep :algo)
@@ -759,6 +798,9 @@
   ParametersSeq
   (parameters [_]
     [])
+  Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [this]
     (forward this nil)
@@ -782,11 +824,30 @@
                         src-tz (buffer src-tz) zero src-tz (buffer src-tz)))
     this))
 
+(defmethod print-method CUDnnPoolingTrainingLayer
+  [^CUDnnPoolingTrainingLayer layer ^java.io.Writer w]
+  (.write w (format "#Pooling[shape:%s, algo:%s]\n destination: %s\n"
+                    (shape (output layer)) (info layer :algo) (pr-str (.dst-tz layer)))))
+
 (deftype CUDnnPoolingBlueprint [fact algo pd dst-desc]
   Releaseable
   (release [_]
     (release pd)
     (release dst-desc))
+  Object
+  (hashCode [this]
+    (-> (hash :pooling)
+        (hash-combine algo)
+        (hash-combine (train-desc this))))
+  (equals [this other]
+    (and (instance? CUDnnPoolingBlueprint other)
+         (= algo (.algo ^CUDnnPoolingBlueprint other))
+         (= (inf-desc this) (inf-desc other))
+         (= (train-desc this) (train-desc other))))
+  (toString [this]
+    (str {:algo algo
+          :shape (shape this)
+          :topology :pooling}))
   Info
   (info [this]
     {:algo algo
@@ -830,6 +891,10 @@
                                    prop-diff?)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnPoolingBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
 
 (defn cudnn-pooling-blueprint
   [fact src-desc dst-desc algo strides kernel padding]

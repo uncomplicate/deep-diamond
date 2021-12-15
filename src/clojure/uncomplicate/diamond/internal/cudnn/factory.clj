@@ -33,7 +33,7 @@
                            strides transform-tensor set-tensor scale-tensor add-tensor]]
              [tensor :refer [cudnn-tensor cudnn-transformer cudnn-batcher cudnn-shuffler
                              cudnn-tensor-desc]]
-             [directed :refer [cudnn-sum-blueprint cudnn-activ-blueprint
+             [directed :refer [cudnn-activ-blueprint
                                cudnn-universal-cost cudnn-custom-cost cudnn-pooling-blueprint
                                cudnn-convolution-layer-blueprint cudnn-gaussian-dropout-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
@@ -370,10 +370,6 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-shuffler cudnn-hdl (view src-tz) (view dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
     (cudnn-batcher cudnn-hdl (view src-tz) (view dst-tz) mb-size))
-  (create-sum [_ scale _]
-    (cudnn-sum-blueprint cudnn-hdl scale))
-  (create-sum [_ scale-src _ scale-dst _]
-    (cudnn-sum-blueprint cudnn-hdl scale-src scale-dst))
   (tensor-engine [this dtype]
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
@@ -381,7 +377,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (activ-blueprint [this src-desc activ coef _]
     (cudnn-activ-blueprint this src-desc activ coef))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
-    (dragan-says-ex "cuDNN engine does not implement inner product blueprint."))
+    (dragan-says-ex "cuDNN engine does not implement the inner product blueprint."))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
     (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta weights-type))
   (convolution-blueprint [this src-desc weights-desc dst-desc activ

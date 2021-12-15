@@ -13,7 +13,6 @@
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (with-release [fact (cudnn-factory)]
-  (test-sum fact)
   (test-activation-relu fact)
   (test-activation-sigmoid fact)
   (test-fully-connected-inference fact)

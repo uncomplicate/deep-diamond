@@ -16,14 +16,13 @@
              [block :refer [buffer]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
-             :refer [Transfer input output connector shape layout TensorDescriptor
-                     shape view-tz revert]]
+             :refer [Transfer input output connector revert shape layout TensorDescriptor view-tz]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters
                       DescriptorProvider DiamondFactoryProvider DiffParameters
                       diff-weights Backprop forward backward
-                      DiffTransfer diff-output diff-input diff-z
+                      DiffTransfer diff-input diff-output diff-z
                       LinearBackprop backward-diff inf-desc train-desc Initializable init]]
              [utils :refer [transfer-weights-bias! default-strides concat-strides concat-dst-shape]]]
             [uncomplicate.diamond.internal.dnnl
@@ -37,10 +36,11 @@
             DirectedLayerBlueprint GaussianDropoutBlueprint]))
 
 (defn dnnl-contiguous-desc [md]
-  (let [shape (dims md)]
-    (if (= (size md) (apply * Float/BYTES shape))
-      md ;;TODO this should be somehow copied, perhaps...
-      (memory-desc (dims md) :float (default-strides shape)))))
+  (let [s (dims md)]
+    (if (and (= :float (data-type md))
+             (= (size md) (apply * Float/BYTES s)))
+      (view md)
+      (memory-desc s :float (default-strides s)))))
 
 ;; ================================ Activation =============================================
 
@@ -496,8 +496,7 @@
                   diff-weights-tz (dnnl-tensor fact weights-desc)
                   post-diff-weights-tz (if post-process-diff? (dnnl-tensor fact weights-desc)
                                            diff-weights-tz)
-                  diff-weights-conn (connector (diff-weights-md bwd-weights-pd)
-                                               diff-weights-tz)
+                  diff-weights-conn (connector (diff-weights-md bwd-weights-pd) diff-weights-tz)
                   diff-bias-tz (dnnl-tensor fact bias-desc)
                   bwd-weights-prim (primitive bwd-weights-pd)
                   bwd-weights-args (dnnl-args bwd-args (output bwd-src-conn)
@@ -756,7 +755,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (src-conn)
@@ -823,7 +823,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (src-conn)
@@ -1028,9 +1029,10 @@
   (parameters [_]
     [gamma-tz beta-tz mean-tz var-tz])
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (init-fn gamma-tz)
-    (init-fn beta-tz))
+    (init-fn beta-tz)
+    this)
   IFn
   (invoke [_]
     (src-conn)
@@ -1123,9 +1125,10 @@
   (parameters [_]
     [gamma-tz beta-tz mean-tz var-tz])
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (init-fn gamma-tz)
-    (init-fn beta-tz))
+    (init-fn beta-tz)
+    this)
   DiffParameters
   (diff-weights [_]
     post-diff-gamma-tz)
@@ -1329,7 +1332,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   IFn
   (invoke [this]
     (execute! strm concat-prim concat-args)
@@ -1388,7 +1392,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   Backprop
   (forward [this]
     this)
@@ -1541,7 +1546,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   IFn
   (invoke [this]
     (doall (map (partial execute! strm) branch-prims branch-args))
@@ -1599,7 +1605,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   Backprop
   (forward [this]
     this)
@@ -1734,7 +1741,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   IFn
   (invoke [this]
     (output this))
@@ -1784,7 +1792,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   Backprop
   (forward [this]
     this)
@@ -1905,7 +1914,8 @@
   (parameters [_]
     [])
   Initializable
-  (init [_ init-fn])
+  (init [this _]
+    this)
   Backprop
   (forward [this]
     this)

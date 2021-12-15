@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.dnnl.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info
-                           Wrapper Wrappable wrap extract info]]
+                           Wrapper Wrappable wrap extract info Viewable view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.diamond.internal.utils :refer [deftype-wrapper]]
             [uncomplicate.diamond.internal.dnnl
@@ -223,6 +223,9 @@
      :strides (vec (strides* this))})
   DescProvider
   (desc [this]
+    this)
+  Viewable
+  (view [this]
     this))
 
 (deftype MemoryImpl [vmem mem-desc d ^Pointer d-ptr master]

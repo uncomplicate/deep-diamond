@@ -324,10 +324,6 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-shuffler eng strm (view src-tz) (view dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
     (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
-  (create-sum [_ scale dst-tz]
-    (dnnl-sum-blueprint eng strm scale dst-tz))
-  (create-sum [_ scale-src src scale-dst dst]
-    (dnnl-sum-blueprint eng strm scale-src src scale-dst dst))
   (tensor-engine [this dtype]
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
@@ -343,8 +339,7 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ
                                       strides (mapv dec dilation) padding padding alpha beta))
   (pooling-blueprint [this src-desc dst-desc algo strides kernel padding]
-    (dnnl-pooling-blueprint this eng src-desc dst-desc algo
-                            strides kernel padding padding))
+    (dnnl-pooling-blueprint this eng src-desc dst-desc algo strides kernel padding padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (dnnl-gaussian-dropout-blueprint this src-desc sd))
   (batch-norm-blueprint [this src-desc activ alpha beta]

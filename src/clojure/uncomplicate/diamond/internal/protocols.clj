@@ -19,7 +19,6 @@
   (create-transformer [this in out])
   (create-batcher [this src dst mb-size])
   (create-shuffler [this src dst])
-  (create-sum [this scale dst] [this scale-src src scale-dst dst])
   (tensor-engine [this tdesc]))
 
 (defprotocol Offset

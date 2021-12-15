@@ -79,9 +79,10 @@
   (valAt [_ k not-found]
     (get forward-layers k not-found))
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (doseq [layer forward-layers]
-      (init layer init-fn)))
+      (init layer init-fn))
+    this)
   Transfer
   (input [_] x-tz)
   (output [_] (output (peek forward-layers)))
@@ -154,9 +155,10 @@
   (valAt [_ k not-found]
     (get forward-layers k not-found))
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (doseq [layer forward-layers]
-      (init layer init-fn)))
+      (init layer init-fn))
+    this)
   Transfer
   (input [_] x-mb-tz)
   (output [_] (output last-layer))
@@ -366,9 +368,10 @@
   (valAt [_ k not-found]
     (get parallel-layers k not-found))
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (doseq [layer parallel-layers]
-      (init layer init-fn)))
+      (init layer init-fn))
+    this)
   Transfer
   (input [_] x-tzs)
   (output [_]
@@ -439,9 +442,10 @@
   (valAt [_ k not-found]
     (get parallel-layers k not-found))
   Initializable
-  (init [_ init-fn]
+  (init [this init-fn]
     (doseq [layer parallel-layers]
-      (init layer init-fn)))
+      (init layer init-fn))
+    this)
   Transfer
   (input [_] x-mb-tzs)
   (output [_] (fmap output parallel-layers))
