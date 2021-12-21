@@ -571,3 +571,40 @@
                                  alpha desc-y buf-y desc-dy buf-dy desc-x buf-x
                                  beta desc-dx buf-dx)
     cudnn-handle))
+
+;; ====================== Batch Normalization ===========================================
+
+(defn batch-norm-param-descriptor* [desc-x mode]
+  (let [res (tensor-descriptor*)]
+    (with-check
+      (JCudnn/cudnnDeriveBNTensorDescriptor res desc-x mode)
+      res)))
+
+(defn batch-norm-fwd-inference* [cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+                                 desc-param buf-scale buf-shift buf-mean buf-var epsilon]
+  (with-check
+    (JCudnn/cudnnBatchNormalizationForwardInference
+     cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+     desc-param buf-scale buf-shift buf-mean buf-var epsilon)
+    cudnn-handle))
+
+(defn batch-norm-fwd-training* [cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+                                desc-param buf-scale buf-shift exp-avg
+                                buf-running-mean buf-running-var epsilon
+                                buf-save-mean buf-save-inv-var]
+  (with-check
+    (JCudnn/cudnnBatchNormalizationForwardTraining
+     cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+     desc-param buf-scale buf-shift exp-avg
+     buf-running-mean buf-running-var epsilon buf-save-mean buf-save-inv-var)
+    cudnn-handle))
+
+(defn batch-norm-backward* [cudnn-handle mode alpha-data beta-data alpha-param beta-param
+                            desc-x buf-x desc-dy buf-dy desc-dx buf-dx desc-param
+                            buf-scale buf-scale-diff buf-shift-diff epsilon buf-mean buf-inv-var]
+  (with-check
+    (JCudnn/cudnnBatchNormalizationBackward
+     cudnn-handle mode alpha-data beta-data alpha-param beta-param
+     desc-x buf-x desc-dy buf-dy desc-dx buf-dx
+     desc-param buf-scale buf-scale-diff buf-shift-diff epsilon buf-mean buf-inv-var)
+    cudnn-handle))

@@ -14,7 +14,8 @@
             cudnnConvolutionMode cudnnMathType cudnnDeterminism cudnnConvolutionFwdAlgo #_cudnnConvolutionFwdPreference
             cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgo
             #_cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterAlgo
-            #_cudnnConvolutionBwdFilterPreference cudnnPoolingMode]))
+            #_cudnnConvolutionBwdFilterPreference cudnnPoolingMode cudnnBatchNormMode
+            cudnnErrQueryMode]))
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
@@ -254,3 +255,20 @@
 (def ^:const cudnn-determinism
   {:non-deterministic cudnnDeterminism/CUDNN_NON_DETERMINISTIC
    :deterministic cudnnDeterminism/CUDNN_DETERMINISTIC})
+
+(def ^:const cudnn-batch-norm-mode
+  {:per-activation cudnnBatchNormMode/CUDNN_BATCHNORM_PER_ACTIVATION
+   :spatial cudnnBatchNormMode/CUDNN_BATCHNORM_SPATIAL
+   :spatial-persistent cudnnBatchNormMode/CUDNN_BATCHNORM_SPATIAL_PERSISTENT})
+
+(def ^:const cudnn-err-query-mode
+  {:blocking cudnnErrQueryMode/CUDNN_ERRQUERY_BLOCKING
+   :non-blocking cudnnErrQueryMode/CUDNN_ERRQUERY_NONBLOCKING
+   :rawcode cudnnErrQueryMode/CUDNN_ERRQUERY_RAWCODE})
+
+(defn ^:const dec-err-query-mode [^long mode]
+  (case mode
+    0 :rawcode
+    1 :non-blocking
+    2 :blocking
+    :unknown))

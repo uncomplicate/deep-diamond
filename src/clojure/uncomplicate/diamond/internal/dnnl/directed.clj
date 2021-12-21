@@ -980,6 +980,8 @@
   Releaseable
   (release [_]
     (release src-conn)
+    (release gamma-tz)
+    (release beta-tz)
     (release scaleshift-tz)
     (release mean-tz)
     (release var-tz)

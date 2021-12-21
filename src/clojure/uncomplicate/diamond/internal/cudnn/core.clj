@@ -392,9 +392,9 @@
 (defn convolution-bwd-filter-find-algo
   ([cudnn-handle cd desc-x desc-dy desc-dw algo-count]
    (map algo-perf
-    (convolution-bwd-filter-find-algo* (extract cudnn-handle) (extract cd) (extract (desc desc-x))
-                                       (extract (desc desc-dy)) (extract-filter desc-dw)
-                                       algo-count)))
+        (convolution-bwd-filter-find-algo* (extract cudnn-handle) (extract cd) (extract (desc desc-x))
+                                           (extract (desc desc-dy)) (extract-filter desc-dw)
+                                           algo-count)))
   ([cudnn-handle cd desc-x desc-dy desc-dw]
    (first (convolution-bwd-filter-find-algo cudnn-handle cd desc-x desc-dy desc-dw 1))))
 
@@ -436,7 +436,8 @@
 (defn pooling-forward [cudnn-handle pd alpha desc-x buf-x beta desc-y buf-y]
   (pooling-forward* (extract cudnn-handle) (extract pd)
                     (ptr alpha) (extract (desc desc-x)) (extract buf-x)
-                    (ptr beta) (extract (desc desc-y)) (extract buf-y)))
+                    (ptr beta) (extract (desc desc-y)) (extract buf-y))
+  cudnn-handle)
 
 (defn pooling-backward [cudnn-handle pd alpha
                         desc-y buf-y desc-dy buf-dy desc-x buf-x
@@ -445,4 +446,51 @@
                      (ptr alpha) (extract (desc desc-y)) (extract buf-y)
                      (extract (desc desc-dy)) (extract buf-dy)
                      (extract (desc desc-x)) (extract buf-x)
-                     (ptr beta) (extract (desc desc-dx)) (extract buf-dx)))
+                     (ptr beta) (extract (desc desc-dx)) (extract buf-dx))
+  cudnn-handle)
+
+;; ====================== Batch Normalization ===========================================
+
+(defn batch-norm-descriptor [desc-x mode]
+  (wrap (batch-norm-param-descriptor* (extract desc-x) (enc-keyword cudnn-batch-norm-mode mode))))
+
+(defn batch-norm-runtime-err? [cudnn-handle err-mode]
+  (let [status (int-array 1)]
+    (JCudnn/cudnnQueryRuntimeError (extract cudnn-handle) status
+                                   (enc-keyword cudnn-err-query-mode err-mode) nil)
+    (= 0 (aget status 0))))
+
+(defn batch-norm-fwd-inference [cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+                                desc-param buf-scale buf-shift buf-mean buf-var]
+  (batch-norm-fwd-inference* (extract cudnn-handle) (enc-keyword cudnn-batch-norm-mode mode)
+                             (ptr alpha) (ptr beta) (extract (desc desc-x)) (extract buf-x)
+                             (extract (desc desc-y)) (extract buf-y) (extract desc-param)
+                             (extract buf-scale) (extract buf-shift) (extract buf-mean) (extract buf-var)
+                             (max JCudnn/CUDNN_BN_MIN_EPSILON 1e-8))
+  cudnn-handle)
+
+(defn batch-norm-fwd-training [cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+                               desc-param buf-scale buf-shift n
+                               buf-running-mean buf-running-var buf-save-mean buf-save-inv-var]
+  (let [exp-avg (double (/ 1 (inc (long n))))]
+    (batch-norm-fwd-training* (extract cudnn-handle) (enc-keyword cudnn-batch-norm-mode mode)
+                              (ptr alpha) (ptr beta) (extract (desc desc-x)) (extract buf-x)
+                              (extract (desc desc-y)) (extract buf-y) (extract desc-param)
+                              (extract buf-scale) (extract buf-shift) exp-avg
+                              (extract buf-running-mean) (extract buf-running-var)
+                              (max JCudnn/CUDNN_BN_MIN_EPSILON 1e-8)
+                              (extract buf-save-mean) (extract buf-save-inv-var))
+    cudnn-handle))
+
+(defn batch-norm-bwd [cudnn-handle mode alpha-data beta-data alpha-param beta-param
+                      desc-x buf-x desc-dy buf-dy desc-dx buf-dx desc-param
+                      buf-scale buf-scale-diff buf-shift-diff buf-mean buf-inv-var]
+  (batch-norm-backward* (extract cudnn-handle) (enc-keyword cudnn-batch-norm-mode mode)
+                        (ptr alpha-data) (ptr beta-data) (ptr alpha-param) (ptr beta-param)
+                        (extract (desc desc-x)) (extract buf-x)
+                        (extract (desc desc-dy)) (extract buf-dy)
+                        (extract (desc desc-dx)) (extract buf-dx) (extract desc-param)
+                        (extract buf-scale) (extract buf-scale-diff) (extract buf-shift-diff)
+                        (max JCudnn/CUDNN_BN_MIN_EPSILON 1e-8)
+                        (extract buf-mean) (extract buf-inv-var))
+  cudnn-handle)

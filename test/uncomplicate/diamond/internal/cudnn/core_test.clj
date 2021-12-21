@@ -11,6 +11,7 @@
             [uncomplicate.commons
              [core :refer [with-release]]
              [utils :refer [capacity direct-buffer put-float get-float]]]
+            [uncomplicate.fluokitten.core :refer [fmap!]]
             [uncomplicate.clojurecuda.core
              :refer [with-default default-stream mem-alloc memcpy-host! synchronize!]]
             [uncomplicate.diamond.internal.cudnn
@@ -292,3 +293,94 @@
          (seq (memcpy-host! gpu-x (float-array 32)))
          => [0.0 0.0 0.0 2.0 0.0 2.0 0.0 0.0 0.0 2.0 0.0 0.0 0.0 0.0 2.0 0.0
              0.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0 0.0 2.0 2.0 0.0 0.0 0.0]))
+
+(defn population-variance [^long n ^double sample-variance]
+  (/ (* sample-variance (dec n)) n))
+
+(with-release [cudnn-hdl (cudnn-handle default-stream)
+               desc-x (tensor-descriptor [2 1 2 2] :float :nchw)
+               gpu-x (mem-alloc (size desc-x))
+               gpu-y (mem-alloc (size desc-x))
+               host-x (float-array (range -1 7))
+               desc-param (batch-norm-descriptor desc-x :spatial)
+               gpu-gamma (mem-alloc (size desc-param))
+               gpu-beta (mem-alloc (size desc-param))
+               gpu-mean (mem-alloc (size desc-param))
+               gpu-var (mem-alloc (size desc-param))
+               gpu-save-mean (mem-alloc (size desc-param))
+               gpu-save-inv-var (mem-alloc (size desc-param))
+               host-gamma (float-array [0.5])
+               host-beta (float-array [1.5])
+               host-mean (float-array [2.5])
+               host-var (float-array [6.0000005])]
+
+  (memcpy-host! host-x gpu-x)
+  (memcpy-host! host-gamma gpu-gamma)
+  (memcpy-host! host-beta gpu-beta)
+
+  (facts "Batch normalization forward training."
+         (batch-norm-fwd-training cudnn-hdl :spatial (float 1.0) (float 0.0)
+                                  desc-x gpu-x desc-x gpu-y desc-param
+                                  gpu-gamma gpu-beta 0 gpu-mean gpu-var
+                                  gpu-save-mean gpu-save-inv-var)
+         (seq (memcpy-host! gpu-mean (float-array 1))) => (seq host-mean)
+         (seq (memcpy-host! gpu-var (float-array 1))) => (seq host-var)
+         (seq (memcpy-host! gpu-save-mean (float-array 1))) => [2.5]
+         (seq (memcpy-host! gpu-save-inv-var (float-array 1))) => [(float 0.43643576)]
+         (seq (memcpy-host! gpu-x (float-array 8))) => (seq host-x)
+         (seq (memcpy-host! gpu-y (float-array 8))) => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
+                                                        1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
+  (fmap! (partial population-variance 8) host-var)
+  (memcpy-host! host-var gpu-var)
+  (facts "Batch normalization forward inference."
+         (batch-norm-fwd-inference cudnn-hdl :spatial (float 1.0) (float 0.0)
+                                   desc-x gpu-x desc-x gpu-y desc-param
+                                   gpu-gamma gpu-beta gpu-mean gpu-var)
+         (seq (memcpy-host! gpu-x (float-array 8))) => (seq host-x)
+         (seq (memcpy-host! gpu-y (float-array 8))) => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773 ;; TODO why?
+                                                        1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586]))
+
+(with-release [cudnn-hdl (cudnn-handle default-stream)
+               desc-x (tensor-descriptor [1 2 2 2] :float :nchw)
+               gpu-x (mem-alloc (size desc-x))
+               gpu-y (mem-alloc (size desc-x))
+               host-x (float-array (range -1 7))
+               desc-param (batch-norm-descriptor desc-x :spatial)
+               gpu-gamma (mem-alloc (size desc-param))
+               gpu-beta (mem-alloc (size desc-param))
+               gpu-mean (mem-alloc (size desc-param))
+               gpu-var (mem-alloc (size desc-param))
+               gpu-save-mean (mem-alloc (size desc-param))
+               gpu-save-inv-var (mem-alloc (size desc-param))
+               host-gamma (float-array [0.5 1.5])
+               host-beta (float-array [1 1])
+               host-mean (float-array [0.5 4.5])
+               host-var (float-array [1.6666667 1.6666667])]
+
+  (memcpy-host! host-x gpu-x)
+  (memcpy-host! host-gamma gpu-gamma)
+  (memcpy-host! host-beta gpu-beta)
+
+  (facts "Batch normalization forward."
+         (batch-norm-fwd-training cudnn-hdl :spatial (float 1.0) (float 0.0)
+                                  desc-x gpu-x desc-x gpu-y desc-param
+                                  gpu-gamma gpu-beta 0 gpu-mean gpu-var
+                                  gpu-save-mean gpu-save-inv-var)
+         (seq (memcpy-host! gpu-mean (float-array 2))) => (seq host-mean)
+         (seq (memcpy-host! gpu-var (float-array 2))) => (seq host-var)
+         (seq (memcpy-host! gpu-save-mean (float-array 2))) => [0.5 4.5]
+         (seq (memcpy-host! gpu-save-inv-var (float-array 2))) => [(float 0.8944271) (float 0.8944271)]
+         (seq (memcpy-host! gpu-x (float-array 8))) => (seq host-x)
+         (seq (memcpy-host! gpu-y (float-array 8))) => (mapv float [0.32917967 0.77639323 1.2236068
+                                                                    1.6708204 -1.012461 0.32917976
+                                                                    1.6708205 3.0124612]))
+  (fmap! (partial population-variance 4) host-var)
+  (memcpy-host! host-var gpu-var)
+  (facts "Batch normalization backward."
+         (batch-norm-fwd-inference cudnn-hdl :spatial (float 1.0) (float 0.0)
+                                   desc-x gpu-x desc-x gpu-y desc-param
+                                   gpu-gamma gpu-beta gpu-mean gpu-var)
+         (seq (memcpy-host! gpu-x (float-array 8))) => (seq host-x)
+         (seq (memcpy-host! gpu-y (float-array 8))) => (mapv float [0.32917964 0.77639323 1.2236068
+                                                                    1.6708204 -1.0124611 0.32917964
+                                                                    1.6708204 3.012461])))
