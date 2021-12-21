@@ -484,7 +484,7 @@
 
 (defn batch-norm-bwd [cudnn-handle mode alpha-data beta-data alpha-param beta-param
                       desc-x buf-x desc-dy buf-dy desc-dx buf-dx desc-param
-                      buf-scale buf-scale-diff buf-shift-diff buf-mean buf-inv-var]
+                      buf-scale buf-scale-diff buf-shift-diff buf-saved-mean buf-saved-inv-var]
   (batch-norm-backward* (extract cudnn-handle) (enc-keyword cudnn-batch-norm-mode mode)
                         (ptr alpha-data) (ptr beta-data) (ptr alpha-param) (ptr beta-param)
                         (extract (desc desc-x)) (extract buf-x)
@@ -492,5 +492,5 @@
                         (extract (desc desc-dx)) (extract buf-dx) (extract desc-param)
                         (extract buf-scale) (extract buf-scale-diff) (extract buf-shift-diff)
                         (max JCudnn/CUDNN_BN_MIN_EPSILON 1e-8)
-                        (extract buf-mean) (extract buf-inv-var))
+                        (extract buf-saved-mean) (extract buf-saved-inv-var))
   cudnn-handle)

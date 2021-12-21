@@ -917,3 +917,74 @@
 (defn cudnn-gaussian-dropout-blueprint [fact src-desc sd]
   (let-release [mask-desc (cudnn-contiguous-desc (desc src-desc))]
     (->GaussianDropoutBlueprint fact sd mask-desc)))
+
+;; ====================== Batch Normalization =======================================
+
+(deftype CUDnnBatchNormalizationInference [fact cudnn-hdl bluep
+                                           src-conn gamma-tz beta-tz mean-tz var-tz one zero]
+  Releaseable
+  (release [_]
+    (release src-conn)
+    (release gamma-tz)
+    (release beta-tz)
+    (release mean-tz)
+    (release var-tz))
+  Object
+  (hashCode [_]
+    (-> (hash :batch-norm)
+        (hash-combine (shape gamma-tz))
+        (hash-combine (shape beta-tz))
+        (hash-combine (shape (input src-conn)))
+        (hash-combine (shape (output src-conn)))))
+  (equals [_ other]
+    (and (instance? CUDnnBatchNormalizationInference other)
+         (= gamma-tz (.gamma-tz ^CUDnnBatchNormalizationInference other))
+         (= beta-tz (.beta-tz ^CUDnnBatchNormalizationInference other))
+         (= src-conn (.src-conn ^CUDnnBatchNormalizationInference other))
+         (= mean-tz (.mean-tz ^CUDnnBatchNormalizationInference other))
+         (= var-tz (.var-tz ^CUDnnBatchNormalizationInference other))
+         (= (output src-conn) (output (.src-conn ^CUDnnBatchNormalizationInference other)))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:gamma (info gamma-tz)
+     :beta (info beta-tz)
+     :dst (info (output src-conn))})
+  (info [this info-type]
+    (case info-type
+      :gamma (info gamma-tz)
+      :beta (info beta-tz)
+      :dst (info (output src-conn))
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    (input src-conn))
+  (output [_]
+    (output src-conn))
+  Parameters
+  (weights [_]
+    gamma-tz)
+  (bias [_]
+    beta-tz)
+  ParametersSeq
+  (parameters [_]
+    [gamma-tz beta-tz mean-tz var-tz])
+  Initializable
+  (init [this init-fn]
+    (init-fn gamma-tz)
+    (init-fn beta-tz)
+    this)
+  IFn
+  (invoke [_]
+    (src-conn)
+    (batch-norm-fwd-inference cudnn-hdl :spatial one zero ;;TODO use err-query and spatial-persistent once you get it working
+                              (output src-conn) (buffer (output src-conn))
+                              (output src-conn) (buffer (output src-conn))
+                              gamma-tz (buffer gamma-tz) (buffer beta-tz) (buffer mean-tz) (buffer var-tz))
+    (output src-conn))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
