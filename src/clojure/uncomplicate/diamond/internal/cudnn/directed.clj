@@ -12,10 +12,10 @@
               :refer [Transfer input output connector revert shape layout TensorDescriptor]]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
-                      DiffParameters Backprop forward backward DiffTransfer diff-input diff-output
-                      diff-z LinearBackprop backward-diff inf-desc train-desc Initializable init
-                      Workspace inf-ws-size train-ws-size *workspace* create-tensor]] ;;TODO do I need these?
+              :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
+                      DiamondFactoryProvider DiffParameters Backprop forward backward DiffTransfer
+                      diff-input diff-output diff-z LinearBackprop backward-diff inf-desc train-desc
+                      Initializable init Workspace inf-ws-size train-ws-size *workspace* create-tensor]]
              [utils :refer [transfer-weights-bias! default-strides concat-strides concat-dst-shape]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
@@ -992,7 +992,10 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-;;TODO print-method
+(defmethod print-method CUDnnBatchNormalizationInference
+  [layer ^java.io.Writer w]
+  (.write w (format "#BatchNorm[]\n gamma:\n beta: \n output: %s\n"
+                    (weights layer) (bias layer) (pr-str (output layer)))))
 
 (deftype CUDnnBatchNormalizationTraining [fact cudnn-hdl bluep da cnt un-bessel one zero
                                           param-desc src-conn gamma-tz beta-tz dst-tz
@@ -1114,7 +1117,11 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-;;TODO print-method
+(defmethod print-method CUDnnBatchNormalizationTraining
+  [layer ^java.io.Writer w]
+  (.write w (format "#BatchNorm[]\n gamma:\n beta: \n output: %s\n"
+                    (weights layer) (bias layer) (pr-str (output layer)))))
+
 
 (deftype CUDnnBatchNormalizationBlueprint [fact data-desc gamma-desc un-bessel]
   Releaseable
@@ -1184,10 +1191,10 @@
                     beta-tz (cudnn-tensor fact (view gamma-desc))
                     mean-tz (cudnn-tensor fact (view gamma-desc))
                     var-tz (cudnn-tensor fact (view gamma-desc))
-                    saved-mean-tz (cudnn-tensor fact (view gamma-desc))
-                    saved-inv-var-tz (cudnn-tensor fact (view gamma-desc))
-                    diff-gamma-tz (cudnn-tensor fact (view gamma-desc))
-                    diff-beta-tz (cudnn-tensor fact (view gamma-desc))
+                    saved-mean-tz (create-tensor fact (view gamma-desc) true)
+                    saved-inv-var-tz (create-tensor fact (view gamma-desc) true)
+                    diff-gamma-tz (create-tensor fact (view gamma-desc) true)
+                    diff-beta-tz (create-tensor fact (view gamma-desc) true)
                     diff-src-conn (revert src-conn)]
         (->CUDnnBatchNormalizationTraining fact (handle fact) this da (atom -1) un-bessel
                                            (cast-prim da 1.0) (cast-prim da 0.0)
@@ -1197,15 +1204,29 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
+(defmethod print-method CUDnnBatchNormalizationBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
 (defn cudnn-batch-norm-op-blueprint [fact data-desc]
   (let-release [data-desc (desc data-desc)
-                gamma-desc (batch-norm-descriptor data-desc :spatial)
-                data-shape (shape data-desc)
-                n (long (apply * (get data-shape 0) (drop 2 data-shape)))
-                un-bessel (/ (dec n) n)]
-    (->CUDnnBatchNormalizationBlueprint fact data-desc gamma-desc un-bessel)))
+                gamma-desc (batch-norm-descriptor data-desc :spatial)]
+    (let [data-shape (shape data-desc)
+          n (long (apply * (get data-shape 0) (drop 2 data-shape)))
+          un-bessel (/ (dec n) n)]
+      (->CUDnnBatchNormalizationBlueprint fact data-desc gamma-desc un-bessel))))
 
 (defn cudnn-batch-norm-layer-blueprint [fact data-desc activ alpha beta]
   (let-release [batch-norm-bluep (cudnn-batch-norm-op-blueprint fact (view data-desc))
                 activ-bluep (cudnn-activ-blueprint fact (view data-desc) activ alpha)]
     (->DirectedLayerBlueprint fact :batch-norm batch-norm-bluep activ-bluep)))
+
+(defmethod transfer! [CUDnnBatchNormalizationInference Object]
+  [source destination]
+  (doall (map transfer! (parameters source) (parameters destination)))
+  destination)
+
+(defmethod transfer! [CUDnnBatchNormalizationTraining Object]
+  [source destination]
+  (doall (map transfer! (parameters source) (parameters destination)))
+  destination)

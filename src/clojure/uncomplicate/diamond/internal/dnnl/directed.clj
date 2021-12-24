@@ -19,11 +19,10 @@
              :refer [Transfer input output connector revert shape layout TensorDescriptor view-tz]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [Parameters bias weights ParametersSeq parameters
-                      DescriptorProvider DiamondFactoryProvider DiffParameters
-                      diff-weights Backprop forward backward
-                      DiffTransfer diff-input diff-output diff-z
-                      LinearBackprop backward-diff inf-desc train-desc Initializable init]]
+              :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
+                      DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
+                      DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
+                      inf-desc train-desc Initializable init]]
              [utils :refer [transfer-weights-bias! default-strides concat-strides concat-dst-shape]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
