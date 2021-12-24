@@ -1051,8 +1051,7 @@
 (deftype DnnlBatchNormalizationTraining [fact strm bluep scaleshift-tz diff-scaleshift-tz
                                          src-conn gamma-tz beta-tz dst-tz mean-tz var-tz
                                          diff-gamma-tz diff-beta-tz post-diff-gamma-tz
-                                         diff-src-conn
-                                         fwd-prim fwd-args bwd-prim bwd-args]
+                                         diff-src-conn fwd-prim fwd-args bwd-prim bwd-args]
   Releaseable
   (release [_]
     (release scaleshift-tz)
@@ -1261,8 +1260,7 @@
   [bp ^java.io.Writer w]
   (.write w (str bp)))
 
-(defn dnnl-batch-norm-op-blueprint
-  [fact eng data-desc]
+(defn dnnl-batch-norm-op-blueprint [fact eng data-desc]
   (let [data-desc (desc data-desc)
         c (get (dims data-desc) 1)
         scaleshift-desc (memory-desc [2 c] :float :ab)

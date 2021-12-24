@@ -5,7 +5,7 @@
             [uncomplicate.fluokitten.core :refer [foldmap fmap]]
             [uncomplicate.clojurecuda.core :refer [mem-alloc]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! axpy! copy! transfer! raw view-vctr]]
+             [core :refer [axpby! axpy! copy! transfer! raw view-vctr entry! scal!]]
              [block :refer [cast-prim data-accessor buffer]]]
             [uncomplicate.diamond
              [tensor :as tz
@@ -449,7 +449,8 @@
     (release bias-tz)
     (release weights-tz)
     (release dst-tz)
-    (release workspace))
+    (release workspace)
+    (release filter-desc))
   Info
   (info [this]
     {:bias (info bias-tz)
@@ -498,7 +499,8 @@
     (release dst-tz)
     (release diff-weights-tz)
     (release diff-src-conn)
-    (release workspace))
+    (release workspace)
+    (release filter-desc))
   Info
   (info [this]
     {:bias (info bias-tz)
@@ -572,17 +574,6 @@
 (deftype CUDnnConvolutionBlueprint [fact conv-desc
                                     conv-fwd-algo conv-bwd-data-algo conv-bwd-weights-algo
                                     src-desc weights-desc filter-desc bias-desc dst-desc]
-  Object
-  (hashCode [_]
-    (-> (hash src-desc) (hash-combine weights-desc)
-        (hash-combine bias-desc) (hash-combine dst-desc)))
-  (equals [_ other]
-    (and (instance? CUDnnConvolutionBlueprint other)
-         (equal-desc? src-desc (.src-desc ^CUDnnConvolutionBlueprint other))
-         (equal-desc? weights-desc (.weights-desc ^CUDnnConvolutionBlueprint other))
-         (equal-desc? dst-desc (.dst-desc ^CUDnnConvolutionBlueprint other))))
-  (toString [this]
-    (pr-str {:src src-desc :weights weights-desc :dst dst-desc}))
   Releaseable
   (release [_]
     (release conv-desc)
@@ -594,6 +585,18 @@
     (release filter-desc)
     (release bias-desc)
     (release dst-desc))
+  Object
+  (hashCode [_]
+    (-> (hash :inner-product)
+        (hash-combine src-desc) (hash-combine weights-desc)
+        (hash-combine bias-desc) (hash-combine dst-desc)))
+  (equals [_ other]
+    (and (instance? CUDnnConvolutionBlueprint other)
+         (equal-desc? src-desc (.src-desc ^CUDnnConvolutionBlueprint other))
+         (equal-desc? weights-desc (.weights-desc ^CUDnnConvolutionBlueprint other))
+         (equal-desc? dst-desc (.dst-desc ^CUDnnConvolutionBlueprint other))))
+  (toString [this]
+    (pr-str {:src src-desc :weights weights-desc :dst dst-desc}))
   Info
   (info [this info-type]
     (case info-type
@@ -651,21 +654,20 @@
                                    conv-desc (view filter-desc) (:algo conv-fwd-algo)
                                    src-conn bias-tz weights-tz a-tz *workspace*)))
   (invoke [this src-tz dst-tz prop-diff? _]
-    (let [src-shape (shape src-desc)]
+    (let [da (data-accessor dst-tz)]
       (let-release [src-conn (connector src-tz src-desc)
                     bias-tz (cudnn-tensor fact (view bias-desc))
                     weights-tz (cudnn-tensor fact (view weights-desc))
                     diff-src-conn (revert src-conn)
-                    diff-weights-tz (raw weights-tz)]
-        (let [da (data-accessor dst-tz)]
-          (->CUDnnConvolutionTraining fact (handle fact) this da
-                                      (cast-prim da 1.0) (cast-prim da 0.0)
-                                      prop-diff? conv-desc (view filter-desc)
-                                      (:algo conv-fwd-algo) (:algo conv-bwd-data-algo)
-                                      (:algo conv-bwd-weights-algo)
-                                      src-conn bias-tz weights-tz dst-tz
-                                      diff-weights-tz diff-src-conn
-                                      *workspace*)))))
+                    diff-weights-tz (create-tensor fact (view weights-desc) true)]
+        (->CUDnnConvolutionTraining fact (handle fact) this da
+                                    (cast-prim da 1.0) (cast-prim da 0.0)
+                                    prop-diff? conv-desc (view filter-desc)
+                                    (:algo conv-fwd-algo) (:algo conv-bwd-data-algo)
+                                    (:algo conv-bwd-weights-algo)
+                                    src-conn bias-tz weights-tz dst-tz
+                                    diff-weights-tz diff-src-conn
+                                    *workspace*))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
@@ -920,8 +922,8 @@
 
 ;; ====================== Batch Normalization =======================================
 
-(deftype CUDnnBatchNormalizationInference [fact cudnn-hdl bluep
-                                           src-conn gamma-tz beta-tz mean-tz var-tz one zero]
+(deftype CUDnnBatchNormalizationInference [fact cudnn-hdl bluep one zero param-desc
+                                           src-conn gamma-tz beta-tz mean-tz var-tz]
   Releaseable
   (release [_]
     (release src-conn)
@@ -981,10 +983,229 @@
   IFn
   (invoke [_]
     (src-conn)
-    (batch-norm-fwd-inference cudnn-hdl :spatial one zero ;;TODO use err-query and spatial-persistent once you get it working
+    (batch-norm-fwd-inference cudnn-hdl :spatial one zero
                               (output src-conn) (buffer (output src-conn))
                               (output src-conn) (buffer (output src-conn))
-                              gamma-tz (buffer gamma-tz) (buffer beta-tz) (buffer mean-tz) (buffer var-tz))
+                              param-desc (buffer gamma-tz) (buffer beta-tz)
+                              (buffer mean-tz) (buffer var-tz))
     (output src-conn))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+;;TODO print-method
+
+(deftype CUDnnBatchNormalizationTraining [fact cudnn-hdl bluep da cnt un-bessel one zero
+                                          param-desc src-conn gamma-tz beta-tz dst-tz
+                                          mean-tz var-tz saved-mean-tz saved-inv-var-tz
+                                          diff-gamma-tz diff-beta-tz diff-src-conn]
+  Releaseable
+  (release [_]
+    (release src-conn)
+    (release gamma-tz)
+    (release beta-tz)
+    (release dst-tz)
+    (release mean-tz)
+    (release var-tz)
+    (release saved-mean-tz)
+    (release saved-inv-var-tz)
+    (release diff-gamma-tz)
+    (release diff-beta-tz)
+    (release diff-src-conn))
+  Object
+  (hashCode [_]
+    (-> (hash :batch-norm)
+        (hash-combine (shape gamma-tz))
+        (hash-combine (shape beta-tz))
+        (hash-combine (shape (input src-conn)))
+        (hash-combine (shape (output src-conn)))))
+  (equals [_ other]
+    (and (instance? CUDnnBatchNormalizationInference other)
+         (= gamma-tz (.gamma-tz ^CUDnnBatchNormalizationTraining other))
+         (= beta-tz (.beta-tz ^CUDnnBatchNormalizationTraining other))
+         (= src-conn (.src-conn ^CUDnnBatchNormalizationTraining other))
+         (= mean-tz (.mean-tz ^CUDnnBatchNormalizationTraining other))
+         (= var-tz (.var-tz ^CUDnnBatchNormalizationTraining other))
+         (= dst-tz (output (.dst-tz ^CUDnnBatchNormalizationTraining other)))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:gamma (info gamma-tz)
+     :beta (info beta-tz)
+     :dst (info dst-tz)
+     :mean (info mean-tz)
+     :variance (info var-tz)
+     :diff-diff-gamma (info diff-gamma-tz)})
+  (info [this info-type]
+    (case info-type
+      :gamma (info gamma-tz)
+      :beta (info beta-tz)
+      :dst (info dst-tz)
+      :mean (info mean-tz)
+      :variance (info var-tz)
+      :diff-diff-gamma (info diff-gamma-tz)
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    (input src-conn))
+  (output [_]
+    dst-tz)
+  DiffTransfer
+  (diff-input [_]
+    dst-tz)
+  (diff-output [_]
+    (output diff-src-conn))
+  Parameters
+  (weights [_]
+    gamma-tz)
+  (bias [_]
+    beta-tz)
+  ParametersSeq
+  (parameters [_]
+    [gamma-tz beta-tz mean-tz var-tz])
+  Initializable
+  (init [this init-fn]
+    (init-fn gamma-tz)
+    (init-fn beta-tz)
+    (reset! cnt 0)
+    this)
+  DiffParameters
+  (diff-weights [_]
+    diff-gamma-tz)
+  IFn
+  (invoke [_]
+    (src-conn)
+    (batch-norm-fwd-training cudnn-hdl :spatial one zero
+                             (output src-conn) (buffer (output src-conn))
+                             dst-tz (buffer dst-tz)
+                             param-desc (buffer gamma-tz) (buffer beta-tz) @cnt
+                             (buffer mean-tz) (buffer var-tz)
+                             (buffer saved-mean-tz) (buffer saved-inv-var-tz))
+    (scal! un-bessel var-tz)
+    dst-tz)
+  Backprop
+  (forward [this]
+    (src-conn)
+    (batch-norm-fwd-training cudnn-hdl :spatial one zero
+                             (output src-conn) (buffer (output src-conn))
+                             dst-tz (buffer dst-tz)
+                             param-desc (buffer gamma-tz) (buffer beta-tz) (swap! cnt inc)
+                             (buffer mean-tz) (buffer var-tz)
+                             (buffer saved-mean-tz) (buffer saved-inv-var-tz))
+    (scal! un-bessel var-tz)
+    this)
+  (backward [this]
+    (backward-diff this 1.0 0.0 1.0 0.0))
+  LinearBackprop ;; TODO take prop-diff into account?
+  (backward-diff [this scal-diff-w scal-g _ scal-b]
+    (entry! diff-beta-tz 0.0)
+    (batch-norm-bwd cudnn-hdl :spatial one zero
+                    (cast-prim da scal-diff-w) (cast-prim da scal-g)
+                    (output src-conn) (buffer (output src-conn))
+                    dst-tz (buffer dst-tz) (output src-conn) (buffer (output src-conn))
+                    param-desc (buffer gamma-tz) (buffer diff-gamma-tz) (buffer diff-beta-tz)
+                    (buffer saved-mean-tz) (buffer saved-inv-var-tz))
+    (axpby! 1.0 diff-beta-tz scal-b beta-tz)
+    (diff-src-conn)
+    this)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+;;TODO print-method
+
+(deftype CUDnnBatchNormalizationBlueprint [fact data-desc gamma-desc un-bessel]
+  Releaseable
+  (release [_]
+    (release data-desc)
+    (release gamma-desc))
+  Object
+  (hashCode [_]
+    (-> (hash :batch-norm) (hash-combine gamma-desc)))
+  (equals [_ other]
+    (and (instance? CUDnnBatchNormalizationBlueprint other)
+         (equal-desc? data-desc (.data-desc ^CUDnnBatchNormalizationBlueprint other))
+         (equal-desc? gamma-desc (.gamma-desc ^CUDnnBatchNormalizationBlueprint other))))
+  (toString [this]
+    (pr-str {:topology :batch-norm
+             :shape (shape this)}))
+  Info
+  (info [this info-type]
+    (case info-type
+      :bias gamma-desc
+      :inference {:src data-desc
+                  :weights gamma-desc
+                  :dst data-desc}
+      :training {:src data-desc
+                 :weights gamma-desc
+                 :dst data-desc}
+      nil))
+  (info [this]
+    {:bias gamma-desc
+     :inference {:src data-desc
+                 :weights gamma-desc
+                 :dst data-desc}
+     :training {:src data-desc
+                :weights gamma-desc
+                :dst data-desc}})
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [_]
+    data-desc)
+  (train-desc [_]
+    data-desc)
+  TensorDescriptor
+  (shape [this]
+    (shape data-desc))
+  (data-type [this]
+    (data-type data-desc))
+  (layout [this]
+    (layout data-desc))
+  IFn
+  (invoke [this src-tz]
+    (let-release [src-conn (connector src-tz data-desc)
+                  gamma-tz (cudnn-tensor fact (view gamma-desc))
+                  beta-tz (cudnn-tensor fact (view gamma-desc))
+                  mean-tz (cudnn-tensor fact (view gamma-desc))
+                  var-tz (cudnn-tensor fact (view gamma-desc))
+                  dst-tz (cudnn-tensor fact (view gamma-desc))]
+      (->CUDnnBatchNormalizationInference fact (handle fact) this
+                                          (cast-prim (data-accessor gamma-tz) 1.0)
+                                          (cast-prim (data-accessor gamma-tz) 0.0)
+                                          gamma-desc src-conn gamma-tz beta-tz mean-tz var-tz)))
+  (invoke [this src-tz dst-tz _ _] ;;TODO see about handling prop-diff?
+    (let [da (data-accessor dst-tz)]
+      (let-release [src-conn (connector src-tz data-desc)
+                    gamma-tz (cudnn-tensor fact (view gamma-desc))
+                    beta-tz (cudnn-tensor fact (view gamma-desc))
+                    mean-tz (cudnn-tensor fact (view gamma-desc))
+                    var-tz (cudnn-tensor fact (view gamma-desc))
+                    saved-mean-tz (cudnn-tensor fact (view gamma-desc))
+                    saved-inv-var-tz (cudnn-tensor fact (view gamma-desc))
+                    diff-gamma-tz (cudnn-tensor fact (view gamma-desc))
+                    diff-beta-tz (cudnn-tensor fact (view gamma-desc))
+                    diff-src-conn (revert src-conn)]
+        (->CUDnnBatchNormalizationTraining fact (handle fact) this da (atom -1) un-bessel
+                                           (cast-prim da 1.0) (cast-prim da 0.0)
+                                           gamma-desc src-conn gamma-tz beta-tz dst-tz
+                                           mean-tz var-tz saved-mean-tz saved-inv-var-tz
+                                           diff-gamma-tz diff-beta-tz diff-src-conn))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn cudnn-batch-norm-op-blueprint [fact data-desc]
+  (let-release [data-desc (desc data-desc)
+                gamma-desc (batch-norm-descriptor data-desc :spatial)
+                data-shape (shape data-desc)
+                n (long (apply * (get data-shape 0) (drop 2 data-shape)))
+                un-bessel (/ (dec n) n)]
+    (->CUDnnBatchNormalizationBlueprint fact data-desc gamma-desc un-bessel)))
+
+(defn cudnn-batch-norm-layer-blueprint [fact data-desc activ alpha beta]
+  (let-release [batch-norm-bluep (cudnn-batch-norm-op-blueprint fact (view data-desc))
+                activ-bluep (cudnn-activ-blueprint fact (view data-desc) activ alpha)]
+    (->DirectedLayerBlueprint fact :batch-norm batch-norm-bluep activ-bluep)))

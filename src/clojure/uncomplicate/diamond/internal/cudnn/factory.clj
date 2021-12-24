@@ -35,7 +35,8 @@
                              cudnn-tensor-desc]]
              [directed :refer [cudnn-activ-blueprint
                                cudnn-universal-cost cudnn-custom-cost cudnn-pooling-blueprint
-                               cudnn-convolution-layer-blueprint cudnn-gaussian-dropout-blueprint]]])
+                               cudnn-convolution-layer-blueprint cudnn-gaussian-dropout-blueprint
+                               cudnn-batch-norm-layer-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -388,6 +389,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-pooling-blueprint this src-desc dst-desc algo strides kernel padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (cudnn-gaussian-dropout-blueprint this src-desc sd))
+  (batch-norm-blueprint [this src-desc activ alpha beta]
+    (cudnn-batch-norm-layer-blueprint this src-desc activ alpha beta))
   (create-workspace [_ byte-size]
     (in-context
      ctx

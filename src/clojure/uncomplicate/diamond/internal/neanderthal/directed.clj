@@ -156,7 +156,8 @@
 (deftype InnerProductBlueprint [fact ones src-desc weights-desc bias-desc dst-desc]
   Object
   (hashCode [_]
-    (-> (hash src-desc) (hash-combine weights-desc)
+    (-> (hash :inner-product)
+        (hash-combine src-desc) (hash-combine weights-desc)
         (hash-combine bias-desc) (hash-combine dst-desc)))
   (equals [_ other]
     (and (instance? InnerProductBlueprint other)

@@ -307,8 +307,8 @@
                gpu-beta (mem-alloc (size desc-param))
                gpu-mean (mem-alloc (size desc-param))
                gpu-var (mem-alloc (size desc-param))
-               gpu-save-mean (mem-alloc (size desc-param))
-               gpu-save-inv-var (mem-alloc (size desc-param))
+               gpu-saved-mean (mem-alloc (size desc-param))
+               gpu-saved-inv-var (mem-alloc (size desc-param))
                host-gamma (float-array [0.5])
                host-beta (float-array [1.5])
                host-mean (float-array [2.5])
@@ -322,14 +322,16 @@
          (batch-norm-fwd-training cudnn-hdl :spatial (float 1.0) (float 0.0)
                                   desc-x gpu-x desc-x gpu-y desc-param
                                   gpu-gamma gpu-beta 0 gpu-mean gpu-var
-                                  gpu-save-mean gpu-save-inv-var)
+                                  gpu-saved-mean gpu-saved-inv-var)
          (seq (memcpy-host! gpu-mean (float-array 1))) => (seq host-mean)
          (seq (memcpy-host! gpu-var (float-array 1))) => (seq host-var)
-         (seq (memcpy-host! gpu-save-mean (float-array 1))) => [2.5]
-         (seq (memcpy-host! gpu-save-inv-var (float-array 1))) => [(float 0.43643576)]
+         (seq (memcpy-host! gpu-saved-mean (float-array 1))) => [2.5]
+         (seq (memcpy-host! gpu-saved-inv-var (float-array 1))) => [(float 0.43643576)]
          (seq (memcpy-host! gpu-x (float-array 8))) => (seq host-x)
-         (seq (memcpy-host! gpu-y (float-array 8))) => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
-                                                        1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
+         (seq (memcpy-host! gpu-y (float-array 8))) => [0.7362374067306519 0.9544553160667419
+                                                        1.172673225402832 1.3908910751342773
+                                                        1.6091089248657227 1.827326774597168
+                                                        2.0455446243286133 2.2637624740600586])
   (fmap! (partial population-variance 8) host-var)
   (memcpy-host! host-var gpu-var)
   (facts "Batch normalization forward inference."
@@ -337,8 +339,10 @@
                                    desc-x gpu-x desc-x gpu-y desc-param
                                    gpu-gamma gpu-beta gpu-mean gpu-var)
          (seq (memcpy-host! gpu-x (float-array 8))) => (seq host-x)
-         (seq (memcpy-host! gpu-y (float-array 8))) => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773 ;; TODO why?
-                                                        1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586]))
+         (seq (memcpy-host! gpu-y (float-array 8))) => [0.7362374067306519 0.9544553160667419
+                                                        1.172673225402832 1.3908910751342773
+                                                        1.6091089248657227 1.827326774597168
+                                                        2.0455446243286133 2.2637624740600586]))
 
 (with-release [cudnn-hdl (cudnn-handle default-stream)
                desc-x (tensor-descriptor [1 2 2 2] :float :nchw)
@@ -352,8 +356,8 @@
                gpu-beta-diff (mem-alloc (size desc-param))
                gpu-mean (mem-alloc (size desc-param))
                gpu-var (mem-alloc (size desc-param))
-               gpu-save-mean (mem-alloc (size desc-param))
-               gpu-save-inv-var (mem-alloc (size desc-param))
+               gpu-saved-mean (mem-alloc (size desc-param))
+               gpu-saved-inv-var (mem-alloc (size desc-param))
                host-gamma (float-array [0.5 1.5])
                host-beta (float-array [1 1])
                host-mean (float-array [0.5 4.5])
@@ -368,25 +372,25 @@
          (batch-norm-fwd-training cudnn-hdl :spatial (float 1.0) (float 0.0)
                                   desc-x gpu-x desc-x gpu-y desc-param
                                   gpu-gamma gpu-beta 0 gpu-mean gpu-var
-                                  gpu-save-mean gpu-save-inv-var)
+                                  gpu-saved-mean gpu-saved-inv-var)
          (seq (memcpy-host! gpu-mean (float-array 2))) => (seq host-mean)
          (seq (memcpy-host! gpu-var (float-array 2))) => (seq host-var)
-         (seq (memcpy-host! gpu-save-mean (float-array 2))) => [0.5 4.5]
-         (seq (memcpy-host! gpu-save-inv-var (float-array 2))) => [(float 0.8944271) (float 0.8944271)]
+         (seq (memcpy-host! gpu-saved-mean (float-array 2))) => [0.5 4.5]
+         (seq (memcpy-host! gpu-saved-inv-var (float-array 2))) => [(float 0.8944271) (float 0.8944271)]
          (seq (memcpy-host! gpu-x (float-array 8))) => (seq host-x)
-         (seq (memcpy-host! gpu-y (float-array 8))) => (mapv float [0.32917967 0.77639323 1.2236068
-                                                                    1.6708204 -1.012461 0.32917976
-                                                                    1.6708205 3.0124612]))
+         (seq (memcpy-host! gpu-y (float-array 8)))
+         => (mapv float [0.32917967 0.77639323 1.2236068 1.6708204 -1.012461 0.32917976 1.6708205 3.0124612]))
+
   (facts "Batch normalization backward."
          (memcpy-host! host-diff gpu-y)
 
-         (batch-norm-bwd cudnn-hdl :spatial (float 1.0) (float 0.0) (float 1.0) (float 0.0)
+         (batch-norm-bwd cudnn-hdl :spatial (float 1.0) (float 0.0) (float -1.0) (float 1.0)
                          desc-x gpu-x desc-x gpu-y desc-x gpu-x desc-param
-                         gpu-gamma gpu-gamma-diff gpu-beta-diff gpu-save-mean gpu-save-inv-var)
-         (seq (memcpy-host! gpu-save-mean (float-array 2))) => [0.5 4.5]
-         (seq (memcpy-host! gpu-save-inv-var (float-array 2))) => [(float 0.8944271) (float 0.8944271)]
-         (seq (memcpy-host! gpu-gamma-diff (float-array 2))) => [(float 2.63856) (float -3.2199378)]
-         (seq (memcpy-host! gpu-beta-diff (float-array 2))) => [(float 5.5) (float -1.9999999)]
+                         gpu-gamma gpu-gamma-diff gpu-beta gpu-saved-mean gpu-saved-inv-var)
+         (seq (memcpy-host! gpu-saved-mean (float-array 2))) => [0.5 4.5]
+         (seq (memcpy-host! gpu-saved-inv-var (float-array 2))) => [(float 0.8944271) (float 0.8944271)]
+         (seq (memcpy-host! gpu-gamma-diff (float-array 2))) => [(float -2.63856) (float 3.2199378)]
+         (seq (memcpy-host! gpu-beta (float-array 2))) => [-4.5 3.0]
          (seq (memcpy-host! gpu-x (float-array 8))) => (mapv float [-2.4552026 3.9891448 -0.6126826
                                                                     -0.9212599 -1.4489717 0.9928142
                                                                     2.3612876 -1.9051301])))

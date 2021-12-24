@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.dnn-test
-  (:require [midje.sweet :refer [facts throws => roughly]]
+  (:require [midje.sweet :refer [facts throws => roughly just]]
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view-vctr vctr
@@ -440,7 +440,7 @@
                      input-weights (connector (desc [1 1 3 3] :float :nchw) (weights conv))
                      output-weights (revert input-weights)
                      ws (create-workspace fact (inf-ws-size conv-bluep))]
-        (facts "Convolution inference layer"
+        (facts "Convolution inference layer."
                (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                            0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50]
                           input-tz)
@@ -459,7 +459,7 @@
                      connect-output (connector (output conv) (desc [2 1 2 2] :float :nchw))
                      input-weights (connector (desc [1 1 3 3] :float :nchw) (weights conv))
                      output-weights (revert input-weights)]
-        (facts "Convolution inference layer"
+        (facts "Convolution inference layer."
                (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                            0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50]
                           input-tz)
@@ -479,7 +479,7 @@
                      output-weights (revert input-weights)
                      train-tz (tensor fact [2 1 2 2] :float :nchw)
                      conv-output (cost conv train-tz :quadratic)]
-        (facts "Convolution training layer"
+        (facts "Convolution training layer."
                (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                            0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50]
                           input-tz)
@@ -608,13 +608,13 @@
 
     (facts
      "Batch normalization inference test."
-     (view-vctr (input bnorm-infer)) => (vctr input-tz [-1 0 1 2 3 4 5 6])
-     (view-vctr (bnorm-infer))
-     => (vctr input-tz [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
-                        1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
-     (view-vctr (output bnorm-infer))
-     => (vctr input-tz [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
-                        1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586])
+     (seq (native (input bnorm-infer))) => [-1.0 0.0 1.0 2.0 3.0 4.0 5.0 6.0]
+     (seq (native (bnorm-infer)))
+     => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
+         1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586]
+     (seq (native (output bnorm-infer)))
+     => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
+         1.6091089248657227 1.827326774597168 2.0455446243286133 2.2637624740600586]
      (input bnorm-infer) => (output bnorm-infer))))
 
 (defn test-batch-normalization-training [fact]
@@ -625,29 +625,24 @@
     (transfer! [-1 0 1 2 3 4 5 6] input-tz)
     (doall (map transfer! [[0.5 1.5] [1 1] [0 0] [0 0]] (parameters bnorm-train)))
 
-
     (facts
      "Batch normalization forward test."
      (doall (map transfer! [[0.5 1.5] [1 1] [0] [0]] (parameters bnorm-train)))
-     (view-vctr (input bnorm-train)) => (vctr input-tz [-1 0 1 2 3 4 5 6])
-     (forward bnorm-train [nil 1 0 0 false]) => bnorm-train
-     (seq (output bnorm-train))
-     => [0.32917964458465576 0.7763931751251221 1.223606824874878 1.6708203554153442
-         -1.0124611854553223 0.32917964458465576 1.6708203554153442 3.0124611854553223]
-     (map seq (parameters bnorm-train)) => [[0.5 1.5] [1.0 1.0] [0.5 4.5] [1.25 1.25]])
+     (seq (native (input bnorm-train))) => [-1.0 0.0 1.0 2.0 3.0 4.0 5.0 6.0]
+     (forward bnorm-train [nil 1 0 1 false]) => bnorm-train
+     (forward bnorm-train)
+     (nrm2 (view-vctr (output bnorm-train))) => (roughly 4.2426405)
+     (map (comp seq native view-vctr) (parameters bnorm-train))
+     => [[0.5 1.5] [1.0 1.0] [0.5 4.5] [1.25 1.25]])
 
     (facts
      "Batch normalization backward test."
      (transfer! [-5 10 0.3 0.2 -0.5 0.6 0.9 -3] (diff-input bnorm-train))
      (backward bnorm-train) => bnorm-train
-     (backward bnorm-train [nil 1 0 0 false]) => bnorm-train
-     (seq (.diff-gamma-tz (.op bnorm-train))) => [2.6385602951049805 -3.219937801361084]
-     (seq (.diff-beta-tz (.op bnorm-train))) => [5.5 -2.0]
-     (seq (weights bnorm-train)) => [-2.1385602951049805 4.719937801361084]
-     (seq (bias bnorm-train)) => [-4.5 3.0]
-     (seq (view-vctr (diff-output bnorm-train)))
-     => [-2.455202579498291 3.989145278930664 -0.6126827001571655 -0.9212599992752075
-         -1.4489718675613403 0.9928141236305237 2.3612875938415527 -1.9051299095153809])))
+     (backward bnorm-train [nil 1 0 1 false]) => bnorm-train
+     (seq (native (weights bnorm-train))) => (just [(roughly -2.1385) (roughly 4.7199)])
+     (seq (native (bias bnorm-train))) => [-4.5 3.0]
+     (nrm2 (native (view-vctr (diff-output bnorm-train)))) => (roughly 5.954477))))
 
 (defn test-concatenate [fact]
   (with-release [input0-tz (tensor fact [1 1 2 2] :float :nchw)
