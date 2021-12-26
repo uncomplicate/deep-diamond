@@ -856,14 +856,14 @@
     (facts
      "Sum training test."
      (forward sum-train nil) => sum-train
-     (seq (view-vctr (output sum-train))) => [4.0 6.0]
+     (seq (native (output sum-train))) => [4.0 6.0]
 
      (transfer! [0 0] input1-tz)
 
-     (seq (view-vctr input1-tz)) => [0.0 0.0]
+     (seq (native input1-tz)) => [0.0 0.0]
      (backward sum-train nil) => sum-train
-     (seq (view-vctr input0-tz)) => [2.0 3.0]
-     (seq (view-vctr input1-tz)) => [2.0 3.0])))
+     (seq (native input0-tz)) => [2.0 3.0]
+     (seq (native input1-tz)) => [2.0 3.0])))
 
 (defn test-split [fact]
   (with-release [input-tz (tensor fact [1 2 1 1] :float :nchw)

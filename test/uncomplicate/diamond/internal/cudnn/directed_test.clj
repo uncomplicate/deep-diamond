@@ -39,7 +39,9 @@
   (test-sequential-network-convolution-adam fact)
   (test-gaussian-dropout fact)
   (test-batch-normalization-inference fact)
-  (test-batch-normalization-training fact))
+  (test-batch-normalization-training fact)
+  (test-sum fact))
+
 
 #_(with-release [fact (cudnn-factory)]
   (bench-wide-layers fact))

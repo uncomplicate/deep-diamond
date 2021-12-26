@@ -1564,9 +1564,9 @@
                              prop-diff?]
   Releaseable
   (release [_]
-    (release concat-prim)
     (doseq [dt dst-tzs] (release dt))
-    (doseq [sp branch-prims] (release sp)))
+    (doseq [sp branch-prims] (release sp))
+    (release concat-prim))
   Object
   (hashCode [_]
     (reduce #(hash-combine %1 (shape %2))
@@ -1755,8 +1755,8 @@
 (deftype DnnlSplitTraining [fact strm bluep n src-tz diff-tzs sum-prim sum-args prop-diff?]
   Releaseable
   (release [_]
-    (release sum-prim)
-    (doseq [dt diff-tzs] (release dt)))
+    (doseq [dt diff-tzs] (release dt))
+    (release sum-prim))
   Object
   (hashCode [_]
     (-> (hash :split) (hash-combine n) (hash-combine src-tz)))
@@ -1881,6 +1881,7 @@
                   sum-prim sum-args diff-transformers prop-diff?]
   Releaseable
   (release [_]
+    (doseq [dt diff-transformers] (release dt))
     (release sum-prim))
   Object
   (hashCode [_]
@@ -1903,10 +1904,10 @@
   (input [_]
     src-tzs)
   (output [_]
-    (first src-tzs))
+    (get src-tzs 0))
   DiffTransfer
   (diff-input [_]
-    (first src-tzs))
+    (get src-tzs 0))
   (diff-output [_]
     src-tzs)
   ParametersSeq
@@ -1925,14 +1926,14 @@
     this)
   (backward [this _]
     (when prop-diff?
-      (scal! (/ 1.0 (count src-tzs)) (first src-tzs))
+      (scal! (/ 1.0 (count src-tzs)) (get src-tzs 0))
       (doseq [diff-trans diff-transformers]
         (diff-trans)))
     this)
   IFn
   (invoke [this]
     (execute! strm sum-prim sum-args)
-    (first src-tzs))
+    (get src-tzs 0))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
@@ -1943,9 +1944,9 @@
 (deftype DnnlSumBlueprint [fact eng src-descs sum-pd]
   Releaseable
   (release [_]
-    (release sum-pd)
     (doseq [sd src-descs]
-      (release sd)))
+      (release sd))
+    (release sum-pd))
   Object
   (hashCode [_]
     (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-descs))
@@ -1965,11 +1966,11 @@
     (dst-md sum-pd))
   TensorDescriptor
   (shape [_]
-    (shape (first src-descs)))
+    (shape (get src-descs 0)))
   (data-type [_]
-    (data-type (first src-descs)))
+    (data-type (get src-descs 0)))
   (layout [_]
-    (layout (first src-descs)))
+    (layout (get src-descs 0)))
   IFn
   (invoke [this prev-layer]
     (this prev-layer false nil))
@@ -1977,8 +1978,8 @@
     (let [src-tzs (fmap output prev-layer)
           strm (flow fact)]
       (let-release [sum-prim (primitive sum-pd)
-                    sum-args (apply dnnl-args args (first src-tzs) src-tzs)
-                    diff-transformers (mapv (partial dnnl-transformer eng strm (first src-tzs))
+                    sum-args (apply dnnl-args args (get src-tzs 0) src-tzs)
+                    diff-transformers (mapv (partial dnnl-transformer eng strm (get src-tzs 0))
                                             (rest src-tzs))]
         (->DnnlSum fact (flow fact) this src-tzs sum-prim sum-args diff-transformers prop-diff?))))
   (applyTo [this xs]
@@ -1992,7 +1993,7 @@
   (let [src-descs (mapv desc src-descs)
         n (count src-descs)]
     (let-release [sum-pd (apply sum! eng (first src-descs) (interleave (repeat 1.0) src-descs))]
-      (->DnnlSumBlueprint fact eng (mapv desc src-descs) sum-pd))))
+      (->DnnlSumBlueprint fact eng src-descs sum-pd))))
 
 (defmethod transfer! [DnnlSum Object]
   [source destination]

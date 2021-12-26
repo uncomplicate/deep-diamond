@@ -34,35 +34,6 @@
       (view md)
       (cudnn-tensor-desc s :float (default-strides s)))))
 
-;;TODO remove
-;; ========================== Sum =======================================
-
-;; (deftype CUDnnSum [cudnn-hdl scale-src src-tz scale-dst dst-tz]
-;;   Releaseable
-;;   (release [_]
-;;     (release src-tz)
-;;     (release dst-tz))
-;;   IFn
-;;   (invoke [this]
-;;     (axpby! scale-src src-tz scale-dst dst-tz))
-;;   (applyTo [this xs]
-;;     (AFn/applyToHelper this xs)))
-
-;; (deftype CUDnnSumBlueprint [cudnn-hdl scale-src scale-dst]
-;;   IFn
-;;   (invoke [this src-and-dst]
-;;     (->CUDnnSum cudnn-hdl scale-src src-and-dst scale-dst src-and-dst))
-;;   (invoke [this src-desc dst-desc]
-;;     (->CUDnnSum cudnn-hdl scale-src src-desc scale-dst dst-desc))
-;;   (applyTo [this xs]
-;;     (AFn/applyToHelper this xs)))
-
-;; (defn cudnn-sum-blueprint
-;;   ([cudnn-hdl scale]
-;;    (->CUDnnSumBlueprint cudnn-hdl scale 0.0))
-;;   ([cudnn-hdl scale-src scale-dst]
-;;    (->CUDnnSumBlueprint cudnn-hdl scale-src scale-dst)))
-
 ;; ================================ Activation =============================================
 
 (deftype CUDnnActivationInference [cudnn-hdl bluep activation-desc a-tz one zero linear]
@@ -1229,4 +1200,121 @@
 (defmethod transfer! [CUDnnBatchNormalizationTraining Object]
   [source destination]
   (doall (map transfer! (parameters source) (parameters destination)))
+  destination)
+
+;; ================================ Sum ======================================
+
+(deftype CUDnnSum [fact cudnn-hdl bluep src-tzs prop-diff?]
+  Releaseable
+  (release [_]
+    true)
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-tzs))
+  (equals [_ other]
+    (and (instance? CUDnnSum other) (= src-tzs (.src-tzs ^CUDnnSum other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (map info src-tzs)})
+  (info [this info-type]
+    (case info-type
+      :src (map info src-tzs)
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    src-tzs)
+  (output [_]
+    (first src-tzs))
+  DiffTransfer
+  (diff-input [_]
+    (first src-tzs))
+  (diff-output [_]
+    src-tzs)
+  ParametersSeq
+  (parameters [_]
+    [])
+  Initializable
+  (init [this _]
+    this)
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    (let [src0 (get src-tzs 0)]
+      (doseq [src-tz (rest src-tzs)]
+        (axpy! 1.0 src-tz src0)))
+    this)
+  (backward [this]
+    this)
+  (backward [this _]
+    (when prop-diff?
+      (let [src0 (scal! (/ 1.0 (count src-tzs)) (get src-tzs 0))]
+        (doseq [src-tz (rest src-tzs)]
+          (copy! src0 src-tz))))
+    this)
+  IFn
+  (invoke [this]
+    (let [src0 (get src-tzs 0)]
+      (doseq [src-tz (rest src-tzs)]
+        (axpy! 1.0 src-tz src0))
+      src0))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnSum
+  [layer ^java.io.Writer w]
+  (.write w (format "#Sum[srcs:%s]" (input layer))))
+
+(deftype CUDnnSumBlueprint [fact src-descs]
+  Releaseable
+  (release [_]
+    (doseq [sd src-descs]
+      (release sd))
+    true)
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-descs))
+  (equals [_ other]
+    (and (instance? CUDnnSumBlueprint other)
+         (equal-desc? src-descs (.src-descs ^CUDnnSumBlueprint other))))
+  (toString [this]
+    (pr-str {:shape (shape this)
+             :topology :sum}))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [this]
+    (get src-descs 0))
+  (train-desc [_]
+    (get src-descs 0))
+  TensorDescriptor
+  (shape [_]
+    (shape (get src-descs 0)))
+  (data-type [_]
+    (data-type (get src-descs 0)))
+  (layout [_]
+    (layout (get src-descs 0)))
+  IFn
+  (invoke [this prev-layer]
+    (this prev-layer false nil))
+  (invoke [this prev-layer prop-diff? _]
+    (->CUDnnSum fact (handle fact) this (fmap output prev-layer) prop-diff?))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnSum
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
+(defn cudnn-sum-blueprint [fact src-descs]
+  (->CUDnnSumBlueprint fact (mapv (comp view desc) src-descs)))
+
+(defmethod transfer! [CUDnnSum Object]
+  [source destination]
   destination)
