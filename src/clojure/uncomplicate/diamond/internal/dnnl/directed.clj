@@ -1838,14 +1838,14 @@
   (inf-desc [this]
     (train-desc this))
   (train-desc [_]
-    (repeat n src-desc))
+    (vec (repeat n src-desc)))
   TensorDescriptor
   (shape [_]
-    (repeat n (shape src-desc)))
+    (vec (repeat n (shape src-desc))))
   (data-type [_]
-    (repeat n (data-type src-desc)))
+    (vec (repeat n (data-type src-desc))))
   (layout [_]
-    (repeat n (layout src-desc)))
+    (vec (repeat n (layout src-desc))))
   IFn
   (invoke [this prev-layer]
     (->DnnlSplitInference fact (flow fact) this n (view (output prev-layer))))

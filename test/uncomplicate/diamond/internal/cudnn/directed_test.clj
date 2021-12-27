@@ -40,7 +40,9 @@
   (test-gaussian-dropout fact)
   (test-batch-normalization-inference fact)
   (test-batch-normalization-training fact)
-  (test-sum fact))
+  (test-sum fact)
+  (test-split fact))
+
 
 
 #_(with-release [fact (cudnn-factory)]

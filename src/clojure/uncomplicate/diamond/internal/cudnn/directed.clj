@@ -1202,6 +1202,173 @@
   (doall (map transfer! (parameters source) (parameters destination)))
   destination)
 
+;; ============================ Split ====================================================
+
+(deftype CUDnnSplitInference [fact cudnn-hdl bluep n src-tz]
+  Releaseable
+  (release [_]
+    (release src-tz))
+  Object
+  (hashCode [_]
+    (-> (hash :split) (hash-combine n) (hash-combine src-tz)))
+  (equals [_ other]
+    (and (instance? CUDnnSplitInference other)
+         (= n (.n ^CUDnnSplitInference other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (info src-tz)
+     :n n})
+  (info [this info-type]
+    (case info-type
+      :src (info src-tz)
+      :n n
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    (vec (repeat n src-tz)))
+  ParametersSeq
+  (parameters [_]
+    [])
+  Initializable
+  (init [this _]
+    this)
+  IFn
+  (invoke [this]
+    (output this))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnSplitInference
+  [^CUDnnSplitInference layer ^java.io.Writer w]
+  (.write w (format "#Split[n:%d, src:%s]" (.n layer) (input layer))))
+
+(deftype CUDnnSplitTraining [fact cudnn-hdl bluep ^long n src-tz diff-tzs prop-diff?]
+  Releaseable
+  (release [_]
+    (doseq [dt diff-tzs] (release dt))
+    true)
+  Object
+  (hashCode [_]
+    (-> (hash :split) (hash-combine n) (hash-combine src-tz)))
+  (equals [_ other]
+    (and (instance? CUDnnSplitTraining other)
+         (= n (.n ^CUDnnSplitTraining other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (info src-tz)
+     :n n})
+  (info [this info-type]
+    (case info-type
+      :src (info src-tz)
+      :n n
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    (vec (repeat n src-tz)))
+  DiffTransfer
+  (diff-input [_]
+    diff-tzs)
+  (diff-output [_]
+    src-tz)
+  ParametersSeq
+  (parameters [_]
+    [])
+  Initializable
+  (init [this _]
+    this)
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    this)
+  (backward [this]
+    this)
+  (backward [this _]
+    (when prop-diff?
+      (entry! src-tz 0.0)
+      (doseq [diff-tz diff-tzs]
+        (axpy! (/ 1.0 n) diff-tz src-tz)))
+    this)
+  IFn
+  (invoke [this]
+    (output this))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnSplitTraining
+  [^CUDnnSplitTraining layer ^java.io.Writer w]
+  (.write w (format "#Split[n:%d, src:%s]" (.n layer) (input layer))))
+
+(deftype CUDnnSplitBlueprint [fact n src-desc]
+  Releaseable
+  (release [_]
+    (release src-desc))
+  Object
+  (hashCode [_]
+    (-> (hash :split)
+        (hash-combine n)
+        (hash-combine src-desc)))
+  (equals [_ other]
+    (and (instance? CUDnnSplitBlueprint other)
+         (= n (.n ^CUDnnSplitBlueprint other))
+         (equal-desc? src-desc (.src-desc ^CUDnnSplitBlueprint other))))
+  (toString [this]
+    (pr-str {:shape (shape this)
+             :topology :split}))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [this]
+    (train-desc this))
+  (train-desc [_]
+    (vec (repeat n src-desc)))
+  TensorDescriptor
+  (shape [_]
+    (vec (repeat n (shape src-desc))))
+  (data-type [_]
+    (vec (repeat n (data-type src-desc))))
+  (layout [_]
+    (vec (repeat n (layout src-desc))))
+  IFn
+  (invoke [this prev-layer]
+    (->CUDnnSplitInference fact (handle fact) this n (view (output prev-layer))))
+  (invoke [this prev-layer prop-diff? _]
+    (let-release [src-tz (view (output prev-layer))
+                  diff-tzs (mapv (partial cudnn-tensor fact) (repeat n src-desc))]
+      (->CUDnnSplitTraining fact (handle fact) this n src-tz diff-tzs prop-diff?)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnSplitBlueprint
+  [^CUDnnSplitBlueprint layer ^java.io.Writer w]
+  (.write w (format "#Split[n:%d, src:%s]" (.n layer) (input layer))))
+
+(defn cudnn-split-blueprint [fact src-desc ^long n]
+  (->CUDnnSplitBlueprint fact n (view (desc src-desc))))
+
+(defmethod transfer! [CUDnnSplitInference Object]
+  [source destination]
+  destination)
+
+(defmethod transfer! [CUDnnSplitTraining Object]
+  [source destination]
+  destination)
+
 ;; ================================ Sum ======================================
 
 (deftype CUDnnSum [fact cudnn-hdl bluep src-tzs prop-diff?]

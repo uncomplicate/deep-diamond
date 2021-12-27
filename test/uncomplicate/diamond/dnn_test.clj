@@ -875,16 +875,16 @@
 
     (facts
      "Split inference test."
-     (map (comp seq view-vctr) (split-inf)) => [[1.0 2.0] [1.0 2.0]])
+     (map (comp seq native) (split-inf)) => [[1.0 2.0] [1.0 2.0]])
 
     (facts
      "Split training test."
      (forward split-train nil) => split-train
-     (map (comp seq view-vctr) (output split-train)) => [[1.0 2.0] [1.0 2.0]]
+     (map (comp seq native) (output split-train)) => [[1.0 2.0] [1.0 2.0]]
 
      (transfer! (repeat 0.0) input-tz)
-     (seq (view-vctr input-tz)) => [0.0 0.0]
+     (seq (native input-tz)) => [0.0 0.0]
      (transfer! [1.0 2.0] (first (diff-input split-train)))
      (transfer! [3.0 4.0] (second (diff-input split-train)))
      (backward split-train nil) => split-train
-     (seq (view-vctr input-tz)) => [2.0 3.0])))
+     (seq (native input-tz)) => [2.0 3.0])))
