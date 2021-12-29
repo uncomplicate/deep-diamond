@@ -40,11 +40,16 @@
   (test-gaussian-dropout fact)
   (test-batch-normalization-inference fact)
   (test-batch-normalization-training fact)
+  (test-concatenate fact)
+  (test-branch fact)
+  (test-network-concat fact)
+  (test-network-branch-concat fact)
+  (test-network-branch-concat-simplified fact)
+  (test-parallel-network-solo fact)
+  (test-parallel-network-concat fact)
+  (test-parallel-network-nested fact)
   (test-sum fact)
   (test-split fact))
-
-(with-release [fact (cudnn-factory)]
-  (test-branch fact))
 
 #_(with-release [fact (cudnn-factory)]
   (bench-wide-layers fact))

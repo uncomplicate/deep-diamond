@@ -711,9 +711,9 @@
 
     (facts
      "Parallel training test, solo."
-     (transfer! [0.1] (weights (get-in net-train [0 0 0])))
-     (transfer! [10 20] (weights (get-in net-train [0 0 1])))
-     (transfer! [0.1 0.2] (weights (get-in net-train [0 1 0])))
+     (doall (map transfer! [[0.1] [0.0]] (parameters (get-in net-train [0 0 0]))))
+     (doall (map transfer! [[10 20] [0 0]] (parameters (get-in net-train [0 0 1]))))
+     (doall (map transfer! [[0.1 0.2] [0 0]] (parameters (get-in net-train [0 1 0]))))
      (forward net-train [0 1 0 0 false]) => net-train
      (map (comp seq native) (output net-train)) => [[1.0 2.0] [0.800000011920929]]
 
@@ -798,9 +798,9 @@
 
     (facts
      "Parallel training test, concat."
-     (transfer! [0.1] (weights (get-in net-train [0 0 0])))
-     (transfer! [10 20] (weights (get-in net-train [0 0 1])))
-     (transfer! [0.1 0.2] (weights (get-in net-train [0 1 0])))
+     (doall (map transfer! [[0.1] [0]] (parameters (get-in net-train [0 0 0]))))
+     (doall (map transfer! [[10 20] [0 0]] (parameters (get-in net-train [0 0 1]))))
+     (doall (map transfer! [[0.1 0.2] [0 0]] (parameters (get-in net-train [0 1 0]))))
      (forward net-train [0 1 0 0 false]) => net-train
      (seq (native (output net-train))) => [1.0 2.0 0.800000011920929]
 
@@ -826,11 +826,11 @@
 
     (facts
      "Parallel training test, nested."
-     (transfer! [0.1] (weights (get-in net-train [1 0 0])))
-     (transfer! [10 20] (weights (get-in net-train [1 0 1])))
-     (transfer! [0.1 0.2] (weights (get-in net-train [1 1 0])))
-     (transfer! [0.1] (weights (get-in net-train [1 2 0])))
-     (transfer! [10 20] (weights (get-in net-train [1 2 1])))
+     (doall (map transfer! [[0.1] [0]] (parameters (get-in net-train [1 0 0]))))
+     (doall (map transfer! [[10 20] [0 0]] (parameters (get-in net-train [1 0 1]))))
+     (doall (map transfer! [[0.1 0.2] [0 0]] (parameters (get-in net-train [1 1 0]))))
+     (doall (map transfer! [[0.1] [0]] (parameters (get-in net-train [1 2 0]))))
+     (doall (map transfer! [[10 20] [0 0]] (parameters (get-in net-train [1 2 1]))))
      (forward net-train [0 1 0 0 false]) => net-train
      (seq (native (output net-train))) => [1.0 2.0 0.800000011920929 1.0 2.0]
 
