@@ -43,7 +43,8 @@
   (test-sum fact)
   (test-split fact))
 
-
+(with-release [fact (cudnn-factory)]
+  (test-branch fact))
 
 #_(with-release [fact (cudnn-factory)]
   (bench-wide-layers fact))

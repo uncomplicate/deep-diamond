@@ -6,21 +6,22 @@
             [uncomplicate.clojurecuda.core :refer [mem-alloc]]
             [uncomplicate.neanderthal
              [core :refer [axpby! axpy! copy! transfer! raw view-vctr entry! scal!]]
-             [block :refer [cast-prim data-accessor buffer]]]
+             [block :refer [cast-prim data-accessor buffer offset]]]
             [uncomplicate.diamond
              [tensor :as tz
-              :refer [Transfer input output connector revert shape layout TensorDescriptor]]]
+              :refer [Transfer input output connector revert shape layout TensorDescriptor ]]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
                       DiamondFactoryProvider DiffParameters Backprop forward backward DiffTransfer
                       diff-input diff-output diff-z LinearBackprop backward-diff inf-desc train-desc
                       Initializable init Workspace inf-ws-size train-ws-size *workspace* create-tensor]]
-             [utils :refer [transfer-weights-bias! default-strides concat-strides concat-dst-shape]]]
+             [utils :refer [transfer-weights-bias! default-strides concat-dst-shape concat-strides
+                            concat-offsets]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]
-             [tensor :refer [cudnn-tensor-desc cudnn-tensor]]]
+             [tensor :refer [cudnn-tensor-desc cudnn-tensor cudnn-transformer]]]
             [uncomplicate.diamond.internal.neanderthal.directed
              :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint]])
   (:import [clojure.lang IFn AFn]
@@ -1202,6 +1203,191 @@
   (doall (map transfer! (parameters source) (parameters destination)))
   destination)
 
+;; ================================ Branch ======================================
+
+(deftype CUDnnBranchInference [fact bluep branch? data-tz fwd-trans]
+  Releaseable
+  (release [_]
+    (doseq [ft fwd-trans] (release ft))
+    true)
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape (output %2)))
+            (hash-combine (hash :branch) (shape data-tz))
+            fwd-trans))
+  (equals [_ other]
+    (and (instance? CUDnnBranchInference other)
+         (= data-tz (.data-tz ^CUDnnBranchInference other))
+         (= (map output fwd-trans) (map output (.fwd-trans ^CUDnnBranchInference other)))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (fmap info (input this))
+     :dst (fmap info (output this))})
+  (info [this info-type]
+    (case info-type
+      :src (fmap info (input this))
+      :dst (fmap info (output this))
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    (if branch? data-tz (mapv input fwd-trans)))
+  (output [_]
+    (if branch? (mapv output fwd-trans) data-tz))
+  ParametersSeq
+  (parameters [_]
+    [])
+  Initializable
+  (init [this _]
+    this)
+  IFn
+  (invoke [this]
+    (doseq [ft fwd-trans] (ft))
+    (output this))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnBranchInference
+  [layer ^java.io.Writer w]
+  (.write w (format "#Branch[src:%s, dst:%s]" (input layer) (output layer))))
+
+(deftype CUDnnBranchTraining [fact bluep branch? data-tz fwd-trans bwd-trans prop-diff?]
+  Releaseable
+  (release [_]
+    (doseq [ft fwd-trans] (release ft))
+    (doseq [bt bwd-trans] (release bt))
+    true)
+  Object
+  (hashCode [_]
+    (reduce #(hash-combine %1 (shape (output %2)))
+            (hash-combine (hash :concat-branch) (shape data-tz))
+            fwd-trans))
+  (equals [_ other]
+    (and (instance? CUDnnBranchTraining other)
+         (= data-tz (.data-tz ^CUDnnBranchTraining other))
+         (= (map output fwd-trans) (map output (.fwd-trans ^CUDnnBranchTraining other)))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (fmap info (input this))
+     :dst (fmap info (output this))})
+  (info [this info-type]
+    (case info-type
+      :src (fmap info (input this))
+      :dst (fmap info (output this))
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    (if branch? data-tz (mapv input fwd-trans)))
+  (output [_]
+    (if branch? (mapv output fwd-trans) data-tz))
+  DiffTransfer
+  (diff-input [this]
+    (output this))
+  (diff-output [this]
+    (input this))
+  ParametersSeq
+  (parameters [_]
+    [])
+  Initializable
+  (init [this _]
+    this)
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    (doseq [ft fwd-trans] (ft))
+    this)
+  (backward [this]
+    this)
+  (backward [this _]
+    (when prop-diff?
+      (doseq [bt bwd-trans] (bt)))
+    this)
+  IFn
+  (invoke [this]
+    (doseq [ft fwd-trans] (ft))
+    (output this))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnBranchTraining
+  [layer ^java.io.Writer w]
+  (.write w (format "#Branch[src:%s, dst:%s]" (input layer) (output layer))))
+
+(deftype CUDnnBranchBlueprint [fact cudnn-hdl src-desc dst-descs sub-descs sub-offsets]
+  Releaseable
+  (release [_]
+    (doseq [dd dst-descs] (release dd))
+    (doseq [sd sub-descs] (release sd))
+    (release src-desc))
+  Object
+  (hashCode [_]
+    (hash-combine (reduce hash-combine (hash :branch) dst-descs) src-desc))
+  (equals [_ other]
+    (and (instance? CUDnnBranchBlueprint other)
+         (every? identity (map equal-desc? dst-descs (.dst-descs ^CUDnnBranchBlueprint other)))
+         (equal-desc? src-desc (.src-desc ^CUDnnBranchBlueprint other))))
+  (toString [this]
+    (pr-str {:shape (shape this)
+             :topology :branch}))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [this]
+    dst-descs)
+  (train-desc [_]
+    dst-descs)
+  TensorDescriptor
+  (shape [this]
+    (fmap shape dst-descs))
+  (data-type [this]
+    (fmap data-type dst-descs))
+  (layout [this]
+    (fmap layout dst-descs))
+  IFn
+  (invoke [this prev-layer]
+    (let-release [src-tz (output prev-layer)
+                  dst-tzs (fmap (partial cudnn-tensor fact) dst-descs)
+                  sub-tzs (mapv #(cudnn-tensor fact false (buffer src-tz) (+ (offset src-tz) (long %1)) %2)
+                               sub-offsets sub-descs)
+                  fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) sub-tzs dst-tzs)]
+      (->CUDnnBranchInference fact this true src-tz fwd-trans)))
+  (invoke [this prev-layer prop-diff? _]
+    (let-release [src-tz (output prev-layer)
+                  dst-tzs (fmap (partial cudnn-tensor fact) dst-descs)
+                  sub-tzs (mapv #(cudnn-tensor fact false (buffer src-tz) %1 %2)
+                                sub-offsets sub-descs)
+                  fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) sub-tzs dst-tzs)
+                  bwd-trans (mapv revert fwd-trans)]
+      (->CUDnnBranchTraining fact this true src-tz fwd-trans bwd-trans prop-diff?)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnBranchBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
+(defn cudnn-branch-blueprint [fact src-desc branch-dim dst-descs]
+  (let-release [src-desc (desc src-desc)
+                dtype (data-type src-desc)
+                strd (strides src-desc)
+                dst-dims (map shape dst-descs)
+                dst-descs (mapv desc dst-descs)
+                sub-descs (mapv #(cudnn-tensor-desc %1 dtype strd) dst-dims)
+                sub-offsets (mapv (partial * (get (strides src-desc) branch-dim))
+                                  (concat-offsets branch-dim dst-dims))]
+    (->CUDnnBranchBlueprint fact (handle fact) src-desc dst-descs sub-descs sub-offsets)))
+
 ;; ============================ Split ====================================================
 
 (deftype CUDnnSplitInference [fact cudnn-hdl bluep n src-tz]
@@ -1448,7 +1634,7 @@
     (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-descs))
   (equals [_ other]
     (and (instance? CUDnnSumBlueprint other)
-         (equal-desc? src-descs (.src-descs ^CUDnnSumBlueprint other))))
+         (every? identity (map equal-desc? src-descs (.src-descs ^CUDnnSumBlueprint other)))))
   (toString [this]
     (pr-str {:shape (shape this)
              :topology :sum}))

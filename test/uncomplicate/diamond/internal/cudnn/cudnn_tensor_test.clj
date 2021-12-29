@@ -43,7 +43,6 @@
 
 (with-release [dnnl-fact (dnnl-factory)]
   (with-diamond cudnn-factory []
-
     (test-tensor *diamond-factory*)
     (test-create *diamond-factory*)
     (test-cudnn-create *diamond-factory*)

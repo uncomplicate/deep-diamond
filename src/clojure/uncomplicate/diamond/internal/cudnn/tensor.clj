@@ -145,14 +145,14 @@
 
 ;; =================== Transformer ==============================================
 
-(deftype CUDnnTransformer [cudnn-hdl in-tz out-tz]
+(deftype CUDnnTransformer [cudnn-hdl in-tz out-tz in-da out-da]
   Releaseable
   (release [_]
     (release in-tz)
     (release out-tz))
   Revert
   (revert [_]
-    (cudnn-transformer cudnn-hdl (view in-tz) (view out-tz)))
+    (cudnn-transformer cudnn-hdl (view out-tz) (view in-tz)))
   Viewable
   (view [_]
     (cudnn-transformer cudnn-hdl (view in-tz) (view out-tz)))
@@ -167,19 +167,15 @@
   (diff-output [_]
     in-tz)
   IFn
-  (invoke [_]
-    (transform-tensor cudnn-hdl
-                      (cast-prim (data-accessor in-tz) 1.0)
-                      in-tz (buffer in-tz) (offset in-tz)
-                      (cast-prim (data-accessor out-tz) 0.0)
-                      out-tz (buffer out-tz) (offset out-tz))
+  (invoke [this]
+    (.invoke this cudnn-hdl)
     out-tz)
   (invoke [_ cudnn-hdl2]
     (transform-tensor cudnn-hdl2
-                      (cast-prim (data-accessor in-tz) 1.0)
-                      in-tz (buffer in-tz) (offset in-tz)
-                      (cast-prim (data-accessor out-tz) 0.0)
-                      out-tz (buffer out-tz) (offset out-tz))
+                      (cast-prim in-da 1.0)
+                      in-tz (buffer in-tz) (* (offset in-tz) (entry-width in-da))
+                      (cast-prim out-da 0.0)
+                      out-tz (buffer out-tz) (* (offset out-tz) (entry-width out-da)))
     out-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
@@ -190,7 +186,7 @@
       (connector in-tz out-desc))))
 
 (defn cudnn-transformer [cudnn-hdl in-tz out-tz]
-  (->CUDnnTransformer cudnn-hdl in-tz out-tz))
+  (->CUDnnTransformer cudnn-hdl in-tz out-tz (data-accessor in-tz) (data-accessor out-tz)))
 
 ;; =================== Batcher ==================================================
 
@@ -294,7 +290,7 @@
 
 ;; ================================ Tensor ======================================
 
-(deftype CUDnnTensor [diamond-fact eng vect-view master buf ofst
+(deftype CUDnnTensor [diamond-fact eng vect-view master buf ^long ofst
                       ^CUTensorDescriptor cu-desc]
   Object
   (hashCode [x]
@@ -444,14 +440,12 @@
                              (cudnn-tensor-desc (shape sub)
                                                 (or (data-type sub) (.data-type cu-desc))
                                                 (or (layout sub) (.strides cu-desc))))]
-      (cudnn-tensor diamond-fact false buf sub-desc)))
+      (cudnn-tensor diamond-fact false buf ofst sub-desc)))
   Offset
   (offset [this n-ofst]
     (check-contiguous this)
-    (let [ofst (* (long n-ofst) (long (get (.strides cu-desc) 0)))]
-      (->CUDnnTensor diamond-fact eng
-                     (cu-block-vector (factory vect-view) false buf (dim this) ofst 1)
-                     false buf ofst (view cu-desc))))
+    (let [ofst (+ ofst (* (long n-ofst) (long (get (.strides cu-desc) 0))))]
+      (cudnn-tensor diamond-fact false buf ofst (view cu-desc))))
   ConnectorCreator
   (connector [in-tz out-desc]
     (if (equal-desc? cu-desc out-desc)
@@ -460,17 +454,19 @@
         (cudnn-transformer (handle diamond-fact) (view in-tz) out-tz)))))
 
 (defn cudnn-tensor
-  ([diamond-fact master buf tdesc]
+  ([diamond-fact master buf ofst tdesc]
    (let [tdesc (desc tdesc)
          neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
          tz-cnt (apply * (dims tdesc))]
-     (if (<= 0 (size tdesc) (cuda/size buf))
-       (let-release [vect-view (cu-block-vector neand-fact false buf tz-cnt 0 1)]
+     (if (<= 0 (size tdesc) (- (long (cuda/size buf)) (long ofst)))
+       (let-release [vect-view (cu-block-vector neand-fact false buf tz-cnt ofst 1)]
          (->CUDnnTensor diamond-fact
                         (tensor-engine diamond-fact (data-type tdesc))
-                        vect-view master buf 0 tdesc))
+                        vect-view master buf ofst tdesc))
        (throw (ex-info "Insufficient buffer size."
                        {:size (size tdesc) :buffer-size (cuda/size buf)})))))
+  ([diamond-fact master buf tdesc]
+   (cudnn-tensor diamond-fact master buf 0 tdesc))
   ([diamond-fact tdesc]
    (let [tdesc (desc tdesc)]
      (let-release [buf (mem-alloc (max 1 (size tdesc)))]

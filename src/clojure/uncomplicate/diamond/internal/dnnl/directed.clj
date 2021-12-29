@@ -1428,7 +1428,7 @@
     (hash-combine (reduce hash-combine (hash :concat) src-descs) dst-desc))
   (equals [_ other]
     (and (instance? DnnlConcatBlueprint other)
-         (equal-desc? src-descs (.src-descs ^DnnlConcatBlueprint other))
+         (every? identity (map equal-desc? src-descs (.src-descs ^DnnlConcatBlueprint other)))
          (equal-desc? dst-desc (.dst-desc ^DnnlConcatBlueprint other))))
   (toString [this]
     (pr-str {:srcs (mapv shape src-descs)
@@ -1493,7 +1493,7 @@
                   dst-desc (dst-md concat-pd)]
       (with-release [dst-subs (mapv (partial submemory-desc dst-desc)
                                     src-dims
-                                    (concat-strides conc-dim (dims dst-desc) src-dims))]
+                                    (concat-strides conc-dim src-dims))]
         (let-release [branch-pds (mapv (partial reorder eng) dst-subs src-descs)]
           (->DnnlConcatBlueprint fact src-descs dst-desc concat-pd branch-pds))))))
 
@@ -1641,7 +1641,7 @@
     (hash-combine (reduce hash-combine (hash :branch) dst-descs) src-desc))
   (equals [_ other]
     (and (instance? DnnlBranchBlueprint other)
-         (equal-desc? dst-descs (.dst-descs ^DnnlBranchBlueprint other))
+         (every? identity (map equal-desc? dst-descs (.dst-descs ^DnnlBranchBlueprint other)))
          (equal-desc? src-desc (.src-desc ^DnnlBranchBlueprint other))))
   (toString [this]
     (pr-str {:shape (shape this)
@@ -1693,7 +1693,7 @@
                   src-desc (dst-md concat-pd)]
       (with-release [src-subs (mapv (partial submemory-desc src-desc)
                                     dst-dims
-                                    (concat-strides branch-dim (dims src-desc) dst-dims))]
+                                    (concat-strides branch-dim dst-dims))]
         (let-release [branch-pds (mapv (partial reorder eng) src-subs dst-descs)]
           (->DnnlBranchBlueprint fact src-desc dst-descs concat-pd branch-pds))))))
 
@@ -1952,7 +1952,7 @@
     (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-descs))
   (equals [_ other]
     (and (instance? DnnlSumBlueprint other)
-         (equal-desc? src-descs (.src-descs ^DnnlSumBlueprint other))))
+         (every? identity (map equal-desc? src-descs (.src-descs ^DnnlSumBlueprint other)))))
   (toString [this]
     (pr-str {:shape (shape this)
              :topology :sum}))

@@ -685,20 +685,19 @@
 
     (facts
      "Branch inference test."
-     (map (comp seq view-vctr) (branch-inf)) => [[0.0 1.0 2.0 3.0]
-                                                [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]])
+
+     (map (comp seq native) (branch-inf)) => [[0.0 1.0 2.0 3.0]
+                                              [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]])
 
     (facts
      "Branch training test."
      (forward branch-train nil) => branch-train
-     (map (comp seq view-vctr) (output branch-train)) => [[0.0 1.0 2.0 3.0]
-                                                         [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]]
-
+     (map (comp seq native) (output branch-train)) => [[0.0 1.0 2.0 3.0]
+                                                       [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0]]
      (transfer! (repeat 0.0) input-tz)
-
-     (seq (view-vctr input-tz)) => (repeat 12 0.0)
+     (seq (native input-tz)) => (repeat 12 0.0)
      (backward branch-train nil) => branch-train
-     (seq (view-vctr input-tz)) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
+     (seq (native input-tz)) => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
 
 (defn test-parallel-network-solo [fact]
   (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)

@@ -68,14 +68,15 @@ Please use a copy or create a transformer."
   (transfer! (weights source) (weights destination))
   destination)
 
-(defn concat-strides [split-dim src-shape sub-shapes]
-  (let [stride-vec (vec (repeat (count src-shape) 0))]
-    (loop [strd 0 strds [] sub-shapes sub-shapes]
-      (if sub-shapes
-        (recur (+ strd (long (get (first sub-shapes) split-dim)))
-               (conj strds (assoc stride-vec split-dim strd))
-               (next sub-shapes))
-        strds))))
+(defn concat-offsets [split-dim sub-shapes]
+  (pop (reduce (fn [acc sub-shape]
+                 (conj acc (+ (long (peek acc)) (long (get sub-shape split-dim)))))
+               [0]
+               sub-shapes)))
+
+(defn concat-strides [split-dim sub-shapes]
+  (let [stride-vec (vec (repeat (count (first sub-shapes)) 0))]
+    (map (partial assoc stride-vec split-dim) (concat-offsets split-dim sub-shapes))))
 
 (defn concat-dst-shape [conc-dim src-shapes]
   (assoc (get src-shapes 0) conc-dim
