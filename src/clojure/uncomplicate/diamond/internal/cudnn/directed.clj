@@ -1388,6 +1388,72 @@
                                   (concat-offsets branch-dim dst-dims))]
     (->CUDnnBranchBlueprint fact (handle fact) src-desc dst-descs sub-descs sub-offsets)))
 
+(deftype CUDnnConcatBlueprint [fact cudnn-hdl src-descs dst-desc sub-descs sub-offsets]
+  Releaseable
+  (release [_]
+    (doseq [src-desc src-descs] (release src-desc))
+    (doseq [sd sub-descs] (release sd))
+    (release dst-desc))
+  Object
+  (hashCode [_]
+    (hash-combine (reduce hash-combine (hash :branch) src-descs) dst-desc))
+  (equals [_ other]
+    (and (instance? CUDnnConcatBlueprint other)
+         (every? identity (map equal-desc? src-descs (.src-descs ^CUDnnConcatBlueprint other)))
+         (equal-desc? dst-desc (.dst-desc ^CUDnnConcatBlueprint other))))
+  (toString [this]
+    (pr-str {:shape (shape this)
+             :topology :concat}))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [this]
+    dst-desc)
+  (train-desc [_]
+    dst-desc)
+  TensorDescriptor
+  (shape [this]
+    (shape dst-desc))
+  (data-type [this]
+    (data-type dst-desc))
+  (layout [this]
+    (layout dst-desc))
+  IFn
+  (invoke [this prev-layer]
+    (let-release [src-tzs (fmap output prev-layer)
+                  dst-tz (cudnn-tensor fact dst-desc)
+                  sub-tzs (mapv #(cudnn-tensor fact false (buffer dst-tz) (+ (offset dst-tz) (long %1)) %2)
+                               sub-offsets sub-descs)
+                  fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-tzs sub-tzs)]
+      (->CUDnnBranchInference fact this false dst-tz fwd-trans)))
+  (invoke [this prev-layer prop-diff? _]
+    (let-release [src-tzs (fmap output prev-layer)
+                  dst-tz (cudnn-tensor fact dst-desc)
+                  sub-tzs (mapv #(cudnn-tensor fact false (buffer dst-tz) (+ (offset dst-tz) (long %1)) %2)
+                                sub-offsets sub-descs)
+                  fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-tzs sub-tzs)
+                  bwd-trans (mapv revert fwd-trans)]
+      (->CUDnnBranchTraining fact this false dst-tz fwd-trans bwd-trans prop-diff?)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnConcatBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
+(defn cudnn-concat-blueprint [fact src-descs conc-dim dst-type]
+  (let-release [src-dims (mapv shape src-descs)
+                src-descs (mapv desc src-descs)
+                dst-type (or dst-type (tz/data-type (first src-descs)))
+                dst-shape (concat-dst-shape conc-dim src-dims)
+                dst-strd (default-strides dst-shape)
+                dst-desc (cudnn-tensor-desc dst-shape dst-type dst-strd)
+                sub-descs (mapv #(cudnn-tensor-desc %1 dst-type dst-strd) src-dims)
+                sub-offsets (mapv (partial * (get (strides dst-desc) conc-dim))
+                                  (concat-offsets conc-dim src-dims))]
+    (->CUDnnConcatBlueprint fact (handle fact) src-descs dst-desc sub-descs sub-offsets)))
+
 ;; ============================ Split ====================================================
 
 (deftype CUDnnSplitInference [fact cudnn-hdl bluep n src-tz]

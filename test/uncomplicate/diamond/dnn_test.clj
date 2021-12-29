@@ -656,22 +656,22 @@
 
     (facts
      "Concatenate inference test."
-     (seq (view-vctr (concat-inf)))
+     (seq (native (concat-inf)))
      => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 0.0 1.0 2.0 3.0])
 
     (facts
      "Concatenate training test."
      (forward concat-train nil) => concat-train
-     (seq (view-vctr (output concat-train)))
+     (seq (native (output concat-train)))
      => [0.0 1.0 2.0 3.0 10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0 0.0 1.0 2.0 3.0]
 
      (transfer! (repeat 0.0) input0-tz)
      (transfer! (repeat 0.0) input1-tz)
 
-     (seq (view-vctr input0-tz)) => [0.0 0.0 0.0 0.0]
+     (seq (native input0-tz)) => [0.0 0.0 0.0 0.0]
      (backward concat-train nil) => concat-train
-     (seq (view-vctr input0-tz)) => [0.0 1.0 2.0 3.0]
-     (seq (view-vctr input1-tz)) => [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
+     (seq (native input0-tz)) => [0.0 1.0 2.0 3.0]
+     (seq (native input1-tz)) => [10.0 20.0 30.0 40.0 50.0 60.0 70.0 80.0])))
 
 (defn test-branch [fact]
   (with-release [dst0-desc (desc [1 1 2 2] :float :nchw)
@@ -715,7 +715,7 @@
      (transfer! [10 20] (weights (get-in net-train [0 0 1])))
      (transfer! [0.1 0.2] (weights (get-in net-train [0 1 0])))
      (forward net-train [0 1 0 0 false]) => net-train
-     (map (comp seq view-vctr) (output net-train)) => [[1.0 2.0] [0.800000011920929]]
+     (map (comp seq native) (output net-train)) => [[1.0 2.0] [0.800000011920929]]
 
      (transfer! (repeat 0.0) input0-tz)
      (transfer! (repeat 0.0) input1-tz)
@@ -724,9 +724,9 @@
      (transfer! [0.1] (second (diff-input net-train)))
      (backward net-train)
      (backward net-train [0 1 0 0 false]) => net-train
-     (map (comp seq view-vctr output) (first net-train)) => [[0.5 1.0] [0.10000000149011612]]
-     (seq (view-vctr input0-tz)) => [2.5]
-     (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313])))
+     (map (comp seq native output) (first net-train)) => [[0.5 1.0] [0.10000000149011612]]
+     (seq (native input0-tz)) => [2.5]
+     (seq (native input1-tz)) => [0.010000000707805157 0.020000001415610313])))
 
 (defn test-network-concat [fact]
   (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)
@@ -741,15 +741,15 @@
       (facts
        "Network training test, concat."
        (forward net-train [0 1 0 0 false]) => net-train
-       (seq (view-vctr (output net-train))) => [1.0 2.0 3.0]
+       (seq (native (output net-train))) => [1.0 2.0 3.0]
 
        (transfer! (repeat 0.0) input0-tz)
        (transfer! (repeat 0.0) input1-tz)
 
        (transfer! [0.5 1 0.1] (diff-input net-train))
        (backward net-train [0 1 0 0 false]) => net-train
-       (seq (view-vctr input0-tz)) => [0.5]
-       (seq (view-vctr input1-tz)) => [1.0 0.10000000149011612]))))
+       (seq (native input0-tz)) => [0.5]
+       (seq (native input1-tz)) => [1.0 0.10000000149011612]))))
 
 (defn test-network-branch-concat [fact]
   (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
@@ -763,11 +763,11 @@
      "Branch-concat test."
        (transfer! [1 2 3 1] input-tz)
        (forward net-train [0 1 0 0 false]) => net-train
-       (seq (view-vctr (output net-train))) => [1.0 2.0 3.0 1.0]
+       (seq (native (output net-train))) => [1.0 2.0 3.0 1.0]
        (transfer! (repeat 0.0) input-tz)
        (transfer! [0.5 1 0.1 0.5] (diff-input net-train))
        (backward net-train [0 1 0 0 false]) => net-train
-       (seq (view-vctr input-tz)) => [0.5 1.0 0.10000000149011612 0.5])))
+       (seq (native input-tz)) => [0.5 1.0 0.10000000149011612 0.5])))
 
 (defn test-network-branch-concat-simplified [fact]
   (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
@@ -779,11 +779,11 @@
        "Branch-concat test, with simplified branch destination specification."
        (transfer! [1 2 3 1] input-tz)
        (forward net-train [0 1 0 0 false]) => net-train
-       (seq (view-vctr (output net-train))) => [1.0 2.0 3.0 1.0]
+       (seq (native (output net-train))) => [1.0 2.0 3.0 1.0]
        (transfer! (repeat 0.0) input-tz)
        (transfer! [0.5 1 0.1 0.5] (diff-input net-train))
        (backward net-train [0 1 0 0 false]) => net-train
-       (seq (view-vctr input-tz)) => [0.5 1.0 0.10000000149011612 0.5])))
+       (seq (native input-tz)) => [0.5 1.0 0.10000000149011612 0.5])))
 
 (defn test-parallel-network-concat [fact]
   (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)
@@ -802,16 +802,16 @@
      (transfer! [10 20] (weights (get-in net-train [0 0 1])))
      (transfer! [0.1 0.2] (weights (get-in net-train [0 1 0])))
      (forward net-train [0 1 0 0 false]) => net-train
-     (seq (view-vctr (output net-train))) => [1.0 2.0 0.800000011920929]
+     (seq (native (output net-train))) => [1.0 2.0 0.800000011920929]
 
      (transfer! (repeat 0.0) input0-tz)
      (transfer! (repeat 0.0) input1-tz)
 
      (transfer! [0.5 1 0.1] (diff-input net-train))
      (backward net-train [0 1 0 0 false]) => net-train
-     (map (comp seq view-vctr output) (first net-train)) => [[0.5 1.0] [0.10000000149011612]]
-     (seq (view-vctr input0-tz)) => [2.5]
-     (seq (view-vctr input1-tz)) => [0.010000000707805157 0.020000001415610313])))
+     (map (comp seq native output) (first net-train)) => [[0.5 1.0] [0.10000000149011612]]
+     (seq (native input0-tz)) => [2.5]
+     (seq (native input1-tz)) => [0.010000000707805157 0.020000001415610313])))
 
 (defn test-parallel-network-nested [fact]
   (with-release [input-tz (tensor fact [1 4 1 1] :float :nchw)
@@ -832,15 +832,15 @@
      (transfer! [0.1] (weights (get-in net-train [1 2 0])))
      (transfer! [10 20] (weights (get-in net-train [1 2 1])))
      (forward net-train [0 1 0 0 false]) => net-train
-     (seq (view-vctr (output net-train))) => [1.0 2.0 0.800000011920929 1.0 2.0]
+     (seq (native (output net-train))) => [1.0 2.0 0.800000011920929 1.0 2.0]
 
      (transfer! (repeat 0.0) input-tz)
      (transfer! [0.5 1 0.1 0.5 1] (diff-input net-train))
      (backward net-train [0 1 0 0 false]) => net-train
-     (map (comp seq view-vctr output) (second net-train))
+     (map (comp seq native output) (second net-train))
      => [[0.5 1.0] [0.10000000149011612] [0.5 1.0]]
-     (seq (view-vctr input-tz)) => [2.5 0.010000000707805157 0.020000001415610313 2.5]
-     (map (comp seq view-vctr) (output (get net-train 0)))
+     (seq (native input-tz)) => [2.5 0.010000000707805157 0.020000001415610313 2.5]
+     (map (comp seq native) (output (get net-train 0)))
      => [[2.5] [0.010000000707805157 0.020000001415610313] [2.5]])))
 
 (defn test-sum [fact]

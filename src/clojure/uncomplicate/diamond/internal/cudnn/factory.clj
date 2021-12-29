@@ -37,7 +37,7 @@
                                cudnn-universal-cost cudnn-custom-cost cudnn-pooling-blueprint
                                cudnn-convolution-layer-blueprint cudnn-gaussian-dropout-blueprint
                                cudnn-batch-norm-layer-blueprint cudnn-branch-blueprint
-                               cudnn-sum-blueprint cudnn-split-blueprint]]])
+                               cudnn-concat-blueprint cudnn-sum-blueprint cudnn-split-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -392,6 +392,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-gaussian-dropout-blueprint this src-desc sd))
   (batch-norm-blueprint [this src-desc activ alpha beta]
     (cudnn-batch-norm-layer-blueprint this src-desc activ alpha beta))
+  (concat-blueprint [this src-descs conc-dim dst-type]
+    (cudnn-concat-blueprint this src-descs conc-dim dst-type))
   (branch-blueprint [this src-desc branch-dim dst-descs]
     (cudnn-branch-blueprint this src-desc branch-dim dst-descs))
   (split-blueprint [this src-desc n]
