@@ -330,6 +330,12 @@
    :eq dnnl/dnnl_binary_eq
    :ne dnnl/dnnl_binary_ne})
 
+(def ^:const dnnl-rnn-alg-kind
+  {:rnn dnnl/dnnl_vanilla_rnn
+   :lstm dnnl/dnnl_vanilla_lstm
+   :gru  dnnl/dnnl_vanilla_gru
+   :lbr-gru dnnl/dnnl_lbr_gru})
+
 (defn dec-format-kind [^long kind]
   (case kind
     1 :any
@@ -356,3 +362,10 @@
    :norm-lp-sum dnnl/dnnl_reduction_norm_lp_sum
    :norm-lp-power-p-max dnnl/dnnl_reduction_norm_lp_power_p_max
    :norm-lp-power-p-sum dnnl/dnnl_reduction_norm_lp_power_p_sum})
+
+(def ^:const dnnl-direction
+  {:left2right dnnl/dnnl_unidirectional_left2right
+   :right2left dnnl/dnnl_unidirectional_right2left
+   :unidirectional dnnl/dnnl_unidirectional
+   :bidirectional-concat dnnl/dnnl_bidirectional_concat
+   :bidirectional-sum dnnl/dnnl_bidirectional_sum})

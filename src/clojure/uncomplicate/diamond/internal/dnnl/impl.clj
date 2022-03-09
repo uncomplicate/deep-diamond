@@ -23,7 +23,7 @@
             const_dnnl_op_desc_t dnnl_primitive_attr dnnl_eltwise_desc_t
             dnnl_inner_product_desc_t dnnl_softmax_desc_t dnnl_convolution_desc_t
             dnnl_pooling_desc_t dnnl_batch_normalization_desc_t dnnl_binary_desc_t
-            dnnl_reduction_desc_t]))
+            dnnl_reduction_desc_t dnnl_rnn_desc_t dnnl_rnn_packed_desc_t]))
 
 (defn dnnl-error
   ([^long err-code details]
@@ -518,16 +518,14 @@
   (primitive-kind* [desc]
     (.primitive_kind desc)))
 
-(defn batch-normalization-forward-desc*
-  [prop-kind data-desc epsilon flags]
+(defn batch-normalization-forward-desc* [prop-kind data-desc epsilon flags]
   (let-release [bnrm-desc (dnnl_batch_normalization_desc_t.)]
     (with-check
       (dnnl/dnnl_batch_normalization_forward_desc_init bnrm-desc (int prop-kind)
                                                        data-desc (float epsilon) (int flags))
       bnrm-desc)))
 
-(defn batch-normalization-backward-desc*
-  [prop-kind diff-data-desc data-desc epsilon flags]
+(defn batch-normalization-backward-desc* [prop-kind diff-data-desc data-desc epsilon flags]
   (let-release [bnrm-desc (dnnl_batch_normalization_desc_t.)]
     (with-check
       (dnnl/dnnl_batch_normalization_backward_desc_init bnrm-desc (int prop-kind)
@@ -559,3 +557,33 @@
       (dnnl/dnnl_concat_primitive_desc_create pd dst (int n) (int concat-dimension)
                                               (.position src 0) attr eng)
       pd)))
+
+;; ======================= RNN ============================================================
+
+(defn vanilla-rnn-forward-desc* [prop-kind alg-kind activation direction
+                                 src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+                                 dst-desc dst-iter-desc alpha beta]
+  (let-release [rnn-desc (dnnl_rnn_desc_t.)]
+    (with-check
+      (dnnl/dnnl_vanilla_rnn_forward_desc_init rnn-desc (int prop-kind) (int activation) (int direction)
+                                               src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+                                               dst-desc dst-iter-desc 0 (float alpha) (float beta))
+      rnn-desc)))
+
+(defn vanilla-rnn-backward-desc* [prop-kind alg-kind activation direction
+                                  src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+                                  dst-desc dst-iter-desc
+                                  diff-src-desc diff-src-iter-desc
+                                  diff-weights-desc diff-weights-iter-desc diff-bias-desc
+                                  diff-dst-desc diff-dst-iter-desc
+                                  alpha beta]
+  (let-release [rnn-desc (dnnl_rnn_desc_t.)]
+    (with-check
+      (dnnl/dnnl_vanilla_rnn_backward_desc_init rnn-desc (int prop-kind) (int activation) (int direction)
+                                                src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+                                                dst-desc dst-iter-desc
+                                                diff-src-desc diff-src-iter-desc
+                                                diff-weights-desc diff-weights-iter-desc diff-bias-desc
+                                                diff-dst-desc diff-dst-iter-desc
+                                                0 (float alpha) (float beta))
+      rnn-desc)))
