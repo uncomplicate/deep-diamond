@@ -935,7 +935,7 @@
        N 1
        C 2
        G 1
-       L 1
+       L 2
        D 1]
    (with-release
      [eng (engine)
@@ -958,11 +958,11 @@
       src-mem (memory eng (arg-md rnn-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
       src-iter-mem (memory eng (arg-md rnn-pd :src-iter) (buffer src-iter-vec))
-      weights-vec (fv (fv [0.1 0.2 0.3 0.4]))
+      weights-vec (fv (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]))
       weights-mem (memory eng (arg-md rnn-pd :weights) (buffer weights-vec))
-      weights-iter-vec (fv (apply * weights-dim))
+      weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04])
       weights-iter-mem (memory eng (arg-md rnn-pd :weights-iter) (buffer weights-iter-vec))
-      bias-vec (fv [0.3 0.7])
+      bias-vec (fv [0.3 0.7 1 2])
       bias-mem (memory eng bias-desc (buffer bias-vec))
       dst-vec (fv (apply * src-dim))
       dst-mem (memory eng (arg-md rnn-pd :dst) (buffer dst-vec))
@@ -980,4 +980,4 @@
                       :workspace workspace-mem})]
      (primitive-kind rnn-desc) => :rnn
      (execute! s rnn rnn-args) => s
-     (seq dst-vec) => [1.4000000953674316 2.299999952316284 0.4100000262260437 0.8600000143051147])))
+     (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375])))
