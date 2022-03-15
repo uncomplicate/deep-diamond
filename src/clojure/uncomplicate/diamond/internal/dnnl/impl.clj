@@ -53,6 +53,11 @@
     (.deallocate this)
     true))
 
+(extend-type nil
+  DescProvider
+  (desc [_]
+    nil))
+
 ;; ===================== Engine ========================================================
 
 (deftype-wrapper Engine dnnl/dnnl_engine_destroy dnnl-error)
@@ -560,17 +565,22 @@
 
 ;; ======================= RNN ============================================================
 
-(defn vanilla-rnn-forward-desc* [prop-kind alg-kind activation direction
+(extend-type dnnl_rnn_desc_t
+  PrimitiveKind
+  (primitive-kind* [desc]
+    (.primitive_kind desc)))
+
+(defn vanilla-rnn-forward-desc* [prop-kind activation direction
                                  src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
                                  dst-desc dst-iter-desc alpha beta]
   (let-release [rnn-desc (dnnl_rnn_desc_t.)]
     (with-check
       (dnnl/dnnl_vanilla_rnn_forward_desc_init rnn-desc (int prop-kind) (int activation) (int direction)
                                                src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
-                                               dst-desc dst-iter-desc 0 (float alpha) (float beta))
+                                               dst-desc dst-iter-desc dnnl/dnnl_rnn_flags_undef (float alpha) (float beta))
       rnn-desc)))
 
-(defn vanilla-rnn-backward-desc* [prop-kind alg-kind activation direction
+(defn vanilla-rnn-backward-desc* [prop-kind activation direction
                                   src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
                                   dst-desc dst-iter-desc
                                   diff-src-desc diff-src-iter-desc
@@ -585,5 +595,19 @@
                                                 diff-src-desc diff-src-iter-desc
                                                 diff-weights-desc diff-weights-iter-desc diff-bias-desc
                                                 diff-dst-desc diff-dst-iter-desc
-                                                0 (float alpha) (float beta))
+                                                dnnl/dnnl_rnn_flags_undef (float alpha) (float beta))
       rnn-desc)))
+
+;; ======================= LSTM ============================================================
+
+(defn lstm-forward-desc* [prop-kind direction
+                          src-desc src-iter-desc src-iter-c-desc weights-desc weights-iter-desc
+                          bias-desc dst-desc dst-iter-desc dst-iter-c-desc]
+  (let-release [lstm-desc (dnnl_rnn_desc_t.)]
+    (with-check
+      (dnnl/dnnl_lstm_forward_desc_init lstm-desc (int prop-kind) (int direction)
+                                        src-desc src-iter-desc src-iter-c-desc
+                                        weights-desc weights-iter-desc
+                                        bias-desc dst-desc dst-iter-desc dst-iter-c-desc
+                                        dnnl/dnnl_rnn_flags_undef)
+      lstm-desc)))
