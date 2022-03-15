@@ -153,7 +153,7 @@
                       src (memory eng md buf)
                       sum-pd (sum! eng 2.0 md)
                       sum-prim (primitive sum-pd)
-                      sum-args (args src)]
+                      sum-args (multi-args src)]
          (put-float buf 0 -100)
          (put-float buf 1 20)
          (execute! s sum-prim sum-args) => s
@@ -170,7 +170,7 @@
                       dst (memory eng md buf-dst)
                       sum-pd (sum! eng md 2.0 md 3.0 md)
                       sum-prim (primitive sum-pd)
-                      sum-args (args dst src dst)]
+                      sum-args (multi-args dst src dst)]
          (put-float buf-src 0 -100)
          (put-float buf-src 1 10)
          (put-float buf-dst 0 -200)
@@ -193,7 +193,7 @@
                       dst (memory eng md dst-buf)
                       sum-pd (sum! eng md 2.0 md 3.0 md)
                       sum-prim (primitive sum-pd)
-                      sum-args (args dst src0 src1)]
+                      sum-args (multi-args dst src0 src1)]
          (put-float src0-buf 0 -100)
          (put-float src0-buf 1 20)
          (put-float src1-buf 0 -1000)
@@ -871,7 +871,7 @@
                       dst (memory eng md dst-buf)
                       concat-pd (concatenate eng md 0 md)
                       concat-prim (primitive concat-pd)
-                      concat-args (args dst src)]
+                      concat-args (multi-args dst src)]
          (dotimes [i 120]
            (put-float src-buf i i))
          (execute! s concat-prim concat-args) => s
@@ -891,7 +891,7 @@
                       dst (memory eng dst-md dst-buf)
                       concat-pd (concatenate eng dst-md 0 src-md src-md)
                       concat-prim (primitive concat-pd)
-                      concat-args (args dst src0 src1)]
+                      concat-args (multi-args dst src0 src1)]
          (dotimes [i 120]
            (put-float src0-buf i i)
            (put-float src1-buf i (* 1000.0 i)))
@@ -918,7 +918,7 @@
                       dst (memory eng dst-md dst-buf)
                       concat-pd (concatenate eng dst-md 2 src0-md src1-md src2-md)
                       concat-prim (primitive concat-pd)
-                      concat-args (args dst src0 src1 src2)]
+                      concat-args (multi-args dst src0 src1 src2)]
          (put-float src0-buf 0 1.0)
          (put-float src0-buf 1 2.0)
          (put-float src1-buf 0 10.0)
@@ -928,3 +928,56 @@
          (get-float dst-buf 1) => 2.0
          (get-float dst-buf 2) => 10.0
          (get-float dst-buf 3) => 5.0))
+
+(facts
+ "Vanilla RNN forward."
+ (let [T 2
+       N 1
+       C 2
+       G 1
+       L 1
+       D 1]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-dim [T N C]
+      src-iter-dim [L D N C]
+      weights-dim [L D C G C]
+      bias-dim [L D G C]
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc src-dim :float :tnc)
+      dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      rnn-desc (vanilla-rnn-fwd-desc :inference :relu :unidirectional
+                                     src-desc src-iter-desc weights-desc weights-desc
+                                     bias-desc dst-desc src-iter-desc)
+      rnn-pd (primitive-desc eng rnn-desc)
+      src-vec (fv [2 3 0.2 0.3])
+      src-mem (memory eng (arg-md rnn-pd :src) (buffer src-vec))
+      src-iter-vec (fv (apply * src-iter-dim))
+      src-iter-mem (memory eng (arg-md rnn-pd :src-iter) (buffer src-iter-vec))
+      weights-vec (fv (fv [0.1 0.2 0.3 0.4]))
+      weights-mem (memory eng (arg-md rnn-pd :weights) (buffer weights-vec))
+      weights-iter-vec (fv (apply * weights-dim))
+      weights-iter-mem (memory eng (arg-md rnn-pd :weights-iter) (buffer weights-iter-vec))
+      bias-vec (fv [0.3 0.7])
+      bias-mem (memory eng bias-desc (buffer bias-vec))
+      dst-vec (fv (apply * src-dim))
+      dst-mem (memory eng (arg-md rnn-pd :dst) (buffer dst-vec))
+      dst-iter-vec (fv (apply * src-dim))
+      dst-iter-mem (memory eng (arg-md rnn-pd :dst) (buffer dst-iter-vec))
+      workspace-mem (memory eng (arg-md rnn-pd :workspace))
+      rnn (primitive rnn-pd)
+      rnn-args (args {:src-layer src-mem
+                      :weights-layer weights-mem
+                      :weights-iter weights-iter-mem
+                      :bias bias-mem
+                      :dst-layer dst-mem
+                      :src-iter src-iter-mem
+                      :dst-iter dst-iter-mem
+                      :workspace workspace-mem})]
+     (primitive-kind rnn-desc) => :rnn
+     (execute! s rnn rnn-args) => s
+     (seq dst-vec) => [1.4000000953674316 2.299999952316284 0.4100000262260437 0.8600000143051147])))

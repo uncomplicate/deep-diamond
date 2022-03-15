@@ -256,6 +256,22 @@
 
 ;; =================== Query ====================================================
 
+(defn query-md
+  "Queries the primitive descriptor `pd` for the property `what` and (optional) index `index`."
+  ([pd what index]
+   (let [index (if (= :exec-arg-md what) (dnnl-arg index index))
+         d (query-md* (extract pd) (dnnl-query what what) index)]
+     (if (zero-desc? d) nil d)))
+  ([pd what]
+   (let [d (query-md* (extract pd) (dnnl-query what what))]
+     (if (zero-desc? d) nil d))))
+
+(defn arg-md
+  "Queries the primitive descriptor `pd` for the argument's memory descriptor."
+  [pd arg]
+  (let [d (query-md* (extract pd) dnnl/dnnl_query_exec_arg_md (dnnl-arg arg arg))]
+    (if (zero-desc? d) nil d)))
+
 (defn src-md
   "Queries the primitive descriptor `pd` for the source (input)."
   [pd]
@@ -397,7 +413,6 @@
   ([alg-kind src-dst-desc]
    (binary-desc alg-kind src-dst-desc src-dst-desc src-dst-desc)))
 
-;; TODO src_0 and src are both code 1. Maybe this should become an universal args function, while args is rarely used and should be renamed to multi-args.
 (defn binary-args
   ([src0 src1 dst]
    (let-release [args (dnnl_exec_arg_t. 3)]
@@ -409,7 +424,13 @@
 
 ;; ========================= Execution Arguments =======================================
 
-(defn args
+(defn args [arg-map]
+  (let-release [args (dnnl_exec_arg_t. (count arg-map))]
+    (doseq [[k v i] (map conj arg-map (range))]
+      (args* args i (dnnl-arg k k) (extract v)))
+    args))
+
+(defn multi-args
   "Creates DNNL's data structure that holds arguments for various
   operations that accept one destination and one or multiple sources."
   ([src-and-dst]
