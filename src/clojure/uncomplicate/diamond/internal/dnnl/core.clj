@@ -790,33 +790,30 @@
 
 (defn vanilla-rnn-fwd-desc
   "TODO"
-  ([prop-kind activation direction src-desc src-iter-desc
-    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha beta]
+  ([prop-kind activation direction
+    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha beta]
    (vanilla-rnn-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
                               (enc-keyword dnnl-eltwise-alg-kind activation)
                               (enc-keyword dnnl-direction direction)
                               (desc src-desc) (desc src-iter-desc)
                               (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
                               (desc dst-desc) (desc dst-iter-desc) alpha beta))
-  ([prop-kind activation direction src-desc src-iter-desc
-    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha]
+  ([prop-kind activation direction
+    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha]
    (vanilla-rnn-fwd-desc prop-kind activation direction src-desc src-iter-desc
                          weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha 0.0))
-  ([prop-kind activation direction src-desc src-iter-desc
-    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc]
+  ([prop-kind activation direction
+    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc]
    (vanilla-rnn-fwd-desc prop-kind activation direction src-desc src-iter-desc
                          weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc 0.0 0.0)))
 
 (defn vanilla-rnn-bwd-desc
   "TODO"
-  ([prop-kind activation direction src-desc src-iter-desc
-    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
-    diff-src-desc diff-src-iter-desc
-    diff-weights-desc diff-weights-iter-desc diff-bias-desc
-    diff-dst-desc diff-dst-iter-desc
-    alpha beta]
-   (vanilla-rnn-backward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
-                               (enc-keyword dnnl-eltwise-alg-kind activation)
+  ([activation direction
+    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
+    diff-src-desc diff-src-iter-desc diff-weights-desc diff-weights-iter-desc diff-bias-desc
+    diff-dst-desc diff-dst-iter-desc alpha beta]
+   (vanilla-rnn-backward-desc* (enc-keyword dnnl-eltwise-alg-kind activation)
                                (enc-keyword dnnl-direction direction)
                                (desc src-desc) (desc src-iter-desc)
                                (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
@@ -825,24 +822,21 @@
                                (desc diff-weights-desc) (desc diff-weights-iter-desc) (desc diff-bias-desc)
                                (desc diff-dst-desc) (desc diff-dst-iter-desc)
                                alpha beta))
-  ([prop-kind activation direction src-desc src-iter-desc
-    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
-    diff-src-desc diff-src-iter-desc
-    diff-weights-desc diff-weights-iter-desc diff-bias-desc
-    diff-dst-desc diff-dst-iter-desc
-    alpha]
-   (vanilla-rnn-bwd-desc prop-kind activation direction src-desc src-iter-desc
+  ([activation direction
+    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
+    diff-src-desc diff-src-iter-desc diff-weights-desc diff-weights-iter-desc diff-bias-desc
+    diff-dst-desc diff-dst-iter-desc alpha]
+   (vanilla-rnn-bwd-desc activation direction src-desc src-iter-desc
                          weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
                          diff-src-desc diff-src-iter-desc
                          diff-weights-desc diff-weights-iter-desc diff-bias-desc
                          diff-dst-desc diff-dst-iter-desc
                          alpha 0.0))
-  ([prop-kind activation direction src-desc src-iter-desc
-    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
-    diff-src-desc diff-src-iter-desc
-    diff-weights-desc diff-weights-iter-desc diff-bias-desc
+  ([activation direction
+    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
+    diff-src-desc diff-src-iter-desc diff-weights-desc diff-weights-iter-desc diff-bias-desc
     diff-dst-desc diff-dst-iter-desc]
-   (vanilla-rnn-bwd-desc prop-kind activation direction src-desc src-iter-desc
+   (vanilla-rnn-bwd-desc activation direction src-desc src-iter-desc
                          weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
                          diff-src-desc diff-src-iter-desc
                          diff-weights-desc diff-weights-iter-desc diff-bias-desc

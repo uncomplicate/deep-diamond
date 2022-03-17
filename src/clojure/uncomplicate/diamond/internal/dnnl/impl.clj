@@ -577,10 +577,11 @@
     (with-check
       (dnnl/dnnl_vanilla_rnn_forward_desc_init rnn-desc (int prop-kind) (int activation) (int direction)
                                                src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
-                                               dst-desc dst-iter-desc dnnl/dnnl_rnn_flags_undef (float alpha) (float beta))
+                                               dst-desc dst-iter-desc dnnl/dnnl_rnn_flags_undef
+                                               (float alpha) (float beta))
       rnn-desc)))
 
-(defn vanilla-rnn-backward-desc* [prop-kind activation direction
+(defn vanilla-rnn-backward-desc* [activation direction
                                   src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
                                   dst-desc dst-iter-desc
                                   diff-src-desc diff-src-iter-desc
@@ -589,7 +590,7 @@
                                   alpha beta]
   (let-release [rnn-desc (dnnl_rnn_desc_t.)]
     (with-check
-      (dnnl/dnnl_vanilla_rnn_backward_desc_init rnn-desc (int prop-kind) (int activation) (int direction)
+      (dnnl/dnnl_vanilla_rnn_backward_desc_init rnn-desc dnnl/dnnl_backward (int activation) (int direction)
                                                 src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
                                                 dst-desc dst-iter-desc
                                                 diff-src-desc diff-src-iter-desc
