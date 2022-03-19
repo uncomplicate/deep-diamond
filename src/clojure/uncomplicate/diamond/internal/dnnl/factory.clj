@@ -21,7 +21,7 @@
              :refer [*diamond-factory* output shape data-type layout]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
+              :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory RnnFactory
                       NeanderthalFactoryProvider diamond-factory]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
@@ -33,7 +33,8 @@
                                dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
                                dnnl-split-blueprint dnnl-concat-blueprint dnnl-fc-blueprint
                                dnnl-gaussian-dropout-blueprint dnnl-batch-norm-layer-blueprint
-                               dnnl-pooling-blueprint dnnl-branch-blueprint dnnl-sum-blueprint]]])
+                               dnnl-pooling-blueprint dnnl-branch-blueprint dnnl-sum-blueprint]]
+             [rnn :refer [dnnl-rnn-blueprint]]])
   (:import [uncomplicate.neanderthal.internal.host CBLAS LAPACK MKL]
            uncomplicate.neanderthal.internal.api.RealBufferAccessor
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor))
@@ -354,6 +355,9 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-sum-blueprint this eng src-descs))
   (create-workspace [_ byte-size]
     (direct-buffer (max 1 (long byte-size))))
+  RnnFactory
+  (rnn-blueprint [this src-desc dst-desc weights-type activ dir lrs]
+    (dnnl-rnn-blueprint this eng src-desc dst-desc weights-type activ dir lrs))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))

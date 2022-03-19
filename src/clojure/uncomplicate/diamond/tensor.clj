@@ -12,7 +12,6 @@
 (defmacro with-diamond
   "Dynamically binds a factory created by `factory-fn` with provided parameters
   `params`, and evaluates `body` in the context of that factory."
-
   [factory-fn params & body]
   `(binding [*diamond-factory* (~factory-fn ~@params)]
      (try ~@body

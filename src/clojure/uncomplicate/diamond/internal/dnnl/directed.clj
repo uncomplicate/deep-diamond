@@ -7,10 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.internal.dnnl.directed
-  (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info view]]
-             [utils :refer [dragan-says-ex]]]
-            [uncomplicate.fluokitten.core :refer [foldmap fmap]]
+  (:require [uncomplicate.commons.core
+             :refer [Releaseable release let-release with-release Info info view]]
+            [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.neanderthal
              [core :refer [axpby! dim transfer! scal! view-vctr]]
              [block :refer [buffer]]]
@@ -23,7 +22,7 @@
                       DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
                       DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
                       inf-desc train-desc Initializable init]]
-             [utils :refer [transfer-weights-bias! default-strides concat-strides concat-dst-shape]]]
+             [utils :refer [transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
@@ -33,13 +32,6 @@
   (:import [clojure.lang IFn AFn]
            [uncomplicate.diamond.internal.neanderthal.directed
             DirectedLayerBlueprint GaussianDropoutBlueprint]))
-
-(defn dnnl-contiguous-desc [md]
-  (let [s (dims md)]
-    (if (and (= :float (data-type md))
-             (= (size md) (apply * Float/BYTES s)))
-      (view md)
-      (memory-desc s :float (default-strides s)))))
 
 ;; ================================ Activation =============================================
 
@@ -615,7 +607,7 @@
       (with-release [sum-desc (sum! eng train-desc 1.0 train-desc -1.0 train-tz)]
         (let-release [sum-prim (primitive sum-desc)]
           (->DnnlUniversalCost strm prev-layer sum-prim
-                               (dnnl-args args (input connect-diff)
+                               (dnnl-args multi-args (input connect-diff)
                                           (output connect-output) train-tz)
                                connect-output connect-diff train-tz
                                (view-vctr (input connect-diff))
@@ -661,7 +653,7 @@
       (with-release [sum-desc (sum! eng train-desc 1.0 train-desc -1.0 train-desc)]
         (let-release [sum-prim (primitive sum-desc)]
           (->DnnlCustomCost strm prev-layer sum-prim
-                            (dnnl-args args (input connect-diff)
+                            (dnnl-args multi-args (input connect-diff)
                                        (output connect-output) train-tz)
                             connect-output connect-diff (view train-tz)
                             (view-vctr (output connect-output)) (view-vctr train-tz)
@@ -1463,13 +1455,13 @@
     (let [src-tzs (fmap output prev-layer)]
       (let-release [dst-tz (dnnl-tensor fact dst-desc)
                     concat-prim (primitive concat-pd)
-                    concat-args (apply dnnl-args args dst-tz src-tzs)]
+                    concat-args (apply dnnl-args multi-args dst-tz src-tzs)]
         (->DnnlConcatInference fact (flow fact) this src-tzs dst-tz concat-prim concat-args))))
   (invoke [this prev-layer prop-diff? _]
     (let [src-tzs (fmap output prev-layer)]
       (let-release [dst-tz (dnnl-tensor fact dst-desc)
                     concat-prim (primitive concat-pd)
-                    concat-args (apply dnnl-args args dst-tz src-tzs)
+                    concat-args (apply dnnl-args multi-args dst-tz src-tzs)
                     branch-prims (mapv primitive branch-pds)
                     branch-args (mapv (partial fwd-args (buffer dst-tz)) (map buffer src-tzs))]
         (->DnnlConcatTraining fact (flow fact) this src-tzs dst-tz
@@ -1672,7 +1664,7 @@
     (let-release [src-tz (output prev-layer)
                   dst-tzs (fmap (partial dnnl-tensor fact) dst-descs)
                   concat-prim (primitive concat-pd)
-                  concat-args (apply dnnl-args args src-tz dst-tzs)
+                  concat-args (apply dnnl-args multi-args src-tz dst-tzs)
                   branch-prims (mapv primitive branch-pds)
                   branch-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))]
       (->DnnlBranchTraining fact (flow fact) this src-tz dst-tzs
@@ -1853,7 +1845,7 @@
     (let-release [src-tz (view (output prev-layer))
                   diff-tzs (mapv (partial dnnl-tensor fact) (repeat n src-desc))
                   sum-prim (primitive sum-pd)
-                  sum-args (apply dnnl-args args src-tz diff-tzs)]
+                  sum-args (apply dnnl-args multi-args src-tz diff-tzs)]
       (->DnnlSplitTraining fact (flow fact) this n src-tz diff-tzs sum-prim sum-args prop-diff?)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
@@ -1978,7 +1970,7 @@
     (let [src-tzs (fmap output prev-layer)
           strm (flow fact)]
       (let-release [sum-prim (primitive sum-pd)
-                    sum-args (apply dnnl-args args (get src-tzs 0) src-tzs)
+                    sum-args (apply dnnl-args multi-args (get src-tzs 0) src-tzs)
                     diff-transformers (mapv (partial dnnl-transformer eng strm (get src-tzs 0))
                                             (rest src-tzs))]
         (->DnnlSum fact (flow fact) this src-tzs sum-prim sum-args diff-transformers prop-diff?))))

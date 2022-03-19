@@ -8,8 +8,9 @@
 
 (ns uncomplicate.diamond.internal.dnnl.core
   (:require [uncomplicate.commons
-             [core :refer [let-release with-release wrap extract]]
+             [core :refer [let-release with-release wrap extract view]]
              [utils :refer [enc-keyword direct-buffer capacity dragan-says-ex mask]]]
+            [uncomplicate.diamond.internal.utils :refer [default-strides]]
             [uncomplicate.diamond.internal.dnnl
              [impl :refer :all]
              [constants :refer :all]
@@ -855,3 +856,12 @@
                       (desc src-desc) (desc src-iter-desc) (desc src-iter-c-desc)
                       (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
                       (desc dst-desc) (desc dst-iter-desc) (desc dst-iter-c-desc)))
+
+;; =========================================================================================
+
+(defn dnnl-contiguous-desc [md]
+  (let [s (dims md)]
+    (if (and (= :float (data-type md))
+             (= (size md) (apply * Float/BYTES s)))
+      (view md)
+      (memory-desc s :float (default-strides s)))))

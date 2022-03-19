@@ -122,14 +122,14 @@
            (view-vctr (output ip)) => (vctr input-tz -0.8100000023841858 0.7299999594688416)
            (transfer! [-0.71 -0.1] (diff-input ip))
            (backward ip) => ip
-           (seq (native (view-vctr input-tz))) => (map float [-0.5 0 0.2 1.0 0.3 -0.69999999])
-           (seq (native (view-vctr (weights ip))))
+           (seq (native input-tz)) => (map float [-0.5 0 0.2 1.0 0.3 -0.69999999])
+           (seq (native (weights ip)))
            => (map float [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7])
-           (seq (native (view-vctr (diff-weights ip))))
+           (seq (native (diff-weights ip)))
            => (map float [0.355 0.0 -0.142 -0.71
                           -0.213 0.49699998 0.05 0.0
                           -0.0200000014 -0.1 -0.030000001 0.07])
-           (seq (native (view-vctr (bias ip)))) => (map float [-0.71 -0.1]))))
+           (seq (native (bias ip))) => (map float [-0.71 -0.1]))))
 
 (defn test-fully-connected-training [fact]
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -438,8 +438,7 @@
       (with-release [conv (conv-bluep input-tz)
                      connect-output (connector (output conv) (desc [2 1 2 2] :float :nchw))
                      input-weights (connector (desc [1 1 3 3] :float :nchw) (weights conv))
-                     output-weights (revert input-weights)
-                     ws (create-workspace fact (inf-ws-size conv-bluep))]
+                     output-weights (revert input-weights)]
         (facts "Convolution inference layer."
                (transfer! [0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                            0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50]
@@ -448,7 +447,7 @@
                (input-weights)
                (transfer! [0.5] (bias conv))
                (conv) => (output conv)
-               (seq (native (view-vctr (connect-output)))) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5])))))
+               (seq (native (connect-output))) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5])))))
 
 (defn test-convolution-inference-relu [fact]
   (with-release [input-tz (tensor fact [2 1 4 4] :float :nchw)
@@ -467,7 +466,7 @@
                (input-weights)
                (transfer! [0.5] (bias conv))
                (conv) => (output conv)
-               (seq (native (view-vctr (connect-output)))) => [18.5 0.0 0.0 0.0 102.5 57.5 0.0 0.0])))))
+               (seq (native (connect-output))) => [18.5 0.0 0.0 0.0 102.5 57.5 0.0 0.0])))))
 
 (defn test-convolution-training [fact]
   (with-release [input-tz (tensor fact [2 1 4 4] :float :nchw)
@@ -488,7 +487,7 @@
                (transfer! [0.5] (bias conv))
                (forward conv [nil 1 0 0 false]) => conv
                (forward conv-output)
-               (seq (native (view-vctr (output conv-output)))) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5]
+               (seq (native (output conv-output))) => [18.5 -93.5 -20.5 -565.5 102.5 57.5 -77.5 -175.5]
                (transfer! [18.3 -93.8 -21.3 -566.5 101.5 56.5 -78.5 -176.5] (view-vctr train-tz))
                (backward conv-output) => conv-output
                (backward conv) => conv
@@ -887,3 +886,23 @@
      (transfer! [3.0 4.0] (second (diff-input split-train)))
      (backward split-train nil) => split-train
      (seq (native input-tz)) => [2.0 3.0])))
+
+;; ============================= RNN tests ==================================================
+
+(defn test-vanilla-rnn-inference [fact]
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+                 rnn-bluep (rnn fact input-tz [2 1 2] 2)
+                 rnn (rnn-bluep input-tz)
+                 input-weights (connector (.weights-desc rnn-bluep) (weights rnn))
+                 input-weights-iter (connector (.weights-desc rnn-bluep) (.weights-iter-tz rnn))]
+    (facts "Vanilla RNN inference operation."
+           (transfer! [2 3 0.2 0.3] input-tz)
+           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
+           (input-weights)
+           (transfer! [100 200 300 400 0.01 0.02 0.03 0.04] (input input-weights-iter))
+           (input-weights-iter)
+           (transfer! [0.3 0.7 1 2] (bias rnn))
+           (seq (native (rnn)))
+           => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
+           (seq (native (output rnn)))
+           => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375])))

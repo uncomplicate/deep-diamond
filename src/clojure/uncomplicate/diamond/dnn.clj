@@ -431,3 +431,15 @@
        (infer net in out)))))
 
 ;;TODO train should be renamed to train! and infer! (perhaps)
+
+;; ========================== Recurrent networks =========================================
+
+(defn rnn
+  ([fact src-desc dst-desc weights-type activ dir lrs]
+   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type activ dir lrs))
+  ([fact src-desc dst-desc activ dir lrs]
+   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc nil activ dir lrs))
+  ([fact src-desc dst-desc lrs]
+   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc nil :relu :unidirectional lrs))
+  ([src-desc dst-desc lrs]
+   (rnn *diamond-factory* src-desc dst-desc lrs)))

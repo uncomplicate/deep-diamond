@@ -10,7 +10,9 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info Viewable view]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.fluokitten.protocols :refer [Magma Monoid Applicative Functor]]
+            [uncomplicate.fluokitten
+             [protocols :refer [Magma Monoid Applicative Functor]]
+             [core :as fluokitten]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
              [block :refer [entry-width data-accessor buffer count-entries contiguous?]]]
@@ -593,4 +595,4 @@
 (prefer-method transfer! [DnnlTensor DnnlTensor] [DnnlTensor Object])
 
 (defn dnnl-args [args-fn & args]
-  (apply args-fn (map #(if % (buffer %) %) args)))
+  (apply args-fn (map (fluokitten/fmap #(if % (buffer %) %)) args)))

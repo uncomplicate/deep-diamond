@@ -41,6 +41,9 @@
   (sum-blueprint [this src-descs])
   (create-workspace [this byte-size]))
 
+(defprotocol RnnFactory
+  (rnn-blueprint [this src-desc dst-desc weights-type activ dir lrs]))
+
 (defprotocol CostFactory
   (quadratic-cost [this last-layer train-tz])
   (mean-absolute-cost [this last-layer train-tz])

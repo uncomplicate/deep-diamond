@@ -1003,9 +1003,8 @@
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc src-dim :float :tnc)
       dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
-      rnn-fwd-desc (vanilla-rnn-fwd-desc :training :relu :unidirectional
-                                         src-desc src-iter-desc weights-desc weights-desc bias-desc
-                                         dst-desc dst-iter-desc)
+      rnn-fwd-desc (vanilla-rnn-fwd-desc :training :relu :unidirectional src-desc src-iter-desc
+                                         weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
       rnn-fwd-pd (primitive-desc eng rnn-fwd-desc)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md rnn-fwd-pd :src) (buffer src-vec))
@@ -1032,10 +1031,11 @@
                           :dst-iter dst-iter-mem
                           :workspace workspace-mem})
       bwd-weights-desc (memory-desc weights-dim :float :any)
-      rnn-bwd-desc (vanilla-rnn-bwd-desc :relu :unidirectional
-                                         src-desc src-iter-desc bwd-weights-desc bwd-weights-desc bias-desc
+      rnn-bwd-desc (vanilla-rnn-bwd-desc :relu :unidirectional src-desc src-iter-desc
+                                         bwd-weights-desc bwd-weights-desc bias-desc
                                          dst-desc dst-iter-desc
-                                         src-desc src-iter-desc bwd-weights-desc bwd-weights-desc bias-desc
+                                         src-desc src-iter-desc
+                                         bwd-weights-desc bwd-weights-desc bias-desc
                                          dst-desc dst-iter-desc)
       rnn-bwd-pd (primitive-desc eng rnn-bwd-desc rnn-fwd-pd)
       bwd-weights-mem (memory eng (arg-md rnn-bwd-pd :weights))

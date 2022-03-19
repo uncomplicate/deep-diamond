@@ -81,3 +81,9 @@ Please use a copy or create a transformer."
 (defn concat-dst-shape [conc-dim src-shapes]
   (assoc (get src-shapes 0) conc-dim
          (foldmap + #(get % conc-dim) src-shapes)))
+
+(defn direction-count ^long [direction]
+  (case direction
+    :bidirectional-concat 2
+    :bidirectional-sum 2
+    1))
