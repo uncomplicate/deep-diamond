@@ -42,7 +42,7 @@
   (create-workspace [this byte-size]))
 
 (defprotocol RnnFactory
-  (rnn-blueprint [this src-desc dst-desc weights-type activ dir lrs]))
+  (rnn-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]))
 
 (defprotocol CostFactory
   (quadratic-cost [this last-layer train-tz])
@@ -57,11 +57,17 @@
   (weights [this])
   (bias [this]))
 
-(defprotocol ParametersSeq
+(defprotocol RnnParameters
+  (weights-iter [this]))
+
+(defprotocol ParametersSeq  ;;TODO consider making parameters a map instead of a vector.
   (parameters [this]))
 
 (defprotocol DiffParameters
   (diff-weights [this]))
+
+(defprotocol DiffRnnParameters
+  (diff-weights-iter [this]))
 
 (defprotocol Initializable
   (init [this init-fn]))

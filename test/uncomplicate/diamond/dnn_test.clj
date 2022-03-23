@@ -22,7 +22,7 @@
             [uncomplicate.diamond.internal.protocols
              :refer [diff-weights forward backward diff-input diff-output
                      weights bias *workspace* inf-ws-size train-ws-size create-workspace
-                     parameters]]))
+                     parameters weights-iter]]))
 
 (defn test-activation-relu [fact]
   (with-release [src-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -894,7 +894,7 @@
                  rnn-bluep (rnn fact input-tz [2 1 2] 2)
                  rnn (rnn-bluep input-tz)
                  input-weights (connector (.weights-desc rnn-bluep) (weights rnn))
-                 input-weights-iter (connector (.weights-desc rnn-bluep) (.weights-iter-tz rnn))]
+                 input-weights-iter (connector (.weights-desc rnn-bluep) (weights-iter rnn))]
     (facts "Vanilla RNN inference operation."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))

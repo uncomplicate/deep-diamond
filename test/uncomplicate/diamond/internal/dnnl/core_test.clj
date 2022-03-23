@@ -953,6 +953,10 @@
       rnn-desc (vanilla-rnn-fwd-desc :inference :relu :unidirectional
                                      src-desc src-iter-desc weights-desc weights-desc bias-desc
                                      dst-desc dst-iter-desc)
+      rnn-wo-iter-desc (vanilla-rnn-fwd-desc :inference :relu :unidirectional
+                                             src-desc nil weights-desc weights-desc bias-desc
+                                             dst-desc dst-iter-desc)
+      rnn-wo-iter-pd (primitive-desc eng rnn-wo-iter-desc)
       rnn-pd (primitive-desc eng rnn-desc)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md rnn-pd :src) (buffer src-vec))
@@ -977,9 +981,23 @@
                       :bias bias-mem
                       :dst-layer dst-mem
                       :dst-iter dst-iter-mem
-                      :workspace workspace-mem})]
+                      :workspace workspace-mem})
+      rnn-wo-iter (primitive rnn-wo-iter-pd)
+      rnn-wo-iter-args (args {:src-layer src-mem
+                              :weights-layer weights-mem
+                              :weights-iter weights-iter-mem
+                              :bias bias-mem
+                              :dst-layer dst-mem
+                              :dst-iter dst-iter-mem
+                              :workspace workspace-mem})]
      (primitive-kind rnn-desc) => :rnn
      (execute! s rnn rnn-args) => s
+     (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
+     (entry! dst-vec 0)
+     (primitive-kind rnn-wo-iter-desc) => :rnn
+     (arg-md rnn-wo-iter-pd :src-iter) => nil
+     (zero-desc? (arg-md rnn-wo-iter-pd :src-iter)) => true
+     (execute! s rnn-wo-iter rnn-wo-iter-args) => s
      (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375])))
 
 (facts

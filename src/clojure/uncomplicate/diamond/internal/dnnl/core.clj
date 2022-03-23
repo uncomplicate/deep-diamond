@@ -119,7 +119,9 @@
   ([dims format]
    (memory-desc dims :float format))
   ([dims]
-   (memory-desc dims :float :any)))
+   (memory-desc dims :float :any))
+  ([]
+   (dnnl_memory_desc_t.)))
 
 (defn submemory-desc
   "Creates a (sub)memory section of a memory object, using the specified

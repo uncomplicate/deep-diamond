@@ -496,7 +496,7 @@
                                               diff-bias-tz)]
       (if prop-diff?
         (let-release [diff-dst-data-conn (connector diff-dst-conn (diff-dst-md bwd-data-pd))
-                      weights-data-conn (connector weights-tz (weights-md bwd-data-pd))
+                      weights-data-conn (connector weights-tz (weights-md bwd-data-pd)) ;; TODO perhaps I have to use weights-weights-conn too? between forward and backward? Yes, according to the documentation!
                       diff-src-conn (connector (diff-src-md bwd-data-pd) src-tz)
                       bwd-data-prim (primitive bwd-data-pd)
                       bwd-data-args (dnnl-args bwd-args

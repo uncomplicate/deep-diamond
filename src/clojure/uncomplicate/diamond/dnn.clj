@@ -435,11 +435,16 @@
 ;; ========================== Recurrent networks =========================================
 
 (defn rnn
-  ([fact src-desc dst-desc weights-type activ dir lrs]
-   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type activ dir lrs))
-  ([fact src-desc dst-desc activ dir lrs]
-   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc nil activ dir lrs))
+  ([fact src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
+   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type
+                      activ dir lrs src-iter? dst-iter?))
+  ([fact src-desc dst-desc activ dir lrs src-iter? dst-iter?]
+   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc nil
+                      activ dir lrs src-iter? dst-iter?))
+  ([fact src-desc dst-desc lrs src-iter? dst-iter?]
+   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc nil
+                      :relu :unidirectional lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs]
-   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc nil :relu :unidirectional lrs))
+   (rnn fact src-desc dst-desc lrs false false))
   ([src-desc dst-desc lrs]
    (rnn *diamond-factory* src-desc dst-desc lrs)))

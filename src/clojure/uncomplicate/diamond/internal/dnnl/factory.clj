@@ -356,8 +356,8 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-workspace [_ byte-size]
     (direct-buffer (max 1 (long byte-size))))
   RnnFactory
-  (rnn-blueprint [this src-desc dst-desc weights-type activ dir lrs]
-    (dnnl-rnn-blueprint this eng src-desc dst-desc weights-type activ dir lrs))
+  (rnn-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
+    (dnnl-rnn-blueprint this eng src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))
