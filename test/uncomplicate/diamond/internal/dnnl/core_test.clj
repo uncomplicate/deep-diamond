@@ -992,7 +992,9 @@
                               :workspace workspace-mem})]
      (primitive-kind rnn-desc) => :rnn
      (execute! s rnn rnn-args) => s
+     (seq src-iter-vec) => [0.0 0.0 0.0 0.0]
      (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
+     (seq dst-iter-vec) => [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]
      (entry! dst-vec 0)
      (primitive-kind rnn-wo-iter-desc) => :rnn
      (arg-md rnn-wo-iter-pd :src-iter) => nil

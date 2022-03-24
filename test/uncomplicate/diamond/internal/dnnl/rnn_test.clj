@@ -27,4 +27,6 @@
 
 (with-release [fact (dnnl-factory)]
   (test-vanilla-rnn-inference fact)
+  (test-vanilla-rnn-inference-no-iter fact)
+  (test-vanilla-rnn-training fact)
   )
