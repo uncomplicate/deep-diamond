@@ -9,11 +9,12 @@
 (ns uncomplicate.diamond.internal.dnnl.rnn ;; TODO remove unused
   (:require [uncomplicate.commons.core :refer [Releaseable release let-release with-release Info info view]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! dim transfer! scal! view-vctr]]
+             [core :refer [axpby! dim transfer! scal! view-vctr entry!]]
              [block :refer [buffer]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
-             :refer [Transfer input output connector revert shape layout TensorDescriptor view-tz]]
+             :refer [Transfer input output connector revert shape layout TensorDescriptor view-tz
+                     transformer]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
@@ -86,7 +87,7 @@
                           diff-weights-tz post-diff-weights-tz
                           diff-weights-iter-tz post-diff-weights-iter-tz diff-bias-tz
                           src-conn src-iter-conn weights-conn weights-iter-conn
-                          dst-conn dst-iter-conn
+                          fwd-dst-tz dst-transformer fwd-dst-iter-tz dst-iter-transformer
                           fwd-prim fwd-args
                           bwd-src-conn bwd-src-iter-conn bwd-weights-conn bwd-weights-iter-conn
                           bwd-dst-conn bwd-dst-iter-conn
@@ -107,8 +108,10 @@
     (release post-diff-weights-iter-tz)
     (release src-conn)
     (release src-iter-conn)
-    (release dst-conn)
-    (release dst-iter-conn)
+    (release fwd-dst-iter-tz)
+    (release dst-transformer)
+    (release fwd-dst-iter-tz)
+    (release dst-iter-transformer)
     (release weights-conn)
     (release weights-iter-conn)
     (release fwd-prim)
@@ -152,7 +155,7 @@
   (diff-input [_]
     dsts)
   (diff-output [_]
-    srcs) ;;TODO reminder, it's (input src-conn)
+    srcs)
   Parameters
   (bias [_]
     bias-tz)
@@ -171,14 +174,8 @@
   (diff-weights-iter [_]
     post-diff-weights-iter-tz)
   IFn
-  (invoke [_]
-    (src-conn)
-    (when src-iter-conn (src-iter-conn))
-    (weights-conn)
-    (weights-iter-conn)
-    (execute! strm fwd-prim fwd-args)
-    (dst-conn)
-    (when dst-iter-conn (dst-iter-conn))
+  (invoke [this]
+    (forward this)
     dsts)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
@@ -189,8 +186,8 @@
     (weights-conn)
     (weights-iter-conn)
     (execute! strm fwd-prim fwd-args)
-    (dst-conn)
-    (when dst-iter-conn (dst-iter-conn))
+    (dst-transformer)
+    (when dst-iter-transformer (dst-iter-transformer))
     this)
   (backward [this]
     (backward-diff this 1.0 0.0 1.0 0.0))
@@ -204,7 +201,10 @@
     (when bwd-dst-iter-conn (bwd-dst-iter-conn))
     (diff-dst-conn)
     (when diff-dst-iter-conn (diff-dst-iter-conn))
-    (execute! strm bwd-prim bwd-args) ;;TODO attention! this accumulates diff weights. I have to initialize something to 0 properly (or simplify current code if accumulation is desirable)
+    (entry! (input diff-weights-conn) 0.0)
+    (entry! (input diff-weights-iter-conn) 0.0)
+    (entry! diff-bias-tz 0.0)
+    (execute! strm bwd-prim bwd-args)
     (diff-weights-conn)
     (when diff-weights-iter-conn (diff-weights-iter-conn))
     (if (= 0.0 scal-g)
@@ -320,9 +320,12 @@
                     weights-conn (connector weights-tz (weights-md train-pd))
                     weights-iter-tz (dnnl-tensor fact weights-desc)
                     weights-iter-conn (connector weights-iter-tz (arg-md train-pd :weights-iter))
-                    dst-conn (connector (dst-md train-pd) dst-tz)
-                    dst-iter-conn (when-let [dst-iter-desc (arg-md train-pd :dst-iter)]
-                                    (connector dst-iter-tz dst-iter-desc))
+                    fwd-dst-tz (dnnl-tensor fact (dst-md train-pd))
+                    dst-transformer (transformer fwd-dst-tz dst-tz)
+                    fwd-dst-iter-tz (when-let [dst-iter-desc (arg-md train-pd :dst-iter)]
+                                      (dnnl-tensor fact dst-iter-desc))
+                    dst-iter-transformer (when (and fwd-dst-iter-tz dst-iter-tz)
+                                           (transformer fwd-dst-iter-tz dst-iter-tz))
                     workspace-tz (when-let [workspace-desc (arg-md train-pd :workspace)]
                                    (dnnl-tensor fact workspace-desc))
                     fwd-prim (primitive train-pd)
@@ -331,17 +334,17 @@
                                               :weights-layer (output weights-conn)
                                               :weights-iter (output weights-iter-conn)
                                               :bias bias-tz
-                                              :dst-layer (input dst-conn)
-                                              :dst-iter (when dst-iter-conn (input dst-iter-conn))
+                                              :dst-layer fwd-dst-tz
+                                              :dst-iter fwd-dst-iter-tz
                                               :workspace workspace-tz})
                     bwd-src-conn (connector src-conn (src-md bwd-pd))
                     bwd-src-iter-conn (when-let [src-iter-desc (arg-md bwd-pd :src-iter)]
                                         (connector src-iter-conn src-iter-desc))
                     bwd-weights-conn (connector weights-conn (arg-md bwd-pd :weights))
                     bwd-weights-iter-conn (connector weights-iter-conn (arg-md bwd-pd :weights-iter))
-                    bwd-dst-conn (connector (input dst-conn) (dst-md train-pd))
+                    bwd-dst-conn (connector fwd-dst-tz (dst-md bwd-pd))
                     bwd-dst-iter-conn (when-let [dst-iter-desc (arg-md bwd-pd :dst-iter)]
-                                        (connector (input dst-iter-conn) dst-iter-desc))
+                                        (connector fwd-dst-iter-tz dst-iter-desc))
                     diff-dst-conn (connector dst-tz (diff-dst-md bwd-pd))
                     diff-dst-iter-conn (when-let [diff-dst-iter-desc (arg-md bwd-pd :diff-dst-iter)]
                                          (connector dst-iter-tz diff-dst-iter-desc))
@@ -355,7 +358,7 @@
                     diff-weights-iter-tz (dnnl-tensor fact weights-desc)
                     post-diff-weights-iter-tz (if post-process-diff? (dnnl-tensor fact weights-desc)
                                                   diff-weights-iter-tz)
-                    diff-weights-iter-conn (connector (diff-weights-md bwd-pd) diff-weights-iter-tz)
+                    diff-weights-iter-conn (connector (arg-md bwd-pd :diff-weights-iter) diff-weights-iter-tz)
                     diff-bias-tz (dnnl-tensor fact bias-desc)
                     bwd-prim (primitive bwd-pd)
                     bwd-args (dnnl-args args {:src-layer (output bwd-src-conn)
@@ -374,13 +377,13 @@
                                               :diff-weights-iter (input diff-weights-iter-conn)
                                               :diff-bias bias-tz})
                     srcs (if src-iter-conn [(input src-conn) (input src-iter-conn)] (input src-conn))
-                    dsts (if dst-iter-conn [dst-tz dst-iter-tz] dst-tz)]
+                    dsts (if dst-iter-tz [dst-tz dst-iter-tz] dst-tz)]
         (->DnnlRnnTraining (flow fact) this srcs dsts
                            bias-tz weights-tz weights-iter-tz dst-tz dst-iter-tz
                            diff-weights-tz post-diff-weights-tz
                            diff-weights-iter-tz post-diff-weights-iter-tz diff-bias-tz
                            src-conn src-iter-conn weights-conn weights-iter-conn
-                           dst-conn dst-iter-conn
+                           fwd-dst-tz dst-transformer fwd-dst-iter-tz dst-iter-transformer
                            fwd-prim fwd-args
                            bwd-src-conn bwd-src-iter-conn bwd-weights-conn bwd-weights-iter-conn
                            bwd-dst-conn bwd-dst-iter-conn
