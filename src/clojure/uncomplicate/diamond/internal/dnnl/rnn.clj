@@ -31,17 +31,17 @@
 ;; ================================ RNN ====================================================
 
 (deftype DnnlRnnInference [strm bluep srcs dsts
-                           src-conn src-iter-conn
-                           bias-tz weights-tz weights-iter-tz dst-tz dst-iter-tz
+                           src-conn src-iter-conn bias-tz
+                           weights-tz weights-iter-tz dst-tz dst-iter-tz
                            fwd-prim fwd-args]
   Releaseable
   (release [_]
     (release src-conn)
+    (release src-iter-conn)
     (release bias-tz)
     (release weights-tz)
-    (release dst-tz)
-    (release src-iter-conn)
     (release weights-iter-tz)
+    (release dst-tz)
     (release dst-iter-tz)
     (release fwd-prim))
   Info
@@ -83,37 +83,36 @@
     (AFn/applyToHelper this xs)))
 
 (deftype DnnlRnnTraining [strm bluep srcs dsts
-                          bias-tz weights-tz weights-iter-tz dst-tz dst-iter-tz
-                          diff-weights-tz post-diff-weights-tz
-                          diff-weights-iter-tz post-diff-weights-iter-tz diff-bias-tz
-                          src-conn src-iter-conn weights-conn weights-iter-conn
+                          src-conn src-iter-conn bias-tz
+                          weights-tz weights-conn weights-iter-tz weights-iter-conn
+                          dst-tz dst-iter-tz
                           fwd-dst-tz dst-transformer fwd-dst-iter-tz dst-iter-transformer
-                          fwd-prim fwd-args
-                          bwd-src-conn bwd-src-iter-conn bwd-weights-conn bwd-weights-iter-conn
+                          workspace-tz fwd-prim fwd-args
+                          bwd-src-conn bwd-src-iter-conn
+                          bwd-weights-conn bwd-weights-iter-conn
                           bwd-dst-conn bwd-dst-iter-conn
                           diff-dst-conn diff-dst-iter-conn
-                          bwd-prim bwd-args
-                          diff-src-conn diff-src-iter-conn diff-weights-conn diff-weights-iter-conn]
+                          diff-src-conn diff-src-iter-conn
+                          diff-weights-tz post-diff-weights-tz diff-weights-conn
+                          diff-weights-iter-tz post-diff-weights-iter-tz diff-weights-iter-conn
+                          diff-bias-tz
+                          bwd-prim bwd-args]
   Releaseable
   (release [_]
-    (release bias-tz)
-    (release weights-tz)
-    (release dst-tz)
-    (release weights-iter-tz)
-    (release dst-iter-tz)
-    (release diff-weights-tz)
-    (release post-diff-weights-tz)
-    (release diff-bias-tz)
-    (release diff-weights-iter-tz)
-    (release post-diff-weights-iter-tz)
     (release src-conn)
     (release src-iter-conn)
-    (release fwd-dst-iter-tz)
+    (release bias-tz)
+    (release weights-tz)
+    (release weights-conn)
+    (release weights-iter-tz)
+    (release weights-iter-conn)
+    (release dst-tz)
+    (release dst-iter-tz)
+    (release fwd-dst-tz)
     (release dst-transformer)
     (release fwd-dst-iter-tz)
     (release dst-iter-transformer)
-    (release weights-conn)
-    (release weights-iter-conn)
+    (release workspace-tz)
     (release fwd-prim)
     (release bwd-src-conn)
     (release bwd-src-iter-conn)
@@ -123,12 +122,17 @@
     (release bwd-dst-iter-conn)
     (release diff-dst-conn)
     (release diff-dst-iter-conn)
-    (release bwd-prim)
-    (release bwd-args)
     (release diff-src-conn)
     (release diff-src-iter-conn)
+    (release diff-weights-tz)
+    (release post-diff-weights-tz)
     (release diff-weights-conn)
-    (release diff-weights-iter-conn))
+    (release diff-weights-iter-tz)
+    (release post-diff-weights-iter-tz)
+    (release diff-weights-iter-conn)
+    (release diff-bias-tz)
+    (release bwd-prim)
+    (release bwd-args))
   Info
   (info [this]
     {:bias (info bias-tz)
@@ -284,12 +288,12 @@
   (invoke [this srcs]
     (let [[src-tz src-iter-tz] (if (sequential? srcs) srcs [srcs nil])]
       (let-release [src-conn (connector src-tz (src-md infer-pd))
-                    bias-tz (dnnl-tensor fact bias-desc)
-                    weights-tz (dnnl-tensor fact (weights-md infer-pd))
-                    dst-tz (dnnl-tensor fact (dst-md infer-pd))
                     src-iter-conn (when-let [src-iter-desc (arg-md infer-pd :src-iter)]
                                     (connector src-iter-tz src-iter-desc))
+                    bias-tz (dnnl-tensor fact bias-desc)
+                    weights-tz (dnnl-tensor fact (weights-md infer-pd))
                     weights-iter-tz (dnnl-tensor fact (arg-md infer-pd :weights-iter))
+                    dst-tz (dnnl-tensor fact (dst-md infer-pd))
                     dst-iter-tz (when-let [dst-iter-desc (arg-md infer-pd :dst-iter)]
                                   (dnnl-tensor fact dst-iter-desc))
                     workspace-tz (when-let [workspace-desc (arg-md infer-pd :workspace)]
@@ -348,9 +352,6 @@
                     diff-dst-conn (connector dst-tz (diff-dst-md bwd-pd))
                     diff-dst-iter-conn (when-let [diff-dst-iter-desc (arg-md bwd-pd :diff-dst-iter)]
                                          (connector dst-iter-tz diff-dst-iter-desc))
-                    diff-src-conn (connector (diff-src-md bwd-pd) src-tz)
-                    diff-src-iter-conn (when-let [diff-src-iter-desc (arg-md bwd-pd :diff-src-iter)]
-                                         (connector diff-src-iter-desc src-iter-tz))
                     diff-weights-tz (dnnl-tensor fact weights-desc)
                     post-diff-weights-tz (if post-process-diff? (dnnl-tensor fact weights-desc)
                                              diff-weights-tz)
@@ -360,6 +361,9 @@
                                                   diff-weights-iter-tz)
                     diff-weights-iter-conn (connector (arg-md bwd-pd :diff-weights-iter) diff-weights-iter-tz)
                     diff-bias-tz (dnnl-tensor fact bias-desc)
+                    diff-src-conn (connector (diff-src-md bwd-pd) src-tz)
+                    diff-src-iter-conn (when-let [diff-src-iter-desc (arg-md bwd-pd :diff-src-iter)]
+                                         (connector diff-src-iter-desc src-iter-tz))
                     bwd-prim (primitive bwd-pd)
                     bwd-args (dnnl-args args {:src-layer (output bwd-src-conn)
                                               :src-iter (when bwd-src-iter-conn (output bwd-src-iter-conn))
@@ -379,17 +383,20 @@
                     srcs (if src-iter-conn [(input src-conn) (input src-iter-conn)] (input src-conn))
                     dsts (if dst-iter-tz [dst-tz dst-iter-tz] dst-tz)]
         (->DnnlRnnTraining (flow fact) this srcs dsts
-                           bias-tz weights-tz weights-iter-tz dst-tz dst-iter-tz
-                           diff-weights-tz post-diff-weights-tz
-                           diff-weights-iter-tz post-diff-weights-iter-tz diff-bias-tz
-                           src-conn src-iter-conn weights-conn weights-iter-conn
+                           src-conn src-iter-conn bias-tz
+                           weights-tz weights-conn weights-iter-tz weights-iter-conn
+                           dst-tz dst-iter-tz
                            fwd-dst-tz dst-transformer fwd-dst-iter-tz dst-iter-transformer
+                           workspace-tz
                            fwd-prim fwd-args
                            bwd-src-conn bwd-src-iter-conn bwd-weights-conn bwd-weights-iter-conn
                            bwd-dst-conn bwd-dst-iter-conn
                            diff-dst-conn diff-dst-iter-conn
-                           bwd-prim bwd-args
-                           diff-src-conn diff-src-iter-conn diff-weights-conn diff-weights-iter-conn))))
+                           diff-src-conn diff-src-iter-conn
+                           diff-weights-tz post-diff-weights-tz diff-weights-conn
+                           diff-weights-iter-tz post-diff-weights-iter-tz diff-weights-iter-conn
+                           diff-bias-tz
+                           bwd-prim bwd-args))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
