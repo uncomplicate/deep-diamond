@@ -434,17 +434,54 @@
 
 ;; ========================== Recurrent networks =========================================
 
-(defn rnn
+(defn rnn-op
   ([fact src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
-   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type
+   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type
                       activ dir lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc activ dir lrs src-iter? dst-iter?]
-   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc nil
+   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
                       activ dir lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs src-iter? dst-iter?]
-   (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc nil
+   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
                       :relu :unidirectional lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs]
-   (rnn fact src-desc dst-desc lrs false false))
+   (rnn-op fact src-desc dst-desc lrs false false))
   ([src-desc dst-desc lrs]
-   (rnn *diamond-factory* src-desc dst-desc lrs)))
+   (rnn-op *diamond-factory* src-desc dst-desc lrs)))
+
+(defn coerce-rnn-dst [src-desc dst-desc]
+  (let [src-shape (shape src-desc)
+        dst-shape (shape dst-desc)
+        t (get src-shape 0)
+        n (get src-shape 1)]
+    (if (< 1 (count dst-shape))
+      dst-desc
+      {:shape (if (= 0 (count dst-shape))
+                src-shape
+                [t n (get dst-shape 0)])
+       :data-type (data-type dst-desc)
+       :layout (layout dst-desc)})))
+
+(defn rnn
+  ([fact src-desc dst-desc lrs activ args]
+   (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
+         beta (or (:beta args) 0.0)
+         dst-desc (coerce-rnn-dst src-desc dst-desc)]
+     (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc lrs activ alpha beta
+                        (:weights-type args) (:src-iter args) (:dst-iter args))))
+  ([fact src-desc dst-desc lrs args]
+   (rnn fact src-desc dst-desc lrs nil args))
+  ([dst-desc lrs activ args]
+   (fn
+     ([fact src-desc]
+      (rnn fact src-desc dst-desc lrs activ args))
+     ([src-desc]
+      (rnn *diamond-factory* src-desc dst-desc lrs activ args))))
+  ([lrs activ args]
+   (rnn lrs [] activ args))
+  ([lrs activ]
+   (rnn lrs [] activ nil))
+  ([lrs]
+   (rnn lrs [] :relu nil))
+  ([]
+   (rnn 1 [] :relu nil)))

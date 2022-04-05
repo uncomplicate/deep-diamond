@@ -9,23 +9,12 @@
 (ns uncomplicate.diamond.internal.dnnl.rnn-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons [core :refer [with-release]]]
-            [uncomplicate.neanderthal
-             [core :refer [transfer! native view-vctr view-ge cols]]
-             [real :refer [entry! entry]]
-             [native :refer [fv]]
-             [random :refer [rand-uniform!]]
-             [math :as math]]
-            [uncomplicate.diamond
-             [tensor :refer [*diamond-factory* tensor connector transformer
-                             desc shape input output view-tz batcher]]
-             [dnn :refer [network init! train cost train rnn]]
-             [dnn-test :refer :all]]
-            [uncomplicate.diamond.internal.protocols
-             :refer [diff-weights forward backward weights bias]]
+            [uncomplicate.diamond.dnn-test :refer :all]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]])
   (:import clojure.lang.ExceptionInfo))
 
 (with-release [fact (dnnl-factory)]
   (test-vanilla-rnn-inference fact)
   (test-vanilla-rnn-inference-no-iter fact)
-  (test-vanilla-rnn-training fact))
+  (test-vanilla-rnn-training fact)
+  (test-rnn-inference fact))

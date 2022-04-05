@@ -17,8 +17,7 @@
              [vect-math :refer [div!]]]
             [uncomplicate.diamond
              [dnn :refer :all]
-             [tensor :refer :all]
-             [dnn-test :refer :all]]
+             [tensor :refer :all]]
             [uncomplicate.diamond.internal.protocols
              :refer [diff-weights forward backward diff-input diff-output
                      weights bias *workspace* inf-ws-size train-ws-size create-workspace
@@ -892,10 +891,10 @@
 (defn test-vanilla-rnn-inference [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
-                 rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 true true)
+                 rnn-bluep-iter (rnn-op fact input-tz [2 1 2] 2 true true)
                  rnn-iter (rnn-bluep-iter [input-tz src-iter-tz])
-                 input-weights (connector (.weights-desc rnn-bluep-iter) (weights rnn-iter))
-                 input-weights-iter (connector (.weights-desc rnn-bluep-iter) (weights-iter rnn-iter))]
+                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights rnn-iter))
+                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter rnn-iter))]
     (facts "Vanilla RNN inference operation."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
@@ -912,10 +911,10 @@
 
 (defn test-vanilla-rnn-inference-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 rnn-bluep-no-iter (rnn fact input-tz [2 1 2] 2)
+                 rnn-bluep-no-iter (rnn-op fact input-tz [2 1 2] 2)
                  rnn-no-iter (rnn-bluep-no-iter input-tz)
-                 input-weights (connector (.weights-desc rnn-bluep-no-iter) (weights rnn-no-iter))
-                 input-weights-iter (connector (.weights-desc rnn-bluep-no-iter) (weights-iter rnn-no-iter))]
+                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights rnn-no-iter))
+                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter rnn-no-iter))]
     (facts "Vanilla RNN inference operation."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
@@ -929,13 +928,13 @@
            => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375])))
 
 
-(defn test-vanilla-rnn-training [fact]
+(defn test-vanilla-rnn-training [fact] ;;TODO continue here. check whether all those connectors and shit match up in training. Also, add a few tensors you create to the constructor, so they can later be released!
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  dst-tz (tensor fact [2 1 2] :float :tnc)
                  src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
                  dst-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
-                 rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 true true)
-                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz] [dst-tz dst-iter-tz] false false)]
+                 rnn-bluep-iter (rnn-op fact input-tz [2 1 2] 2 true true)
+                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz] false false)]
     (facts "Vanilla RNN inference operation."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (weights rnn-iter))
@@ -959,3 +958,24 @@
            (seq (diff-weights-iter rnn-iter))
            => (map float [-2.5480000972747803 1.3159998655319214 -4.185999870300293 2.161999464035034
                           8.73799991607666 -11.822000503540039 13.395999908447266 -18.124000549316406]))))
+
+(defn test-rnn-inference [fact]
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+                 src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
+                 rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 :relu {:src-iter true :dst-iter true})
+                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz])
+                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights rnn-iter))
+                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter rnn-iter))]
+    (facts "Vanilla RNN layer inference."
+           (transfer! [2 3 0.2 0.3] input-tz)
+           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
+           (input-weights)
+           (transfer! [100 200 300 400 0.01 0.02 0.03 0.04] (input input-weights-iter))
+           (input-weights-iter)
+           (transfer! [0.3 0.7 1 2] (bias rnn-iter))
+           (map (comp seq native) (rnn-iter))
+           => [[2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
+               [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]]
+           (map (comp seq native) (output rnn-iter))
+           => [[2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
+               [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]])))
