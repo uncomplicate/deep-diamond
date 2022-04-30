@@ -179,7 +179,7 @@
       :inference {:src src-desc
                   :weights weights-desc
                   :dst dst-desc}
-      :training {:bias bias-desc
+      :training {:src src-desc
                  :weights weights-desc
                  :dst dst-desc}
       nil))

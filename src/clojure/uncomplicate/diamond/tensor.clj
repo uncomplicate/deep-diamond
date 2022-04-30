@@ -182,16 +182,22 @@
   {:shape [2 3], :data-type :float, :layout [3 1]}
   [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
   "
-  ([tz-factory shape type layout]
-   (if (sequential? shape)
+  ([tz-factory shape type layout batch-index]
+   (if (and (sequential? shape) (<= 0 (long batch-index)));;TODO error messages
      (let [fact (api/diamond-factory tz-factory)]
-       (api/create-tensor fact (api/create-tensor-desc fact shape type layout) true))
+       (api/create-tensor fact (api/create-tensor-desc fact shape type layout) batch-index true))
      (dragan-says-ex "Tensor shape has to be sequential." {:shape (class shape)})))
+  ([tz-factory shape type layout]
+   (tensor tz-factory shape type layout
+           (if (and (keyword? layout) (clojure.string/includes? (name layout) "t")) 1 0)))
   ([shape type layout]
    (tensor *diamond-factory* shape type layout))
   ([tz-factory desc]
-   (let [fact (api/diamond-factory tz-factory)]
-     (api/create-tensor fact (api/create-tensor-desc fact desc) true)))
+   (let [fact (api/diamond-factory tz-factory)
+         layout (layout desc)]
+     (api/create-tensor fact (api/create-tensor-desc fact desc)
+                        (if (and (keyword? layout) (clojure.string/includes? (name layout) "t")) 1 0)
+                        true)))
   ([desc]
    (tensor *diamond-factory* desc)))
 
@@ -248,7 +254,7 @@
   [   3.00    4.00    5.00 ]
   "
   ([x y]
-   (batcher x y (min (long ((shape x) 0)) (long ((shape y) 0)))))
+   (batcher x y (min (long ((shape x) (api/batch-index x))) (long ((shape y) (api/batch-index y))))))
   ([x y ^long mb-size]
    (api/create-batcher (api/diamond-factory x) x y mb-size)))
 

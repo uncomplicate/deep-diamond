@@ -34,7 +34,7 @@
                                dnnl-split-blueprint dnnl-concat-blueprint dnnl-fc-blueprint
                                dnnl-gaussian-dropout-blueprint dnnl-batch-norm-layer-blueprint
                                dnnl-pooling-blueprint dnnl-branch-blueprint dnnl-sum-blueprint]]
-             [rnn :refer [dnnl-rnn-op-blueprint dnnl-rnn-blueprint]]])
+             [rnn :refer [dnnl-rnn-op-blueprint dnnl-rnn-blueprint dnnl-ending-blueprint]]])
   (:import [uncomplicate.neanderthal.internal.host CBLAS LAPACK MKL]
            uncomplicate.neanderthal.internal.api.RealBufferAccessor
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor))
@@ -319,6 +319,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (desc tz-desc))
   (create-tensor [this tensor-desc _]
     (dnnl-tensor this tensor-desc))
+  (create-tensor [this tensor-desc batch-index _]
+    (dnnl-tensor this tensor-desc batch-index))
   (create-transformer [_ in-tz out-tz]
     (dnnl-transformer eng strm (view in-tz) (view out-tz)))
   (create-shuffler [_ src-tz dst-tz]
@@ -360,6 +362,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-rnn-op-blueprint this eng src-desc dst-desc weights-type activ 0.0 0.0 dir lrs src-iter? dst-iter?))
   (rnn-blueprint [fact src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
     (dnnl-rnn-blueprint fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?))
+  (ending-blueprint [fact src-desc dst-type]
+    (dnnl-ending-blueprint fact eng src-desc dst-type))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))

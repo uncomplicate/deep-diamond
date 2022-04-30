@@ -10,18 +10,18 @@
   (:require [uncomplicate.commons.core :refer [Releaseable release let-release with-release Info info view]]
             [uncomplicate.neanderthal
              [core :refer [axpby! dim transfer! scal! view-vctr entry!]]
-             [block :refer [buffer data-accessor initialize]]]
+             [block :refer [buffer initialize]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
-             :refer [Transfer input output connector revert shape layout TensorDescriptor view-tz
-                     transformer]]
+             :refer [Transfer input output connector revert shape layout TensorDescriptor view-tz]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
                       DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
                       DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
-                      inf-desc train-desc Initializable init RnnParameters DiffRnnParameters]]
-             [utils :refer [transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
+                      inf-desc train-desc Initializable init RnnParameters DiffRnnParameters
+                      batch-index]]
+             [utils :refer [default-strides transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
@@ -77,10 +77,10 @@
   Initializable
   (init [this init-fn]
     (init-fn weights-tz)
-    (entry! weights-iter-tz 0.0)
+    (init-fn weights-iter-tz)
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
-        (initialize (data-accessor src-iter-tz) (data (buffer src-iter-tz)) 0.0)))
+        (initialize src-iter-tz (data (buffer src-iter-tz)) 0.0)))
     this)
   IFn
   (invoke [_]
@@ -184,10 +184,10 @@
   Initializable
   (init [this init-fn]
     (init-fn weights-tz)
-    (entry! weights-iter-tz 0.0)
+    (init-fn weights-iter-tz)
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
-        (initialize (data-accessor src-iter-tz) (data (buffer src-iter-tz)) 0.0)))
+        (initialize src-iter-tz (data (buffer src-iter-tz)) 0.0)))
     this)
   IFn
   (invoke [this]
@@ -287,6 +287,21 @@
                 :weights (weights-md train-pd)
                 :weights-iter (arg-md train-pd :weights-iter)
                 :dst (dst-md train-pd)}})
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [_]
+    (dst-md infer-pd))
+  (train-desc [_]
+    (dst-md train-pd))
+  TensorDescriptor
+  (shape [this]
+    (shape (train-desc this)))
+  (data-type [this]
+    (data-type (train-desc this)))
+  (layout [this]
+    (layout (train-desc this)))
   IFn
   (invoke [this srcs]
     (let [[src-tz src-iter-tz] (if (sequential? srcs) srcs [srcs nil])]
@@ -296,7 +311,7 @@
                     bias-tz (dnnl-tensor fact bias-desc)
                     weights-tz (dnnl-tensor fact (weights-md infer-pd))
                     weights-iter-tz (dnnl-tensor fact (arg-md infer-pd :weights-iter))
-                    dst-tz (dnnl-tensor fact (dst-md infer-pd))
+                    dst-tz (dnnl-tensor fact (dst-md infer-pd) 1)
                     dst-iter-tz (when-let [dst-iter-desc (arg-md infer-pd :dst-iter)]
                                   (dnnl-tensor fact dst-iter-desc))
                     workspace-tz (when-let [workspace-desc (arg-md infer-pd :workspace)]
@@ -326,7 +341,7 @@
                     weights-conn (connector weights-tz (weights-md train-pd))
                     weights-iter-tz (dnnl-tensor fact weights-desc)
                     weights-iter-conn (connector weights-iter-tz (arg-md train-pd :weights-iter))
-                    dst-tz (dnnl-tensor fact (dst-md train-pd))
+                    dst-tz (dnnl-tensor fact (dst-md train-pd) 1)
                     dst-iter-tz (when-let [dst-iter-desc (arg-md train-pd :dst-iter)]
                                   (dnnl-tensor fact dst-iter-desc))
                     workspace-tz (when-let [workspace-desc (arg-md train-pd :workspace)]
@@ -348,7 +363,7 @@
                     bwd-dst-conn (connector dst-tz (dst-md bwd-pd))
                     bwd-dst-iter-conn (when-let [dst-iter-desc (arg-md bwd-pd :dst-iter)]
                                         (connector dst-iter-tz dst-iter-desc))
-                    diff-dst-tz (dnnl-tensor fact (diff-dst-md bwd-pd))
+                    diff-dst-tz (dnnl-tensor fact (diff-dst-md bwd-pd) 1)
                     diff-dst-iter-tz (when-let [diff-dst-iter-desc (arg-md bwd-pd :diff-dst-iter)]
                                        (dnnl-tensor fact diff-dst-iter-desc))
                     diff-weights-tz (dnnl-tensor fact weights-desc)
@@ -441,10 +456,162 @@
 
 (defn dnnl-rnn-blueprint [fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
-                 dst-desc (memory-desc (or (shape dst-desc) (shape src-desc))
+                 dst-desc (memory-desc (shape src-desc)
                                        (or (tz/data-type dst-desc) (tz/data-type src-desc))
                                        :any)]
     (let-release [rnn-op-bluep (dnnl-rnn-op-blueprint fact eng src-desc dst-desc weights-type
                                                       activ alpha beta :unidirectional lrs
                                                       src-iter? dst-iter?)]
-      (->RnnLayerBlueprint fact :dense rnn-op-bluep))))
+      (->RnnLayerBlueprint fact :rnn rnn-op-bluep))))
+
+;; ================================= Ending Layer ==============================
+
+(deftype DnnlEnding [fact bluep transform-src dst-tz transform-diff]
+  Releaseable
+  (release [_]
+    (release transform-src)
+    (release dst-tz)
+    (release transform-diff))
+  Object
+  (hashCode [_]
+    (hash-combine (hash :ending) (shape dst-tz)))
+  (equals [_ other]
+    (and (instance? DnnlEnding other)
+         (= transform-src (.transform-src ^DnnlEnding other))
+         (= transform-diff (.transform-diff ^DnnlEnding other))
+         (= dst-tz (.dst-tz ^DnnlEnding other))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src transform-src
+     :dst dst-tz
+     :topology :ending})
+  (info [this info-type]
+    (case info-type
+      :src transform-src
+      :dst dst-tz
+      :topology :ending
+      (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    (input transform-src))
+  (output [_]
+    dst-tz)
+  DiffTransfer
+  (diff-input [_]
+    dst-tz)
+  (diff-output [_]
+    (output transform-diff))
+  ParametersSeq
+  (parameters [_]
+    [])
+  Initializable
+  (init [this _]
+    this)
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    (transform-src)
+    this)
+  (backward [this]
+    this)
+  (backward [this _]
+    (transform-diff)
+    this)
+  IFn
+  (invoke [this]
+    (transform-src)
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method DnnlEnding
+  [layer ^java.io.Writer w]
+  (.write w (format "#Ending[dst:%s]" (output layer))))
+
+(deftype DnnlEndingBlueprint [fact eng src-desc dst-desc]
+  Releaseable
+  (release [_]
+    (release src-desc)
+    (release dst-desc))
+  Object
+  (hashCode [_]
+    (-> (hash :ending)
+        (hash-combine src-desc)
+        (hash-combine dst-desc)))
+  (equals [_ other]
+    (and (instance? DnnlEndingBlueprint other)
+         (equal-desc? src-desc (.src-desc ^DnnlEndingBlueprint other))
+         (equal-desc? dst-desc (.dst-desc ^DnnlEndingBlueprint other))))
+  (toString [this]
+    (str {:shape (shape this)
+          :topology :ending}))
+  Info
+  (info [this]
+    {:shape (shape this)
+     :topology :ending})
+  (info [this info-type]
+    (case info-type
+      :shape (shape this)
+      :topology :ending
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [this]
+    dst-desc)
+  (train-desc [_]
+    dst-desc)
+  TensorDescriptor
+  (shape [_]
+    (shape dst-desc))
+  (data-type [_]
+    (data-type dst-desc))
+  (layout [_]
+    (layout dst-desc))
+  IFn
+  (invoke [this prev-layer]
+    (let [src-tz (output prev-layer)]
+      (let-release [src-sub (tz/offset! (view-tz src-tz (shape dst-desc))
+                                        (* (dec (long (get (shape src-tz) 0)))
+                                           (long (get (strides src-tz) 0))))
+                    dst-tz (dnnl-tensor fact dst-desc)
+                    transform-src (dnnl-transformer eng (flow fact) src-sub dst-tz)
+                    transform-diff (dnnl-transformer eng (flow fact) dst-tz src-sub)]
+        (->DnnlEnding fact this transform-src dst-tz transform-diff))))
+  (invoke [this prev-layer _ _]
+    (let [src-tz (output prev-layer)
+          diff-tz (diff-input prev-layer)]
+      (let-release [src-sub (tz/offset! (view-tz src-tz (shape dst-desc))
+                                        (* (dec (long (get (shape src-tz) 0)))
+                                           (long (get (strides src-tz) 0))))
+                    diff-sub (tz/offset! (view-tz (diff-input prev-layer) (shape dst-desc))
+                                         (* (dec (long (get (shape diff-tz) 0)))
+                                            (long (get (strides diff-tz) 0))))
+                    dst-tz (dnnl-tensor fact dst-desc)
+                    transform-src (dnnl-transformer eng (flow fact) src-sub dst-tz)
+                    transform-diff (dnnl-transformer eng (flow fact) dst-tz diff-sub)]
+        (->DnnlEnding fact this transform-src dst-tz transform-diff))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method DnnlEnding
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
+(defn dnnl-ending-blueprint [fact eng src-desc dst-type]
+  (let-release [src-desc (desc src-desc)
+                dst-shape (vec (rest (shape src-desc)))
+                dst-desc (memory-desc dst-shape (or dst-type (data-type src-desc))
+                                      (default-strides dst-shape))]
+    (->DnnlEndingBlueprint fact eng src-desc dst-desc)))
+
+(defmethod transfer! [DnnlEnding Object]
+  [source destination]
+  destination)

@@ -621,8 +621,6 @@
                  bnorm-train (bnorm-bluep input-tz true)]
 
     (transfer! [-1 0 1 2 3 4 5 6] input-tz)
-    (doall (map transfer! [[0.5 1.5] [1 1] [0 0] [0 0]] (parameters bnorm-train)))
-
     (facts
      "Batch normalization forward test."
      (doall (map transfer! [[0.5 1.5] [1 1] [0] [0]] (parameters bnorm-train)))
@@ -928,7 +926,7 @@
            => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375])))
 
 
-(defn test-vanilla-rnn-training [fact] ;;TODO continue here. check whether all those connectors and shit match up in training. Also, add a few tensors you create to the constructor, so they can later be released!
+(defn test-vanilla-rnn-training [fact] ;;TODO continue here. check whether all those connectors etc. match up in training. Also, add a few tensors you create to the constructor, so they can later be released!
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  dst-tz (tensor fact [2 1 2] :float :tnc)
                  src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
@@ -959,6 +957,31 @@
            => (map float [-2.5480000972747803 1.3159998655319214 -4.185999870300293 2.161999464035034
                           8.73799991607666 -11.822000503540039 13.395999908447266 -18.124000549316406]))))
 
+(defn test-vanilla-rnn-training-no-iter [fact]
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+                 dst-tz (tensor fact [2 1 2] :float :tnc)
+                 rnn-bluep-iter (rnn-op fact input-tz [2 1 2] 2 false false)
+                 rnn-no-iter (rnn-bluep-iter input-tz false false)]
+    (facts "Vanilla RNN inference operation."
+           (transfer! [2 3 0.2 0.3] input-tz)
+           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (weights rnn-no-iter))
+           (transfer! [0.3 0.7 1 2] (bias rnn-no-iter))
+           (forward rnn-no-iter)
+           (seq (native (output rnn-no-iter)))
+           => [2.570000171661377 3.940000057220459 1.5529999732971191 2.680000066757202]
+           (transfer! [1.1 -2.2 3.3 -4.4] (diff-input rnn-no-iter))
+           (backward rnn-no-iter)
+           (seq (native (diff-output rnn-no-iter)))
+           => (map float [-0.20900002121925354 -0.47300001978874207 -0.27500003576278687 -0.627000093460083])
+           (seq (native (weights rnn-no-iter))) => (map float [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+           (seq (native (weights-iter rnn-no-iter))) => (map float [0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0])
+           (seq (native (diff-weights rnn-no-iter)))
+           => (map float [-1.2540000677108765 -1.7380001544952393 -1.8810001611709595 -2.6070003509521484
+                          2.8930001258850098 -4.884000301361084 5.368000030517578 -8.843999862670898])
+           (seq (native (diff-weights-iter rnn-no-iter)))
+           => (map float [-1.0780001878738403 -1.386000394821167 -1.7710000276565552 -2.2770004272460938
+                          7.951900005340576 -12.487200736999512 13.178000450134277 -20.46000099182129]))))
+
 (defn test-rnn-inference [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
@@ -979,3 +1002,64 @@
            (map (comp seq native) (output rnn-iter))
            => [[2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
                [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]])))
+
+(defn test-rnn-training [fact]
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+                 src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
+                 rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 :relu {:src-iter true :dst-iter true})
+                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz] nil :sgd)]
+    (facts "Vanilla RNN layer inference."
+           (transfer! [2 3 0.2 0.3] input-tz)
+           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (weights rnn-iter))
+           (transfer! [100 200 300 400 0.01 0.02 0.03 0.04] (weights-iter rnn-iter))
+           (transfer! [0.3 0.7 1 2] (bias rnn-iter))
+           (map (comp seq native) (output (forward rnn-iter [1 0 0 true])))
+           => [[2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
+               [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]]
+           (map (comp seq native) (rnn-iter))
+           => [[2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
+               [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]]
+           (transfer! [1.1 -2.2 3.3 -4.4] (first (diff-input rnn-iter)))
+           (transfer! [-1 2 0.1 -0.2] (second (diff-input rnn-iter)))
+           (backward rnn-iter [nil 1 0 0 true])
+           (map (comp seq native) (diff-output rnn-iter))
+           => [[-33.62968063354492 -66.7193832397461 0.0059999702498316765 -0.1700000762939453]
+               [-33629.6796875 -66719.3828125 -0.03522000089287758 -0.060019999742507935]]
+           (map float (seq (weights rnn-iter))) => (map float [-10.335526 341.7086 -15.3532915
+                                                               512.6629 -2824.5525 3823.4805
+                                                               -4084.8203 5529.8047])
+           (map float (seq (weights-iter rnn-iter))) => (map float [102.548 198.684 304.186 397.838
+                                                                    -8.728 11.842001 -13.366 18.164001]))))
+
+(defn test-rnn-training-no-iter [fact]
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+                 rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 :relu {:src-false true :dst-iter false})
+                 rnn-no-iter (rnn-bluep-iter input-tz nil :sgd)]
+    (facts "Vanilla RNN layer inference."
+           (transfer! [2 3 0.2 0.3] input-tz)
+           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (weights rnn-no-iter))
+           (transfer! [0.3 0.7 1 2] (bias rnn-no-iter))
+           (forward rnn-no-iter [1 0 0 true])
+           (seq (native (output rnn-no-iter)))
+           => [2.570000171661377 3.940000057220459 1.5529999732971191 2.680000066757202]
+           (seq (native (output rnn-no-iter)))
+           => [2.570000171661377 3.940000057220459 1.5529999732971191 2.680000066757202]
+           (transfer! [1.1 -2.2 3.3 -4.4] (diff-input rnn-no-iter))
+           (backward rnn-no-iter [nil 1 0 0 true])
+           (seq (native (diff-output rnn-no-iter)))
+           => [-0.20900002121925354 -0.47300001978874207 -0.27500003576278687 -0.627000093460083])))
+
+(defn test-ending [fact]
+  (with-release [src-tz (tensor fact [3 4 2] :float :tnc)
+                 edg-blueprint (ending fact src-tz nil)
+                 edg (edg-blueprint src-tz nil nil)]
+    (facts "Test transfer of an ending of a time series."
+           (transfer! (range) src-tz)
+           (forward edg nil)
+           (shape (output edg)) => [4 2]
+           (layout (output edg)) => [2 1]
+           (seq (output edg)) => (range 16.0 24.0)
+           (transfer! (range 100 200) (diff-input edg))
+           (backward edg nil)
+           (seq (output edg)) => (range 100.0 108.0)
+           (seq src-tz) => (into (vec (range 0.0 16.0)) (range 100.0 108.0)))))

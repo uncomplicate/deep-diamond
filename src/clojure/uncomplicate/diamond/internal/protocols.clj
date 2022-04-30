@@ -15,7 +15,7 @@
 
 (defprotocol TensorFactory
   (create-tensor-desc [this desc] [this shape type format])
-  (create-tensor [this desc init])
+  (create-tensor [this desc batch-index init] [this desc init])
   (create-transformer [this in out])
   (create-batcher [this src dst mb-size])
   (create-shuffler [this src dst])
@@ -43,7 +43,8 @@
 
 (defprotocol RnnFactory
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?])
-  (rnn-blueprint [fact src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]))
+  (rnn-blueprint [fact src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?])
+  (ending-blueprint [fact src-desc dst-type]))
 
 (defprotocol CostFactory
   (quadratic-cost [this last-layer train-tz])
@@ -90,3 +91,6 @@
   (train-ws-size [this]))
 
 (def ^:dynamic *workspace* nil)
+
+(defprotocol BatchDescriptor
+  (batch-index [this]))

@@ -23,15 +23,17 @@
             SequentialNetworkTraining]))
 
 (defn map-channel
-  ([fact channel td flag offset-bytes]
+  ([fact channel td flag offset-bytes n-index]
    (let [fact (diamond-factory fact)
          size (size (desc td))]
      (let-release [buf (mapped-buffer channel offset-bytes size flag)]
-       (dnnl-tensor* fact td buf true))))
-  ([fact channel td flag]
-   (map-channel fact channel td flag 0))
+       (dnnl-tensor* fact td buf n-index true))))
+  ([fact channel td flag offset-bytes]
+   (map-channel fact channel td flag offset-bytes 0))
+  ([fact channel td n-index]
+   (map-channel fact channel td :read-write n-index))
   ([fact channel td]
-   (map-channel fact channel td :read-write)))
+   (map-channel fact channel td :read-write 0)))
 
 (defn ^:private transfer-network! [net channel option]
   (reduce (fn [pos layer]

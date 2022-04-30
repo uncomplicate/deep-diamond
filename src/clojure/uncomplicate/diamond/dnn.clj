@@ -337,8 +337,8 @@
           (train* net cost! epochs hyperparam))
         options))
   ([net in-batcher out-batcher cost! epochs hyperparam]
-   (let [b-size (long (first (shape (input in-batcher))))
-         mb-size (long (first (shape (output in-batcher))))
+   (let [b-size (.src-cnt in-batcher);;TODO extract protocol
+         mb-size (.mb-size in-batcher);;TODO
          mb-count (quot b-size mb-size)
          [eta-decay eta-0 eta-tau]
          (let [eta (first hyperparam)]
@@ -400,8 +400,8 @@
          :default (train* net in out cost! options))))
 
 (defn ^:private infer* [net in-batcher out-batcher]
-  (let [b-size (long (first (shape (input in-batcher))))
-        mb-size (long (first (shape (output in-batcher))))
+  (let [b-size (.src-cnt in-batcher);;TODO extract protocol
+        mb-size (.mb-size in-batcher);;TODO
         mb-count (quot b-size mb-size)
         mb-rem (rem b-size mb-size)]
     (dotimes [n mb-count]
@@ -425,8 +425,10 @@
            (infer* net in out-batcher))
          :default (infer* net in out)))
   ([net in]
-   (let [net-out (output net)]
-     (let-release [out (tensor net (into [(get (shape (input in)) 0)] (rest (shape net-out)))
+   (let [net-out (output net)
+         shape-out (shape net-out)]
+     (let-release [out (tensor net (assoc shape-out (api/batch-index net-out)
+                                          (get (shape (input in)) (api/batch-index (input in))))
                                (data-type net-out) (layout net-out))]
        (infer net in out)))))
 
@@ -449,24 +451,10 @@
   ([src-desc dst-desc lrs]
    (rnn-op *diamond-factory* src-desc dst-desc lrs)))
 
-(defn coerce-rnn-dst [src-desc dst-desc]
-  (let [src-shape (shape src-desc)
-        dst-shape (shape dst-desc)
-        t (get src-shape 0)
-        n (get src-shape 1)]
-    (if (< 1 (count dst-shape))
-      dst-desc
-      {:shape (if (= 0 (count dst-shape))
-                src-shape
-                [t n (get dst-shape 0)])
-       :data-type (data-type dst-desc)
-       :layout (layout dst-desc)})))
-
 (defn rnn
   ([fact src-desc dst-desc lrs activ args]
    (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
-         beta (or (:beta args) 0.0)
-         dst-desc (coerce-rnn-dst src-desc dst-desc)]
+         beta (or (:beta args) 0.0)]
      (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc lrs activ alpha beta
                         (:weights-type args) (:src-iter args) (:dst-iter args))))
   ([fact src-desc dst-desc lrs args]
@@ -477,11 +465,23 @@
       (rnn fact src-desc dst-desc lrs activ args))
      ([src-desc]
       (rnn *diamond-factory* src-desc dst-desc lrs activ args))))
-  ([lrs activ args]
-   (rnn lrs [] activ args))
+  ([dst-desc lrs activ]
+   (rnn dst-desc lrs activ nil))
   ([lrs activ]
-   (rnn lrs [] activ nil))
+   (rnn [] lrs activ nil))
   ([lrs]
-   (rnn lrs [] :relu nil))
+   (rnn [] lrs :relu nil))
   ([]
-   (rnn 1 [] :relu nil)))
+   (rnn [] 1 :relu nil)))
+
+(defn ending
+  ([fact src-desc dst-type]
+   (api/ending-blueprint fact src-desc (or dst-type (data-type src-desc))))
+  ([dst-type]
+   (fn
+     ([fact src-desc]
+      (ending fact src-desc dst-type))
+     ([src-desc]
+      (ending *diamond-factory* src-desc dst-type))))
+  ([]
+   (ending nil)))

@@ -66,7 +66,6 @@
     22 :prelu
     (dragan-says-ex "Unknown primitive kind." {:primitive-kind primitive-kind})))
 
-
 (defn dec-format [^long format]
   (case format
     0 :undef

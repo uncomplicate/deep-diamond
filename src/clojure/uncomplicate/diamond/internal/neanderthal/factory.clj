@@ -63,6 +63,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (desc tz-desc))
   (create-tensor [this tensor-desc _]
     (dnnl-tensor this tensor-desc))
+  (create-tensor [this tensor-desc batch-index _]
+    (dnnl-tensor this tensor-desc batch-index))
   (create-transformer [_ in-tz out-tz]
     (dnnl-transformer eng strm (view in-tz) (view out-tz)))
   (create-shuffler [_ src-tz dst-tz]

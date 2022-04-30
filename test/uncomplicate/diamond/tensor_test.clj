@@ -95,7 +95,8 @@
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native sub-y)) => [0.0 1.0 2.0]
            (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
-           (seq (native (view-vctr (offset! sub-y 1)))) => [3.0 4.0 5.0]
+           (seq (native (offset! sub-y 3))) => [3.0 4.0 5.0]
+           (seq (native sub-y)) => [3.0 4.0 5.0]
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native (offset! sub-z 1))) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))
@@ -196,3 +197,34 @@
            (batch 0 -1) => (throws ExceptionInfo)
            (batch 7 -1) => (throws ExceptionInfo)
            (batch -1) => (throws ExceptionInfo))))
+
+(defn test-batcher-tnc [fact]
+  (with-release [tz-x (tensor fact [2 7 1] :float :tnc)
+                 tz-y (tensor fact [2 3 1] :float :tnc)
+                 sub-x (view-tz tz-x [2 3 1])
+                 ;;batch (batcher tz-x tz-y 1)
+                 ;;batch-2 (batcher tz-x tz-y 2)
+                 ];;TODO
+    (facts "batcher test."
+           (transfer! (range 1 15) tz-x)
+           (seq (transfer! sub-x (tensor fact [2 3 1] :float :tnc)))
+           => [1.0 2.0 3.0 8.0 9.0 10.0]
+           (seq (transfer! (offset! sub-x 3) (tensor fact [2 3 1] :float :tnc)))
+           => [4.0 5.0 6.0 11.0 12.0 13.0]
+           (seq (transfer! (offset! sub-x 6) (tensor fact [2 3 1] :float :tnc)))
+           => (throws ExceptionInfo)
+           ;; (seq (native tz-x)) => (range 1.0 15.0)
+           ;; (seq (native tz-y)) => (repeat 6 0.0)
+           ;; (batch 0 0) => tz-y
+           ;; (seq (native tz-y)) => [1.0 3.0 5.0 2.0 4.0 6.0]
+           ;; (transfer! (repeat 0) tz-y)
+           ;; (batch 1 0) => tz-y
+           ;; (seq (native tz-y)) => [3.0 5.0 7.0 4.0 6.0 8.0]
+           ;; (transfer! (repeat 0) tz-y)
+           ;; (batch-2 1 1) => tz-y
+           ;; (seq (native tz-y)) => [0.0 3.0 5.0 0.0 4.0 6.0]
+           ;; (batch 8) => (throws ExceptionInfo)
+           ;; (batch 0 -1) => (throws ExceptionInfo)
+           ;; (batch 7 -1) => (throws ExceptionInfo)
+           ;; (batch -1) => (throws ExceptionInfo)
+           )))

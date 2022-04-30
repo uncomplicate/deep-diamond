@@ -1154,7 +1154,7 @@
                     (weights layer) (bias layer) (pr-str (output layer)))))
 
 (deftype DnnlBatchNormalizationBlueprint [fact data-desc scaleshift-desc gamma-desc
-                                          infer-pd train-pd bwd-pd]
+                                          infer-pd train-pd bwd-pd ^long c]
   Releaseable
   (release [_]
     (release infer-pd)
@@ -1201,17 +1201,17 @@
     (dst-md train-pd))
   TensorDescriptor
   (shape [this]
-    (shape (train-desc train-pd)))
+    (dims (train-desc train-pd)))
   (data-type [this]
     (data-type (train-desc train-pd)))
   (layout [this]
-    (layout (train-desc train-pd)))
+    (strides (train-desc train-pd)))
   IFn
   (invoke [this src-tz]
     (let-release [src-conn (connector src-tz data-desc)
                   scaleshift-tz (dnnl-tensor fact scaleshift-desc)
                   gamma-tz (view-tz scaleshift-tz gamma-desc)
-                  beta-tz (tz/offset! (view-tz scaleshift-tz gamma-desc) 1)
+                  beta-tz (tz/offset! (view-tz scaleshift-tz gamma-desc) c)
                   mean-tz (dnnl-tensor fact gamma-desc)
                   var-tz (dnnl-tensor fact gamma-desc)
                   fwd-prim (primitive infer-pd)
@@ -1225,11 +1225,11 @@
                   scaleshift-tz (dnnl-tensor fact scaleshift-desc)
                   diff-scaleshift-tz (dnnl-tensor fact scaleshift-desc)
                   gamma-tz (view-tz scaleshift-tz gamma-desc)
-                  beta-tz (tz/offset! (view-tz scaleshift-tz gamma-desc) 1)
+                  beta-tz (tz/offset! (view-tz scaleshift-tz gamma-desc) c)
                   mean-tz (dnnl-tensor fact gamma-desc)
                   var-tz (dnnl-tensor fact gamma-desc)
                   diff-gamma-tz (view-tz diff-scaleshift-tz gamma-desc)
-                  diff-beta-tz (tz/offset! (view-tz diff-scaleshift-tz gamma-desc) 1)
+                  diff-beta-tz (tz/offset! (view-tz diff-scaleshift-tz gamma-desc) c)
                   post-diff-gamma-tz (if post-process-diff? (dnnl-tensor fact gamma-desc)
                                          diff-gamma-tz)
                   diff-src-conn (revert src-conn)
@@ -1263,7 +1263,7 @@
                     bnorm-train-pd (primitive-desc eng bnorm-train-desc)
                     bnorm-bwd-pd (primitive-desc eng bnorm-bwd-desc bnorm-train-pd)]
         (->DnnlBatchNormalizationBlueprint fact data-desc scaleshift-desc gamma-desc
-                                           bnorm-infer-pd bnorm-train-pd bnorm-bwd-pd)))))
+                                           bnorm-infer-pd bnorm-train-pd bnorm-bwd-pd c)))))
 
 (defn dnnl-batch-norm-layer-blueprint [fact eng src-desc activ alpha beta]
   (let-release [data-desc (dnnl-contiguous-desc (desc src-desc))

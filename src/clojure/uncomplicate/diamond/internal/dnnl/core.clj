@@ -114,7 +114,7 @@
   ([dims data-type format]
    (memory-desc* (if (keyword? format)
                    (enc-keyword dnnl-format format)
-                   (long-array format))
+                   (long-array (drop (- (count format) (count dims)) format)))
                  (long-array dims) (enc-keyword dnnl-data-type data-type)))
   ([dims format]
    (memory-desc dims :float format))
@@ -197,7 +197,7 @@
   "Sets the starting position in the buffer that the memory object `mem` controls."
   [mem ^long n]
   (let [p (ptr mem)]
-    (if (and (<= 0 n) (<= n (.capacity ^Pointer p)))
+    (if (<= 0 n (.capacity ^Pointer p))
       (with-check (dnnl/dnnl_memory_set_data_handle
                    (extract mem) (.position ^Pointer p n))
         mem)

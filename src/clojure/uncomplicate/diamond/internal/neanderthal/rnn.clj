@@ -19,8 +19,8 @@
              [protocols :refer [Parameters RnnParameters bias weights weights-iter ParametersSeq parameters
                                 DescriptorProvider DiamondFactoryProvider DiffParameters
                                 diff-weights diff-weights-iter Backprop forward backward
-                                create-tensor activ-blueprint DiffTransfer diff-input
-                                diff-output diff-z create-tensor-desc LinearBackprop
+                                activ-blueprint DiffTransfer diff-input
+                                diff-output diff-z LinearBackprop
                                 backward-diff Workspace inf-ws-size train-ws-size
                                 neanderthal-factory inf-desc train-desc Initializable init]]
              [utils :refer [transfer-weights-bias!]]])
@@ -139,8 +139,7 @@
     (parameters op))
   Initializable
   (init [this init-fn]
-    (init-fn (weights op))
-    (entry! (weights-iter op) 0.0)
+    (init-fn op)
     this)
   IFn
   (invoke [_]
@@ -149,7 +148,6 @@
     (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
-    (forward op)
     this)
   (forward [this [_ _ mu nesterov?]]
     (when nesterov?
@@ -207,6 +205,11 @@
   DiamondFactoryProvider
   (diamond-factory [_]
     fact)
+  DescriptorProvider
+  (inf-desc [_]
+    (inf-desc op-bluep))
+  (train-desc [_]
+    (train-desc op-bluep))
   TensorDescriptor
   (shape [_]
     (shape op-bluep))
@@ -225,7 +228,7 @@
   (invoke [this prev-layer prop-diff? optimization]
     (let [training-layer (case optimization
                            :sgd sgd-rnn-layer
-          ;;TODO implement                 :adam adam-rnn-layer
+                           ;;TODO implement                 :adam adam-rnn-layer
                            (dragan-says-ex
                             (format "Optimization algorithm %s is not available." optimization)
                             {:optimization optimization}))]
@@ -250,8 +253,8 @@
   (transfer-rnn! source destination))
 
 #_(defmethod transfer! [AdamRnnLayer Object]
-  [source destination]
-  (transfer-rnn! source destination))
+    [source destination]
+    (transfer-rnn! source destination))
 
 (defmethod transfer! [SGDRnnLayer Object]
   [source destination]
