@@ -953,10 +953,10 @@
       rnn-desc (vanilla-rnn-fwd-desc :inference :relu :unidirectional
                                      src-desc src-iter-desc weights-desc weights-desc bias-desc
                                      dst-desc dst-iter-desc)
-      rnn-wo-iter-desc (vanilla-rnn-fwd-desc :inference :relu :unidirectional
+      rnn-no-iter-desc (vanilla-rnn-fwd-desc :inference :relu :unidirectional
                                              src-desc nil weights-desc weights-desc bias-desc
                                              dst-desc dst-iter-desc)
-      rnn-wo-iter-pd (primitive-desc eng rnn-wo-iter-desc)
+      rnn-no-iter-pd (primitive-desc eng rnn-no-iter-desc)
       rnn-pd (primitive-desc eng rnn-desc)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md rnn-pd :src) (buffer src-vec))
@@ -971,7 +971,7 @@
       dst-vec (fv (apply * src-dim))
       dst-mem (memory eng (arg-md rnn-pd :dst) (buffer dst-vec))
       dst-iter-vec (fv (apply * src-dim))
-      dst-iter-mem (memory eng (arg-md rnn-pd :dst) (buffer dst-iter-vec))
+      dst-iter-mem (memory eng (arg-md rnn-pd :dst-iter) (buffer dst-iter-vec))
       workspace-mem (memory eng (arg-md rnn-pd :workspace))
       rnn (primitive rnn-pd)
       rnn-args (args {:src-layer src-mem
@@ -982,8 +982,8 @@
                       :dst-layer dst-mem
                       :dst-iter dst-iter-mem
                       :workspace workspace-mem})
-      rnn-wo-iter (primitive rnn-wo-iter-pd)
-      rnn-wo-iter-args (args {:src-layer src-mem
+      rnn-no-iter (primitive rnn-no-iter-pd)
+      rnn-no-iter-args (args {:src-layer src-mem
                               :weights-layer weights-mem
                               :weights-iter weights-iter-mem
                               :bias bias-mem
@@ -996,10 +996,10 @@
      (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
      (seq dst-iter-vec) => [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]
      (entry! dst-vec 0)
-     (primitive-kind rnn-wo-iter-desc) => :rnn
-     (arg-md rnn-wo-iter-pd :src-iter) => nil
-     (zero-desc? (arg-md rnn-wo-iter-pd :src-iter)) => true
-     (execute! s rnn-wo-iter rnn-wo-iter-args) => s
+     (primitive-kind rnn-no-iter-desc) => :rnn
+     (arg-md rnn-no-iter-pd :src-iter) => nil
+     (zero-desc? (arg-md rnn-no-iter-pd :src-iter)) => true
+     (execute! s rnn-no-iter rnn-no-iter-args) => s
      (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375])))
 
 (facts
@@ -1037,9 +1037,9 @@
       bias-vec (fv [0.3 0.7 1 2])
       bias-mem (memory eng bias-desc (buffer bias-vec))
       dst-vec (fv (apply * src-dim))
-      dst-mem (memory eng (arg-md rnn-fwd-pd :dst) (buffer dst-vec))
+      dst-mem (memory eng (arg-md rnn-fwd-pd :dst-iter) (buffer dst-vec))
       dst-iter-vec (fv (apply * src-dim))
-      dst-iter-mem (memory eng (arg-md rnn-fwd-pd :dst) (buffer dst-iter-vec))
+      dst-iter-mem (memory eng (arg-md rnn-fwd-pd :dst-iter) (buffer dst-iter-vec))
       workspace-mem (memory eng (arg-md rnn-fwd-pd :workspace))
       rnn-fwd (primitive rnn-fwd-pd)
       rnn-fwd-args (args {:src-layer src-mem
@@ -1127,3 +1127,96 @@
      (seq diff-weights-iter-vec)
      => (map float [97.4520034790039 201.3159942626953 295.8139953613281 402.1619873046875
                     8.748000144958496 -11.802000045776367 13.425999641418457 -18.083999633789062]))))
+
+(facts
+ "LSTM forward."
+ (let [T 2
+       N 1
+       C 2
+       G 4
+       L 2
+       D 1
+       src-dim [T N C]
+       src-iter-dim [L D N C]
+       weights-dim [L D C G C]
+       bias-dim [L D G C]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      src-iter-c-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc src-dim :float :tnc)
+      dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      dst-iter-c-desc (memory-desc src-iter-dim :float :ldnc)
+      lstm-desc (lstm-fwd-desc :inference :unidirectional
+                               src-desc src-iter-desc src-iter-c-desc
+                               weights-desc weights-desc bias-desc
+                               dst-desc dst-iter-desc dst-iter-c-desc)
+      lstm-no-iter-desc (lstm-fwd-desc :inference :unidirectional
+                                       src-desc nil nil weights-desc weights-desc bias-desc
+                                       dst-desc dst-iter-desc dst-iter-c-desc)
+      lstm-no-iter-pd (primitive-desc eng lstm-no-iter-desc)
+      lstm-pd (primitive-desc eng lstm-desc)
+      src-vec (fv [2 3 0.2 0.3])
+      src-mem (memory eng (arg-md lstm-pd :src) (buffer src-vec))
+      src-iter-vec (fv (apply * src-iter-dim))
+      src-iter-mem (memory eng (arg-md lstm-pd :src-iter) (buffer src-iter-vec))
+      src-iter-c-vec (fv (apply * src-iter-dim))
+      src-iter-c-mem (memory eng (arg-md lstm-pd :src-iter-c) (buffer src-iter-c-vec))
+      weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      weights-mem (memory eng (arg-md lstm-pd :weights) (buffer weights-vec))
+      weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04])
+      weights-iter-mem (memory eng (arg-md lstm-pd :weights-iter) (buffer weights-iter-vec))
+      bias-vec (fv [0.3 0.7 1 2
+                    0.3 0.7 1 2
+                    0.3 0.7 1 2
+                    0.3 0.7 1 2])
+      bias-mem (memory eng bias-desc (buffer bias-vec))
+      dst-vec (fv (apply * src-dim))
+      dst-mem (memory eng (arg-md lstm-pd :dst) (buffer dst-vec))
+      dst-iter-vec (fv (apply * src-dim))
+      dst-iter-mem (memory eng (arg-md lstm-pd :dst-iter) (buffer dst-iter-vec))
+      dst-iter-c-vec (fv (apply * src-iter-dim))
+      dst-iter-c-mem (memory eng (arg-md lstm-pd :dst-iter-c) (buffer dst-iter-vec))
+      workspace-mem (memory eng (arg-md lstm-pd :workspace))
+      lstm (primitive lstm-pd)
+      lstm-args (args {:src-layer src-mem
+                       :src-iter src-iter-mem
+                       :src-iter-c src-iter-c-mem
+                       :weights-layer weights-mem
+                       :weights-iter weights-iter-mem
+                       :bias bias-mem
+                       :dst-layer dst-mem
+                       :dst-iter dst-iter-mem
+                       :dst-iter-c dst-iter-c-mem
+                       :workspace workspace-mem})
+      lstm-no-iter (primitive lstm-no-iter-pd)
+      lstm-no-iter-args (args {:src-layer src-mem
+                               :weights-layer weights-mem
+                               :weights-iter weights-iter-mem
+                               :bias bias-mem
+                               :dst-layer dst-mem
+                               :dst-iter dst-iter-mem
+                               :dst-iter-c dst-iter-c-mem
+                               :workspace workspace-mem})]
+     (primitive-kind lstm-desc) => :rnn
+     (execute! s lstm lstm-args) => s
+     (seq src-iter-vec) => [0.0 0.0 0.0 0.0]
+     (seq dst-vec) => [0.28369858860969543 0.5042773485183716 0.6443434953689575 0.8513875007629395]
+     (seq dst-iter-vec) => [0.623127281665802 0.8365733027458191 0.6443434953689575 0.8513875007629395]
+     (entry! dst-vec 0)
+     (primitive-kind lstm-no-iter-desc) => :rnn
+     (arg-md lstm-no-iter-pd :src-iter) => nil
+     (zero-desc? (arg-md lstm-no-iter-pd :src-iter)) => true
+     (execute! s lstm-no-iter lstm-no-iter-args) => s
+     (seq dst-vec) => [0.28369858860969543 0.5042773485183716 0.6443434953689575 0.8513875007629395]
+     )))

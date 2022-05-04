@@ -612,3 +612,22 @@
                                         bias-desc dst-desc dst-iter-desc dst-iter-c-desc
                                         dnnl/dnnl_rnn_flags_undef)
       lstm-desc)))
+
+(defn lstm-backward-desc* [direction
+                           src-desc src-iter-desc src-iter-c-desc
+                           weights-desc weights-iter-desc bias-desc
+                           dst-desc dst-iter-desc dst-iter-c-desc
+                           diff-src-desc diff-src-iter-desc diff-src-iter-c-desc
+                           diff-weights-desc diff-weights-iter-desc diff-bias-desc
+                           diff-dst-desc diff-dst-iter-desc diff-dst-iter-c-desc]
+  (let-release [rnn-desc (dnnl_rnn_desc_t.)]
+    (with-check
+      (dnnl/dnnl_lstm_backward_desc_init rnn-desc dnnl/dnnl_backward (int direction)
+                                         src-desc src-iter-desc src-iter-c-desc
+                                         weights-desc weights-iter-desc bias-desc
+                                         dst-desc dst-iter-desc dst-iter-c-desc
+                                         diff-src-desc diff-src-iter-desc diff-src-iter-c-desc
+                                         diff-weights-desc diff-weights-iter-desc diff-bias-desc
+                                         diff-dst-desc diff-dst-iter-desc diff-dst-iter-c-desc
+                                         dnnl/dnnl_rnn_flags_undef)
+      rnn-desc)))

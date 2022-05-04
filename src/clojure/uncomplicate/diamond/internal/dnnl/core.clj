@@ -859,6 +859,22 @@
                       (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
                       (desc dst-desc) (desc dst-iter-desc) (desc dst-iter-c-desc)))
 
+(defn lstm-bwd-desc
+  "TODO"
+  [direction
+   src-desc src-iter-desc src-iter-c-desc weights-desc weights-iter-desc bias-desc
+   dst-desc dst-iter-desc dst-iter-c-desc
+   diff-src-desc diff-src-iter-desc diff-src-iter-c-desc
+   diff-weights-desc diff-weights-iter-desc diff-bias-desc
+   diff-dst-desc diff-dst-iter-desc diff-dst-iter-c-desc]
+  (lstm-forward-desc* (enc-keyword dnnl-direction direction)
+                      (desc src-desc) (desc src-iter-desc) (desc src-iter-c-desc)
+                      (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
+                      (desc dst-desc) (desc dst-iter-desc) (desc dst-iter-c-desc)
+                      (desc diff-src-desc) (desc diff-src-iter-desc) (desc diff-src-iter-c-desc)
+                      (desc diff-weights-desc) (desc diff-weights-iter-desc) (desc diff-bias-desc)
+                      (desc diff-dst-desc) (desc diff-dst-iter-desc) (desc diff-dst-iter-c-desc)))
+
 ;; =========================================================================================
 
 (defn dnnl-contiguous-desc [md]
