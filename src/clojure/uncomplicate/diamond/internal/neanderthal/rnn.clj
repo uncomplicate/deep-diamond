@@ -139,7 +139,7 @@
     (parameters op))
   Initializable
   (init [this init-fn]
-    (init-fn op)
+    (init op init-fn)
     this)
   IFn
   (invoke [_]

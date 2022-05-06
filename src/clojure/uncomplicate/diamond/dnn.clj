@@ -314,7 +314,8 @@
      (api/init net! (fn [x] (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape x))))) x))))
    net!)
   ([net! init-fn]
-   (api/init net! init-fn)))
+   (api/init net! init-fn)
+   net!))
 
 (defn ^:private linear-decay
   [^long t ^long tau ^double eta-0 ^double eta-tau]

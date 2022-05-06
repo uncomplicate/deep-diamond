@@ -317,11 +317,11 @@
     (dst-md train-pd))
   TensorDescriptor
   (shape [this]
-    (shape (train-desc this)))
+    (dims (train-desc this)))
   (data-type [this]
     (data-type (train-desc this)))
   (layout [this]
-    (layout (train-desc this)))
+    (strides (train-desc this)))
   IFn
   (invoke [this srcs]
     (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
