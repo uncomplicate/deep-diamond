@@ -44,6 +44,8 @@
 (defprotocol RnnFactory
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?])
   (rnn-blueprint [fact src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?])
+  (lstm-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?])
+  (lstm-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?])
   (ending-blueprint [fact src-desc dst-type]))
 
 (defprotocol CostFactory

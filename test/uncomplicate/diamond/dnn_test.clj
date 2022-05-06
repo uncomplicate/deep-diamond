@@ -960,8 +960,8 @@
 (defn test-vanilla-rnn-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  dst-tz (tensor fact [2 1 2] :float :tnc)
-                 rnn-bluep-iter (rnn-op fact input-tz [2 1 2] 2 false false)
-                 rnn-no-iter (rnn-bluep-iter input-tz false false)]
+                 rnn-bluep-no-iter (rnn-op fact input-tz [2 1 2] 2 false false)
+                 rnn-no-iter (rnn-bluep-no-iter input-tz false false)]
     (facts "Vanilla RNN inference operation."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (weights rnn-no-iter))
@@ -1033,8 +1033,8 @@
 
 (defn test-rnn-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 :relu {:src-false true :dst-iter false})
-                 rnn-no-iter (rnn-bluep-iter input-tz nil :sgd)]
+                 rnn-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :relu)
+                 rnn-no-iter (rnn-bluep-no-iter input-tz nil :sgd)]
     (facts "Vanilla RNN layer inference."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (weights rnn-no-iter))
@@ -1048,6 +1048,28 @@
            (backward rnn-no-iter [nil 1 0 0 true])
            (seq (native (diff-output rnn-no-iter)))
            => [-0.20900002121925354 -0.47300001978874207 -0.27500003576278687 -0.627000093460083])))
+
+(defn test-lstm-training-no-iter [fact]
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 :relu)
+                 lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)]
+    (facts "Vanilla RNN layer inference."
+           (transfer! [2 3 0.2 0.3] input-tz)
+           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]
+                      (weights lstm-no-iter))
+           (transfer! [0.3 0.7 1 2] (bias lstm-no-iter))
+           (forward lstm-no-iter [1 0 0 true])
+           (seq (native (output lstm-no-iter)))
+           => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
+           (seq (native (output lstm-no-iter)))
+           => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
+           (transfer! [1.1 -2.2 3.3 -4.4] (diff-input lstm-no-iter))
+           (backward lstm-no-iter [nil 1 0 0 true])
+           (seq (native (diff-output lstm-no-iter)))
+           => [-0.04653489217162132 -0.04653489217162132 -0.1228761151432991 -0.1228761151432991])))
 
 (defn test-ending [fact]
   (with-release [src-tz (tensor fact [3 4 2] :float :tnc)

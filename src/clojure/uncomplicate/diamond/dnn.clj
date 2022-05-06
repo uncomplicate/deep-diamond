@@ -439,13 +439,13 @@
 (defn rnn-op
   ([fact src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
    (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type
-                      activ dir lrs src-iter? dst-iter?))
+                         activ dir lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc activ dir lrs src-iter? dst-iter?]
    (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
-                      activ dir lrs src-iter? dst-iter?))
+                         activ dir lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs src-iter? dst-iter?]
    (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
-                      :relu :unidirectional lrs src-iter? dst-iter?))
+                         :relu :unidirectional lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs]
    (rnn-op fact src-desc dst-desc lrs false false))
   ([src-desc dst-desc lrs]
@@ -457,8 +457,8 @@
          beta (or (:beta args) 0.0)]
      (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc lrs activ alpha beta
                         (:weights-type args) (:src-iter args) (:dst-iter args))))
-  ([fact src-desc dst-desc lrs args]
-   (rnn fact src-desc dst-desc lrs nil args))
+  ([fact src-desc dst-desc lrs activ]
+   (rnn fact src-desc dst-desc lrs activ nil))
   ([dst-desc lrs activ args]
    (fn
      ([fact src-desc]
@@ -473,6 +473,38 @@
    (rnn [] lrs :relu nil))
   ([]
    (rnn [] 1 :relu nil)))
+
+(defn lstm-op
+  ([fact src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
+   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type
+                          dir lrs src-iter? dst-iter?))
+  ([fact src-desc dst-desc dir lrs src-iter? dst-iter?]
+   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
+                          dir lrs src-iter? dst-iter?))
+  ([fact src-desc dst-desc lrs src-iter? dst-iter?]
+   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
+                          :unidirectional lrs src-iter? dst-iter?))
+  ([fact src-desc dst-desc lrs]
+   (lstm-op fact src-desc dst-desc lrs false false))
+  ([src-desc dst-desc lrs]
+   (lstm-op *diamond-factory* src-desc dst-desc lrs)))
+
+(defn lstm
+  ([fact src-desc dst-desc lrs args]
+   (api/lstm-blueprint (api/diamond-factory fact) src-desc dst-desc lrs
+                       (:weights-type args) (:src-iter args) (:dst-iter args)))
+  ([dst-desc lrs args]
+   (fn
+     ([fact src-desc]
+      (lstm fact src-desc dst-desc lrs args))
+     ([src-desc]
+      (lstm *diamond-factory* src-desc dst-desc lrs args))))
+  ([dst-desc lrs]
+   (lstm dst-desc lrs nil))
+  ([lrs]
+   (lstm [] lrs nil))
+  ([]
+   (lstm [] 1 :relu nil)))
 
 (defn ending
   ([fact src-desc dst-type]

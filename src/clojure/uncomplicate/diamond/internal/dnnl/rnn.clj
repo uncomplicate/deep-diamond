@@ -32,18 +32,21 @@
 ;; ================================ RNN ====================================================
 
 (deftype DnnlRnnInference [strm bluep srcs dsts
-                           src-conn src-iter-conn bias-tz
-                           weights-tz weights-iter-tz dst-tz dst-iter-tz
+                           src-conn src-iter-conn src-iter-c-conn
+                           bias-tz weights-tz weights-iter-tz
+                           dst-tz dst-iter-tz dst-iter-c-tz
                            fwd-prim fwd-args]
   Releaseable
   (release [_]
     (release src-conn)
     (release src-iter-conn)
+    (release src-iter-c-conn)
     (release bias-tz)
     (release weights-tz)
     (release weights-iter-tz)
     (release dst-tz)
     (release dst-iter-tz)
+    (release dst-iter-c-tz)
     (release fwd-prim))
   Info
   (info [this]
@@ -81,26 +84,30 @@
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
         (initialize src-iter-tz (data (buffer src-iter-tz)) 0.0)))
+    (when src-iter-c-conn
+      (let [src-iter-c-tz (input src-iter-c-conn)]
+        (initialize src-iter-c-tz (data (buffer src-iter-c-tz)) 0.0)))
     this)
   IFn
   (invoke [_]
     (src-conn)
     (when src-iter-conn (src-iter-conn))
+    (when src-iter-c-conn (src-iter-c-conn))
     (execute! strm fwd-prim fwd-args)
     dsts)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
 (deftype DnnlRnnTraining [strm bluep srcs dsts diff-dsts
-                          src-conn src-iter-conn bias-tz
+                          src-conn src-iter-conn src-iter-c-conn bias-tz
                           weights-tz weights-conn weights-iter-tz weights-iter-conn
-                          dst-tz dst-iter-tz
+                          dst-tz dst-iter-tz dst-iter-c-tz
                           workspace-tz fwd-prim fwd-args
-                          bwd-src-conn bwd-src-iter-conn
+                          bwd-src-conn bwd-src-iter-conn bwd-src-iter-c-conn
                           bwd-weights-conn bwd-weights-iter-conn
-                          bwd-dst-conn bwd-dst-iter-conn
-                          diff-dst-tz diff-dst-iter-tz
-                          diff-src-conn diff-src-iter-conn
+                          bwd-dst-conn bwd-dst-iter-conn bwd-dst-iter-c-conn
+                          diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz
+                          diff-src-conn diff-src-iter-conn diff-src-iter-c-conn
                           diff-weights-tz post-diff-weights-tz diff-weights-conn
                           diff-weights-iter-tz post-diff-weights-iter-tz diff-weights-iter-conn
                           diff-bias-tz
@@ -109,6 +116,7 @@
   (release [_]
     (release src-conn)
     (release src-iter-conn)
+    (release src-iter-c-conn)
     (release bias-tz)
     (release weights-tz)
     (release weights-conn)
@@ -116,18 +124,23 @@
     (release weights-iter-conn)
     (release dst-tz)
     (release dst-iter-tz)
+    (release dst-iter-c-tz)
     (release workspace-tz)
     (release fwd-prim)
     (release bwd-src-conn)
     (release bwd-src-iter-conn)
+    (release bwd-src-iter-c-conn)
     (release bwd-weights-conn)
     (release bwd-weights-iter-conn)
     (release bwd-dst-conn)
     (release bwd-dst-iter-conn)
+    (release bwd-dst-iter-c-conn)
     (release diff-dst-tz)
     (release diff-dst-iter-tz)
+    (release diff-dst-iter-c-tz)
     (release diff-src-conn)
     (release diff-src-iter-conn)
+    (release diff-src-iter-c-conn)
     (release diff-weights-tz)
     (release post-diff-weights-tz)
     (release diff-weights-conn)
@@ -188,6 +201,9 @@
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
         (initialize src-iter-tz (data (buffer src-iter-tz)) 0.0)))
+    (when src-iter-c-conn
+      (let [src-iter-c-tz (input src-iter-c-conn)]
+        (initialize src-iter-c-tz (data (buffer src-iter-c-tz)) 0.0)))
     this)
   IFn
   (invoke [this]
@@ -199,6 +215,7 @@
   (forward [this]
     (src-conn)
     (when src-iter-conn (src-iter-conn))
+    (when src-iter-c-conn (src-iter-c-conn))
     (weights-conn)
     (weights-iter-conn)
     (execute! strm fwd-prim fwd-args)
@@ -209,10 +226,12 @@
   (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]
     (bwd-src-conn)
     (when bwd-src-iter-conn (bwd-src-iter-conn))
+    (when bwd-src-iter-c-conn (bwd-src-iter-c-conn))
     (bwd-weights-conn)
     (bwd-weights-iter-conn)
     (bwd-dst-conn)
     (when bwd-dst-iter-conn (bwd-dst-iter-conn))
+    (when bwd-dst-iter-c-conn (bwd-dst-iter-c-conn))
     (entry! (input diff-weights-conn) 0.0)
     (entry! (input diff-weights-iter-conn) 0.0)
     (entry! diff-bias-tz 0.0)
@@ -228,6 +247,7 @@
     (axpby! scal-diff-b diff-bias-tz scal-b bias-tz)
     (when diff-src-conn (diff-src-conn))
     (when diff-src-iter-conn (diff-src-iter-conn))
+    (when diff-src-iter-c-conn (diff-src-iter-c-conn))
     this))
 
 (deftype DnnlRnnBlueprint [fact weights-desc bias-desc
@@ -304,38 +324,55 @@
     (layout (train-desc this)))
   IFn
   (invoke [this srcs]
-    (let [[src-tz src-iter-tz] (if (sequential? srcs) srcs [srcs nil])]
+    (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
       (let-release [src-conn (connector src-tz (src-md infer-pd))
                     src-iter-conn (when-let [src-iter-desc (arg-md infer-pd :src-iter)]
                                     (connector src-iter-tz src-iter-desc))
+                    src-iter-c-conn (when-let [src-iter-c-desc (arg-md infer-pd :src-iter-c)]
+                                      (connector src-iter-c-tz src-iter-c-desc))
                     bias-tz (dnnl-tensor fact bias-desc)
                     weights-tz (dnnl-tensor fact (weights-md infer-pd))
                     weights-iter-tz (dnnl-tensor fact (arg-md infer-pd :weights-iter))
                     dst-tz (dnnl-tensor fact (dst-md infer-pd) 1)
                     dst-iter-tz (when-let [dst-iter-desc (arg-md infer-pd :dst-iter)]
                                   (dnnl-tensor fact dst-iter-desc))
+                    dst-iter-c-tz (when-let [dst-iter-c-desc (arg-md infer-pd :dst-iter-c)]
+                                    (dnnl-tensor fact dst-iter-c-desc))
                     workspace-tz (when-let [workspace-desc (arg-md infer-pd :workspace)]
                                    (dnnl-tensor fact workspace-desc))
                     fwd-prim (primitive infer-pd)
                     fwd-args (dnnl-args args {:src-layer (output src-conn)
                                               :src-iter (when src-iter-conn (output src-iter-conn))
+                                              :src-iter-c (when src-iter-c-conn (output src-iter-c-conn))
                                               :weights-layer weights-tz
                                               :weights-iter weights-iter-tz
                                               :bias bias-tz
                                               :dst-layer dst-tz
                                               :dst-iter dst-iter-tz
+                                              :dst-iter-c dst-iter-c-tz
                                               :workspace workspace-tz})
-                    srcs (if src-iter-conn [(input src-conn) (input src-iter-conn)] (input src-conn))
-                    dsts (if dst-iter-tz [dst-tz dst-iter-tz] dst-tz)]
+                    srcs (if src-iter-conn
+                           (if src-iter-c-conn
+                             [(input src-conn) (input src-iter-conn) (input src-iter-c-conn)]
+                             [(input src-conn) (input src-iter-conn)])
+                           (input src-conn))
+                    dsts (if dst-iter-tz
+                           (if dst-iter-c-tz
+                             [dst-tz dst-iter-tz dst-iter-c-tz]
+                             [dst-tz dst-iter-tz])
+                           dst-tz)]
         (->DnnlRnnInference (flow fact) this srcs dsts
-                            src-conn src-iter-conn bias-tz weights-tz weights-iter-tz
-                            dst-tz dst-iter-tz
+                            src-conn src-iter-conn src-iter-c-conn
+                            bias-tz weights-tz weights-iter-tz
+                            dst-tz dst-iter-tz dst-iter-c-tz
                             fwd-prim fwd-args))))
   (invoke [this srcs _ post-process-diff?]
-    (let [[src-tz src-iter-tz] (if (sequential? srcs) srcs [srcs nil])]
+    (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
       (let-release [src-conn (connector src-tz (src-md train-pd))
                     src-iter-conn (when-let [src-iter-desc (arg-md train-pd :src-iter)]
                                     (connector src-iter-tz src-iter-desc))
+                    src-iter-c-conn (when-let [src-iter-c-desc (arg-md infer-pd :src-iter-c)]
+                                      (connector src-iter-c-tz src-iter-c-desc))
                     bias-tz (dnnl-tensor fact bias-desc)
                     weights-tz (dnnl-tensor fact weights-desc)
                     weights-conn (connector weights-tz (weights-md train-pd))
@@ -344,28 +381,38 @@
                     dst-tz (dnnl-tensor fact (dst-md train-pd) 1)
                     dst-iter-tz (when-let [dst-iter-desc (arg-md train-pd :dst-iter)]
                                   (dnnl-tensor fact dst-iter-desc))
+                    dst-iter-c-tz (when-let [dst-iter-c-desc (arg-md infer-pd :dst-iter-c)]
+                                    (dnnl-tensor fact dst-iter-c-desc))
                     workspace-tz (when-let [workspace-desc (arg-md train-pd :workspace)]
                                    (dnnl-tensor fact workspace-desc))
                     fwd-prim (primitive train-pd)
                     fwd-args (dnnl-args args {:src-layer (output src-conn)
                                               :src-iter (when src-iter-conn (output src-iter-conn))
+                                              :src-iter-c (when src-iter-c-conn (output src-iter-c-conn))
                                               :weights-layer (output weights-conn)
                                               :weights-iter (output weights-iter-conn)
                                               :bias bias-tz
                                               :dst-layer dst-tz
                                               :dst-iter dst-iter-tz
+                                              :dst-iter-c dst-iter-c-tz
                                               :workspace workspace-tz})
                     bwd-src-conn (connector src-conn (src-md bwd-pd))
                     bwd-src-iter-conn (when-let [src-iter-desc (arg-md bwd-pd :src-iter)]
                                         (connector src-iter-conn src-iter-desc))
+                    bwd-src-iter-c-conn (when-let [src-iter-c-desc (arg-md bwd-pd :src-iter-c)]
+                                          (connector src-iter-c-conn src-iter-c-desc))
                     bwd-weights-conn (connector weights-conn (arg-md bwd-pd :weights))
                     bwd-weights-iter-conn (connector weights-iter-conn (arg-md bwd-pd :weights-iter))
                     bwd-dst-conn (connector dst-tz (dst-md bwd-pd))
                     bwd-dst-iter-conn (when-let [dst-iter-desc (arg-md bwd-pd :dst-iter)]
                                         (connector dst-iter-tz dst-iter-desc))
+                    bwd-dst-iter-c-conn (when-let [dst-iter-c-desc (arg-md bwd-pd :dst-iter-c)]
+                                          (connector dst-iter-c-tz dst-iter-c-desc))
                     diff-dst-tz (dnnl-tensor fact (diff-dst-md bwd-pd) 1)
                     diff-dst-iter-tz (when-let [diff-dst-iter-desc (arg-md bwd-pd :diff-dst-iter)]
                                        (dnnl-tensor fact diff-dst-iter-desc))
+                    diff-dst-iter-c-tz (when-let [diff-dst-iter-c-desc (arg-md bwd-pd :diff-dst-iter-c)]
+                                         (dnnl-tensor fact diff-dst-iter-c-desc))
                     diff-weights-tz (dnnl-tensor fact weights-desc)
                     post-diff-weights-tz (if post-process-diff? (dnnl-tensor fact weights-desc)
                                              diff-weights-tz)
@@ -378,41 +425,62 @@
                     diff-src-conn (connector (diff-src-md bwd-pd) src-tz)
                     diff-src-iter-conn (when-let [diff-src-iter-desc (arg-md bwd-pd :diff-src-iter)]
                                          (connector diff-src-iter-desc src-iter-tz))
+                    diff-src-iter-c-conn (when-let [diff-src-iter-c-desc (arg-md bwd-pd :diff-src-iter-c)]
+                                           (connector diff-src-iter-c-desc src-iter-c-tz))
                     bwd-prim (primitive bwd-pd)
                     bwd-args (dnnl-args args {:src-layer (output bwd-src-conn)
                                               :src-iter (when bwd-src-iter-conn (output bwd-src-iter-conn))
+                                              :src-iter-c (when bwd-src-iter-c-conn (output bwd-src-iter-c-conn))
                                               :weights-layer (output bwd-weights-conn)
                                               :weights-iter (output bwd-weights-iter-conn)
                                               :bias bias-tz
                                               :dst-layer (output bwd-dst-conn)
                                               :dst-iter (when bwd-dst-iter-conn (output bwd-dst-iter-conn))
+                                              :dst-iter-c (when bwd-dst-iter-c-conn (output bwd-dst-iter-c-conn))
                                               :diff-dst-layer diff-dst-tz
                                               :diff-dst-iter diff-dst-iter-tz
+                                              :diff-dst-iter-c diff-dst-iter-c-tz
                                               :workspace workspace-tz
                                               :diff-src-layer (input diff-src-conn)
                                               :diff-src-iter (when diff-src-iter-conn (input diff-src-iter-conn))
+                                              :diff-src-iter-c (when diff-src-iter-c-conn (input diff-src-iter-c-conn))
                                               :diff-weights-layer (input diff-weights-conn)
                                               :diff-weights-iter (input diff-weights-iter-conn)
                                               :diff-bias bias-tz})
-                    srcs (if src-iter-conn [(input src-conn) (input src-iter-conn)] (input src-conn))
-                    dsts (if dst-iter-tz [dst-tz dst-iter-tz] dst-tz)
-                    diff-dsts (if diff-dst-iter-tz [diff-dst-tz diff-dst-iter-tz] diff-dst-tz)]
+                    srcs (if src-iter-conn
+                           (if src-iter-c-conn
+                             [(input src-conn) (input src-iter-conn) (input src-iter-c-conn)]
+                             [(input src-conn) (input src-iter-conn)])
+                           (input src-conn))
+                    dsts (if dst-iter-tz
+                           (if dst-iter-c-tz
+                             [dst-tz dst-iter-tz dst-iter-c-tz]
+                             [dst-tz dst-iter-tz])
+                           dst-tz)
+                    diff-dsts (if diff-dst-iter-tz
+                                (if diff-dst-iter-c-tz
+                                  [diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz]
+                                  [diff-dst-tz diff-dst-iter-tz])
+                                diff-dst-tz)]
         (->DnnlRnnTraining (flow fact) this srcs dsts diff-dsts
-                           src-conn src-iter-conn bias-tz
+                           src-conn src-iter-conn src-iter-c-conn bias-tz
                            weights-tz weights-conn weights-iter-tz weights-iter-conn
-                           dst-tz dst-iter-tz
+                           dst-tz dst-iter-tz dst-iter-c-tz
                            workspace-tz
                            fwd-prim fwd-args
-                           bwd-src-conn bwd-src-iter-conn bwd-weights-conn bwd-weights-iter-conn
-                           bwd-dst-conn bwd-dst-iter-conn
-                           diff-dst-tz diff-dst-iter-tz
-                           diff-src-conn diff-src-iter-conn
+                           bwd-src-conn bwd-src-iter-conn bwd-src-iter-c-conn
+                           bwd-weights-conn bwd-weights-iter-conn
+                           bwd-dst-conn bwd-dst-iter-conn bwd-dst-iter-c-conn
+                           diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz
+                           diff-src-conn diff-src-iter-conn diff-src-iter-c-conn
                            diff-weights-tz post-diff-weights-tz diff-weights-conn
                            diff-weights-iter-tz post-diff-weights-iter-tz diff-weights-iter-conn
                            diff-bias-tz
                            bwd-prim bwd-args))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+;; ================================ Vanilla RNN =================================================
 
 (defn dnnl-rnn-op-blueprint [fact eng src-desc dst-desc weights-type activ alpha beta
                              dir lrs src-iter? dst-iter?]
@@ -452,8 +520,6 @@
           (->DnnlRnnBlueprint fact weights-desc-export bias-desc
                               infer-pd train-pd bwd-pd))))))
 
-;; ================================ Rnn Layer ==================================
-
 (defn dnnl-rnn-blueprint [fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
                  dst-desc (memory-desc (shape src-desc)
@@ -463,6 +529,55 @@
                                                       activ alpha beta :unidirectional lrs
                                                       src-iter? dst-iter?)]
       (->RnnLayerBlueprint fact :rnn rnn-op-bluep))))
+
+;; ================================ LSTM =======================================================
+
+(defn dnnl-lstm-op-blueprint [fact eng src-desc dst-desc weights-type
+                              dir lrs src-iter? dst-iter?]
+  (let [src-desc (desc src-desc)
+        src-shape (shape src-desc)
+        dst-desc (desc dst-desc)
+        ch (long (last src-shape))
+        dirs (direction-count dir)
+        gts 4
+        src-iter-shape (into [lrs dirs] (rest src-shape))
+        dst-iter-shape (conj (into [lrs dirs] (butlast (rest (shape dst-desc))))
+                             (if (= :bidirectional-concat dir) (* 2 ch) ch))
+        dst-type (data-type dst-desc)
+        weights-shape [lrs dirs ch gts ch]
+        weights-type (or weights-type (data-type src-desc) dst-type)
+        bias-shape [lrs dirs gts ch]]
+    (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape dst-type :any))
+                  dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
+                  bias-desc (memory-desc bias-shape dst-type :ldgo)]
+      (with-release [weights-desc-any (memory-desc weights-shape weights-type :any)
+                     infer-desc (lstm-fwd-desc :inference dir src-desc src-iter-desc src-iter-desc
+                                               weights-desc-any weights-desc-any bias-desc
+                                               dst-desc dst-iter-desc dst-iter-desc)
+                     train-desc (lstm-fwd-desc :training dir src-desc src-iter-desc src-iter-desc
+                                               weights-desc-any weights-desc-any bias-desc
+                                               dst-desc dst-iter-desc dst-iter-desc)
+                     bwd-desc (lstm-bwd-desc dir src-desc src-iter-desc src-iter-desc
+                                             weights-desc-any weights-desc-any bias-desc
+                                             dst-desc dst-iter-desc dst-iter-desc
+                                             src-desc src-iter-desc src-iter-desc
+                                             weights-desc-any weights-desc-any bias-desc
+                                             dst-desc dst-iter-desc dst-iter-desc)]
+        (let-release [infer-pd (primitive-desc eng infer-desc)
+                      train-pd (primitive-desc eng train-desc)
+                      bwd-pd (primitive-desc eng bwd-desc train-pd)
+                      weights-desc-export (dnnl-contiguous-desc (weights-md train-pd))]
+          (->DnnlRnnBlueprint fact weights-desc-export bias-desc
+                              infer-pd train-pd bwd-pd))))))
+
+(defn dnnl-lstm-blueprint [fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?]
+  (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
+                 dst-desc (memory-desc (shape src-desc)
+                                       (or (tz/data-type dst-desc) (tz/data-type src-desc))
+                                       :any)]
+    (let-release [lstm-op-bluep (dnnl-lstm-op-blueprint fact eng src-desc dst-desc weights-type
+                                                        :unidirectional lrs src-iter? dst-iter?)]
+      (->RnnLayerBlueprint fact :lstm lstm-op-bluep))))
 
 ;; ================================= Ending Layer ==============================
 

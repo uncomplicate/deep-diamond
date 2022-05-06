@@ -1218,5 +1218,174 @@
      (arg-md lstm-no-iter-pd :src-iter) => nil
      (zero-desc? (arg-md lstm-no-iter-pd :src-iter)) => true
      (execute! s lstm-no-iter lstm-no-iter-args) => s
+     (seq dst-vec) => [0.28369858860969543 0.5042773485183716 0.6443434953689575 0.8513875007629395])))
+
+(facts
+ "LSTM training."
+ (let [T 2
+       N 1
+       C 2
+       G 4
+       L 2
+       D 1
+       src-dim [T N C]
+       src-iter-dim [L D N C]
+       weights-dim [L D C G C]
+       bias-dim [L D G C]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc src-dim :float :tnc)
+      dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      dst-iter-c-desc (memory-desc src-iter-dim :float :ldnc)
+      lstm-fwd-desc (lstm-fwd-desc :training  :unidirectional
+                                   src-desc src-iter-desc src-iter-desc
+                                   weights-desc weights-desc bias-desc
+                                   dst-desc dst-iter-desc dst-iter-desc)
+      lstm-fwd-pd (primitive-desc eng lstm-fwd-desc)
+      src-vec (fv [2 3 0.2 0.3])
+      src-mem (memory eng (arg-md lstm-fwd-pd :src) (buffer src-vec))
+      src-iter-vec (fv (apply * src-iter-dim))
+      src-iter-mem (memory eng (arg-md lstm-fwd-pd :src-iter) (buffer src-iter-vec))
+      src-iter-c-vec (fv (apply * src-iter-dim))
+      src-iter-c-mem (memory eng (arg-md lstm-fwd-pd :src-iter-c) (buffer src-iter-c-vec))
+      weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      weights-mem (memory eng (arg-md lstm-fwd-pd :weights) (buffer weights-vec))
+      weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04])
+      weights-iter-mem (memory eng (arg-md lstm-fwd-pd :weights-iter) (buffer weights-iter-vec))
+      bias-vec (fv [0.3 0.7 1 2
+                    0.3 0.7 1 2
+                    0.3 0.7 1 2
+                    0.3 0.7 1 2])
+      bias-mem (memory eng bias-desc (buffer bias-vec))
+      dst-vec (fv (apply * src-dim))
+      dst-mem (memory eng (arg-md lstm-fwd-pd :dst) (buffer dst-vec))
+      dst-iter-vec (fv (apply * src-dim))
+      dst-iter-mem (memory eng (arg-md lstm-fwd-pd :dst-iter) (buffer dst-iter-vec))
+      dst-iter-c-vec (fv (apply * src-iter-dim))
+      dst-iter-c-mem (memory eng (arg-md lstm-fwd-pd :dst-iter-c) (buffer dst-iter-vec))
+      workspace-mem (memory eng (arg-md lstm-fwd-pd :workspace))
+      lstm-fwd (primitive lstm-fwd-pd)
+      lstm-fwd-args (args {:src-layer src-mem
+                           :src-iter src-iter-mem
+                           :src-iter-c src-iter-c-mem
+                           :weights-layer weights-mem
+                           :weights-iter weights-iter-mem
+                           :bias bias-mem
+                           :dst-layer dst-mem
+                           :dst-iter dst-iter-mem
+                           :dst-iter-c dst-iter-c-mem
+                           :workspace workspace-mem})
+      bwd-weights-desc (memory-desc weights-dim :float :any)
+      lstm-bwd-desc (lstm-bwd-desc :unidirectional src-desc src-iter-desc src-iter-desc
+                                   bwd-weights-desc bwd-weights-desc bias-desc
+                                   dst-desc dst-iter-desc dst-iter-desc
+                                   src-desc src-iter-desc src-iter-desc
+                                   bwd-weights-desc bwd-weights-desc bias-desc
+                                   dst-desc dst-iter-desc dst-iter-desc)
+      lstm-bwd-pd (primitive-desc eng lstm-bwd-desc lstm-fwd-pd)
+      bwd-weights-mem (memory eng (arg-md lstm-bwd-pd :weights))
+      reorder-weights-fb-pd (reorder eng weights-mem bwd-weights-mem)
+      reorder-weights-bf-pd (reorder eng bwd-weights-mem weights-mem)
+      reorder-weights-fb (primitive reorder-weights-fb-pd)
+      reorder-weights-bf (primitive reorder-weights-bf-pd)
+      bwd-weights-iter-mem (memory eng (arg-md lstm-bwd-pd :weights-iter))
+      reorder-weights-iter-fb-pd (reorder eng weights-iter-mem bwd-weights-iter-mem)
+      reorder-weights-iter-bf-pd (reorder eng bwd-weights-iter-mem weights-iter-mem)
+      reorder-weights-iter-fb (primitive reorder-weights-iter-fb-pd)
+      reorder-weights-iter-bf (primitive reorder-weights-iter-bf-pd)
+      diff-weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                            0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                            0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                            0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      diff-weights-packed-mem (memory eng weights-desc (buffer diff-weights-vec))
+      diff-weights-mem (memory eng (arg-md lstm-bwd-pd :diff-weights))
+      reorder-diff-weights-pack-pd (reorder eng diff-weights-mem diff-weights-packed-mem)
+      reorder-diff-weights-unpack-pd (reorder eng diff-weights-packed-mem diff-weights-mem)
+      reorder-diff-weights-pack (primitive reorder-diff-weights-pack-pd)
+      reorder-diff-weights-unpack (primitive reorder-diff-weights-unpack-pd)
+      diff-weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
+                                 100 200 300 400 0.01 0.02 0.03 0.04
+                                 100 200 300 400 0.01 0.02 0.03 0.04
+                                 100 200 300 400 0.01 0.02 0.03 0.04])
+      diff-weights-iter-packed-mem (memory eng weights-desc (buffer diff-weights-iter-vec))
+      diff-weights-iter-mem (memory eng (arg-md lstm-bwd-pd :diff-weights-iter))
+      reorder-diff-weights-iter-pack-pd (reorder eng diff-weights-iter-mem diff-weights-iter-packed-mem)
+      reorder-diff-weights-iter-unpack-pd (reorder eng diff-weights-iter-packed-mem diff-weights-iter-mem)
+      reorder-diff-weights-iter-pack (primitive reorder-diff-weights-iter-pack-pd)
+      reorder-diff-weights-iter-unpack (primitive reorder-diff-weights-iter-unpack-pd)
+      diff-dst-vec (fv [1.1 -2.2 3.3 -4.4])
+      diff-dst-mem (memory eng (arg-md lstm-bwd-pd :diff-dst) (buffer diff-dst-vec))
+      diff-dst-iter-vec (fv [-1 2 0.1 -0.2])
+      diff-dst-iter-mem (memory eng (arg-md lstm-fwd-pd :diff-dst-iter) (buffer diff-dst-iter-vec))
+      diff-dst-iter-c-vec (fv [-0.1 0.2 0.01 -0.02])
+      diff-dst-iter-c-mem (memory eng (arg-md lstm-fwd-pd :diff-dst-iter-c) (buffer diff-dst-iter-c-vec))
+      lstm-bwd-args (args {:src-layer src-mem
+                           :src-iter src-iter-mem
+                           :src-iter-c src-iter-c-mem
+                           :weights-layer bwd-weights-mem
+                           :weights-iter bwd-weights-iter-mem
+                           :bias bias-mem
+                           :dst-layer dst-mem
+                           :dst-iter dst-iter-mem
+                           :dst-iter-c dst-iter-c-mem
+                           :workspace workspace-mem
+                           :diff-src-layer src-mem
+                           :diff-src-iter src-iter-mem
+                           :diff-src-iter-c src-iter-c-mem
+                           :diff-weights-layer diff-weights-mem
+                           :diff-weights-iter diff-weights-iter-mem
+                           :diff-bias bias-mem
+                           :diff-dst-layer diff-dst-mem
+                           :diff-dst-iter diff-dst-iter-mem
+                           :diff-dst-iter-c diff-dst-iter-c-mem})
+      lstm-bwd (primitive lstm-bwd-pd)]
+
+     (primitive-kind lstm-fwd-desc) => :rnn
+     (execute! s lstm-fwd lstm-fwd-args) => s
      (seq dst-vec) => [0.28369858860969543 0.5042773485183716 0.6443434953689575 0.8513875007629395]
-     )))
+     (seq src-vec) => (map float [2.0 3.0 0.2 0.3])
+     (primitive-kind lstm-bwd-desc) => :rnn
+     (execute! s reorder-weights-fb (fwd-args weights-mem bwd-weights-mem)) => s
+     (execute! s reorder-weights-iter-fb (fwd-args weights-iter-mem bwd-weights-iter-mem)) => s
+     (execute! s reorder-diff-weights-unpack (fwd-args diff-weights-packed-mem diff-weights-mem))
+     (execute! s reorder-diff-weights-iter-unpack (fwd-args diff-weights-iter-packed-mem diff-weights-iter-mem))
+     (execute! s lstm-bwd lstm-bwd-args) => s
+     (execute! s reorder-weights-bf (fwd-args bwd-weights-mem weights-mem)) => s
+     (execute! s reorder-weights-iter-bf (fwd-args bwd-weights-iter-mem weights-iter-mem)) => s
+     (execute! s reorder-diff-weights-pack (fwd-args diff-weights-mem diff-weights-packed-mem))
+     (execute! s reorder-diff-weights-iter-pack (fwd-args diff-weights-iter-mem diff-weights-iter-packed-mem))
+     (map float (seq weights-vec)) => (map float [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                                                  0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                                                  0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                                                  0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+     (seq dst-vec) => [0.28369858860969543 0.5042773485183716 0.6443434953689575 0.8513875007629395]
+     (seq src-vec) => [0.011007515713572502 0.011007515713572502 0.1259019672870636 0.1259019672870636]
+     (seq src-iter-vec) => [18.216032028198242 18.216032028198242 -87.13029479980469 -87.13029479980469]
+     (seq diff-weights-vec)
+     => (map float [-0.15334531664848328 0.5088344812393188 0.30000001192092896 0.4000000059604645
+                    0.11885079741477966 0.5528948307037354 0.48091015219688416 0.6224913597106934
+                    -0.2800179719924927 0.6632516980171204 0.30000001192092896 0.4000000059604645
+                    0.028276175260543823 0.6293423175811768 0.47136521339416504 0.6337370276451111
+                    0.31738361716270447 -0.15135137736797333 0.30000001192092896 0.4000000059604645
+                    1.6538493633270264 -0.43319636583328247 0.680149257183075 0.46523377299308777
+                    0.36541545391082764 -0.22898398339748383 0.30000001192092896 0.4000000059604645
+                    2.0426719188690186 -0.6620708703994751 0.7383583784103394 0.4236163794994354])
+     (seq diff-weights-iter-vec)
+     => (map float [100.0 200.0 300.0 400.0 -0.24559931457042694 0.34523943066596985
+                    -0.014603456482291222 0.1050318107008934 100.0 200.0 300.0 400.0
+                    -0.3020751178264618 0.41710248589515686 -0.024458782747387886
+                    0.11940087378025055 100.0 200.0 300.0 400.0 0.34582412242889404
+                    -0.14766573905944824 0.09891565144062042 -0.004336059093475342 100.0 200.0
+                    300.0 400.0 0.6069310307502747 -0.2780276834964752 0.15249831974506378
+                    -0.03880783170461655]))))
