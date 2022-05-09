@@ -1051,7 +1051,7 @@
 
 (defn test-lstm-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 :relu)
+                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)]
     (facts "Vanilla RNN layer inference."
            (transfer! [2 3 0.2 0.3] input-tz)
@@ -1068,6 +1068,28 @@
            => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
            (transfer! [1.1 -2.2 3.3 -4.4] (diff-input lstm-no-iter))
            (backward lstm-no-iter [nil 1 0 0 true])
+           (seq (native (diff-output lstm-no-iter)))
+           => [-0.04653489217162132 -0.04653489217162132 -0.1228761151432991 -0.1228761151432991])))
+
+(defn test-lstm-training-no-iter-adam [fact]
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2)
+                 lstm-no-iter (lstm-bluep-no-iter input-tz nil :adam)]
+    (facts "Vanilla RNN layer inference."
+           (transfer! [2 3 0.2 0.3] input-tz)
+           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]
+                      (weights lstm-no-iter))
+           (transfer! [0.3 0.7 1 2] (bias lstm-no-iter))
+           (forward lstm-no-iter [])
+           (seq (native (output lstm-no-iter)))
+           => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
+           (seq (native (output lstm-no-iter)))
+           => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
+           (transfer! [1.1 -2.2 3.3 -4.4] (diff-input lstm-no-iter))
+           (backward lstm-no-iter [1 1])
            (seq (native (diff-output lstm-no-iter)))
            => [-0.04653489217162132 -0.04653489217162132 -0.1228761151432991 -0.1228761151432991])))
 

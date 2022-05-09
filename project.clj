@@ -12,10 +12,10 @@
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.10.3"]
+  :dependencies [[org.clojure/clojure "1.11.1"]
                  [uncomplicate/neanderthal "0.44.0-SNAPSHOT"]
                  [org.bytedeco/dnnl-platform "2.5.2-1.5.7"]
-                 [org.jcuda/jcudnn "11.5.2"]]
+                 [org.jcuda/jcudnn "11.6.1"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
                              [lein-codox "0.10.7"]]

@@ -494,6 +494,8 @@
   ([fact src-desc dst-desc lrs args]
    (api/lstm-blueprint (api/diamond-factory fact) src-desc dst-desc lrs
                        (:weights-type args) (:src-iter args) (:dst-iter args)))
+  ([fact src-desc dst-desc lrs]
+   (lstm fact src-desc dst-desc lrs nil))
   ([dst-desc lrs args]
    (fn
      ([fact src-desc]

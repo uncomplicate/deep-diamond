@@ -174,11 +174,127 @@
                    (view-vctr (bias op))
                    (view-vctr (diff-weights-iter op)) (view-vctr (weights-iter op)))))
 
-(defmethod print-method SGDRnnLayer
-  [layer ^java.io.Writer w]
-  (.write w (format "#SGD[topology:%s, shape:%s]\n..........\n weights: %s\n..........\n weights-iter: %s\n..........\n bias: %s"
-                    (info layer :topology) (info layer :shape)
+(defn print-rnn-layer [layer ^java.io.Writer w label]
+  (.write w (format "#%s[topology:%s, shape:%s]\n..........\n weights: %s\n..........\n weights-iter: %s\n..........\n bias: %s"
+                    label (info layer :topology) (info layer :shape)
                     (pr-str (weights layer)) (pr-str (weights-iter layer)) (pr-str (bias layer)))))
+
+(defmethod print-method SGDRnnLayer [layer w]
+  (print-rnn-layer layer w "SGD"))
+
+(deftype AdamRnnLayer [fact bluep op ^long n s r w g b
+                       s-iter r-iter w-iter g-iter]
+  Releaseable
+  (release [_]
+    (release op)
+    (release s)
+    (release r)
+    (release w)
+    (release g)
+    (release b)
+    (release s-iter)
+    (release r-iter)
+    (release w-iter)
+    (release g-iter))
+  Object
+  (hashCode [_]
+    (-> (hash (info bluep :topology))
+        (hash-combine (weights op)) (hash-combine (weights-iter op)) (hash-combine (bias op))))
+  (equals [_ layer]
+    (and (satisfies? Parameters layer)
+         (= (info bluep :topology) (info layer :topology))
+         (= (bias op) (bias layer)) (= (weights op) (weights layer))
+         (= (weights-iter op) (weights-iter layer))))
+  (toString [_]
+    (str bluep))
+  Info
+  (info [x]
+    (assoc (info op) :shape (info bluep :shape)
+           :batch n :algorithm :adam :topology (info bluep :topology) ))
+  (info [x info-type]
+    (case info-type
+      :batch n
+      :algorithm :adam
+      (or (info op info-type) (info bluep info-type))))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [this]
+    (input op))
+  (output [_]
+    (output op))
+  DiffTransfer
+  (diff-input [_]
+    (diff-input op))
+  (diff-z [_]
+    (diff-output op))
+  (diff-output [_]
+    (diff-output op))
+  Parameters
+  (weights [_]
+    (weights op))
+  (bias [_]
+    (bias op))
+  RnnParameters
+  (weights-iter [_]
+    (weights-iter op))
+  ParametersSeq
+  (parameters [_]
+    (parameters op))
+  Initializable
+  (init [this init-fn]
+    (init op init-fn)
+    this)
+  IFn
+  (invoke [_]
+    (op))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    (forward op)
+    this)
+  (backward [this]
+    this)
+  (backward [this [t eta lambda rho1 rho2 epsilon]]
+    (let [t (inc (long t))
+          eta (double (or eta 0.001))
+          lambda (double (or lambda 0.0))
+          rho1 (double (or rho1 0.9))
+          rho2 (double (or rho2 0.999))
+          epsilon (double (or epsilon 1e-6))
+          eta-avg (- (/ (double eta) n))
+          scal-n (/ 1.0 n)]
+      (backward-diff op scal-n 0.0 eta-avg 1.0)
+      (axpby! (- 1.0 rho1) g rho1 s)
+      (axpby! (- 1.0 rho2) (sqr! g) rho2 r)
+      (linear-frac! (/ (- eta) (- 1.0 (pow rho1 t))) s 0.0
+                    (/ 1.0 (sqrt (- 1.0 (pow rho2 t)))) (sqrt! r g) epsilon g)
+      (axpby! 1.0 g (inc (* eta-avg lambda)) w)
+      (axpby! (- 1.0 rho1) g-iter rho1 s-iter)
+      (axpby! (- 1.0 rho2) (sqr! g-iter) rho2 r-iter)
+      (linear-frac! (/ (- eta) (- 1.0 (pow rho1 t))) s-iter 0.0
+                    (/ 1.0 (sqrt (- 1.0 (pow rho2 t)))) (sqrt! r-iter g-iter) epsilon g-iter)
+      (axpby! 1.0 g-iter (inc (* eta-avg lambda)) w-iter)
+      this)))
+
+(defn adam-rnn-layer [fact bluep op-bluep srcs prop-diff?]
+  (let-release [op (op-bluep srcs prop-diff? false)
+                w (view-vctr (weights op))
+                s (zero w)
+                r (zero w)
+                w-iter (view-vctr (weights-iter op))
+                s-iter (zero w-iter)
+                r-iter (zero w-iter)]
+    (->AdamRnnLayer fact bluep op (second (shape bluep))
+                    s r w (view-vctr (diff-weights op)) (view-vctr (bias op))
+                    s-iter r-iter w-iter (view-vctr (diff-weights-iter op)))))
+
+(defmethod print-method SGDRnnLayer [layer w]
+  (print-rnn-layer layer w "Adam"))
 
 (deftype RnnLayerBlueprint [fact topology op-bluep]
   Releaseable
@@ -228,7 +344,7 @@
   (invoke [this prev-layer prop-diff? optimization]
     (let [training-layer (case optimization
                            :sgd sgd-rnn-layer
-                           ;;TODO implement                 :adam adam-rnn-layer
+                           :adam adam-rnn-layer
                            (dragan-says-ex
                             (format "Optimization algorithm %s is not available." optimization)
                             {:optimization optimization}))]
@@ -252,9 +368,9 @@
   [source destination]
   (transfer-rnn! source destination))
 
-#_(defmethod transfer! [AdamRnnLayer Object]
-    [source destination]
-    (transfer-rnn! source destination))
+(defmethod transfer! [AdamRnnLayer Object]
+  [source destination]
+  (transfer-rnn! source destination))
 
 (defmethod transfer! [SGDRnnLayer Object]
   [source destination]

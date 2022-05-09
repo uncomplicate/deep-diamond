@@ -22,4 +22,5 @@
   (test-rnn-training fact)
   (test-rnn-training-no-iter fact)
   (test-lstm-training-no-iter fact)
+  (test-lstm-training-no-iter-adam fact)
   (test-ending fact))
