@@ -437,16 +437,29 @@
 
 ;; ========================== Recurrent networks =========================================
 
+(defn coerce-rnn-dst [src-desc dst-desc]
+  (let [dst-shape (shape dst-desc)
+        [t n c] (shape src-desc)]
+    (case (count dst-shape)
+      0 src-desc
+      1 {:shape [t n (get dst-shape 0)]
+         :data-type (data-type dst-desc)
+         :layout (layout dst-desc)}
+      2 {:shape [(get dst-shape 0) n (get (dst-shape 1))]
+         :data-type (data-type dst-desc)
+         :layout (layout dst-desc)}
+      dst-desc)))
+
 (defn rnn-op
   ([fact src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
-   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type
-                         activ dir lrs src-iter? dst-iter?))
+   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                         weights-type activ dir lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc activ dir lrs src-iter? dst-iter?]
-   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
-                         activ dir lrs src-iter? dst-iter?))
+   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                         nil activ dir lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs src-iter? dst-iter?]
-   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
-                         :relu :unidirectional lrs src-iter? dst-iter?))
+   (api/rnn-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                         nil :relu :unidirectional lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs]
    (rnn-op fact src-desc dst-desc lrs false false))
   ([src-desc dst-desc lrs]
@@ -456,35 +469,36 @@
   ([fact src-desc dst-desc lrs activ args]
    (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
          beta (or (:beta args) 0.0)]
-     (api/rnn-blueprint (api/diamond-factory fact) src-desc dst-desc lrs activ alpha beta
+     (api/rnn-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                        lrs activ alpha beta
                         (:weights-type args) (:src-iter args) (:dst-iter args))))
-  ([fact src-desc dst-desc lrs activ]
-   (rnn fact src-desc dst-desc lrs activ nil))
+  ([fact src-desc dst-desc activ args]
+   (rnn fact src-desc dst-desc 1 activ args))
   ([dst-desc lrs activ args]
    (fn
      ([fact src-desc]
       (rnn fact src-desc dst-desc lrs activ args))
      ([src-desc]
       (rnn *diamond-factory* src-desc dst-desc lrs activ args))))
-  ([dst-desc lrs activ]
-   (rnn dst-desc lrs activ nil))
-  ([lrs activ]
-   (rnn [] lrs activ nil))
-  ([lrs]
-   (rnn [] lrs :relu nil))
+  ([dst-desc activ args]
+   (rnn dst-desc 1 activ args))
+  ([dst-desc activ]
+   (rnn dst-desc 1 activ nil))
+  ([dst-desc]
+   (rnn dst-desc 1 :relu nil))
   ([]
    (rnn [] 1 :relu nil)))
 
 (defn lstm-op
   ([fact src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
-   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc dst-desc weights-type
-                          dir lrs src-iter? dst-iter?))
+   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                          weights-type dir lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc dir lrs src-iter? dst-iter?]
-   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
-                          dir lrs src-iter? dst-iter?))
+   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                          nil dir lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs src-iter? dst-iter?]
-   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc dst-desc nil
-                          :unidirectional lrs src-iter? dst-iter?))
+   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                          nil :unidirectional lrs src-iter? dst-iter?))
   ([fact src-desc dst-desc lrs]
    (lstm-op fact src-desc dst-desc lrs false false))
   ([src-desc dst-desc lrs]
@@ -492,20 +506,20 @@
 
 (defn lstm
   ([fact src-desc dst-desc lrs args]
-   (api/lstm-blueprint (api/diamond-factory fact) src-desc dst-desc lrs
-                       (:weights-type args) (:src-iter args) (:dst-iter args)))
-  ([fact src-desc dst-desc lrs]
-   (lstm fact src-desc dst-desc lrs nil))
+   (api/lstm-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                       lrs (:weights-type args) (:src-iter args) (:dst-iter args)))
+  ([fact src-desc dst-desc args]
+   (lstm fact src-desc dst-desc 1 args))
   ([dst-desc lrs args]
    (fn
      ([fact src-desc]
       (lstm fact src-desc dst-desc lrs args))
      ([src-desc]
       (lstm *diamond-factory* src-desc dst-desc lrs args))))
-  ([dst-desc lrs]
-   (lstm dst-desc lrs nil))
-  ([lrs]
-   (lstm [] lrs nil))
+  ([dst-desc args]
+   (lstm dst-desc 1 args))
+  ([dst-desc]
+   (lstm dst-desc 1 nil))
   ([]
    (lstm [] 1 :relu nil)))
 

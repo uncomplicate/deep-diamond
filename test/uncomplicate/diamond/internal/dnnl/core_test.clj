@@ -7,7 +7,7 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.internal.dnnl.core-test
-  (:require [midje.sweet :refer [facts throws => roughly]]
+  (:require [midje.sweet :refer [facts throws => roughly truthy]]
             [uncomplicate.commons
              [core :refer [with-release]]
              [utils :refer [capacity direct-buffer put-float get-float]]]
@@ -1389,3 +1389,75 @@
                     -0.14766573905944824 0.09891565144062042 -0.004336059093475342 100.0 200.0
                     300.0 400.0 0.6069310307502747 -0.2780276834964752 0.15249831974506378
                     -0.03880783170461655]))))
+
+(facts
+ "Vanilla RNN dimensions."
+ (let [T 2
+       N 1
+       SC 4
+       DC 2
+       G 1
+       L 1
+       D 1
+       src-dim [T N SC]
+       src-iter-dim [L D N DC]
+       weights-dim [L D SC G DC]
+       weights-iter-dim [L D DC G DC]
+       bias-dim [L D G DC]
+       dst-dim [T N DC]
+       dst-iter-dim [L D N DC]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc dst-dim :float :tnc)
+      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
+     (vanilla-rnn-fwd-desc :inference :relu :unidirectional
+                           src-desc nil weights-desc weights-iter-desc bias-desc
+                           dst-desc nil) => truthy
+     (vanilla-rnn-fwd-desc :inference :relu :unidirectional
+                           src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+                           dst-desc dst-iter-desc) => truthy)))
+
+(facts
+ "LSTM dimensions."
+ (let [T 2
+       N 1
+       SC 4
+       DC 2
+       G 4
+       L 1
+       D 1
+       src-dim [T N SC]
+       src-iter-dim [L D N DC]
+       weights-dim [L D SC G DC]
+       weights-iter-dim [L D DC G DC]
+       bias-dim [L D G DC]
+       dst-dim [T N DC]
+       dst-iter-dim [L D N DC]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      src-iter-c-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc dst-dim :float :tnc)
+      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)
+      dst-iter-c-desc (memory-desc dst-iter-dim :float :ldnc)]
+     (lstm-fwd-desc :inference :unidirectional
+                                      src-desc nil nil weights-desc weights-desc bias-desc
+                                      dst-desc nil nil) => (throws Exception)
+     (lstm-fwd-desc :inference :unidirectional
+                    src-desc nil nil weights-desc weights-iter-desc bias-desc
+                    dst-desc nil nil) => truthy
+     (lstm-fwd-desc :inference :unidirectional
+                    src-desc src-iter-desc src-iter-c-desc
+                    weights-desc weights-iter-desc bias-desc
+                    dst-desc dst-iter-desc dst-iter-c-desc) => truthy)))

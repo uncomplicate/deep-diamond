@@ -13,7 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.11.1"]
-                 [uncomplicate/neanderthal "0.44.0-SNAPSHOT"]
+                 [uncomplicate/neanderthal "0.44.0"]
                  [org.bytedeco/dnnl-platform "2.5.2-1.5.7"]
                  [org.jcuda/jcudnn "11.6.1"]]
 
@@ -25,7 +25,7 @@
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
                    :dependencies [[midje "1.10.5"]
-                                  [org.clojure/data.csv "1.0.0"]]
+                                  [org.clojure/data.csv "1.0.1"]]
 
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                         "-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"

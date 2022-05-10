@@ -1033,7 +1033,7 @@
 
 (defn test-rnn-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 rnn-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :relu)
+                 rnn-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :relu nil)
                  rnn-no-iter (rnn-bluep-no-iter input-tz nil :sgd)]
     (facts "Vanilla RNN layer inference."
            (transfer! [2 3 0.2 0.3] input-tz)
@@ -1051,7 +1051,7 @@
 
 (defn test-lstm-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2)
+                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)]
     (facts "Vanilla RNN layer inference."
            (transfer! [2 3 0.2 0.3] input-tz)
@@ -1073,7 +1073,7 @@
 
 (defn test-lstm-training-no-iter-adam [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2)
+                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :adam)]
     (facts "Vanilla RNN layer inference."
            (transfer! [2 3 0.2 0.3] input-tz)

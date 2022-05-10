@@ -486,17 +486,18 @@
                              dir lrs src-iter? dst-iter?]
   (let [src-desc (desc src-desc)
         src-shape (shape src-desc)
+        src-ch (long (last src-shape))
         dst-desc (desc dst-desc)
-        ch (long (last src-shape))
+        dst-ch (long (last (shape dst-desc)))
         dirs (direction-count dir)
         gts 1
         src-iter-shape (into [lrs dirs] (rest src-shape))
         dst-iter-shape (conj (into [lrs dirs] (butlast (rest (shape dst-desc))))
-                             (if (= :bidirectional-concat dir) (* 2 ch) ch))
+                             (if (= :bidirectional-concat dir) (quot dst-ch 2) dst-ch))
         dst-type (data-type dst-desc)
-        weights-shape [lrs dirs ch gts ch]
+        weights-shape [lrs dirs src-ch gts dst-ch]
         weights-type (or weights-type (data-type src-desc) dst-type)
-        bias-shape [lrs dirs gts ch]]
+        bias-shape [lrs dirs gts dst-ch]]
     (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape dst-type :any))
                   dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
@@ -522,7 +523,7 @@
 
 (defn dnnl-rnn-blueprint [fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
-                 dst-desc (memory-desc (shape src-desc)
+                 dst-desc (memory-desc (shape dst-desc)
                                        (or (tz/data-type dst-desc) (tz/data-type src-desc))
                                        :any)]
     (let-release [rnn-op-bluep (dnnl-rnn-op-blueprint fact eng src-desc dst-desc weights-type
@@ -536,17 +537,18 @@
                               dir lrs src-iter? dst-iter?]
   (let [src-desc (desc src-desc)
         src-shape (shape src-desc)
+        src-ch (long (last src-shape))
         dst-desc (desc dst-desc)
-        ch (long (last src-shape))
+        dst-ch (long (last (shape dst-desc)))
         dirs (direction-count dir)
         gts 4
         src-iter-shape (into [lrs dirs] (rest src-shape))
         dst-iter-shape (conj (into [lrs dirs] (butlast (rest (shape dst-desc))))
-                             (if (= :bidirectional-concat dir) (* 2 ch) ch))
+                             (if (= :bidirectional-concat dir) (quot dst-ch 2) dst-ch))
         dst-type (data-type dst-desc)
-        weights-shape [lrs dirs ch gts ch]
+        weights-shape [lrs dirs src-ch gts dst-ch]
         weights-type (or weights-type (data-type src-desc) dst-type)
-        bias-shape [lrs dirs gts ch]]
+        bias-shape [lrs dirs gts dst-ch]]
     (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape dst-type :any))
                   dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
@@ -572,7 +574,7 @@
 
 (defn dnnl-lstm-blueprint [fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
-                 dst-desc (memory-desc (shape src-desc)
+                 dst-desc (memory-desc (shape dst-desc)
                                        (or (tz/data-type dst-desc) (tz/data-type src-desc))
                                        :any)]
     (let-release [lstm-op-bluep (dnnl-lstm-op-blueprint fact eng src-desc dst-desc weights-type
