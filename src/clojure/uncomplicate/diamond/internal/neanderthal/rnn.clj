@@ -6,7 +6,6 @@
             [uncomplicate.neanderthal
              [core :refer [rk! mm! mv! trans axpy! axpby! view-vctr view-ge mrows
                            ncols vctr zero dim transfer! raw]]
-             [real :refer [entry! nrm2 asum]]
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
              [random :refer [rand-normal! rng-state]]

@@ -447,7 +447,7 @@
                                               :diff-src-iter-c (when diff-src-iter-c-conn (input diff-src-iter-c-conn))
                                               :diff-weights-layer (input diff-weights-conn)
                                               :diff-weights-iter (input diff-weights-iter-conn)
-                                              :diff-bias bias-tz})
+                                              :diff-bias diff-bias-tz})
                     srcs (if src-iter-conn
                            (if src-iter-c-conn
                              [(input src-conn) (input src-iter-conn) (input src-iter-c-conn)]
