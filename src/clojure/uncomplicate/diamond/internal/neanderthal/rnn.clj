@@ -20,7 +20,7 @@
                                 DescriptorProvider DiamondFactoryProvider DiffParameters
                                 diff-weights diff-weights-iter Backprop forward backward
                                 activ-blueprint DiffTransfer diff-input
-                                diff-output diff-z LinearBackprop
+                                diff-output LinearBackprop
                                 backward-diff Workspace inf-ws-size train-ws-size
                                 neanderthal-factory inf-desc train-desc Initializable init]]
              [utils :refer [transfer-weights-bias!]]])
@@ -122,8 +122,6 @@
   DiffTransfer
   (diff-input [_]
     (diff-input op))
-  (diff-z [_]
-    (diff-output op))
   (diff-output [_]
     (diff-output op))
   Parameters
@@ -227,8 +225,6 @@
   DiffTransfer
   (diff-input [_]
     (diff-input op))
-  (diff-z [_]
-    (diff-output op))
   (diff-output [_]
     (diff-output op))
   Parameters
