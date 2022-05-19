@@ -930,6 +930,115 @@
          (get-float dst-buf 3) => 5.0))
 
 (facts
+ "Vanilla RNN dimensions."
+ (let [T 2
+       N 1
+       SC 4
+       DC 2
+       G 1
+       L 1
+       D 1
+       src-dim [T N SC]
+       src-iter-dim [L D N DC]
+       weights-dim [L D SC G DC]
+       weights-iter-dim [L D DC G DC]
+       bias-dim [L D G DC]
+       dst-dim [T N DC]
+       dst-iter-dim [L D N DC]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc dst-dim :float :tnc)
+      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
+     (vanilla-rnn-fwd-desc :inference :relu :unidirectional
+                           src-desc nil weights-desc weights-iter-desc bias-desc
+                           dst-desc nil) => truthy
+     (vanilla-rnn-fwd-desc :inference :relu :unidirectional
+                           src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+                           dst-desc dst-iter-desc) => truthy)))
+
+(facts
+ "LSTM dimensions."
+ (let [T 2
+       N 1
+       SC 4
+       DC 2
+       G 4
+       L 1
+       D 1
+       src-dim [T N SC]
+       src-iter-dim [L D N DC]
+       weights-dim [L D SC G DC]
+       weights-iter-dim [L D DC G DC]
+       bias-dim [L D G DC]
+       dst-dim [T N DC]
+       dst-iter-dim [L D N DC]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      src-iter-c-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc dst-dim :float :tnc)
+      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)
+      dst-iter-c-desc (memory-desc dst-iter-dim :float :ldnc)]
+     (lstm-fwd-desc :inference :unidirectional
+                                      src-desc nil nil weights-desc weights-desc bias-desc
+                                      dst-desc nil nil) => (throws Exception)
+     (lstm-fwd-desc :inference :unidirectional
+                    src-desc nil nil weights-desc weights-iter-desc bias-desc
+                    dst-desc nil nil) => truthy
+     (lstm-fwd-desc :inference :unidirectional
+                    src-desc src-iter-desc src-iter-c-desc
+                    weights-desc weights-iter-desc bias-desc
+                    dst-desc dst-iter-desc dst-iter-c-desc) => truthy)))
+
+(facts
+ "GRU dimensions."
+ (let [T 2
+       N 1
+       SC 4
+       DC 2
+       G 3
+       L 1
+       D 1
+       src-dim [T N SC]
+       src-iter-dim [L D N DC]
+       weights-dim [L D SC G DC]
+       weights-iter-dim [L D DC G DC]
+       bias-dim [L D G DC]
+       dst-dim [T N DC]
+       dst-iter-dim [L D N DC]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc dst-dim :float :tnc)
+      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
+     (gru-fwd-desc :inference :unidirectional
+                   src-desc nil weights-desc weights-desc bias-desc
+                   dst-desc nil) => (throws Exception)
+     (gru-fwd-desc :inference :unidirectional
+                   src-desc nil weights-desc weights-iter-desc bias-desc
+                   dst-desc nil) => truthy
+     (gru-fwd-desc :inference :unidirectional
+                   src-desc src-iter-desc
+                   weights-desc weights-iter-desc bias-desc
+                   dst-desc dst-iter-desc) => truthy)))
+
+(facts
  "Vanilla RNN forward."
  (let [T 2
        N 1
@@ -1390,111 +1499,229 @@
                     300.0 400.0 0.6069310307502747 -0.2780276834964752 0.15249831974506378
                     -0.03880783170461655]))))
 
-(facts
- "Vanilla RNN dimensions."
- (let [T 2
-       N 1
-       SC 4
-       DC 2
-       G 1
-       L 1
-       D 1
-       src-dim [T N SC]
-       src-iter-dim [L D N DC]
-       weights-dim [L D SC G DC]
-       weights-iter-dim [L D DC G DC]
-       bias-dim [L D G DC]
-       dst-dim [T N DC]
-       dst-iter-dim [L D N DC]]
-   (with-release
-     [eng (engine)
-      s (stream eng)
-      src-desc (memory-desc src-dim :float :tnc)
-      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
-      weights-desc (memory-desc weights-dim :float :ldigo)
-      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
-      bias-desc (memory-desc bias-dim :float :ldgo)
-      dst-desc (memory-desc dst-dim :float :tnc)
-      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
-     (vanilla-rnn-fwd-desc :inference :relu :unidirectional
-                           src-desc nil weights-desc weights-iter-desc bias-desc
-                           dst-desc nil) => truthy
-     (vanilla-rnn-fwd-desc :inference :relu :unidirectional
-                           src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
-                           dst-desc dst-iter-desc) => truthy)))
 
 (facts
- "LSTM dimensions."
+ "GRU forward."
  (let [T 2
        N 1
-       SC 4
-       DC 2
-       G 4
-       L 1
-       D 1
-       src-dim [T N SC]
-       src-iter-dim [L D N DC]
-       weights-dim [L D SC G DC]
-       weights-iter-dim [L D DC G DC]
-       bias-dim [L D G DC]
-       dst-dim [T N DC]
-       dst-iter-dim [L D N DC]]
-   (with-release
-     [eng (engine)
-      s (stream eng)
-      src-desc (memory-desc src-dim :float :tnc)
-      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
-      src-iter-c-desc (memory-desc src-iter-dim :float :ldnc)
-      weights-desc (memory-desc weights-dim :float :ldigo)
-      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
-      bias-desc (memory-desc bias-dim :float :ldgo)
-      dst-desc (memory-desc dst-dim :float :tnc)
-      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)
-      dst-iter-c-desc (memory-desc dst-iter-dim :float :ldnc)]
-     (lstm-fwd-desc :inference :unidirectional
-                                      src-desc nil nil weights-desc weights-desc bias-desc
-                                      dst-desc nil nil) => (throws Exception)
-     (lstm-fwd-desc :inference :unidirectional
-                    src-desc nil nil weights-desc weights-iter-desc bias-desc
-                    dst-desc nil nil) => truthy
-     (lstm-fwd-desc :inference :unidirectional
-                    src-desc src-iter-desc src-iter-c-desc
-                    weights-desc weights-iter-desc bias-desc
-                    dst-desc dst-iter-desc dst-iter-c-desc) => truthy)))
-
-(facts
- "GRU dimensions."
- (let [T 2
-       N 1
-       SC 4
-       DC 2
+       C 2
        G 3
-       L 1
+       L 2
        D 1
-       src-dim [T N SC]
-       src-iter-dim [L D N DC]
-       weights-dim [L D SC G DC]
-       weights-iter-dim [L D DC G DC]
-       bias-dim [L D G DC]
-       dst-dim [T N DC]
-       dst-iter-dim [L D N DC]]
+       src-dim [T N C]
+       src-iter-dim [L D N C]
+       weights-dim [L D C G C]
+       bias-dim [L D G C]]
    (with-release
      [eng (engine)
       s (stream eng)
       src-desc (memory-desc src-dim :float :tnc)
       src-iter-desc (memory-desc src-iter-dim :float :ldnc)
       weights-desc (memory-desc weights-dim :float :ldigo)
-      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
       bias-desc (memory-desc bias-dim :float :ldgo)
-      dst-desc (memory-desc dst-dim :float :tnc)
-      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
-     (gru-fwd-desc :inference :unidirectional
-                   src-desc nil weights-desc weights-desc bias-desc
-                   dst-desc nil) => (throws Exception)
-     (gru-fwd-desc :inference :unidirectional
-                   src-desc nil weights-desc weights-iter-desc bias-desc
-                   dst-desc nil) => truthy
-     (gru-fwd-desc :inference :unidirectional
-                   src-desc src-iter-desc
-                   weights-desc weights-iter-desc bias-desc
-                   dst-desc dst-iter-desc) => truthy)))
+      dst-desc (memory-desc src-dim :float :tnc)
+      dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      gru-desc (gru-fwd-desc :inference :unidirectional
+                             src-desc src-iter-desc weights-desc weights-desc bias-desc
+                             dst-desc dst-iter-desc)
+      gru-no-iter-desc (gru-fwd-desc :inference :unidirectional
+                                     src-desc nil weights-desc weights-desc bias-desc
+                                     dst-desc dst-iter-desc)
+      gru-no-iter-pd (primitive-desc eng gru-no-iter-desc)
+      gru-pd (primitive-desc eng gru-desc)
+      src-vec (fv [2 3 0.2 0.3])
+      src-mem (memory eng (arg-md gru-pd :src) (buffer src-vec))
+      src-iter-vec (fv (apply * src-iter-dim))
+      src-iter-mem (memory eng (arg-md gru-pd :src-iter) (buffer src-iter-vec))
+      weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      weights-mem (memory eng (arg-md gru-pd :weights) (buffer weights-vec))
+      weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04])
+      weights-iter-mem (memory eng (arg-md gru-pd :weights-iter) (buffer weights-iter-vec))
+      bias-vec (fv [0.3 0.7 1 2
+                    0.3 0.7 1 2
+                    0.3 0.7 1 2])
+      bias-mem (memory eng bias-desc (buffer bias-vec))
+      dst-vec (fv (apply * src-dim))
+      dst-mem (memory eng (arg-md gru-pd :dst) (buffer dst-vec))
+      dst-iter-vec (fv (apply * src-dim))
+      dst-iter-mem (memory eng (arg-md gru-pd :dst-iter) (buffer dst-iter-vec))
+      workspace-mem (memory eng (arg-md gru-pd :workspace))
+      gru (primitive gru-pd)
+      gru-args (args {:src-layer src-mem
+                      :src-iter src-iter-mem
+                      :weights-layer weights-mem
+                      :weights-iter weights-iter-mem
+                      :bias bias-mem
+                      :dst-layer dst-mem
+                      :dst-iter dst-iter-mem
+                      :workspace workspace-mem})
+      gru-no-iter (primitive gru-no-iter-pd)
+      gru-no-iter-args (args {:src-layer src-mem
+                              :weights-layer weights-mem
+                              :weights-iter weights-iter-mem
+                              :bias bias-mem
+                              :dst-layer dst-mem
+                              :dst-iter dst-iter-mem
+                              :workspace workspace-mem})]
+     (primitive-kind gru-desc) => :rnn
+     (execute! s gru gru-args) => s
+     (seq src-iter-vec) => [0.0 0.0 0.0 0.0]
+     (seq dst-vec) => [0.20144839584827423 0.10882259160280228 0.20144839584827423 0.10882259160280228]
+     (seq dst-iter-vec) => [0.11286896467208862 0.05168459191918373 0.20144839584827423 0.10882259160280228]
+     (entry! dst-vec 0)
+     (primitive-kind gru-no-iter-desc) => :rnn
+     (arg-md gru-no-iter-pd :src-iter) => nil
+     (zero-desc? (arg-md gru-no-iter-pd :src-iter)) => true
+     (execute! s gru-no-iter gru-no-iter-args) => s
+     (seq dst-vec) => [0.20144839584827423 0.10882259160280228 0.20144839584827423 0.10882259160280228])))
+
+(facts
+ "GRU training."
+ (let [T 2
+       N 1
+       C 2
+       G 3
+       L 2
+       D 1
+       src-dim [T N C]
+       src-iter-dim [L D N C]
+       weights-dim [L D C G C]
+       bias-dim [L D G C]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc src-dim :float :tnc)
+      dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      gru-fwd-desc (gru-fwd-desc :training :unidirectional src-desc src-iter-desc
+                                 weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
+      gru-fwd-pd (primitive-desc eng gru-fwd-desc)
+      src-vec (fv [2 3 0.2 0.3])
+      src-mem (memory eng (arg-md gru-fwd-pd :src) (buffer src-vec))
+      src-iter-vec (fv (apply * src-iter-dim))
+      src-iter-mem (memory eng (arg-md gru-fwd-pd :src-iter) (buffer src-iter-vec))
+      weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      weights-mem (memory eng (arg-md gru-fwd-pd :weights) (buffer weights-vec))
+      weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04
+                            100 200 300 400 0.01 0.02 0.03 0.04])
+      weights-iter-mem (memory eng (arg-md gru-fwd-pd :weights-iter) (buffer weights-iter-vec))
+      bias-vec (fv [0.3 0.7 1 2
+                    0.3 0.7 1 2
+                    0.3 0.7 1 2])
+      bias-mem (memory eng bias-desc (buffer bias-vec))
+      dst-vec (fv (apply * src-dim))
+      dst-mem (memory eng (arg-md gru-fwd-pd :dst-iter) (buffer dst-vec))
+      dst-iter-vec (fv (apply * src-dim))
+      dst-iter-mem (memory eng (arg-md gru-fwd-pd :dst-iter) (buffer dst-iter-vec))
+      workspace-mem (memory eng (arg-md gru-fwd-pd :workspace))
+      gru-fwd (primitive gru-fwd-pd)
+      gru-fwd-args (args {:src-layer src-mem
+                          :src-iter src-iter-mem
+                          :weights-layer weights-mem
+                          :weights-iter weights-iter-mem
+                          :bias bias-mem
+                          :dst-layer dst-mem
+                          :dst-iter dst-iter-mem
+                          :workspace workspace-mem})
+      bwd-weights-desc (memory-desc weights-dim :float :any)
+      gru-bwd-desc (gru-bwd-desc :unidirectional src-desc src-iter-desc
+                                 bwd-weights-desc bwd-weights-desc bias-desc
+                                 dst-desc dst-iter-desc
+                                 src-desc src-iter-desc
+                                 bwd-weights-desc bwd-weights-desc bias-desc
+                                 dst-desc dst-iter-desc)
+      gru-bwd-pd (primitive-desc eng gru-bwd-desc gru-fwd-pd)
+      bwd-weights-mem (memory eng (arg-md gru-bwd-pd :weights))
+      reorder-weights-fb-pd (reorder eng weights-mem bwd-weights-mem)
+      reorder-weights-bf-pd (reorder eng bwd-weights-mem weights-mem)
+      reorder-weights-fb (primitive reorder-weights-fb-pd)
+      reorder-weights-bf (primitive reorder-weights-bf-pd)
+      bwd-weights-iter-mem (memory eng (arg-md gru-bwd-pd :weights-iter))
+      reorder-weights-iter-fb-pd (reorder eng weights-iter-mem bwd-weights-iter-mem)
+      reorder-weights-iter-bf-pd (reorder eng bwd-weights-iter-mem weights-iter-mem)
+      reorder-weights-iter-fb (primitive reorder-weights-iter-fb-pd)
+      reorder-weights-iter-bf (primitive reorder-weights-iter-bf-pd)
+      diff-weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                            0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                            0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      diff-weights-packed-mem (memory eng weights-desc (buffer diff-weights-vec))
+      diff-weights-mem (memory eng (arg-md gru-bwd-pd :diff-weights))
+      reorder-diff-weights-pack-pd (reorder eng diff-weights-mem diff-weights-packed-mem)
+      reorder-diff-weights-unpack-pd (reorder eng diff-weights-packed-mem diff-weights-mem)
+      reorder-diff-weights-pack (primitive reorder-diff-weights-pack-pd)
+      reorder-diff-weights-unpack (primitive reorder-diff-weights-unpack-pd)
+      diff-weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
+                                 100 200 300 400 0.01 0.02 0.03 0.04
+                                 100 200 300 400 0.01 0.02 0.03 0.04])
+      diff-weights-iter-packed-mem (memory eng weights-desc (buffer diff-weights-iter-vec))
+      diff-weights-iter-mem (memory eng (arg-md gru-bwd-pd :diff-weights-iter))
+      reorder-diff-weights-iter-pack-pd (reorder eng diff-weights-iter-mem diff-weights-iter-packed-mem)
+      reorder-diff-weights-iter-unpack-pd (reorder eng diff-weights-iter-packed-mem diff-weights-iter-mem)
+      reorder-diff-weights-iter-pack (primitive reorder-diff-weights-iter-pack-pd)
+      reorder-diff-weights-iter-unpack (primitive reorder-diff-weights-iter-unpack-pd)
+      diff-dst-vec (fv [1.1 -2.2 3.3 -4.4])
+      diff-dst-mem (memory eng (arg-md gru-bwd-pd :diff-dst) (buffer diff-dst-vec))
+      diff-dst-iter-vec (fv [-1 2 0.1 -0.2])
+      diff-dst-iter-mem (memory eng (arg-md gru-fwd-pd :diff-dst-iter) (buffer diff-dst-iter-vec))
+      gru-bwd-args (args {:src-layer src-mem
+                          :src-iter src-iter-mem
+                          :weights-layer bwd-weights-mem
+                          :weights-iter bwd-weights-iter-mem
+                          :bias bias-mem
+                          :dst-layer dst-mem
+                          :dst-iter dst-iter-mem
+                          :workspace workspace-mem
+                          :diff-src-layer src-mem
+                          :diff-src-iter src-iter-mem
+                          :diff-weights-layer diff-weights-mem
+                          :diff-weights-iter diff-weights-iter-mem
+                          :diff-bias bias-mem
+                          :diff-dst-layer diff-dst-mem
+                          :diff-dst-iter diff-dst-iter-mem})
+      gru-bwd (primitive gru-bwd-pd)]
+
+     (primitive-kind gru-fwd-desc) => :rnn
+     (execute! s gru-fwd gru-fwd-args) => s
+     (seq dst-vec) => [0.20144839584827423 0.10882259160280228 0.20144839584827423 0.10882259160280228]
+     (seq dst-iter-vec) => [0.11286896467208862 0.05168459191918373 0.20144839584827423 0.10882259160280228]
+     (seq src-vec) => (map float [2.0 3.0 0.2 0.3])
+     (primitive-kind gru-bwd-desc) => :rnn
+     (execute! s reorder-weights-fb (fwd-args weights-mem bwd-weights-mem)) => s
+     (execute! s reorder-weights-iter-fb (fwd-args weights-iter-mem bwd-weights-iter-mem)) => s
+     (execute! s reorder-diff-weights-unpack (fwd-args diff-weights-packed-mem diff-weights-mem))
+     (execute! s reorder-diff-weights-iter-unpack (fwd-args diff-weights-iter-packed-mem diff-weights-iter-mem))
+     (execute! s gru-bwd gru-bwd-args) => s
+     (execute! s reorder-weights-bf (fwd-args bwd-weights-mem weights-mem)) => s
+     (execute! s reorder-weights-iter-bf (fwd-args bwd-weights-iter-mem weights-iter-mem)) => s
+     (execute! s reorder-diff-weights-pack (fwd-args diff-weights-mem diff-weights-packed-mem))
+     (execute! s reorder-diff-weights-iter-pack (fwd-args diff-weights-iter-mem diff-weights-iter-packed-mem))
+     (map float (seq weights-vec)) => (map float [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                                                  0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                                                  0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+     (seq dst-vec) => [0.20144839584827423 0.10882259160280228 0.20144839584827423 0.10882259160280228]
+     (seq src-vec) => [-0.01570914126932621 -0.024218741804361343 6.92690434789256E-7 3.4634520034160232E-6]
+     (seq src-iter-vec) => [-14.01021671295166 -0.2687637507915497 24.973596572875977 55.256988525390625]
+     (seq diff-weights-vec)
+     => (map float [0.2792283594608307 -0.021774962544441223 0.30000001192092896 0.4000000059604645
+                    0.27774378657341003 0.40422722697257996 0.7688425779342651 0.2673375606536865
+                    0.10000000149011612 0.20000000298023224 0.2666156589984894 0.4063408076763153
+                    0.22422274947166443 0.474124550819397 0.5 0.6000000238418579 0.15224650502204895
+                    0.19450163841247559 0.2652982175350189 0.433944970369339 0.30000001192092896
+                    0.4000000059604645 0.5239260196685791 0.5974820852279663])
+     (seq diff-weights-iter-vec)
+     => (map float [100.0 200.0 300.0 400.0 0.009999999776482582
+                    0.019999999552965164 0.0300003569573164 0.03999999910593033
+                    100.0 200.0 300.0 400.0 0.009999999776482582
+                    0.019999999552965164 0.029999999329447746 0.03999999910593033
+                    100.0 200.0 300.0 400.0 0.009999999776482582
+                    0.019999999552965164 0.029999999329447746 0.03999999910593033]))))
