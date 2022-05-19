@@ -521,7 +521,42 @@
   ([dst-desc]
    (lstm dst-desc 1 nil))
   ([]
-   (lstm [] 1 :relu nil)))
+   (lstm [] 1 nil)))
+
+
+(defn gru-op
+  ([fact src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
+   (api/gru-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                          weights-type dir lrs src-iter? dst-iter?))
+  ([fact src-desc dst-desc dir lrs src-iter? dst-iter?]
+   (api/gru-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                          nil dir lrs src-iter? dst-iter?))
+  ([fact src-desc dst-desc lrs src-iter? dst-iter?]
+   (api/gru-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                          nil :unidirectional lrs src-iter? dst-iter?))
+  ([fact src-desc dst-desc lrs]
+   (gru-op fact src-desc dst-desc lrs false false))
+  ([src-desc dst-desc lrs]
+   (gru-op *diamond-factory* src-desc dst-desc lrs)))
+
+(defn gru
+  ([fact src-desc dst-desc lrs args]
+   (api/gru-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
+                       lrs (:weights-type args) (:src-iter args) (:dst-iter args)))
+  ([fact src-desc dst-desc args]
+   (gru fact src-desc dst-desc 1 args))
+  ([dst-desc lrs args]
+   (fn
+     ([fact src-desc]
+      (gru fact src-desc dst-desc lrs args))
+     ([src-desc]
+      (gru *diamond-factory* src-desc dst-desc lrs args))))
+  ([dst-desc args]
+   (gru dst-desc 1 args))
+  ([dst-desc]
+   (gru dst-desc 1 nil))
+  ([]
+   (gru [] 1 nil)))
 
 (defn ending
   ([fact src-desc dst-type]

@@ -35,7 +35,8 @@
                                dnnl-gaussian-dropout-blueprint dnnl-batch-norm-layer-blueprint
                                dnnl-pooling-blueprint dnnl-branch-blueprint dnnl-sum-blueprint]]
              [rnn :refer [dnnl-rnn-op-blueprint dnnl-rnn-blueprint dnnl-ending-blueprint
-                          dnnl-lstm-op-blueprint dnnl-lstm-blueprint]]])
+                          dnnl-lstm-op-blueprint dnnl-lstm-blueprint
+                          dnnl-gru-op-blueprint dnnl-gru-blueprint]]])
   (:import [uncomplicate.neanderthal.internal.host CBLAS LAPACK MKL]
            uncomplicate.neanderthal.internal.api.RealBufferAccessor
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor))
@@ -363,10 +364,14 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-rnn-op-blueprint this eng src-desc dst-desc weights-type activ 0.0 0.0 dir lrs src-iter? dst-iter?))
   (lstm-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
     (dnnl-lstm-op-blueprint this eng src-desc dst-desc weights-type dir lrs src-iter? dst-iter?))
+  (gru-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
+    (dnnl-gru-op-blueprint this eng src-desc dst-desc weights-type dir lrs src-iter? dst-iter?))
   (rnn-blueprint [fact src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
     (dnnl-rnn-blueprint fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?))
   (lstm-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?]
     (dnnl-lstm-blueprint fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?))
+  (gru-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?]
+    (dnnl-gru-blueprint fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?))
   (ending-blueprint [fact src-desc dst-type]
     (dnnl-ending-blueprint fact eng src-desc dst-type))
   CostFactory

@@ -537,15 +537,15 @@
 
 ;; ================================ LSTM =======================================================
 
-(defn dnnl-lstm-op-blueprint [fact eng src-desc dst-desc weights-type
-                              dir lrs src-iter? dst-iter?]
+(defn dnnl-gated-op-blueprint [fwd-desc-fn bwd-desc-fn gts
+                               fact eng src-desc dst-desc weights-type
+                               dir lrs src-iter? dst-iter?]
   (let [src-desc (desc src-desc)
         src-shape (shape src-desc)
         src-ch (long (last src-shape))
         dst-desc (desc dst-desc)
         dst-ch (long (last (shape dst-desc)))
         dirs (direction-count dir)
-        gts 4
         dst-iter-shape (conj (into [lrs dirs] (butlast (rest (shape dst-desc))))
                              (if (= :bidirectional-concat dir) (quot dst-ch 2) dst-ch))
         src-iter-shape dst-iter-shape
@@ -559,18 +559,18 @@
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
       (with-release [weights-desc-any (memory-desc weights-shape weights-type :any)
                      weights-iter-desc-any (memory-desc weights-iter-shape weights-type :any)
-                     infer-desc (lstm-fwd-desc :inference dir src-desc src-iter-desc src-iter-desc
-                                               weights-desc-any weights-iter-desc-any bias-desc
-                                               dst-desc dst-iter-desc dst-iter-desc)
-                     train-desc (lstm-fwd-desc :training dir src-desc src-iter-desc src-iter-desc
-                                               weights-desc-any weights-iter-desc-any bias-desc
-                                               dst-desc dst-iter-desc dst-iter-desc)
-                     bwd-desc (lstm-bwd-desc dir src-desc src-iter-desc src-iter-desc
+                     infer-desc (fwd-desc-fn :inference dir src-desc src-iter-desc
                                              weights-desc-any weights-iter-desc-any bias-desc
-                                             dst-desc dst-iter-desc dst-iter-desc
-                                             src-desc src-iter-desc src-iter-desc
+                                             dst-desc dst-iter-desc)
+                     train-desc (fwd-desc-fn :training dir src-desc src-iter-desc
                                              weights-desc-any weights-iter-desc-any bias-desc
-                                             dst-desc dst-iter-desc dst-iter-desc)]
+                                             dst-desc dst-iter-desc)
+                     bwd-desc (bwd-desc-fn dir src-desc src-iter-desc
+                                           weights-desc-any weights-iter-desc-any bias-desc
+                                           dst-desc dst-iter-desc
+                                           src-desc src-iter-desc
+                                           weights-desc-any weights-iter-desc-any bias-desc
+                                           dst-desc dst-iter-desc)]
         (let-release [infer-pd (primitive-desc eng infer-desc)
                       train-pd (primitive-desc eng train-desc)
                       bwd-pd (primitive-desc eng bwd-desc train-pd)
@@ -578,6 +578,8 @@
                       weights-iter-desc-export (dnnl-contiguous-desc (arg-md train-pd :weights-iter))]
           (->DnnlRnnBlueprint fact weights-desc-export weights-iter-desc-export bias-desc
                               infer-pd train-pd bwd-pd))))))
+
+(def dnnl-lstm-op-blueprint (partial dnnl-gated-op-blueprint lstm-fwd-desc lstm-bwd-desc 4))
 
 (defn dnnl-lstm-blueprint [fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
@@ -587,6 +589,19 @@
     (let-release [lstm-op-bluep (dnnl-lstm-op-blueprint fact eng src-desc dst-desc weights-type
                                                         :unidirectional lrs src-iter? dst-iter?)]
       (->RnnLayerBlueprint fact :lstm lstm-op-bluep))))
+
+;; ================================ GRU =======================================================
+
+(def dnnl-gru-op-blueprint (partial dnnl-gated-op-blueprint gru-fwd-desc gru-bwd-desc 3))
+
+(defn dnnl-gru-blueprint [fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?]
+  (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
+                 dst-desc (memory-desc (shape dst-desc)
+                                       (or (tz/data-type dst-desc) (tz/data-type src-desc))
+                                       :any)]
+    (let-release [gru-op-bluep (dnnl-gru-op-blueprint fact eng src-desc dst-desc weights-type
+                                                      :unidirectional lrs src-iter? dst-iter?)]
+      (->RnnLayerBlueprint fact :gru gru-op-bluep))))
 
 ;; ================================= Ending Layer ==============================
 

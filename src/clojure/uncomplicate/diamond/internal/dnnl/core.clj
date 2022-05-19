@@ -134,13 +134,6 @@
      (let [ds (long-array dim)]
        (submemory-desc* (desc parent-desc) ds (long-array (alength ds)))))))
 
-(defn dnnl-contiguous-desc [md]
-  (let [s (dims md)]
-    (if (and (= :float (data-type md))
-             (= (size md) (apply * Float/BYTES s)))
-      (view md)
-      (memory-desc s :float (default-strides s)))))
-
 (defn equal-desc?
   "Compares two memory descriptors for logical equality.
 
@@ -220,6 +213,13 @@
   "Returns the engine context of the memory object `mem`."
   [mem]
   (wrap (get-engine* (extract mem))))
+
+(defn dnnl-contiguous-desc [md]
+  (let [s (dims md)]
+    (if (and (= :float (data-type md))
+             (= (size md) (apply * Float/BYTES s)))
+      (view md)
+      (memory-desc s :float (default-strides s)))))
 
 ;; ===================== Desc =================================================
 
@@ -857,30 +857,50 @@
 
 (defn lstm-fwd-desc
   "TODO"
-  [prop-kind direction
-   src-desc src-iter-desc src-iter-c-desc weights-desc weights-iter-desc
-   bias-desc dst-desc dst-iter-desc dst-iter-c-desc]
-  (lstm-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
-                      (enc-keyword dnnl-direction direction)
-                      (desc src-desc) (desc src-iter-desc) (desc src-iter-c-desc)
-                      (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
-                      (desc dst-desc) (desc dst-iter-desc) (desc dst-iter-c-desc)))
+  ([prop-kind direction
+    src-desc src-iter-desc src-iter-c-desc weights-desc weights-iter-desc
+    bias-desc dst-desc dst-iter-desc dst-iter-c-desc]
+   (lstm-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                       (enc-keyword dnnl-direction direction)
+                       (desc src-desc) (desc src-iter-desc) (desc src-iter-c-desc)
+                       (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
+                       (desc dst-desc) (desc dst-iter-desc) (desc dst-iter-c-desc)))
+  ([prop-kind direction
+    src-desc src-iter-desc weights-desc weights-iter-desc
+    bias-desc dst-desc dst-iter-desc]
+   (lstm-fwd-desc prop-kind direction
+                  src-desc src-iter-desc src-iter-desc weights-desc weights-iter-desc
+                  bias-desc dst-desc dst-iter-desc dst-iter-desc)))
 
 (defn lstm-bwd-desc
   "TODO"
-  [direction
-   src-desc src-iter-desc src-iter-c-desc weights-desc weights-iter-desc bias-desc
-   dst-desc dst-iter-desc dst-iter-c-desc
-   diff-src-desc diff-src-iter-desc diff-src-iter-c-desc
-   diff-weights-desc diff-weights-iter-desc diff-bias-desc
-   diff-dst-desc diff-dst-iter-desc diff-dst-iter-c-desc]
-  (lstm-backward-desc* (enc-keyword dnnl-direction direction)
-                       (desc src-desc) (desc src-iter-desc) (desc src-iter-c-desc)
-                       (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
-                       (desc dst-desc) (desc dst-iter-desc) (desc dst-iter-c-desc)
-                       (desc diff-src-desc) (desc diff-src-iter-desc) (desc diff-src-iter-c-desc)
-                       (desc diff-weights-desc) (desc diff-weights-iter-desc) (desc diff-bias-desc)
-                       (desc diff-dst-desc) (desc diff-dst-iter-desc) (desc diff-dst-iter-c-desc)))
+  ([direction
+    src-desc src-iter-desc src-iter-c-desc
+    weights-desc weights-iter-desc bias-desc
+    dst-desc dst-iter-desc dst-iter-c-desc
+    diff-src-desc diff-src-iter-desc diff-src-iter-c-desc
+    diff-weights-desc diff-weights-iter-desc diff-bias-desc
+    diff-dst-desc diff-dst-iter-desc diff-dst-iter-c-desc]
+   (lstm-backward-desc* (enc-keyword dnnl-direction direction)
+                        (desc src-desc) (desc src-iter-desc) (desc src-iter-c-desc)
+                        (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
+                        (desc dst-desc) (desc dst-iter-desc) (desc dst-iter-c-desc)
+                        (desc diff-src-desc) (desc diff-src-iter-desc) (desc diff-src-iter-c-desc)
+                        (desc diff-weights-desc) (desc diff-weights-iter-desc) (desc diff-bias-desc)
+                        (desc diff-dst-desc) (desc diff-dst-iter-desc) (desc diff-dst-iter-c-desc)))
+  ([direction
+    src-desc src-iter-desc
+    weights-desc weights-iter-desc bias-desc
+    dst-desc dst-iter-desc
+    diff-src-desc diff-src-iter-desc
+    diff-weights-desc diff-weights-iter-desc diff-bias-desc
+    diff-dst-desc diff-dst-iter-desc]
+   (lstm-bwd-desc direction
+                  src-desc src-iter-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+                  dst-desc dst-iter-desc dst-iter-desc
+                  diff-src-desc diff-src-iter-desc diff-src-iter-desc
+                  diff-weights-desc diff-weights-iter-desc diff-bias-desc
+                  diff-dst-desc diff-dst-iter-desc diff-dst-iter-desc)))
 
 ;; ================================= GRU ====================================================
 
