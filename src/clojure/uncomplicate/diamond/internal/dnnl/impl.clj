@@ -620,9 +620,9 @@
                            diff-src-desc diff-src-iter-desc diff-src-iter-c-desc
                            diff-weights-desc diff-weights-iter-desc diff-bias-desc
                            diff-dst-desc diff-dst-iter-desc diff-dst-iter-c-desc]
-  (let-release [rnn-desc (dnnl_rnn_desc_t.)]
+  (let-release [lstm-desc (dnnl_rnn_desc_t.)]
     (with-check
-      (dnnl/dnnl_lstm_backward_desc_init rnn-desc dnnl/dnnl_backward (int direction)
+      (dnnl/dnnl_lstm_backward_desc_init lstm-desc dnnl/dnnl_backward (int direction)
                                          src-desc src-iter-desc src-iter-c-desc
                                          weights-desc weights-iter-desc bias-desc
                                          dst-desc dst-iter-desc dst-iter-c-desc
@@ -630,4 +630,38 @@
                                          diff-weights-desc diff-weights-iter-desc diff-bias-desc
                                          diff-dst-desc diff-dst-iter-desc diff-dst-iter-c-desc
                                          dnnl/dnnl_rnn_flags_undef)
+      lstm-desc)))
+
+;; ======================= GRU ============================================================
+
+(defn gru-forward-desc* [prop-kind direction
+                         src-desc src-iter-desc
+                         weights-desc weights-iter-desc bias-desc
+                         dst-desc dst-iter-desc]
+  (let-release [gru-desc (dnnl_rnn_desc_t.)]
+    (with-check
+      (dnnl/dnnl_gru_forward_desc_init gru-desc (int prop-kind) (int direction)
+                                       src-desc src-iter-desc
+                                       weights-desc weights-iter-desc bias-desc
+                                       dst-desc dst-iter-desc
+                                       dnnl/dnnl_rnn_flags_undef)
+      gru-desc)))
+
+(defn gru-backward-desc* [direction
+                          src-desc src-iter-desc
+                          weights-desc weights-iter-desc bias-desc
+                          dst-desc dst-iter-desc
+                          diff-src-desc diff-src-iter-desc
+                          diff-weights-desc diff-weights-iter-desc diff-bias-desc
+                          diff-dst-desc diff-dst-iter-desc]
+  (let-release [rnn-desc (dnnl_rnn_desc_t.)]
+    (with-check
+      (dnnl/dnnl_gru_backward_desc_init rnn-desc dnnl/dnnl_backward (int direction)
+                                        src-desc src-iter-desc
+                                        weights-desc weights-iter-desc bias-desc
+                                        dst-desc dst-iter-desc
+                                        diff-src-desc diff-src-iter-desc
+                                        diff-weights-desc diff-weights-iter-desc diff-bias-desc
+                                        diff-dst-desc diff-dst-iter-desc
+                                        dnnl/dnnl_rnn_flags_undef)
       rnn-desc)))

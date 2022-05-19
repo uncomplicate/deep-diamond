@@ -1461,3 +1461,40 @@
                     src-desc src-iter-desc src-iter-c-desc
                     weights-desc weights-iter-desc bias-desc
                     dst-desc dst-iter-desc dst-iter-c-desc) => truthy)))
+
+(facts
+ "GRU dimensions."
+ (let [T 2
+       N 1
+       SC 4
+       DC 2
+       G 3
+       L 1
+       D 1
+       src-dim [T N SC]
+       src-iter-dim [L D N DC]
+       weights-dim [L D SC G DC]
+       weights-iter-dim [L D DC G DC]
+       bias-dim [L D G DC]
+       dst-dim [T N DC]
+       dst-iter-dim [L D N DC]]
+   (with-release
+     [eng (engine)
+      s (stream eng)
+      src-desc (memory-desc src-dim :float :tnc)
+      src-iter-desc (memory-desc src-iter-dim :float :ldnc)
+      weights-desc (memory-desc weights-dim :float :ldigo)
+      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
+      bias-desc (memory-desc bias-dim :float :ldgo)
+      dst-desc (memory-desc dst-dim :float :tnc)
+      dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
+     (gru-fwd-desc :inference :unidirectional
+                   src-desc nil weights-desc weights-desc bias-desc
+                   dst-desc nil) => (throws Exception)
+     (gru-fwd-desc :inference :unidirectional
+                   src-desc nil weights-desc weights-iter-desc bias-desc
+                   dst-desc nil) => truthy
+     (gru-fwd-desc :inference :unidirectional
+                   src-desc src-iter-desc
+                   weights-desc weights-iter-desc bias-desc
+                   dst-desc dst-iter-desc) => truthy)))

@@ -134,6 +134,13 @@
      (let [ds (long-array dim)]
        (submemory-desc* (desc parent-desc) ds (long-array (alength ds)))))))
 
+(defn dnnl-contiguous-desc [md]
+  (let [s (dims md)]
+    (if (and (= :float (data-type md))
+             (= (size md) (apply * Float/BYTES s)))
+      (view md)
+      (memory-desc s :float (default-strides s)))))
+
 (defn equal-desc?
   "Compares two memory descriptors for logical equality.
 
@@ -601,7 +608,7 @@
                                       (long-array padding-l) (long-array padding-r)))
   ([prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides dilations padding]
    (dilated-convolution-forward-desc prop-kind alg-kind src-desc weights-desc bias-desc dst-desc
-                                      strides dilations padding padding)))
+                                     strides dilations padding padding)))
 
 (defn convolution-fwd-desc
   "TODO"
@@ -875,11 +882,31 @@
                        (desc diff-weights-desc) (desc diff-weights-iter-desc) (desc diff-bias-desc)
                        (desc diff-dst-desc) (desc diff-dst-iter-desc) (desc diff-dst-iter-c-desc)))
 
-;; =========================================================================================
+;; ================================= GRU ====================================================
 
-(defn dnnl-contiguous-desc [md]
-  (let [s (dims md)]
-    (if (and (= :float (data-type md))
-             (= (size md) (apply * Float/BYTES s)))
-      (view md)
-      (memory-desc s :float (default-strides s)))))
+(defn gru-fwd-desc
+  "TODO"
+  [prop-kind direction
+   src-desc src-iter-desc weights-desc weights-iter-desc
+   bias-desc dst-desc dst-iter-desc]
+  (gru-forward-desc* (enc-keyword dnnl-forward-prop-kind prop-kind)
+                     (enc-keyword dnnl-direction direction)
+                     (desc src-desc) (desc src-iter-desc)
+                     (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
+                     (desc dst-desc) (desc dst-iter-desc)))
+
+(defn gru-bwd-desc
+  "TODO"
+  [direction
+   src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+   dst-desc dst-iter-desc
+   diff-src-desc diff-src-iter-desc
+   diff-weights-desc diff-weights-iter-desc diff-bias-desc
+   diff-dst-desc diff-dst-iter-desc]
+  (gru-backward-desc* (enc-keyword dnnl-direction direction)
+                      (desc src-desc) (desc src-iter-desc)
+                      (desc weights-desc) (desc weights-iter-desc) (desc bias-desc)
+                      (desc dst-desc) (desc dst-iter-desc)
+                      (desc diff-src-desc) (desc diff-src-iter-desc)
+                      (desc diff-weights-desc) (desc diff-weights-iter-desc) (desc diff-bias-desc)
+                      (desc diff-dst-desc) (desc diff-dst-iter-desc)))
