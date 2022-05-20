@@ -523,7 +523,6 @@
   ([]
    (lstm [] 1 nil)))
 
-
 (defn gru-op
   ([fact src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
    (api/gru-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)

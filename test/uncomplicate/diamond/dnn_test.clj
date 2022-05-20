@@ -1093,6 +1093,28 @@
            (seq (native (diff-output lstm-no-iter)))
            => [-0.04653489217162132 -0.04653489217162132 -0.1228761151432991 -0.1228761151432991])))
 
+(defn test-gru-training-no-iter-adam [fact]
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+                 gru-bluep-no-iter (gru fact input-tz [2 1 2] 2 nil)
+                 gru-no-iter (gru-bluep-no-iter input-tz nil :adam)]
+    (facts "Vanilla RNN layer inference."
+           (transfer! [2 3 0.2 0.3] input-tz)
+           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
+                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]
+                      (weights gru-no-iter))
+           (transfer! [0.3 0.7 1 2] (bias gru-no-iter))
+           (forward gru-no-iter [])
+           (seq (native (output gru-no-iter)))
+           => [0.01753050647675991 0.02503233216702938 0.03730224445462227 0.051272135227918625]
+           (seq (native (output gru-no-iter)))
+           => [0.01753050647675991 0.02503233216702938 0.03730224445462227 0.051272135227918625]
+           (transfer! [1.1 -2.2 3.3 -4.4] (diff-input gru-no-iter))
+           (backward gru-no-iter [1 1])
+           (seq (native (diff-output gru-no-iter)))
+           => [0.008743281476199627 0.04276350513100624 -0.07355464994907379 -0.06726277619600296])))
+
 (defn test-ending [fact]
   (with-release [src-tz (tensor fact [3 4 2] :float :tnc)
                  edg-blueprint (ending fact src-tz nil)
