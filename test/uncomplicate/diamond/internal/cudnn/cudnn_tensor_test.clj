@@ -27,11 +27,11 @@
 
 (defn test-cudnn-transfer [fact0 fact1]
   (with-release [tz-x (tensor fact0 [6 2] :byte :nc)
-                 sub-x (offset! (view-tz tz-x 2) 4)
+                 sub-x (offset! (view-tz tz-x 2) (* 2 4))
                  tz-y (tensor fact1 [6 2] :float :nc)
-                 sub-y (offset! (view-tz tz-y 2) 2)
+                 sub-y (offset! (view-tz tz-y 2) (* 2 2))
                  tz-z (tensor fact0 [6 2] :uint8 :nc)
-                 sub-z (offset! (view-tz tz-z 2) 1)]
+                 sub-z (offset! (view-tz tz-z 2) (* 2 1))]
     (facts "Test heterogenous transfer."
            (transfer! (range -6 6) tz-x)
            (seq (native tz-x)) => (range -6 6)

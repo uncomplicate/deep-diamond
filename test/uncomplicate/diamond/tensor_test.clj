@@ -46,7 +46,7 @@
     (facts "Equality and hash code tests."
            (.equals x1 nil) => false
            (= x1 y1) => true
-           ;; (= x1 y3) => false
+           ;; (= x1 y3) => false ;;TODO
            (= x1 y4) => false
            (= x5 y5) => false
            (transfer! (range) x1) => (transfer! (range) y1))))
@@ -96,7 +96,6 @@
            (seq (native sub-y)) => [0.0 1.0 2.0]
            (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
            (seq (native (offset! sub-y 3))) => [3.0 4.0 5.0]
-           (seq (native sub-y)) => [3.0 4.0 5.0]
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native (offset! sub-z 1))) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))

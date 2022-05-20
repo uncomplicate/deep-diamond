@@ -31,7 +31,8 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider create-tensor create-tensor-desc
                       diamond-factory neanderthal-factory tensor-engine native-diamond-factory
-                      Offset DiffTransfer diff-input diff-output]]
+                      Offset DiffTransfer diff-input diff-output Minibatch BatchDescriptor
+                      batch-index]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [tensor :as dnnl-tensor]
@@ -104,7 +105,7 @@
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
           (let [fact (diamond-factory out-tz)]
-            (let-release [in-tz (cudnn-tensor fact (view in-desc))]
+            (let-release [in-tz (cudnn-tensor fact (view in-desc) (batch-index out-tz))]
               (cudnn-transformer (handle fact) in-tz (view out-tz)))))))))
 
 (defmethod print-method CUTensorDescriptor
@@ -135,7 +136,7 @@
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
           (let [fact (diamond-factory out-tz)]
-            (let-release [in-tz (cudnn-tensor fact (view in-desc))]
+            (let-release [in-tz (cudnn-tensor fact (view in-desc) (batch-index out-tz))]
               (cudnn-transformer (handle fact) in-tz (view out-tz)))))))))
 
 (defmethod print-method CUFilterDescriptor
@@ -212,6 +213,11 @@
     dst-tz)
   (diff-output [_]
     src-tz)
+  Minibatch
+  (minibatch-size [_]
+    mb-size)
+  (source-size [_]
+    src-cnt)
   IFn
   (invoke [this]
     (.invoke this cudnn-hdl 0 0))
@@ -246,9 +252,9 @@
                   dst-sub (view-tz dst-tz mb-size)]
       (->CUDnnBatcher cudnn-hdl src-sub dst-sub
                       src-tz dst-tz mb-size
-                      ((dims src-tz) 0) ((strides src-sub) 0)
+                      ((dims src-tz) (batch-index src-tz)) ((strides src-sub) (batch-index src-tz))
                       (entry-width (data-accessor src-sub))
-                      ((dims dst-tz) 0) ((strides dst-sub) 0)
+                      ((dims dst-tz) (batch-index dst-tz)) ((strides dst-sub) (batch-index dst-tz))
                       (entry-width (data-accessor dst-sub))))))
 
 (deftype CUDnnShuffler [cudnn-hdl batcher]
@@ -291,7 +297,7 @@
 ;; ================================ Tensor ======================================
 
 (deftype CUDnnTensor [diamond-fact eng vect-view master buf ^long ofst
-                      ^CUTensorDescriptor cu-desc]
+                      ^CUTensorDescriptor cu-desc ^long n-index]
   Object
   (hashCode [x]
     (-> (hash :CUDnnTensor) (hash-combine (hash cu-desc))))
@@ -353,12 +359,12 @@
     (raw x diamond-fact))
   (raw [_ fact]
     (let [df (diamond-factory fact)]
-      (create-tensor df (create-tensor-desc df cu-desc) false)))
+      (create-tensor df (create-tensor-desc df cu-desc) n-index false)))
   (zero [x]
     (zero x diamond-fact))
   (zero [_ fact]
     (let [df (diamond-factory fact)]
-      (create-tensor df (create-tensor-desc df cu-desc) true)))
+      (create-tensor df (create-tensor-desc df cu-desc) n-index true)))
   (host [x]
     (let-release [res (raw x (native-diamond-factory diamond-fact))]
       (get-vector! vect-view (view-vctr res))
@@ -423,9 +429,12 @@
     (.data-type cu-desc))
   (layout [_]
     (.strides cu-desc))
+  BatchDescriptor
+  (batch-index [_]
+    n-index)
   Viewable
   (view [_]
-    (->CUDnnTensor diamond-fact eng vect-view false buf ofst (view cu-desc)))
+    (->CUDnnTensor diamond-fact eng vect-view false buf ofst (view cu-desc) n-index))
   DenseContainer
   (view-vctr [_]
     vect-view)
@@ -434,27 +443,28 @@
     this)
   (view-tz [_ sub]
     (let-release [sub-desc (if (number? sub)
-                             (cudnn-tensor-desc (into [sub] (rest (dims cu-desc)))
+                             (cudnn-tensor-desc (assoc (dims cu-desc) n-index sub)
                                                 (.data-type cu-desc)
                                                 (.strides cu-desc))
                              (cudnn-tensor-desc (shape sub)
                                                 (or (data-type sub) (.data-type cu-desc))
                                                 (or (layout sub) (.strides cu-desc))))]
-      (cudnn-tensor diamond-fact false buf ofst sub-desc)))
+      (cudnn-tensor diamond-fact false buf ofst sub-desc n-index)))
   Offset
-  (offset [this n-ofst]
+  (offset [this new-ofst]
     (check-contiguous this)
-    (let [ofst (+ ofst (* (long n-ofst) (long (get (.strides cu-desc) 0))))]
-      (cudnn-tensor diamond-fact false buf ofst (view cu-desc))))
+    (cudnn-tensor diamond-fact false buf
+                  (+ ofst (long new-ofst))
+                  (view cu-desc) n-index))
   ConnectorCreator
   (connector [in-tz out-desc]
     (if (equal-desc? cu-desc out-desc)
       (view in-tz)
-      (let-release [out-tz (cudnn-tensor diamond-fact out-desc)]
+      (let-release [out-tz (cudnn-tensor diamond-fact out-desc (batch-index in-tz))]
         (cudnn-transformer (handle diamond-fact) (view in-tz) out-tz)))))
 
 (defn cudnn-tensor
-  ([diamond-fact master buf ofst tdesc]
+  ([diamond-fact master buf ofst tdesc n-index]
    (let [tdesc (desc tdesc)
          neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
          tz-cnt (apply * (dims tdesc))]
@@ -462,15 +472,17 @@
        (let-release [vect-view (cu-block-vector neand-fact false buf tz-cnt ofst 1)]
          (->CUDnnTensor diamond-fact
                         (tensor-engine diamond-fact (data-type tdesc))
-                        vect-view master buf ofst tdesc))
+                        vect-view master buf ofst tdesc n-index))
        (throw (ex-info "Insufficient buffer size."
                        {:size (size tdesc) :buffer-size (cuda/size buf)})))))
-  ([diamond-fact master buf tdesc]
-   (cudnn-tensor diamond-fact master buf 0 tdesc))
-  ([diamond-fact tdesc]
+  ([diamond-fact master buf ofst tdesc]
+   (cudnn-tensor diamond-fact master buf ofst tdesc 0))
+  ([diamond-fact tdesc n-index]
    (let [tdesc (desc tdesc)]
      (let-release [buf (mem-alloc (max 1 (size tdesc)))]
-       (cudnn-tensor diamond-fact true buf tdesc)))))
+       (cudnn-tensor diamond-fact true buf 0 tdesc n-index))))
+  ([diamond-fact tdesc]
+   (cudnn-tensor diamond-fact tdesc 0)))
 
 (defmethod print-method CUDnnTensor
   [^CUDnnTensor x ^java.io.Writer w]

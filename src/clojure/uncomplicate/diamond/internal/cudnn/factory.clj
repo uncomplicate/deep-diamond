@@ -22,7 +22,7 @@
             [uncomplicate.diamond.tensor :refer [shape data-type layout output]]
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
-                                CostFactory DnnFactory]]
+                                CostFactory DnnFactory RnnFactory]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
@@ -361,8 +361,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-tensor-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
     (cudnn-tensor-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
-  (create-tensor [this tensor-desc init]
-    (let-release [res (cudnn-tensor this tensor-desc)]
+  (create-tensor [this tensor-desc batch-index init]
+    (let-release [res (cudnn-tensor this tensor-desc batch-index)]
       (when init
         (set-all (engine res) 0 res))
       res))

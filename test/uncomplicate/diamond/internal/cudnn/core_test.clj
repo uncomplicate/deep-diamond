@@ -392,5 +392,5 @@
          (seq (memcpy-host! gpu-gamma-diff (float-array 2))) => [(float -2.63856) (float 3.2199378)]
          (seq (memcpy-host! gpu-beta (float-array 2))) => [-4.5 3.0]
          (seq (memcpy-host! gpu-x (float-array 8))) => (mapv float [-2.4552026 3.9891448 -0.6126826
-                                                                    -0.9212599 -1.4489717 0.9928142
-                                                                    2.3612876 -1.9051301])))
+                                                                    -0.9212599 -1.4489719 0.9928142
+                                                                    2.3612874 -1.9051301])))
