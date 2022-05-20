@@ -202,8 +202,8 @@
   (with-release [tz-x (tensor fact [2 7 1] :float :tnc)
                  tz-y (tensor fact [2 3 1] :float :tnc)
                  sub-x (view-tz tz-x [2 3 1])
-                 ;;batch (batcher tz-x tz-y 1)
-                 ;;batch-2 (batcher tz-x tz-y 2)
+                 batch (batcher tz-x tz-y 1)
+                 batch-2 (batcher tz-x tz-y 2)
                  ];;TODO
     (facts "batcher test."
            (transfer! (range 1 15) tz-x)

@@ -912,12 +912,14 @@
         (hash-combine (shape (output src-conn)))))
   (equals [_ other]
     (and (instance? CUDnnBatchNormalizationInference other)
-         (= gamma-tz (.gamma-tz ^CUDnnBatchNormalizationInference other))
-         (= beta-tz (.beta-tz ^CUDnnBatchNormalizationInference other))
-         (= src-conn (.src-conn ^CUDnnBatchNormalizationInference other))
-         (= mean-tz (.mean-tz ^CUDnnBatchNormalizationInference other))
-         (= var-tz (.var-tz ^CUDnnBatchNormalizationInference other))
-         (= (output src-conn) (output (.src-conn ^CUDnnBatchNormalizationInference other)))))
+         (let [other ^CUDnnBatchNormalizationInference other]
+           (and
+            (= gamma-tz (.gamma-tz other))
+            (= beta-tz (.beta-tz other))
+            (= src-conn (.src-conn other))
+            (= mean-tz (.mean-tz other))
+            (= var-tz (.var-tz other))
+            (= (output src-conn) (output (.src-conn other)))))))
   (toString [this]
     (str bluep))
   Info
@@ -995,12 +997,14 @@
         (hash-combine (shape (output src-conn)))))
   (equals [_ other]
     (and (instance? CUDnnBatchNormalizationInference other)
-         (= gamma-tz (.gamma-tz ^CUDnnBatchNormalizationTraining other))
-         (= beta-tz (.beta-tz ^CUDnnBatchNormalizationTraining other))
-         (= src-conn (.src-conn ^CUDnnBatchNormalizationTraining other))
-         (= mean-tz (.mean-tz ^CUDnnBatchNormalizationTraining other))
-         (= var-tz (.var-tz ^CUDnnBatchNormalizationTraining other))
-         (= dst-tz (output (.dst-tz ^CUDnnBatchNormalizationTraining other)))))
+         (let [other ^CUDnnBatchNormalizationTraining other]
+           (and
+            (= gamma-tz (.gamma-tz other))
+            (= beta-tz (.beta-tz other))
+            (= src-conn (.src-conn other))
+            (= mean-tz (.mean-tz other))
+            (= var-tz (.var-tz other))
+            (= dst-tz (output (.dst-tz other)))))))
   (toString [this]
     (str bluep))
   Info

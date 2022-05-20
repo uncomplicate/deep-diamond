@@ -418,13 +418,15 @@
     (-> (hash weights-desc) (hash-combine bias-desc)))
   (equals [_ other]
     (and (instance? DnnlProductBlueprint other)
-         (= bias-desc (.bias-desc ^DnnlProductBlueprint other))
-         (equal-desc? (src-md infer-pd) (src-md (.infer-pd ^DnnlProductBlueprint other)))
-         (equal-desc? (weights-md infer-pd) (weights-md (.infer-pd ^DnnlProductBlueprint other)))
-         (equal-desc? (dst-md infer-pd) (dst-md (.infer-pd ^DnnlProductBlueprint other)))
-         (equal-desc? (src-md train-pd) (src-md (.train-pd ^DnnlProductBlueprint other)))
-         (equal-desc? (weights-md train-pd) (weights-md (.train-pd ^DnnlProductBlueprint other)))
-         (equal-desc? (dst-md train-pd) (dst-md (.train-pd ^DnnlProductBlueprint other)))))
+         (let [other ^DnnlProductBlueprint other]
+           (and
+            (= bias-desc (.bias-desc other))
+            (equal-desc? (src-md infer-pd) (src-md (.infer-pd ^DnnlProductBlueprint other)))
+            (equal-desc? (weights-md infer-pd) (weights-md (.infer-pd ^DnnlProductBlueprint other)))
+            (equal-desc? (dst-md infer-pd) (dst-md (.infer-pd ^DnnlProductBlueprint other)))
+            (equal-desc? (src-md train-pd) (src-md (.train-pd ^DnnlProductBlueprint other)))
+            (equal-desc? (weights-md train-pd) (weights-md (.train-pd ^DnnlProductBlueprint other)))
+            (equal-desc? (dst-md train-pd) (dst-md (.train-pd ^DnnlProductBlueprint other)))))))
   (toString [this]
     (pr-str {:src (src-md infer-pd)
              :weights (weights-md infer-pd)
@@ -986,12 +988,14 @@
         (hash-combine (shape (output src-conn)))))
   (equals [_ other]
     (and (instance? DnnlBatchNormalizationInference other)
-         (= gamma-tz (.gamma-tz ^DnnlBatchNormalizationInference other))
-         (= beta-tz (.beta-tz ^DnnlBatchNormalizationInference other))
-         (= src-conn (.src-conn ^DnnlBatchNormalizationInference other))
-         (= mean-tz (.mean-tz ^DnnlBatchNormalizationInference other))
-         (= var-tz (.var-tz ^DnnlBatchNormalizationInference other))
-         (= (output src-conn) (output (.src-conn ^DnnlBatchNormalizationInference other)))))
+         (let [other ^DnnlBatchNormalizationInference other]
+           (and
+            (= gamma-tz (.gamma-tz other))
+            (= beta-tz (.beta-tz other))
+            (= src-conn (.src-conn other))
+            (= mean-tz (.mean-tz other))
+            (= var-tz (.var-tz other))
+            (= (output src-conn) (output (.src-conn other)))))))
   (toString [this]
     (str bluep))
   Info
@@ -1165,10 +1169,12 @@
     (-> (hash :batch-norm) (hash-combine scaleshift-desc)))
   (equals [_ other]
     (and (instance? DnnlBatchNormalizationBlueprint other)
-         (equal-desc? scaleshift-desc (.scaleshift-desc ^DnnlBatchNormalizationBlueprint other))
-         (equal-desc? (src-md infer-pd) (src-md (.infer-pd ^DnnlBatchNormalizationBlueprint other)))
-         (equal-desc? (src-md train-pd) (src-md (.train-pd ^DnnlBatchNormalizationBlueprint other)))
-         (equal-desc? (dst-md train-pd) (dst-md (.train-pd ^DnnlBatchNormalizationBlueprint other)))))
+         (let [other ^DnnlBatchNormalizationBlueprint other]
+           (and
+            (equal-desc? scaleshift-desc (.scaleshift-desc other))
+            (equal-desc? (src-md infer-pd) (src-md (.infer-pd other)))
+            (equal-desc? (src-md train-pd) (src-md (.train-pd other)))
+            (equal-desc? (dst-md train-pd) (dst-md (.train-pd other)))))))
   (toString [this]
     (pr-str {:topology :batch-norm
              :shape (shape this)}))
@@ -1942,7 +1948,7 @@
   Object
   (hashCode [_]
     (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-descs))
-  (equals [_ other]
+  q(equals [_ other]
     (and (instance? DnnlSumBlueprint other)
          (every? identity (map equal-desc? src-descs (.src-descs ^DnnlSumBlueprint other)))))
   (toString [this]
