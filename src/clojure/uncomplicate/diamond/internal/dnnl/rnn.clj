@@ -6,22 +6,22 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.dnnl.rnn ;; TODO remove unused
-  (:require [uncomplicate.commons.core :refer [Releaseable release let-release with-release Info info view]]
+(ns uncomplicate.diamond.internal.dnnl.rnn
+  (:require [uncomplicate.commons.core
+             :refer [Releaseable release let-release with-release Info info view]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! dim transfer! scal! view-vctr entry!]]
+             [core :refer [axpby! transfer! scal! entry!]]
              [block :refer [buffer initialize]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
-             :refer [Transfer input output connector revert shape layout TensorDescriptor view-tz]]
+             :refer [Transfer input output connector shape layout view-tz]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
-                      DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
-                      DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
-                      inf-desc train-desc Initializable init RnnParameters DiffRnnParameters
+              :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
+                      DiffParameters Backprop DiffTransfer diff-input diff-output LinearBackprop
+                      backward-diff train-desc Initializable init RnnParameters DiffRnnParameters
                       batch-index]]
-             [utils :refer [default-strides transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
+             [utils :refer [default-strides direction-count]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
