@@ -30,7 +30,7 @@
               :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
                       neanderthal-factory tensor-engine native-diamond-factory Offset
                       DiffTransfer diff-input diff-output create-tensor-desc parameters
-                      DescriptorProvider BatchDescriptor batch-index]]
+                      DescriptorProvider BatchDescriptor batch-index Minibatch]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
@@ -193,6 +193,11 @@
     dst-tz)
   (diff-output [_]
     src-tz)
+  Minibatch
+  (minibatch-size [_]
+    mb-size)
+  (source-size [_]
+    src-cnt)
   IFn
   (invoke [this]
     (.invoke this strm 0 0))

@@ -98,3 +98,7 @@
 
 (defprotocol BatchDescriptor
   (batch-index [this]))
+
+(defprotocol Minibatch
+  (minibatch-size [this])
+  (source-size [this]))

@@ -14,11 +14,11 @@
              [block :refer [buffer initialize]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
-             :refer [Transfer input output connector shape layout view-tz]]
+             :refer [Transfer input output connector TensorDescriptor shape layout view-tz]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
-                      DiffParameters Backprop DiffTransfer diff-input diff-output LinearBackprop
+                      DiffParameters Backprop forward DiffTransfer diff-input diff-output LinearBackprop
                       backward-diff train-desc Initializable init RnnParameters DiffRnnParameters
                       batch-index]]
              [utils :refer [default-strides direction-count]]]

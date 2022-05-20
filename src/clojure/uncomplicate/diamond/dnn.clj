@@ -338,8 +338,8 @@
           (train* net cost! epochs hyperparam))
         options))
   ([net in-batcher out-batcher cost! epochs hyperparam]
-   (let [b-size (.src-cnt in-batcher);;TODO extract protocol
-         mb-size (.mb-size in-batcher);;TODO
+   (let [b-size (api/source-size in-batcher)
+         mb-size (api/minibatch-size in-batcher)
          mb-count (quot b-size mb-size)
          [eta-decay eta-0 eta-tau]
          (let [eta (first hyperparam)]
@@ -401,8 +401,8 @@
          :default (train* net in out cost! options))))
 
 (defn ^:private infer* [net in-batcher out-batcher]
-  (let [b-size (.src-cnt in-batcher);;TODO extract protocol
-        mb-size (.mb-size in-batcher);;TODO
+  (let [b-size (api/source-size in-batcher)
+        mb-size (api/minibatch-size in-batcher)
         mb-count (quot b-size mb-size)
         mb-rem (rem b-size mb-size)]
     (dotimes [n mb-count]

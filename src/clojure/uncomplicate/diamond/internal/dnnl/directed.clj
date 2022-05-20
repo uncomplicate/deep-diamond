@@ -1948,7 +1948,7 @@
   Object
   (hashCode [_]
     (reduce #(hash-combine %1 (shape %2)) (hash :sum) src-descs))
-  q(equals [_ other]
+  (equals [_ other]
     (and (instance? DnnlSumBlueprint other)
          (every? identity (map equal-desc? src-descs (.src-descs ^DnnlSumBlueprint other)))))
   (toString [this]
