@@ -361,6 +361,11 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-tensor-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
     (cudnn-tensor-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
+  (create-tensor [this tensor-desc init]
+    (let-release [res (cudnn-tensor this tensor-desc)]
+      (when init
+        (set-all (engine res) 0 res))
+      res))
   (create-tensor [this tensor-desc batch-index init]
     (let-release [res (cudnn-tensor this tensor-desc batch-index)]
       (when init

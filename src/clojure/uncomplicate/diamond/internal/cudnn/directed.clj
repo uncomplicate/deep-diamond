@@ -1,8 +1,7 @@
 (ns uncomplicate.diamond.internal.cudnn.directed
-  (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info view]]
-             [utils :refer [dragan-says-ex]]]
-            [uncomplicate.fluokitten.core :refer [foldmap fmap]]
+  (:require [uncomplicate.commons.core
+             :refer [Releaseable release let-release with-release Info info view]]
+            [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.clojurecuda.core :refer [mem-alloc]]
             [uncomplicate.neanderthal
              [core :refer [axpby! axpy! copy! transfer! raw view-vctr entry! scal!]]
@@ -16,7 +15,7 @@
                       DiamondFactoryProvider DiffParameters Backprop forward backward DiffTransfer
                       diff-input diff-output diff-z LinearBackprop backward-diff inf-desc train-desc
                       Initializable init Workspace inf-ws-size train-ws-size *workspace* create-tensor]]
-             [utils :refer [transfer-weights-bias! default-strides concat-dst-shape concat-strides
+             [utils :refer [transfer-weights-bias! concat-strides concat-dst-shape direction-count
                             concat-offsets]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
