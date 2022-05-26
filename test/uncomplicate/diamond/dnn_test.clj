@@ -1053,7 +1053,7 @@
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)]
-    (facts "Vanilla RNN layer inference."
+    (facts "Vanilla RNN layer training."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
@@ -1075,7 +1075,7 @@
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :adam)]
-    (facts "Vanilla RNN layer inference."
+    (facts "Vanilla RNN layer training."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
@@ -1097,7 +1097,7 @@
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  gru-bluep-no-iter (gru fact input-tz [2 1 2] 2 nil)
                  gru-no-iter (gru-bluep-no-iter input-tz nil :adam)]
-    (facts "Vanilla RNN layer inference."
+    (facts "Vanilla RNN layer training."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6

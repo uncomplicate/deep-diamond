@@ -9,19 +9,19 @@
 (ns uncomplicate.diamond.internal.cudnn.core
   (:require [uncomplicate.commons
              [core :refer [let-release with-release wrap extract]]
-             [utils :refer [dragan-says-ex enc-keyword]]]
+             [utils :refer [dragan-says-ex enc-keyword mask]]]
             [uncomplicate.clojurecuda.core :refer [mem-alloc]]
-            [uncomplicate.clojurecuda.internal.protocols
-             :as cuda
-             :refer [ptr with-offset]]
-            [uncomplicate.neanderthal.block :refer [buffer]]
+            [uncomplicate.clojurecuda.internal
+             [protocols :as cuda :refer [ptr with-offset]]
+             [impl :refer [cu-linear-memory]]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer :all]
              [constants :refer :all]
              [impl :refer :all]])
   (:import java.lang.Exception
+           jcuda.driver.CUdeviceptr
            [jcuda.jcudnn JCudnn cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgoPerf
-            cudnnConvolutionBwdFilterAlgoPerf]
+            cudnnConvolutionBwdFilterAlgoPerf cudnnTensorDescriptor cudnnRNNDataDescriptor]
            [uncomplicate.diamond.internal.cudnn.impl CUTensorDescriptor CUFilterDescriptor]))
 
 (defprotocol AlgoPerf
@@ -154,16 +154,15 @@
                              coef)
      ad))
   ([mode ^double coef]
-   (activation-descriptor mode true coef)))
-
-(defn get-activation-descriptor [ad]
-  (let [mode (int-array 1)
-        relu-nan-opt (int-array 1)
-        coef (double-array 1)]
-    (get-activation-descriptor* (extract ad) mode relu-nan-opt coef)
-    {:mode (dec-activation-mode (aget mode 0))
-     :relu-nan-opt (dec-nan-propagation (aget relu-nan-opt 0))
-     :coef (aget coef 0)}))
+   (activation-descriptor mode true coef))
+  ([ad]
+   (let [mode (int-array 1)
+         relu-nan-opt (int-array 1)
+         coef (double-array 1)]
+     (get-activation-descriptor* (extract ad) mode relu-nan-opt coef)
+     {:mode (dec-activation-mode (aget mode 0))
+      :relu-nan-opt (dec-nan-propagation (aget relu-nan-opt 0))
+      :coef (aget coef 0)})))
 
 (defn activation-forward [cudnn-handle ad alpha desc-x buf-x beta desc-y buf-y]
   (activation-forward* (extract cudnn-handle) (extract ad)
@@ -493,4 +492,113 @@
                         (extract buf-scale) (extract buf-scale-diff) (extract buf-shift-diff)
                         (max JCudnn/CUDNN_BN_MIN_EPSILON 1e-8)
                         (extract buf-saved-mean) (extract buf-saved-inv-var))
+  cudnn-handle)
+
+;; ====================== Dropout ======================================================
+
+(defn dropout-descriptor
+  ([cudnn-handle dropout states state-size]
+   (dropout-descriptor cudnn-handle dropout states state-size (rand-int Integer/MAX_VALUE)))
+  ([cudnn-handle dropout states state-size seed]
+   (let-release [dd (wrap (rnn-descriptor*))]
+     (dropout-descriptor* (extract cudnn-handle) (extract dd) (float dropout)
+                          (ptr states) (long state-size) (long seed))
+     dd)))
+
+(defn dropout-states-size ^long [cudnn-handle]
+  (dropout-states-size* (extract cudnn-handle)))
+
+(defn dropout-reserve-space-size ^long [cudnn-handle]
+  (dropout-reserve-space-size* (extract cudnn-handle)))
+
+;; ======================== RNN ==============================================================
+
+(defn rnn-descriptor
+  ([algo mode bias-mode direction-mode input-mode data-type math-prec math-type
+    input-size hidden-size proj-size num-layers dropout-desc & aux-flags]
+   (let-release [rd (wrap (rnn-descriptor*))]
+     (rnn-descriptor* (extract rd) (enc-keyword cudnn-rnn-algo-mode algo)
+                      (enc-keyword cudnn-rnn-cell-mode mode)
+                      (enc-keyword cudnn-rnn-bias-mode bias-mode)
+                      (enc-keyword cudnn-direction-mode direction-mode)
+                      (enc-keyword cudnn-rnn-input-mode input-mode)
+                      (enc-keyword cudnn-data-type data-type)
+                      (enc-keyword cudnn-data-type math-prec)
+                      (enc-keyword cudnn-math-type math-type)
+                      input-size hidden-size proj-size num-layers
+                      (extract dropout-desc) (mask cudnn-rnn-aux-mode aux-flags))
+     rd))
+  ([rd]
+   (let [algo (int-array 1)
+         mode (int-array 1)
+         bias-mode (int-array 1)
+         direction-mode (int-array 1)
+         input-mode (int-array 1)
+         data-type (int-array 1)
+         math-prec (int-array 1)
+         math-type (int-array 1)
+         input-size (int-array 1)
+         hidden-size (int-array 1)
+         proj-size (int-array 1)
+         num-layers (int-array 1)
+         dropout-desc (dropout-descriptor*)
+         aux-flags (int-array 1)]
+     (get-rnn-descriptor* (extract rd)
+                          algo mode bias-mode direction-mode input-mode data-type math-prec math-type
+                          input-size hidden-size proj-size num-layers dropout-desc aux-flags)
+     {:algo (dec-rnn-algo-mode (aget algo 0))
+      :mode (dec-rnn-cell-mode (aget mode 0))
+      :bias (dec-rnn-bias-mode (aget bias-mode 0))
+      :direction (dec-direction-mode (aget direction-mode 0))
+      :input (dec-rnn-input-mode (aget input-mode 0))
+      :data-type (dec-data-type (aget data-type 0))
+      :math-prec (dec-data-type (aget math-prec 0))
+      :math-type (dec-math-type (aget math-type 0))
+      :input-size (aget input-size 0)
+      :hidden-size (aget hidden-size 0)
+      :proj-size (aget proj-size 0)
+      :layers (aget num-layers 0)
+      :dropout (wrap dropout-desc)
+      :aux-flags (aget aux-flags 0)})))
+
+(defn rnn-weight-params [cudnn-handle rd pseudo-layer weight-space lin-layer-id]
+  (let-release [w-desc (wrap (tensor-descriptor*))
+                w-addr (CUdeviceptr.)
+                b-desc (wrap (tensor-descriptor*))
+                b-addr (CUdeviceptr.)]
+    (rnn-weight-params* (extract cudnn-handle) (extract rd) pseudo-layer
+                        (cuda/size weight-space) (extract weight-space) lin-layer-id
+                        (extract (desc w-desc)) w-addr (extract (desc b-desc)) b-addr)
+    (let-release [w-buf (cu-linear-memory w-addr (size w-desc))
+                  b-buf (cu-linear-memory b-addr (size b-desc))]
+      [w-desc w-buf b-desc b-buf])))
+
+(defn rnn-weights-space-size ^long [cudnn-handle rd]
+  (rnn-weight-space-size* (extract cudnn-handle) (extract rd)))
+
+(defn rnn-temp-space-size [cudnn-handle rd x-desc forward-mode]
+  (rnn-temp-space-size* (extract cudnn-handle) (extract rd)
+                        (enc-keyword cudnn-forward-mode forward-mode)
+                        (extract x-desc)))
+
+(defn rnn-data-descriptor
+  ([data-type layout vector-size seq-lengths padding-fill]
+   (let-release [rd (wrap (rnn-data-descriptor*))]
+     (rnn-data-descriptor* (extract rd) (enc-keyword cudnn-data-type data-type)
+                           (enc-keyword cudnn-rnn-data-layout layout) vector-size
+                           (int-array seq-lengths) (ptr padding-fill))
+     rd))
+  ([vector-size seq-lengths]
+   (rnn-data-descriptor :float :seq-mayor-unpacked vector-size seq-lengths 0)))
+
+(defn rnn-fwd [cudnn-handle rd forward-mode seq-lengths
+               desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
+               weight-space work-space reserve-space]
+  (rnn-fwd* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-forward-mode forward-mode)
+            (int-array seq-lengths)
+            (extract desc-x) (extract buf-x) (extract desc-y) (extract buf-y)
+            (extract desc-h) (extract buf-hx) (extract buf-hy)
+            (extract desc-c) (extract buf-cx) (extract buf-cy)
+            (cuda/size weight-space) (extract weight-space) (cuda/size work-space) (extract work-space)
+            #_(cuda/size reserve-space) 0 (extract reserve-space))
   cudnn-handle)

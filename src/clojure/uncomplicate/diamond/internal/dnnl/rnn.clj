@@ -494,7 +494,7 @@
         dirs (direction-count dir)
         gts 1
         dst-iter-shape (conj (into [lrs dirs] (butlast (rest (shape dst-desc))))
-                             (if (= :bidirectional-concat dir) (quot dst-ch 2) dst-ch))
+                             (if (= :bidirectional-concat dir) (* dst-ch 2) dst-ch))
         src-iter-shape dst-iter-shape
         dst-type (data-type dst-desc)
         weights-shape [lrs dirs src-ch gts dst-ch]

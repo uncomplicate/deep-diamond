@@ -15,7 +15,9 @@
             cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgo
             #_cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterAlgo
             #_cudnnConvolutionBwdFilterPreference cudnnPoolingMode cudnnBatchNormMode
-            cudnnErrQueryMode]))
+            cudnnErrQueryMode cudnnRNNAlgo cudnnRNNMode cudnnRNNBiasMode cudnnDirectionMode
+            cudnnRNNInputMode cudnnDropoutDescriptor cudnnRNNDataDescriptor cudnnRNNDataLayout
+            cudnnRNNClipMode cudnnForwardMode]))
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
@@ -272,3 +274,86 @@
     1 :non-blocking
     2 :blocking
     :unknown))
+
+(def ^:const cudnn-rnn-algo-mode
+  {:standard cudnnRNNAlgo/CUDNN_RNN_ALGO_STANDARD
+   :static cudnnRNNAlgo/CUDNN_RNN_ALGO_PERSIST_STATIC
+   :dynamic cudnnRNNAlgo/CUDNN_RNN_ALGO_PERSIST_DYNAMIC
+   :small cudnnRNNAlgo/CUDNN_RNN_ALGO_PERSIST_STATIC_SMALL_H})
+
+(defn ^:const dec-rnn-algo-mode [^long mode]
+  (case mode
+    0 :standard
+    1 :static
+    2 :dynamic
+    3 :small
+    :unknown))
+
+(def ^:const cudnn-rnn-cell-mode
+  {:relu cudnnRNNMode/CUDNN_RNN_RELU
+   :tanh cudnnRNNMode/CUDNN_RNN_TANH
+   :lstm cudnnRNNMode/CUDNN_LSTM
+   :gru  cudnnRNNMode/CUDNN_GRU})
+
+(defn ^:const dec-rnn-cell-mode [^long mode]
+  (case mode
+    0 :relu
+    1 :tanh
+    2 :lstm
+    3 :gru
+    :unknown))
+
+(def ^:const cudnn-rnn-bias-mode
+  {:no-bias cudnnRNNBiasMode/CUDNN_RNN_NO_BIAS
+   :single cudnnRNNBiasMode/CUDNN_RNN_SINGLE_INP_BIAS
+   :single-inp cudnnRNNBiasMode/CUDNN_RNN_SINGLE_INP_BIAS
+   :double cudnnRNNBiasMode/CUDNN_RNN_DOUBLE_BIAS
+   :single-rec cudnnRNNBiasMode/CUDNN_RNN_SINGLE_REC_BIAS})
+
+(defn ^:const dec-rnn-bias-mode [^long mode]
+  (case mode
+    0 :no-bias
+    1 :single
+    2 :double
+    3 :single-rec
+    :unknown))
+
+
+(def ^:const cudnn-direction-mode
+  {:unidirectional cudnnDirectionMode/CUDNN_UNIDIRECTIONAL
+   :bidirectional cudnnDirectionMode/CUDNN_BIDIRECTIONAL})
+
+(defn ^:const dec-direction-mode [^long mode]
+  (case mode
+    0 :unidirectional
+    1 :bidirectional
+    :unknown))
+
+(def ^:const cudnn-rnn-input-mode
+  {:linear cudnnRNNInputMode/CUDNN_LINEAR_INPUT
+   :skip cudnnRNNInputMode/CUDNN_SKIP_INPUT})
+
+(defn ^:const dec-rnn-input-mode [^long mode]
+  (case mode
+    0 :linear
+    1 :skip
+    :unknown))
+
+(def ^:const cudnn-rnn-aux-mode
+  {:padded-io-disabled 0
+   :padded-io-enabled 1})
+
+(defn ^:const dec-rnn-aux-mode [^long mode]
+  (case mode
+    0 :padded-io-disabled
+    1 :padded-io-enabled
+    :unknown))
+
+(def ^:const cudnn-forward-mode
+  {:inference cudnnForwardMode/CUDNN_FWD_MODE_INFERENCE
+   :training cudnnForwardMode/CUDNN_FWD_MODE_TRAINING})
+
+(def ^:const cudnn-rnn-data-layout
+  {:seq-mayor-unpacked 0
+   :seq-mayor-packed 1
+   :batch-mayor 2})

@@ -27,7 +27,7 @@
             cudnnFilterDescriptor cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgoPerf
             cudnnConvolutionBwdFilterAlgoPerf #_cudnnConvolutionFwdPreference
             #_cudnnConvolutionBwdDataPreference #_cudnnConvolutionBwdFilterPreference
-            cudnnPoolingDescriptor]))
+            cudnnPoolingDescriptor cudnnDropoutDescriptor cudnnRNNDescriptor cudnnRNNDataDescriptor]))
 
 (defn cudnn-error [^long err-code details]
   (let [err (cudnnStatus/stringFor err-code)]
@@ -607,4 +607,123 @@
      cudnn-handle mode alpha-data beta-data alpha-param beta-param
      desc-x buf-x desc-dy buf-dy desc-dx buf-dx
      desc-param buf-scale buf-scale-diff buf-shift-diff epsilon buf-mean buf-inv-var)
+    cudnn-handle))
+
+;; ====================== Dropout ======================================================
+
+(deftype-wrapper CUDnnDropoutDescriptor
+  JCudnn/cudnnDestroyDropoutDescriptor cudnn-error)
+
+(extend-type cudnnDropoutDescriptor
+  Wrappable
+  (wrap [dd]
+    (->CUDnnDropoutDescriptor (volatile! dd))))
+
+(defn dropout-descriptor*
+  ([]
+   (let [res (cudnnDropoutDescriptor.)]
+     (with-check
+       (JCudnn/cudnnCreateDropoutDescriptor res)
+       res)))
+  ([cudnn-handle dd dropout states state-size seed]
+   (with-check
+     (JCudnn/cudnnSetDropoutDescriptor
+      dd cudnn-handle dropout states state-size seed)
+     dd)))
+
+(defn dropout-states-size* [cudnn-handle]
+  (let [size-arr (long-array 1)]
+    (with-check
+      (JCudnn/cudnnDropoutGetStatesSize cudnn-handle size-arr)
+      (aget size-arr 0))))
+
+(defn dropout-reserve-space-size* [cudnn-handle]
+  (let [size-arr (long-array 1)]
+    (with-check
+      (JCudnn/cudnnDropoutGetReserveSpaceSize cudnn-handle size-arr)
+      (aget size-arr 0))))
+
+;; ====================== RNN ===========================================================
+
+(deftype-wrapper CUDnnRNNDescriptor
+  JCudnn/cudnnDestroyRNNDescriptor cudnn-error)
+
+(extend-type cudnnRNNDescriptor
+  Wrappable
+  (wrap [rd]
+    (->CUDnnRNNDescriptor (volatile! rd))))
+
+(defn rnn-descriptor*
+  ([]
+   (let [res (cudnnRNNDescriptor.)]
+     (with-check
+       (JCudnn/cudnnCreateRNNDescriptor res)
+       res)))
+  ([rd algo cell-mode bias-mode dir-mode input-mode data-type math-prec
+    math-type input-size hidden-size proj-size num-nayers dropout-desc aux-flags]
+   (with-check
+     (JCudnn/cudnnSetRNNDescriptor_v8
+      rd
+      algo cell-mode bias-mode dir-mode input-mode data-type math-prec math-type
+      input-size hidden-size proj-size num-nayers dropout-desc aux-flags)
+     rd)))
+
+(defn get-rnn-descriptor* [rd algo cell-mode bias-mode dir-mode input-mode data-type math-prec
+                           math-type input-size hidden-size proj-size num-nayers dropout-desc
+                           aux-flags]
+  (with-check
+    (JCudnn/cudnnGetRNNDescriptor_v8 rd algo cell-mode bias-mode dir-mode input-mode
+                                     data-type math-prec math-type input-size hidden-size proj-size
+                                     num-nayers dropout-desc aux-flags)
+    rd))
+
+(defn rnn-weight-params* [cudnn-handle rd pseudo-layer weight-space-size weight-space lin-layer-id
+                          w-desc w-addr b-desc b-addr]
+  (with-check
+    (JCudnn/cudnnGetRNNWeightParams cudnn-handle rd pseudo-layer weight-space-size
+                                    weight-space lin-layer-id w-desc w-addr b-desc b-addr)
+    [w-desc w-addr b-desc b-addr]))
+
+(defn rnn-weight-space-size* [cudnn-handle rd]
+  (let [size-arr (long-array 1)]
+    (with-check
+      (JCudnn/cudnnGetRNNWeightSpaceSize cudnn-handle rd size-arr)
+      (aget size-arr 0))))
+
+(deftype-wrapper CUDnnRNNDataDescriptor
+  JCudnn/cudnnDestroyRNNDataDescriptor cudnn-error)
+
+(extend-type cudnnRNNDataDescriptor
+  Wrappable
+  (wrap [rd]
+    (->CUDnnRNNDataDescriptor (volatile! rd))))
+
+(defn rnn-data-descriptor*
+  ([]
+   (let [res (cudnnRNNDataDescriptor.)]
+     (with-check
+       (JCudnn/cudnnCreateRNNDataDescriptor res)
+       res)))
+  ([rd data-type layout vector-size ^ints seq-lengths padding-fill]
+   (with-check
+     (JCudnn/cudnnSetRNNDataDescriptor rd data-type layout (apply max 0 seq-lengths)
+                                       (alength seq-lengths) vector-size seq-lengths padding-fill)
+     rd)))
+
+(defn rnn-temp-space-size* [cudnn-handle rd ^long forward-mode x-desc]
+  (let [workspace-size-arr (long-array 1)
+        reserve-size-arr (long-array 1)]
+    (with-check
+      (JCudnn/cudnnGetRNNTempSpaceSizes cudnn-handle rd forward-mode x-desc
+                                        workspace-size-arr reserve-size-arr)
+      [(aget workspace-size-arr 0) (aget reserve-size-arr 0)])))
+
+(defn rnn-fwd* [cudnn-handle rd forward-mode seq-lengths
+                desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c cx-buf cy-buf
+                weight-space-size weight-space work-space-size work-space reserve-size reserve-space]
+  (with-check
+    (JCudnn/cudnnRNNForward
+     cudnn-handle rd forward-mode seq-lengths
+     desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c cx-buf cy-buf
+     weight-space-size weight-space work-space-size work-space reserve-size reserve-space)
     cudnn-handle))
