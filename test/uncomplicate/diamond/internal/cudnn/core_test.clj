@@ -428,7 +428,7 @@
                    weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
                    gpu-w (mem-alloc weights-size)
                    desc-w (tensor-descriptor weights-dim :float weights-strides)
-                   host-w (float-array [0.1 0.2 0.3 0.4 100 200 300 400 0.3 0.4 0.5 0.6 0.01 0.02 0.03 0.04 0.3 0.7 1 2])
+                   host-w (float-array [0.1 0.3 0.2 0.4 100 300 200 400 0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
                    rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-packed C (repeat L T) 0.0)
                    temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference)
                    work (mem-alloc (first temp))
@@ -444,7 +444,8 @@
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
       (memcpy-host! host-y gpu-y)
-      (facts "CUDA RNN descriptor query"
+
+      (facts "CUDA RNN basic functionality."
              (let [rd (rnn-descriptor rnn-desc)]
                (dissoc rd :dropout) => {:algo :standard :aux-flags 0 :bias :single :data-type :float
                                         :direction :unidirectional :hidden-size C :input :linear
@@ -459,17 +460,18 @@
              (map size (take-nth 2 weight-iter-params-1)) => [16 0]
              (seq (memcpy-host! gpu-x (float-array 5))) => (map float [2.0 3.0 0.2 0.3 0.0])
              (seq (memcpy-host! gpu-w (float-array 20)))
-             => (map float [0.1 0.2 0.3 0.4 100.0 200.0 300.0 400.0 ;; weights and weights-iter layer 0
-                            0.3 0.4 0.5 0.6 0.01 0.02 0.03 0.04 ;; weights and weights-iter layer 1
+             => (map float [0.1 0.3 0.2 0.4 100.0 300.0 200.0 400.0 ;; weights and weights-iter layer 0
+                            0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 ;; weights and weights-iter layer 1
                             0.3 0.7 1 2]) ;; bias layer 0 and 1
-             (seq (memcpy-host! (second weight-params-0) (float-array 5))) => (map float [0.1 0.2 0.3 0.4 0.0])
-             (seq (memcpy-host! (nth weight-params-0 3) (float-array 3))) => (map float [0.3 0.7 0.0])
-             (seq (memcpy-host! (second weight-iter-params-0) (float-array 5))) => (map float [100.0 200.0 300.0 400.0 0.0])
-             (seq (memcpy-host! (nth weight-iter-params-0 3) (float-array 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
-             (seq (memcpy-host! (second weight-params-1) (float-array 5))) => (map float [0.3 0.4 0.5 0.6 0.0])
-             (seq (memcpy-host! (nth weight-params-1 3) (float-array 3))) => (map float [1.0 2.0 0.0])
-             (seq (memcpy-host! (second weight-iter-params-1) (float-array 5))) => (map float [0.01 0.02 0.03 0.04 0.0])
-             (seq (memcpy-host! (nth weight-iter-params-1 3) (float-array 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
+             (seq (memcpy-host! (weight-params-0 1) (float-array 5))) => (map float [0.1 0.3 0.2 0.4 0.0])
+             (seq (memcpy-host! (weight-params-0 3) (float-array 3))) => (map float [0.3 0.7 0.0])
+             (seq (memcpy-host! (weight-iter-params-0 1) (float-array 5))) => (map float [100.0 300.0 200.0 400.0 0.0])
+             (seq (memcpy-host! (weight-iter-params-0 3) (float-array 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
+             (seq (memcpy-host! (weight-params-1 1) (float-array 5))) => (map float [0.3 0.5 0.4 0.6 0.0])
+             (seq (memcpy-host! (weight-params-1 3) (float-array 3))) => (map float [1.0 2.0 0.0])
+             (seq (memcpy-host! (weight-iter-params-1 1) (float-array 5))) => (map float [0.01 0.03 0.02 0.04 0.0])
+             (seq (memcpy-host! (weight-iter-params-1 3) (float-array 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
+
 
              ;; (rnn-fwd cudnn-hdl rnn-desc :inference (repeat L T) rnn-tn-desc gpu-x
              ;;          rnn-tn-desc gpu-y desc-h1 gpu-hx gpu-hy desc-h1 gpu-cx gpu-cy
@@ -480,7 +482,7 @@
                       gpu-w work reserve) => cudnn-hdl
 
              (seq (memcpy-host! gpu-y (float-array 5)))
-             => (map float [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375 0.0])
+             => (map float [2.5700002 3.9400000 1.553 2.6800000 0.0])
              )
 
 
