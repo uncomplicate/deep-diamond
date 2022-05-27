@@ -600,5 +600,5 @@
             (extract desc-h) (extract buf-hx) (extract buf-hy)
             (extract desc-c) (extract buf-cx) (extract buf-cy)
             (cuda/size weight-space) (extract weight-space) (cuda/size work-space) (extract work-space)
-            #_(cuda/size reserve-space) 0 (extract reserve-space))
+            (cuda/size reserve-space) (extract reserve-space))
   cudnn-handle)

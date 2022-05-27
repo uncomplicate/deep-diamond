@@ -719,11 +719,11 @@
       [(aget workspace-size-arr 0) (aget reserve-size-arr 0)])))
 
 (defn rnn-fwd* [cudnn-handle rd forward-mode seq-lengths
-                desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c cx-buf cy-buf
+                desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
                 weight-space-size weight-space work-space-size work-space reserve-size reserve-space]
   (with-check
     (JCudnn/cudnnRNNForward
      cudnn-handle rd forward-mode seq-lengths
-     desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c cx-buf cy-buf
+     desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
      weight-space-size weight-space work-space-size work-space reserve-size reserve-space)
     cudnn-handle))

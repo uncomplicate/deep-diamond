@@ -414,25 +414,26 @@
                    host-x (float-array [2 3 0.2 0.3])
 
 
-                   desc-h (tensor-descriptor src-iter-dim :float :nchw)
-                   gpu-hx (mem-alloc (size desc-h))
+                   ;;desc-h (tensor-descriptor src-iter-dim :float :nchw)
+                   desc-h1 (tensor-descriptor [L N C] :float [(* N C) C 1])
+                   gpu-hx (mem-alloc (size desc-h1))
                    host-hx (float-array (apply * src-iter-dim))
-                   gpu-hy (mem-alloc (size desc-h))
+                   gpu-hy (mem-alloc (size desc-h1))
 
-                   gpu-cx (mem-alloc (size desc-h))
-                   gpu-cy (mem-alloc (size desc-h))
+                   gpu-cx (mem-alloc (size desc-h1))
+                   gpu-cy (mem-alloc (size desc-h1))
 
-                   desc-h1 (tensor-descriptor [L N C] :float :nchw)
+
                    rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
                                             :float :float :default C C C L nil :padded-io-disabled)
                    weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
                    gpu-w (mem-alloc weights-size)
                    desc-w (tensor-descriptor weights-dim :float weights-strides)
                    host-w (float-array [0.1 0.3 0.2 0.4 100 300 200 400 0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
-                   rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-packed C (repeat L T) 0.0)
+                   rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-packed C (repeat N T) 0.0)
                    temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference)
                    work (mem-alloc (first temp))
-                   reserve (mem-alloc (max 1 (long (second temp))))
+                   reserve (mem-alloc (+ 2048 (long (second temp))))
                    weight-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 gpu-w 0)
                    weight-iter-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 gpu-w 1)
                    weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 gpu-w 0)
@@ -453,7 +454,7 @@
                                         :mode :relu :proj-size C}
                (release (:dropout rd)))
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 80
-             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference) => [16777344 0]
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference) => [16777312 0]
              (map size (take-nth 2 weight-params-0)) => [16 8]
              (map size (take-nth 2 weight-iter-params-0)) => [16 0]
              (map size (take-nth 2 weight-params-1)) => [16 8]
@@ -472,17 +473,15 @@
              (seq (memcpy-host! (weight-iter-params-1 1) (float-array 5))) => (map float [0.01 0.03 0.02 0.04 0.0])
              (seq (memcpy-host! (weight-iter-params-1 3) (float-array 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
 
-
-             ;; (rnn-fwd cudnn-hdl rnn-desc :inference (repeat L T) rnn-tn-desc gpu-x
-             ;;          rnn-tn-desc gpu-y desc-h1 gpu-hx gpu-hy desc-h1 gpu-cx gpu-cy
-             ;;          gpu-w work reserve) => cudnn-hdl
-
-             (rnn-fwd cudnn-hdl rnn-desc :inference (repeat L T) rnn-tn-desc gpu-x
-                      rnn-tn-desc gpu-y desc-h1 nil nil desc-h1 nil nil
+             (rnn-fwd cudnn-hdl rnn-desc :inference (repeat N T) rnn-tn-desc gpu-x
+                      rnn-tn-desc gpu-y desc-h1 gpu-hx gpu-hy desc-h1 nil nil
                       gpu-w work reserve) => cudnn-hdl
 
+             (synchronize! (get-cudnn-stream cudnn-hdl))
+
              (seq (memcpy-host! gpu-y (float-array 5)))
-             => (map float [2.5700002 3.9400000 1.553 2.6800000 0.0])
+             => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
+
              )
 
 
