@@ -17,7 +17,7 @@
             #_cudnnConvolutionBwdFilterPreference cudnnPoolingMode cudnnBatchNormMode
             cudnnErrQueryMode cudnnRNNAlgo cudnnRNNMode cudnnRNNBiasMode cudnnDirectionMode
             cudnnRNNInputMode cudnnDropoutDescriptor cudnnRNNDataDescriptor cudnnRNNDataLayout
-            cudnnRNNClipMode cudnnForwardMode]))
+            cudnnRNNClipMode cudnnForwardMode cudnnWgradMode]))
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
@@ -357,3 +357,7 @@
   {:seq-mayor-unpacked 0
    :seq-mayor-packed 1
    :batch-mayor 2})
+
+(def ^:const cudnn-grad-mode
+  {:add cudnnWgradMode/CUDNN_WGRAD_MODE_ADD
+   :set cudnnWgradMode/CUDNN_WGRAD_MODE_SET})

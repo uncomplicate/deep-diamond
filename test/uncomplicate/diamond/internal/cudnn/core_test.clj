@@ -13,7 +13,7 @@
              [utils :refer [capacity direct-buffer put-float get-float]]]
             [uncomplicate.fluokitten.core :refer [fmap!]]
             [uncomplicate.clojurecuda.core
-             :refer [with-default default-stream mem-alloc memcpy-host! synchronize!]]
+             :refer [with-default default-stream mem-alloc memcpy-host! synchronize! memset!]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :as api]]))
@@ -413,7 +413,6 @@
                    gpu-x (mem-alloc (size desc-x))
                    host-x (float-array [2 3 0.2 0.3])
 
-
                    ;;desc-h (tensor-descriptor src-iter-dim :float :nchw)
                    desc-h1 (tensor-descriptor [L N C] :float [(* N C) C 1])
                    gpu-hx (mem-alloc (size desc-h1))
@@ -423,12 +422,11 @@
                    gpu-cx (mem-alloc (size desc-h1))
                    gpu-cy (mem-alloc (size desc-h1))
 
-
                    rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
                                             :float :float :default C C C L nil :padded-io-disabled)
                    weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
                    gpu-w (mem-alloc weights-size)
-                   desc-w (tensor-descriptor weights-dim :float weights-strides)
+                   ;; desc-w (tensor-descriptor weights-dim :float weights-strides)
                    host-w (float-array [0.1 0.3 0.2 0.4 100 300 200 400 0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
                    rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-packed C (repeat N T) 0.0)
                    temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference)
@@ -438,13 +436,9 @@
                    weight-iter-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 gpu-w 1)
                    weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 gpu-w 0)
                    weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 gpu-w 1)
-                   gpu-y (mem-alloc (size desc-x))
-                   host-y (float-array 4)
-
-                   ]
+                   gpu-y (mem-alloc (size desc-x))]
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
-      (memcpy-host! host-y gpu-y)
 
       (facts "CUDA RNN basic functionality."
              (let [rd (rnn-descriptor rnn-desc)]
@@ -477,12 +471,117 @@
                       rnn-tn-desc gpu-y desc-h1 gpu-hx gpu-hy desc-h1 nil nil
                       gpu-w work reserve) => cudnn-hdl
 
-             (synchronize! (get-cudnn-stream cudnn-hdl))
+             (seq (memcpy-host! gpu-y (float-array 5)))
+             => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])))))
+
+(with-default
+  (let [T 2
+        N 1
+        C 2
+        G 1
+        L 2
+        D 1
+        src-dim [T N C]
+        src-iter-dim [L D N C]
+        weights-dim [L D C G C]
+        weights-strides [(* 2 D C G C) (* C G C) (* C G) C 1]
+        bias-dim [L D G C]]
+    (with-release [cudnn-hdl (cudnn-handle default-stream)
+
+                   desc-x (tensor-descriptor src-dim :float :nchw)
+                   gpu-x (mem-alloc (size desc-x))
+                   host-x (float-array [2 3 0.2 0.3])
+
+                   ;;desc-h (tensor-descriptor src-iter-dim :float :nchw)
+                   desc-h1 (tensor-descriptor [L N C] :float [(* N C) C 1])
+                   gpu-hx (mem-alloc (size desc-h1))
+                   host-hx (float-array (apply * src-iter-dim))
+                   gpu-hy (mem-alloc (size desc-h1))
+
+                   rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
+                                            :float :float :default C C C L nil :padded-io-disabled)
+                   weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
+                   gpu-w (mem-alloc weights-size)
+                   ;; desc-w (tensor-descriptor weights-dim :float weights-strides)
+                   host-w (float-array [0.1 0.3 0.2 0.4 100 300 200 400
+                                        0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
+                   rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-unpacked C (repeat N T) 0.0)
+                   temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training)
+                   work (mem-alloc (first temp))
+                   reserve (mem-alloc (long (second temp)))
+                   weight-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 gpu-w 0)
+                   weight-iter-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 gpu-w 1)
+                   weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 gpu-w 0)
+                   weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 gpu-w 1)
+                   gpu-y (mem-alloc (size desc-x))
+                   gpu-dy (mem-alloc (size desc-x))
+                   host-dy (float-array [1.1 -2.2 3.3 -4.4])
+                   gpu-dx (mem-alloc (size desc-x))
+                   gpu-dhy (mem-alloc (size desc-h1))
+                   host-dhy (float-array [-1 2 0.1 -0.2])
+                   gpu-dhx (mem-alloc (size desc-h1))]
+      (memcpy-host! host-x gpu-x)
+      (memcpy-host! host-w gpu-w)
+      (memcpy-host! host-hx gpu-hx)
+
+      (facts "CUDA Vanilla RNN training."
+             (let [rd (rnn-descriptor rnn-desc)]
+               (dissoc rd :dropout) => {:algo :standard :aux-flags 0 :bias :single :data-type :float
+                                        :direction :unidirectional :hidden-size C :input :linear
+                                        :input-size C :layers L :math-prec :float :math-type :default
+                                        :mode :relu :proj-size C}
+               (release (:dropout rd)))
+             (rnn-weights-space-size cudnn-hdl rnn-desc) => 80
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16777328 64]
+             (map size (take-nth 2 weight-params-0)) => [16 8]
+             (map size (take-nth 2 weight-iter-params-0)) => [16 0]
+             (map size (take-nth 2 weight-params-1)) => [16 8]
+             (map size (take-nth 2 weight-iter-params-1)) => [16 0]
+             (seq (memcpy-host! gpu-x (float-array 5))) => (map float [2.0 3.0 0.2 0.3 0.0])
+             (seq (memcpy-host! gpu-w (float-array 20)))
+             => (map float [0.1 0.3 0.2 0.4 100.0 300.0 200.0 400.0 ;; weights and weights-iter layer 0
+                            0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 ;; weights and weights-iter layer 1
+                            0.3 0.7 1 2]) ;; bias layer 0 and 1
+             (seq (memcpy-host! (weight-params-0 1) (float-array 5))) => (map float [0.1 0.3 0.2 0.4 0.0])
+             (seq (memcpy-host! (weight-params-0 3) (float-array 3))) => (map float [0.3 0.7 0.0])
+             (seq (memcpy-host! (weight-iter-params-0 1) (float-array 5))) => (map float [100.0 300.0 200.0 400.0 0.0])
+             (seq (memcpy-host! (weight-iter-params-0 3) (float-array 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
+             (seq (memcpy-host! (weight-params-1 1) (float-array 5))) => (map float [0.3 0.5 0.4 0.6 0.0])
+             (seq (memcpy-host! (weight-params-1 3) (float-array 3))) => (map float [1.0 2.0 0.0])
+             (seq (memcpy-host! (weight-iter-params-1 1) (float-array 5))) => (map float [0.01 0.03 0.02 0.04 0.0])
+             (seq (memcpy-host! (weight-iter-params-1 3) (float-array 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
+
+             (rnn-fwd cudnn-hdl rnn-desc :training (repeat N T) rnn-tn-desc gpu-x
+                      rnn-tn-desc gpu-y desc-h1 gpu-hx gpu-hy desc-h1 nil nil
+                      gpu-w work reserve) => cudnn-hdl
+             (seq (memcpy-host! gpu-y (float-array 5)))
+             => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
+
+             (memcpy-host! host-dy gpu-dy)
+             (memcpy-host! host-dhy gpu-dhy)
+
+             (rnn-bwd-data cudnn-hdl rnn-desc (repeat N T) rnn-tn-desc gpu-y gpu-dy
+                           rnn-tn-desc gpu-dx desc-h1 gpu-hx gpu-dhy gpu-dhx desc-h1 nil nil nil
+                           gpu-w work reserve) => cudnn-hdl
+
+             (seq (memcpy-host! gpu-dx (float-array 5)))
+             => (map float [-33.62967 -66.71936 0.0059999824 -0.17000008 0.0])
+             (seq (memcpy-host! gpu-dhx (float-array 5)))
+             => (map float [-33629.67 -66719.36 -0.035219997 -0.060019996 0.0])
 
              (seq (memcpy-host! gpu-y (float-array 5)))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
 
-             )
+             (rnn-bwd-weights cudnn-hdl rnn-desc :add (repeat N T)
+                              rnn-tn-desc gpu-x desc-h1 gpu-hx rnn-tn-desc gpu-y
+                              gpu-w work reserve) => cudnn-hdl
 
+             (seq (memcpy-host! gpu-w (float-array 21)))
+             => (map float [10.535569 15.953354 -341.30847 -511.8627
+                            97.4520034790039 295.8139953613281 201.3159942626953 402.1619873046875
+                            2825.152587890625 4085.8203125 -3822.6806640625 -5528.6044921875
+                            8.748000144958496 13.425999641418457 -11.802001 -18.083999633789062
+                            3.8797843 -169.20824 5.442 -4.882 0.0])
 
-      )))
+             (seq (memcpy-host! gpu-y (float-array 5)))
+             => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])))))
