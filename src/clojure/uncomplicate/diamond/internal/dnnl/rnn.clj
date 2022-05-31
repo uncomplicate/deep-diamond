@@ -190,7 +190,7 @@
     [weights-tz bias-tz weights-iter-tz])
   DiffParameters
   (diff-weights [_]
-    post-diff-weights-tz)
+    post-diff-weights-tz);;TODO think about fusing weights-tz and weights-iter-tz
   DiffRnnParameters
   (diff-weights-iter [_]
     post-diff-weights-iter-tz)
@@ -488,20 +488,19 @@
                              dir lrs src-iter? dst-iter?]
   (let [src-desc (desc src-desc)
         src-shape (shape src-desc)
-        src-ch (long (last src-shape))
+        [T N src-ch] src-shape
         dst-desc (desc dst-desc)
-        dst-ch (long (last (shape dst-desc)))
+        [_ _ dst-ch] (shape dst-desc)
         dirs (direction-count dir)
         gts 1
-        dst-iter-shape (conj (into [lrs dirs] (butlast (rest (shape dst-desc))))
-                             (if (= :bidirectional-concat dir) (* dst-ch 2) dst-ch))
+        dst-iter-shape [lrs dirs N (if (= :bidirectional-concat dir) (* dst-ch 2) dst-ch)]
         src-iter-shape dst-iter-shape
         dst-type (data-type dst-desc)
         weights-shape [lrs dirs src-ch gts dst-ch]
         weights-type (or weights-type (data-type src-desc) dst-type)
         weights-iter-shape [lrs dirs dst-ch gts dst-ch]
         bias-shape [lrs dirs gts dst-ch]]
-    (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape dst-type :any))
+    (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape (data-type src-desc) :any))
                   dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
       (with-release [weights-desc-any (memory-desc weights-shape weights-type :any)
@@ -543,19 +542,18 @@
                                dir lrs src-iter? dst-iter?]
   (let [src-desc (desc src-desc)
         src-shape (shape src-desc)
-        src-ch (long (last src-shape))
+        [T N src-ch] src-shape
         dst-desc (desc dst-desc)
-        dst-ch (long (last (shape dst-desc)))
+        [_ _ dst-ch] (shape dst-desc)
         dirs (direction-count dir)
-        dst-iter-shape (conj (into [lrs dirs] (butlast (rest (shape dst-desc))))
-                             (if (= :bidirectional-concat dir) (quot dst-ch 2) dst-ch))
+        dst-iter-shape [lrs dirs N (if (= :bidirectional-concat dir) (* dst-ch 2) dst-ch)]
         src-iter-shape dst-iter-shape
         dst-type (data-type dst-desc)
         weights-shape [lrs dirs src-ch gts dst-ch]
         weights-type (or weights-type (data-type src-desc) dst-type)
         weights-iter-shape [lrs dirs dst-ch gts dst-ch]
         bias-shape [lrs dirs gts dst-ch]]
-    (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape dst-type :any))
+    (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape (data-type src-desc) :any))
                   dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
       (with-release [weights-desc-any (memory-desc weights-shape weights-type :any)

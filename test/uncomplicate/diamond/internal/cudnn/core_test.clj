@@ -423,12 +423,12 @@
                    gpu-cy (mem-alloc (size desc-h1))
 
                    rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
-                                            :float :float :default C C C L nil :padded-io-disabled)
+                                            :float :float :default C C C L nil :padded-io-enabled)
                    weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
                    gpu-w (mem-alloc weights-size)
                    ;; desc-w (tensor-descriptor weights-dim :float weights-strides)
                    host-w (float-array [0.1 0.3 0.2 0.4 100 300 200 400 0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
-                   rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-packed C (repeat N T) 0.0)
+                   rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-unpacked C (repeat N T) 0.0)
                    temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference)
                    work (mem-alloc (first temp))
                    reserve (mem-alloc (+ 2048 (long (second temp))))
@@ -442,13 +442,13 @@
 
       (facts "CUDA RNN basic functionality."
              (let [rd (rnn-descriptor rnn-desc)]
-               (dissoc rd :dropout) => {:algo :standard :aux-flags 0 :bias :single :data-type :float
+               (dissoc rd :dropout) => {:algo :standard :aux-flags 1 :bias :single :data-type :float
                                         :direction :unidirectional :hidden-size C :input :linear
                                         :input-size C :layers L :math-prec :float :math-type :default
                                         :mode :relu :proj-size C}
                (release (:dropout rd)))
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 80
-             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference) => [16777312 0]
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference) => [16777392 0]
              (map size (take-nth 2 weight-params-0)) => [16 8]
              (map size (take-nth 2 weight-iter-params-0)) => [16 0]
              (map size (take-nth 2 weight-params-1)) => [16 8]
@@ -499,7 +499,7 @@
                    gpu-hy (mem-alloc (size desc-h1))
 
                    rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
-                                            :float :float :default C C C L nil :padded-io-disabled)
+                                            :float :float :default C C C L nil :padded-io-enabled)
                    weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
                    gpu-w (mem-alloc weights-size)
                    ;; desc-w (tensor-descriptor weights-dim :float weights-strides)
@@ -526,13 +526,13 @@
 
       (facts "CUDA Vanilla RNN training."
              (let [rd (rnn-descriptor rnn-desc)]
-               (dissoc rd :dropout) => {:algo :standard :aux-flags 0 :bias :single :data-type :float
+               (dissoc rd :dropout) => {:algo :standard :aux-flags 1 :bias :single :data-type :float
                                         :direction :unidirectional :hidden-size C :input :linear
                                         :input-size C :layers L :math-prec :float :math-type :default
                                         :mode :relu :proj-size C}
                (release (:dropout rd)))
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 80
-             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16777328 64]
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16777472 64]
              (map size (take-nth 2 weight-params-0)) => [16 8]
              (map size (take-nth 2 weight-iter-params-0)) => [16 0]
              (map size (take-nth 2 weight-params-1)) => [16 8]

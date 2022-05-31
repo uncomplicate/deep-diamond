@@ -37,7 +37,8 @@
                                cudnn-universal-cost cudnn-custom-cost cudnn-pooling-blueprint
                                cudnn-convolution-layer-blueprint cudnn-gaussian-dropout-blueprint
                                cudnn-batch-norm-layer-blueprint cudnn-branch-blueprint
-                               cudnn-concat-blueprint cudnn-sum-blueprint cudnn-split-blueprint]]])
+                               cudnn-concat-blueprint cudnn-sum-blueprint cudnn-split-blueprint]]
+             [rnn :refer [cudnn-rnn-op-blueprint cudnn-rnn-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -409,6 +410,12 @@ Please contribute towards making it possible, or use on of the supported types."
     (in-context
      ctx
      (mem-alloc (max 1 (long byte-size)))))
+  RnnFactory
+  (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
+    (cudnn-rnn-op-blueprint 1 activ this cudnn-hdl src-desc dst-desc weights-type
+                            dir lrs src-iter? dst-iter? false))
+  (rnn-blueprint [fact src-desc dst-desc lrs activ _ _ weights-type src-iter? dst-iter?]
+    (cudnn-rnn-blueprint fact cudnn-hdl src-desc dst-desc lrs activ weights-type src-iter? dst-iter?))
   CostFactory
   (quadratic-cost [_ prev-layer train-tz]
     (cudnn-universal-cost prev-layer train-tz quadratic-cost!))

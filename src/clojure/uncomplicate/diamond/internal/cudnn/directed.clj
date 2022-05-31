@@ -16,7 +16,7 @@
                       diff-input diff-output diff-z LinearBackprop backward-diff inf-desc train-desc
                       Initializable init Workspace inf-ws-size train-ws-size *workspace* create-tensor]]
              [utils :refer [transfer-weights-bias! concat-strides concat-dst-shape direction-count
-                            concat-offsets]]]
+                            concat-offsets default-strides]]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :refer :all]
