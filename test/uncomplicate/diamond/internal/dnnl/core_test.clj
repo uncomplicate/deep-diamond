@@ -951,7 +951,7 @@
       src-desc (memory-desc src-dim :float :tnc)
       src-iter-desc (memory-desc src-iter-dim :float :ldnc)
       weights-desc (memory-desc weights-dim :float :ldigo)
-      weights-iter-desc (memqory-desc weights-iter-dim :float :ldigo)
+      weights-iter-desc (memory-desc weights-iter-dim :float :ldigo)
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc dst-dim :float :tnc)
       dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
