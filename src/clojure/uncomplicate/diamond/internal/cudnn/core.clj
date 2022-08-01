@@ -586,16 +586,17 @@
    (let-release [rd (wrap (rnn-data-descriptor*))]
      (rnn-data-descriptor* (extract rd) (enc-keyword cudnn-data-type data-type)
                            (enc-keyword cudnn-rnn-data-layout layout) vector-size
-                           (int-array seq-lengths) (ptr padding-fill))
+                           (if (sequential? seq-lengths) (int-array seq-lengths) seq-lengths)
+                           (ptr padding-fill))
      rd))
   ([vector-size seq-lengths]
    (rnn-data-descriptor :float :seq-mayor-unpacked vector-size seq-lengths 0)))
 
-(defn rnn-fwd [cudnn-handle rd forward-mode seq-lengths
+(defn rnn-fwd [cudnn-handle rd forward-mode dev-seq-lengths
                desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
                weight-space work-space reserve-space]
   (rnn-fwd* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-forward-mode forward-mode)
-            (if (sequential? seq-lengths) (int-array seq-lengths) seq-lengths)
+            (extract dev-seq-lengths)
             (extract desc-x) (extract buf-x) (extract desc-y) (extract buf-y)
             (extract desc-h) (extract buf-hx) (extract buf-hy)
             (extract desc-c) (extract buf-cx) (extract buf-cy)
@@ -604,11 +605,11 @@
             (cuda/size reserve-space) (extract reserve-space))
   cudnn-handle)
 
-(defn rnn-bwd-data [cudnn-handle rd seq-lengths
+(defn rnn-bwd-data [cudnn-handle rd dev-seq-lengths
                     desc-y buf-y buf-dy desc-x buf-dx desc-h buf-hx buf-dhy buf-dhx
                     desc-c buf-cx buf-dcy buf-dcx weight-space work-space reserve-space]
   (rnn-bwd-data* (extract cudnn-handle) (extract rd)
-                 (if (sequential? seq-lengths) (int-array seq-lengths) seq-lengths)
+                 (extract dev-seq-lengths)
                  (extract desc-y) (extract buf-y) (extract buf-dy)
                  (extract desc-x) (extract buf-dx) (extract desc-h)
                  (extract buf-hx) (extract buf-dhy) (extract buf-dhx)
@@ -618,11 +619,11 @@
                   (cuda/size reserve-space) (extract reserve-space)])
   cudnn-handle)
 
-(defn rnn-bwd-weights [cudnn-handle rd add-grad seq-lengths
+(defn rnn-bwd-weights [cudnn-handle rd add-grad dev-seq-lengths
                        desc-x buf-dx desc-h buf-hx desc-y buf-y
                        weight-space work-space reserve-space]
   (rnn-bwd-weights* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-grad-mode add-grad)
-                    (if (sequential? seq-lengths) (int-array seq-lengths) seq-lengths)
+                    (extract dev-seq-lengths)
                     (extract desc-x) (extract buf-dx)
                     (extract desc-h) (extract buf-hx) (extract desc-y) (extract buf-y)
                     (cuda/size weight-space) (extract weight-space)

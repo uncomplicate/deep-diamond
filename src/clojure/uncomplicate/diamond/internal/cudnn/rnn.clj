@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.cudnn.rnn
   (:require [uncomplicate.commons.core
              :refer [Releaseable release let-release with-release Info info view]]
-            [uncomplicate.clojurecuda.core :refer [mem-alloc memset!]]
+            [uncomplicate.clojurecuda.core :refer [mem-alloc memset! memcpy-host!]]
             [uncomplicate.neanderthal
              [core :refer [axpby! transfer! scal! entry!]]
              [block :refer [buffer initialize]]]
@@ -33,7 +33,7 @@
 
 ;; ================================ RNN ====================================================
 
-(deftype CUDnnRnnInference [fact cudnn-hdl bluep srcs dsts ^ints seq-lengths
+(deftype CUDnnRnnInference [fact cudnn-hdl bluep srcs dsts dev-seq-lengths
                             src-conn src-iter-tz src-iter-c-tz
                             bias-tz weights-tz weights-iter-tz
                             dst-tz dst-iter-tz dst-iter-c-tz
@@ -41,6 +41,7 @@
                             weights-mem work reserve]
   Releaseable
   (release [_]
+    (release dev-seq-lengths)
     (release src-conn)
     (release src-iter-tz)
     (release src-iter-c-tz)
@@ -96,7 +97,7 @@
   IFn
   (invoke [_]
     (src-conn)
-    (rnn-fwd cudnn-hdl rnn-desc :inference seq-lengths
+    (rnn-fwd cudnn-hdl rnn-desc :inference dev-seq-lengths
              rnn-src-desc (buffer (output src-conn)) rnn-dst-desc (buffer dst-tz)
              iter-desc (when src-iter-tz (buffer src-iter-tz))
              (when dst-iter-tz (buffer dst-iter-tz))
@@ -107,7 +108,7 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype CUDnnRnnTraining [fact cudnn-hdl bluep srcs dsts diff-dsts ^ints seq-lengths
+(deftype CUDnnRnnTraining [fact cudnn-hdl bluep srcs dsts diff-dsts dev-seq-lengths
                            src-conn src-iter-tz src-iter-c-tz
                            bias-tz weights-tz weights-iter-tz
                            dst-tz dst-iter-tz dst-iter-c-tz
@@ -120,6 +121,7 @@
                            weights-mem diff-weights-mem work reserve]
   Releaseable
   (release [_];;TODO
+    (release dev-seq-lengths)
     (release src-conn)
     (release src-iter-tz)
     (release src-iter-c-tz)
@@ -198,7 +200,7 @@
   Backprop
   (forward [this]
     (src-conn)
-    (rnn-fwd cudnn-hdl rnn-desc :training seq-lengths
+    (rnn-fwd cudnn-hdl rnn-desc :training dev-seq-lengths
              rnn-src-desc (buffer (output src-conn)) rnn-dst-desc (buffer dst-tz)
              iter-desc (when src-iter-tz (buffer src-iter-tz))
              (when dst-iter-tz (buffer dst-iter-tz))
@@ -210,7 +212,7 @@
     (backward-diff this 1.0 0.0 1.0 0.0))
   LinearBackprop
   (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]
-    (rnn-bwd-data cudnn-hdl rnn-desc seq-lengths
+    (rnn-bwd-data cudnn-hdl rnn-desc dev-seq-lengths
                   rnn-dst-desc (buffer dst-tz) (buffer diff-dst-tz)
                   rnn-src-desc (buffer diff-src-tz)
                   iter-desc (when src-iter-tz (buffer src-iter-tz))
@@ -221,7 +223,7 @@
                   (when diff-src-iter-c-tz (buffer diff-src-iter-c-tz))
                   weights-mem work reserve)
     (memset! diff-weights-mem 0.0)
-    (rnn-bwd-weights cudnn-hdl rnn-desc :add seq-lengths
+    (rnn-bwd-weights cudnn-hdl rnn-desc :add dev-seq-lengths
                      rnn-src-desc (buffer (output src-conn))
                      iter-desc (when src-iter-tz (buffer src-iter-tz))
                      rnn-dst-desc (buffer dst-tz)
@@ -312,6 +314,7 @@
   (invoke [this srcs]
     (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
       (let-release [src-conn (connector src-tz src-desc)
+                    dev-seq-lengths (mem-alloc (* Float/BYTES (alength seq-lengths)))
                     weights (mem-alloc weights-size)
                     weights-tz (cudnn-tensor fact false weights 0 (view weights-desc))
                     weights-iter-tz (cudnn-tensor fact false weights weights-offset (view weights-desc))
@@ -331,7 +334,8 @@
                              [dst-tz dst-iter-tz dst-iter-c-tz]
                              [dst-tz dst-iter-tz])
                            dst-tz)]
-        (->CUDnnRnnInference fact cudnn-hdl this srcs dsts seq-lengths
+        (memcpy-host! seq-lengths dev-seq-lengths)
+        (->CUDnnRnnInference fact cudnn-hdl this srcs dsts dev-seq-lengths
                              src-conn src-iter-tz src-iter-c-tz
                              bias-tz weights-tz weights-iter-tz
                              dst-tz dst-iter-tz dst-iter-c-tz
@@ -340,6 +344,7 @@
   (invoke [this srcs _ post-process-diff?];;TODO keep in mind that some of source tensors might have to be views!
     (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
       (let-release [src-conn (connector src-tz src-desc)
+                    dev-seq-lengths (mem-alloc (* Float/BYTES (alength seq-lengths)))
                     weights (mem-alloc weights-size)
                     weights-tz (cudnn-tensor fact false weights 0 (view weights-desc))
                     weights-iter-tz (cudnn-tensor fact false weights weights-offset (view weights-desc))
@@ -385,7 +390,8 @@
                                   [diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz]
                                   [diff-dst-tz diff-dst-iter-tz])
                                 diff-dst-tz)]
-        (->CUDnnRnnTraining fact cudnn-hdl this srcs dsts diff-dsts seq-lengths
+        (memcpy-host! seq-lengths dev-seq-lengths)
+        (->CUDnnRnnTraining fact cudnn-hdl this srcs dsts diff-dsts dev-seq-lengths
                             src-conn src-iter-tz src-iter-c-tz
                             bias-tz weights-tz weights-iter-tz
                             dst-tz dst-iter-tz dst-iter-c-tz
@@ -409,7 +415,7 @@
         dst-shape (shape dst-desc)
         [_ _ dst-ch] dst-shape
         dirs (direction-count dir)
-        iter-shape [(* lrs dirs) N dst-ch]
+        iter-shape [(* (long lrs) dirs) N dst-ch]
         weights-shape [lrs dirs src-ch gts dst-ch]
         bias-shape [lrs dirs gts dst-ch]
         seq-lengths (int-array (repeat N T))
@@ -431,11 +437,11 @@
                   rnn-dst-desc (rnn-data-descriptor :float :seq-mayor-packed dst-ch seq-lengths 0.0)]
       (let [weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
             [inf-work-size inf-reserve-size] (rnn-temp-space-size cudnn-hdl rnn-desc rnn-src-desc :inference)
-            [train-work-size train-reserve-size](rnn-temp-space-size cudnn-hdl rnn-desc rnn-src-desc :training)]
+            [train-work-size train-reserve-size] (rnn-temp-space-size cudnn-hdl rnn-desc rnn-src-desc :training)]
         (->CUDnnRnnBlueprint fact cudnn-hdl rnn-desc weights-size
-                             (max 1 inf-work-size) (max 1 inf-reserve-size)
-                             (max 1 train-work-size) (max 1 train-reserve-size)
-                             seq-lengths weights-offset (* 2 (apply * weights-shape) )
+                             (max 1 (long inf-work-size)) (max 1 (long inf-reserve-size))
+                             (max 1 (long train-work-size)) (max 1 (long train-reserve-size))
+                             seq-lengths weights-offset (* 2 (long (apply * weights-shape)) )
                              rnn-src-desc rnn-dst-desc
                              src-desc weights-desc bias-desc dst-desc
                              iter-desc src-iter? dst-iter? iter-c?)))))

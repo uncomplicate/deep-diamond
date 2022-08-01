@@ -718,37 +718,37 @@
                                         workspace-size-arr reserve-size-arr)
       [(aget workspace-size-arr 0) (aget reserve-size-arr 0)])))
 
-(defn rnn-fwd* [cudnn-handle rd forward-mode seq-lengths
+(defn rnn-fwd* [cudnn-handle rd forward-mode dev-seq-lengths
                 desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
                 weight-space-size weight-space work-space-size work-space reserve-size reserve-space]
   (with-check
     (JCudnn/cudnnRNNForward
-     cudnn-handle rd forward-mode seq-lengths
+     cudnn-handle rd forward-mode dev-seq-lengths
      desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
      weight-space-size weight-space work-space-size work-space reserve-size reserve-space)
     cudnn-handle))
 
-(defn rnn-bwd-data* [cudnn-handle rd seq-lengths
+(defn rnn-bwd-data* [cudnn-handle rd dev-seq-lengths
                      desc-y buf-y buf-dy desc-x buf-dx desc-h buf-hx buf-dhy buf-dhx
                      desc-c buf-cx buf-dcy buf-dcx
                      [weight-space-size weight-space work-space-size work-space
                       reserve-size reserve-space]]
   (with-check
     (JCudnn/cudnnRNNBackwardData_v8
-     cudnn-handle rd seq-lengths
+     cudnn-handle rd dev-seq-lengths
      desc-y buf-y buf-dy desc-x buf-dx desc-h buf-hx buf-dhy buf-dhx
      desc-c buf-cx buf-dcy buf-dcx
      weight-space-size weight-space work-space-size work-space
      reserve-size reserve-space)
     cudnn-handle))
 
-(defn rnn-bwd-weights* [cudnn-handle rd add-grad seq-lengths
+(defn rnn-bwd-weights* [cudnn-handle rd add-grad dev-seq-lengths
                         desc-x buf-dx desc-h buf-hx desc-y buf-y
                         weight-space-size weight-space work-space-size work-space
                         reserve-size reserve-space]
   (with-check
     (JCudnn/cudnnRNNBackwardWeights_v8
-     cudnn-handle rd add-grad seq-lengths
+     cudnn-handle rd add-grad dev-seq-lengths
      desc-x buf-dx desc-h buf-hx desc-y buf-y
      weight-space-size weight-space work-space-size work-space
      reserve-size reserve-space)
