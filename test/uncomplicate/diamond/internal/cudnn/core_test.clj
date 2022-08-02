@@ -494,7 +494,7 @@
                    gpu-x (mem-alloc (size desc-x))
                    host-x (float-array [2 3 0.2 0.3])
 
-                   ;;desc-h (tensor-descriptor src-iter-dim :float :nchw)
+                   ;;desc-h (tensor-descriptor src-iter-dim :float :nchw) ;; TODO compare this to DNNL
                    desc-h1 (tensor-descriptor [L N C] :float [(* N C) C 1])
                    gpu-hx (mem-alloc (size desc-h1))
                    host-hx (float-array (apply * src-iter-dim))

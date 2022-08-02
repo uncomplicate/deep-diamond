@@ -246,7 +246,7 @@
                             ^ints seq-lengths ^long weights-offset ^long bias-offset
                             rnn-src-desc rnn-dst-desc
                             src-desc weights-desc bias-desc dst-desc
-                            iter-desc src-iter? dst-iter? iter-c?]
+                            ldnc-iter-desc iter-desc src-iter? dst-iter? iter-c?]
   Releaseable
   (release [_];;TODO
     (release rnn-desc)
@@ -254,6 +254,7 @@
     (release weights-desc)
     (release bias-desc)
     (release dst-desc)
+    (release ldnc-iter-desc)
     (release iter-desc))
   Object
   (hashCode [_]
@@ -320,8 +321,8 @@
                     weights-iter-tz (cudnn-tensor fact false weights weights-offset (view weights-desc))
                     bias-tz (cudnn-tensor fact false weights bias-offset (view bias-desc))
                     dst-tz (cudnn-tensor fact (view dst-desc) 1);;TODO check whether cuda uses :tnc or :ntc => determined by rnn-src-desc!
-                    dst-iter-tz (when dst-iter? (cudnn-tensor fact (view iter-desc)))
-                    dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view iter-desc)))
+                    dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
+                    dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
                     work (mem-alloc inf-work-size);;TODO here we can use global workspace
                     reserve (mem-alloc inf-reserve-size)
                     srcs (if src-iter-tz
@@ -350,16 +351,16 @@
                     weights-iter-tz (cudnn-tensor fact false weights weights-offset (view weights-desc))
                     bias-tz (cudnn-tensor fact false weights bias-offset (view bias-desc))
                     dst-tz (cudnn-tensor fact (view dst-desc) 1)
-                    dst-iter-tz (when dst-iter? (cudnn-tensor fact (view iter-desc)))
-                    dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view iter-desc)))
+                    dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
+                    dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
                     work (mem-alloc train-work-size);;TODO here we can use global workspace
                     reserve (mem-alloc train-reserve-size)
                     diff-dst-tz (cudnn-tensor fact (view dst-desc) 1)
-                    diff-dst-iter-tz (when dst-iter? (cudnn-tensor fact (view iter-desc)))
-                    diff-dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view iter-desc)))
+                    diff-dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
+                    diff-dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
                     diff-src-tz (cudnn-tensor fact (view src-desc) 1)
-                    diff-src-iter-tz (when src-iter-tz (cudnn-tensor fact (view iter-desc)))
-                    diff-src-iter-c-tz (when src-iter-c-tz (cudnn-tensor fact (view iter-desc)))
+                    diff-src-iter-tz (when src-iter-tz (cudnn-tensor fact (view ldnc-iter-desc)))
+                    diff-src-iter-c-tz (when src-iter-c-tz (cudnn-tensor fact (view ldnc-iter-desc)))
                     diff-src-transformer  (cudnn-transformer cudnn-hdl diff-src-tz src-tz)
                     diff-src-iter-transformer (when diff-src-iter-tz
                                                 (cudnn-transformer cudnn-hdl diff-src-iter-tz src-iter-tz))
@@ -372,7 +373,7 @@
                                            (cudnn-tensor fact (view weights-desc))
                                            diff-weights-tz)
                     post-diff-weights-iter-tz (if post-process-diff?
-                                                (cudnn-tensor fact (view weights-desc));;THIS might be the culprit of diff-weights discrepancy weights-offset?
+                                                (cudnn-tensor fact (view weights-desc));;TODO THIS might be the culprit of diff-weights discrepancy weights-offset?
                                                 diff-weights-iter-tz)
                     diff-bias-tz (cudnn-tensor fact false diff-weights bias-offset (view bias-desc))
                     srcs (if src-iter-tz
@@ -415,17 +416,18 @@
         dst-shape (shape dst-desc)
         [_ _ dst-ch] dst-shape
         dirs (direction-count dir)
+        ldnc-iter-shape [lrs dirs N dst-ch]
         iter-shape [(* (long lrs) dirs) N dst-ch]
         weights-shape [lrs dirs src-ch gts dst-ch]
         bias-shape [lrs dirs gts dst-ch]
         seq-lengths (int-array (repeat N T))
-        default-strd (with-release [md (memory-desc weights-shape :float :ldgoi)]
-                       (layout md))
+        default-strd (with-release [md (memory-desc weights-shape :float :ldgoi)] (layout md))
         weights-offset (get default-strd 0)
         weights-stride (update default-strd 0 (partial * 2))]
     (let-release [src-descnn (desc src-desc)
                   dst-desc (desc dst-desc)
                   dtype (data-type dst-desc)
+                  ldnc-iter-desc (cudnn-tensor-desc ldnc-iter-shape dtype :nchw)
                   iter-desc (cudnn-tensor-desc iter-shape dtype :nchw)
                   weights-type (or weights-type dtype)
                   weights-desc (cudnn-tensor-desc weights-shape dtype weights-stride)
@@ -444,7 +446,7 @@
                              seq-lengths weights-offset (* 2 (long (apply * weights-shape)) )
                              rnn-src-desc rnn-dst-desc
                              src-desc weights-desc bias-desc dst-desc
-                             iter-desc src-iter? dst-iter? iter-c?)))))
+                             ldnc-iter-desc iter-desc src-iter? dst-iter? iter-c?)))))
 
 (defn cudnn-rnn-blueprint [fact cudnn-hdl src-desc dst-desc lrs activ weights-type src-iter? dst-iter?]
   (let-release [src-desc (cudnn-tensor-desc (shape src-desc) (or (tz/data-type src-desc) :float)
