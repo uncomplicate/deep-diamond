@@ -373,7 +373,7 @@
                                            (cudnn-tensor fact (view weights-desc))
                                            diff-weights-tz)
                     post-diff-weights-iter-tz (if post-process-diff?
-                                                (cudnn-tensor fact (view weights-desc));;TODO THIS might be the culprit of diff-weights discrepancy weights-offset?
+                                                (cudnn-tensor fact (view weights-desc))
                                                 diff-weights-iter-tz)
                     diff-bias-tz (cudnn-tensor fact false diff-weights bias-offset (view bias-desc))
                     srcs (if src-iter-tz
@@ -402,8 +402,7 @@
                             diff-src-transformer diff-src-iter-transformer diff-src-iter-c-transformer
                             diff-weights-tz diff-weights-iter-tz diff-bias-tz
                             post-diff-weights-tz post-diff-weights-iter-tz
-                            weights diff-weights work reserve)))
-    )
+                            weights diff-weights work reserve))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 

@@ -18,7 +18,8 @@
   (test-vanilla-rnn-inference fact)
   (test-vanilla-rnn-inference-no-iter fact)
   (test-vanilla-rnn-training fact)
-  ;;(test-vanilla-rnn-training-no-iter fact) ;; TODO 2nd layer weights do not match
+  (test-vanilla-rnn-training-zero-iter fact)
+  (test-vanilla-rnn-training-no-iter fact) ;; TODO now this matches zero-iter!, but DNNL doesn't!
   (test-rnn-inference fact)
   ;; (test-rnn-training fact)
   ;; (test-rnn-training-no-iter fact)
@@ -32,9 +33,9 @@
   ;; (test-vanilla-rnn-inference fact)
   ;; (test-vanilla-rnn-inference-no-iter fact)
 ;;   (test-vanilla-rnn-training fact)
-  (test-vanilla-rnn-training-no-iter fact)
+;;  (test-vanilla-rnn-training-no-iter fact)
 ;;  (test-rnn-inference fact)
-  ;; (test-rnn-training fact)
+   (test-rnn-training fact)
   ;; (test-rnn-training-no-iter fact)
   ;; (test-lstm-training-no-iter fact)
   ;; (test-lstm-training-no-iter-adam fact)

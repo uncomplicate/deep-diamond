@@ -494,7 +494,6 @@
                    gpu-x (mem-alloc (size desc-x))
                    host-x (float-array [2 3 0.2 0.3])
 
-                   ;;desc-h (tensor-descriptor src-iter-dim :float :nchw) ;; TODO compare this to DNNL
                    desc-h1 (tensor-descriptor [L N C] :float [(* N C) C 1])
                    gpu-hx (mem-alloc (size desc-h1))
                    host-hx (float-array (apply * src-iter-dim))
@@ -560,6 +559,8 @@
                       gpu-w work reserve) => cudnn-hdl
              (seq (memcpy-host! gpu-y (float-array 5)))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
+             (seq (memcpy-host! gpu-hy (float-array 5)))
+             => (map float [830.41 1200.86 850.6969 1054.8889 0.0])
 
              (memcpy-host! host-dy gpu-dy)
              (memcpy-host! host-dhy gpu-dhy)
