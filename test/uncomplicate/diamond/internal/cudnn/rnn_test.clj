@@ -23,12 +23,14 @@
   (test-rnn-inference fact)
   (test-rnn-training fact)
   (test-rnn-training-no-iter fact)
-  ;;(test-lstm-training-no-iter fact)
-  ; (test-lstm-training-no-iter-adam fact)
-  ;; (test-gru-training-no-iter-adam fact)
+  (test-lstm-training-no-iter fact)
+  (test-lstm-training-no-iter-adam fact)
+  (test-gru-training-no-iter-adam fact)
+  ;;
   ;; (test-ending fact)
   )
 
 (with-release [fact (cudnn-factory)]
 
+  (test-lstm-training-no-iter fact)
   )

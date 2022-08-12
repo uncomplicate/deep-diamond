@@ -1111,68 +1111,82 @@
 (defn test-lstm-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 nil)
-                 lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)]
+                 lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)
+                 input-weights (connector (desc [2 1 2 4 2] :float :ldigo) ;;TODO support just :ldigo as desc.
+                                          (weights-layer (.op lstm-no-iter)))]
     (facts "LSTM layer training SGD."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]
-                      (weights-layer (.op lstm-no-iter)))
-           (transfer! [0.3 0.7 1 2] (bias lstm-no-iter))
+                      (input input-weights))
+           (input-weights)
+           (transfer! [0.3 0.7 1 2 0.3 0.7 1 2 0.3 0.7 1 2 0.3 0.7 1 2] (bias lstm-no-iter))
            (forward lstm-no-iter [1 0 0 true])
            (seq (native (output lstm-no-iter)))
-           => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
+           => (just [(roughly 0.2837 0.001) (roughly 0.5043 0.001) (roughly 0.4724 0.001) (roughly 0.771 0.001)])
            (seq (native (output lstm-no-iter)))
-           => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
+           => (just [(roughly 0.2837 0.001) (roughly 0.5043 0.001) (roughly 0.4724 0.001) (roughly 0.771 0.001)])
            (transfer! [1.1 -2.2 3.3 -4.4] (diff-input lstm-no-iter))
            (backward lstm-no-iter [nil 1 0 0 true])
            (seq (native (diff-output lstm-no-iter)))
-           => [-0.04653489217162132 -0.04653489217162132 -0.1228761151432991 -0.1228761151432991])))
+           => (just [(roughly 5.369E-5 0.001) (roughly 5.369E-5 0.001) (roughly 0.0236 0.001) (roughly 0.0236 0.001)]))))
 
 (defn test-lstm-training-no-iter-adam [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 nil)
-                 lstm-no-iter (lstm-bluep-no-iter input-tz nil :adam)]
+                 lstm-no-iter (lstm-bluep-no-iter input-tz nil :adam)
+                 input-weights (connector (desc [2 1 2 4 2] :float :ldigo) ;;TODO support just :ldigo as desc.
+                                          (weights-layer (.op lstm-no-iter)))]
     (facts "LSTM layer training Adam."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]
-                      (weights-layer (.op lstm-no-iter)))
-           (transfer! [0.3 0.7 1 2] (bias lstm-no-iter))
+                      (input input-weights))
+           (input-weights)
+           (transfer! [0.3 0.7 1 2 0.3 0.7 1 2 0.3 0.7 1 2 0.3 0.7 1 2] (bias lstm-no-iter))
            (forward lstm-no-iter [])
            (seq (native (output lstm-no-iter)))
-           => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
+           => (just [(roughly 0.2837 0.001) (roughly 0.5043 0.001) (roughly 0.4724 0.001) (roughly 0.771 0.001)])
            (seq (native (output lstm-no-iter)))
-           => [0.11147522926330566 0.15705688297748566 0.11690343916416168 0.1644122451543808]
+           => (just [(roughly 0.2837 0.001) (roughly 0.5043 0.001) (roughly 0.4724 0.001) (roughly 0.771 0.001)])
            (transfer! [1.1 -2.2 3.3 -4.4] (diff-input lstm-no-iter))
            (backward lstm-no-iter [1 1])
            (seq (native (diff-output lstm-no-iter)))
-           => [-0.04653489217162132 -0.04653489217162132 -0.1228761151432991 -0.1228761151432991])))
+           => (just [(roughly 5.369E-5 0.001) (roughly 5.369E-5 0.001) (roughly 0.0236 0.001) (roughly 0.0236 0.001)]))))
 
 (defn test-gru-training-no-iter-adam [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  gru-bluep-no-iter (gru fact input-tz [2 1 2] 2 nil)
-                 gru-no-iter (gru-bluep-no-iter input-tz nil :adam)]
+                 gru-no-iter (gru-bluep-no-iter input-tz nil :adam)
+                 input-weights (connector (desc [2 1 2 3 2] :float :ldigo) ;;TODO support just :ldigo as desc.
+                                          (weights-layer (.op gru-no-iter)))
+                 input-bias (connector (desc [2 1 3 2] :float :ldgo) (bias gru-no-iter))
+                 todo-ldigo (tensor fact [2 1 2 3 2] :float :ldigo)
+                 todo-ldgoi (tensor fact [2 1 2 3 2] :float :ldgoi)]
     (facts "GRU layer training Adam."
            (transfer! [2 3 0.2 0.3] input-tz)
-           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]
-                      (weights-layer (.op gru-no-iter)))
-           (transfer! [0.3 0.7 1 2] (bias gru-no-iter))
+           (transfer! [0.111 0.112 0.121 0.122 0.131 0.132
+                       0.211 0.212 0.221 0.222 0.231 0.232
+                       0.311 0.312 0.321 0.322 0.331 0.332
+                       0.411 0.412 0.421 0.422 0.431 0.432]
+                      (input input-weights))
+           (input-weights)
+           (transfer! [0.3 0.7 0.3 0.7 0.3 0.7
+                       1 2 1 2 1 2] (input input-bias))
+           (input-bias)
            (forward gru-no-iter [])
            (seq (native (output gru-no-iter)))
-           => [0.01753050647675991 0.02503233216702938 0.03730224445462227 0.051272135227918625]
+           => (just [(roughly 0.198 0.01) (roughly 0.103 0.01) (roughly 0.3457 0.01) (roughly 0.189 0.01)])
            (seq (native (output gru-no-iter)))
-           => [0.01753050647675991 0.02503233216702938 0.03730224445462227 0.051272135227918625]
+           => (just [(roughly 0.198 0.01) (roughly 0.103 0.01) (roughly 0.3457 0.01) (roughly 0.189 0.01)])
            (transfer! [1.1 -2.2 3.3 -4.4] (diff-input gru-no-iter))
            (backward gru-no-iter [1 1])
            (seq (native (diff-output gru-no-iter)))
-           => [0.008743281476199627 0.04276350513100624 -0.07355464994907379 -0.06726277619600296])))
+           => (just [(roughly -0.003 0.01) (roughly -0.006 0.01) (roughly 0.003 0.01) (roughly 0.005 0.01)]))))
 
 (defn test-ending [fact]
   (with-release [src-tz (tensor fact [3 4 2] :float :tnc)

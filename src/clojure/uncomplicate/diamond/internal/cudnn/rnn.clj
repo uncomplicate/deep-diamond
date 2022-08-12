@@ -419,9 +419,10 @@
 
 ;; ================================ Vanilla RNN =================================================
 
-(defn cudnn-rnn-op-blueprint [gts mode fact cudnn-hdl src-desc dst-desc weights-type
-                              dir lrs src-iter? dst-iter? iter-c?]
-  (let [src-shape (shape src-desc)
+(defn cudnn-rnn-op-blueprint [gts fact cudnn-hdl src-desc dst-desc weights-type
+                              activ dir lrs src-iter? dst-iter? iter-c?]
+  (let [mode (case (long gts) 3 :gru 4 :lstm activ)
+        src-shape (shape src-desc)
         [T N src-ch] src-shape
         dst-shape (shape dst-desc)
         [_ _ dst-ch] dst-shape
@@ -434,7 +435,7 @@
         weights-offset (get default-strd 0)
         weights-stride (update default-strd 0 (partial * 2))
         bias-shape [lrs dirs gts dst-ch]
-        fused-weights-shape [lrs dirs (* 2 dst-ch) gts dst-ch]
+        fused-weights-shape [lrs dirs (* 2 (long dst-ch)) gts dst-ch]
         fused-stride (with-release [md (memory-desc fused-weights-shape :float :ldgoi)] (layout md))]
     (let-release [src-desc (desc src-desc)
                   dst-desc (desc dst-desc)
@@ -461,14 +462,14 @@
                              src-desc fused-weights-desc weights-desc bias-desc dst-desc
                              ldnc-iter-desc iter-desc src-iter? dst-iter? iter-c?)))))
 
-(defn cudnn-rnn-blueprint [fact cudnn-hdl src-desc dst-desc lrs activ weights-type src-iter? dst-iter?]
+(defn cudnn-rnn-blueprint [gts fact cudnn-hdl src-desc dst-desc lrs activ weights-type src-iter? dst-iter?]
   (let-release [src-desc (cudnn-tensor-desc (shape src-desc) (or (tz/data-type src-desc) :float)
                                             (or (layout src-desc) :tnc))
                 dst-desc (cudnn-tensor-desc (shape dst-desc)
                                             (or (tz/data-type dst-desc) (tz/data-type src-desc) :float)
                                             (or (layout dst-desc) :tnc))
-                rnn-op-bluep (cudnn-rnn-op-blueprint 1 activ fact cudnn-hdl src-desc dst-desc weights-type
-                                                     :unidirectional lrs src-iter? dst-iter? false)
+                rnn-op-bluep (cudnn-rnn-op-blueprint gts fact cudnn-hdl src-desc dst-desc weights-type
+                                                     activ :unidirectional lrs src-iter? dst-iter? false)
                 nop-activ-bluep (cudnn-activ-blueprint fact (train-desc rnn-op-bluep) :nop nil)]
     (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep
                               {:sgd sgd-rnn-layer :adam adam-rnn-layer})))

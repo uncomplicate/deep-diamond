@@ -1746,17 +1746,18 @@
       src-mem (memory eng (arg-md gru-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
       src-iter-mem (memory eng (arg-md gru-pd :src-iter) (buffer src-iter-vec))
-      weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      weights-vec (fv [0.1 0.2 0.1 0.2 0.1 0.2
+                       0.3 0.4 0.3 0.4 0.3 0.4
+                       0.3 0.4 0.3 0.4 0.3 0.4
+                       0.5 0.6 0.5 0.6 0.5 0.6])
       weights-mem (memory eng (arg-md gru-pd :weights) (buffer weights-vec))
-      weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
-                            100 200 300 400 0.01 0.02 0.03 0.04
-                            100 200 300 400 0.01 0.02 0.03 0.04])
+      weights-iter-vec (fv [100 200 100 200 100 200
+                            300 400 300 400 300 400
+                            0.01 0.02 0.01 0.02 0.01 0.02
+                            0.03 0.04 0.03 0.04 0.03 0.04])
       weights-iter-mem (memory eng (arg-md gru-pd :weights-iter) (buffer weights-iter-vec))
-      bias-vec (fv [0.3 0.7 1 2
-                    0.3 0.7 1 2
-                    0.3 0.7 1 2])
+      bias-vec (fv [0.3 0.7 0.3 0.7 0.3 0.7
+                    1 2 1 2 1 2])
       bias-mem (memory eng bias-desc (buffer bias-vec))
       dst-vec (fv (apply * src-dim))
       dst-mem (memory eng (arg-md gru-pd :dst) (buffer dst-vec))
@@ -1783,14 +1784,14 @@
      (primitive-kind gru-desc) => :rnn
      (execute! s gru gru-args) => s
      (seq src-iter-vec) => [0.0 0.0 0.0 0.0]
-     (seq dst-vec) => [0.20144839584827423 0.10882259160280228 0.20144839584827423 0.10882259160280228]
-     (seq dst-iter-vec) => [0.11286896467208862 0.05168459191918373 0.20144839584827423 0.10882259160280228]
+     (seq dst-vec) => [0.20008479058742523 0.10380759835243225 0.3499049246311188 0.19589270651340485]
+     (seq dst-iter-vec) => [0.17513683438301086 0.08930931240320206 0.3499049246311188 0.19589270651340485]
      (entry! dst-vec 0)
      (primitive-kind gru-no-iter-desc) => :rnn
      (arg-md gru-no-iter-pd :src-iter) => nil
      (zero-desc? (arg-md gru-no-iter-pd :src-iter)) => true
      (execute! s gru-no-iter gru-no-iter-args) => s
-     (seq dst-vec) => [0.20144839584827423 0.10882259160280228 0.20144839584827423 0.10882259160280228])))
+     (seq dst-vec) => [0.20008479058742523 0.10380759835243225 0.3499049246311188 0.19589270651340485])))
 
 (facts
  "GRU training."
@@ -1820,17 +1821,18 @@
       src-mem (memory eng (arg-md gru-fwd-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
       src-iter-mem (memory eng (arg-md gru-fwd-pd :src-iter) (buffer src-iter-vec))
-      weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                       0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      weights-vec (fv [0.111 0.112 0.121 0.122 0.131 0.132
+                       0.211 0.212 0.221 0.222 0.231 0.232
+                       0.311 0.312 0.321 0.322 0.331 0.332
+                       0.411 0.412 0.421 0.422 0.431 0.432])
       weights-mem (memory eng (arg-md gru-fwd-pd :weights) (buffer weights-vec))
-      weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
-                            100 200 300 400 0.01 0.02 0.03 0.04
-                            100 200 300 400 0.01 0.02 0.03 0.04])
+      weights-iter-vec (fv [100 200 100 200 100 200
+                            300 400 300 400 300 400
+                            0.01 0.02 0.01 0.02 0.01 0.02
+                            0.03 0.04 0.03 0.04 0.03 0.04])
       weights-iter-mem (memory eng (arg-md gru-fwd-pd :weights-iter) (buffer weights-iter-vec))
-      bias-vec (fv [0.3 0.7 1 2
-                    0.3 0.7 1 2
-                    0.3 0.7 1 2])
+      bias-vec (fv [0.3 0.7 0.3 0.7 0.3 0.7
+                    1 2 1 2 1 2])
       bias-mem (memory eng bias-desc (buffer bias-vec))
       dst-vec (fv (apply * src-dim))
       dst-mem (memory eng (arg-md gru-fwd-pd :dst-iter) (buffer dst-vec))
@@ -1864,18 +1866,20 @@
       reorder-weights-iter-bf-pd (reorder eng bwd-weights-iter-mem weights-iter-mem)
       reorder-weights-iter-fb (primitive reorder-weights-iter-fb-pd)
       reorder-weights-iter-bf (primitive reorder-weights-iter-bf-pd)
-      diff-weights-vec (fv [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                            0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                            0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
+      diff-weights-vec (fv [0.111 0.112 0.121 0.122 0.131 0.132
+                            0.211 0.212 0.221 0.222 0.231 0.232
+                            0.311 0.312 0.321 0.322 0.331 0.332
+                            0.411 0.412 0.421 0.422 0.431 0.432])
       diff-weights-packed-mem (memory eng weights-desc (buffer diff-weights-vec))
       diff-weights-mem (memory eng (arg-md gru-bwd-pd :diff-weights))
       reorder-diff-weights-pack-pd (reorder eng diff-weights-mem diff-weights-packed-mem)
       reorder-diff-weights-unpack-pd (reorder eng diff-weights-packed-mem diff-weights-mem)
       reorder-diff-weights-pack (primitive reorder-diff-weights-pack-pd)
       reorder-diff-weights-unpack (primitive reorder-diff-weights-unpack-pd)
-      diff-weights-iter-vec (fv [100 200 300 400 0.01 0.02 0.03 0.04
-                                 100 200 300 400 0.01 0.02 0.03 0.04
-                                 100 200 300 400 0.01 0.02 0.03 0.04])
+      diff-weights-iter-vec (fv [100 200 100 200 100 200
+                                 300 400 300 400 300 400
+                                 0.01 0.02 0.01 0.02 0.01 0.02
+                                 0.03 0.04 0.03 0.04 0.03 0.04])
       diff-weights-iter-packed-mem (memory eng weights-desc (buffer diff-weights-iter-vec))
       diff-weights-iter-mem (memory eng (arg-md gru-bwd-pd :diff-weights-iter))
       reorder-diff-weights-iter-pack-pd (reorder eng diff-weights-iter-mem diff-weights-iter-packed-mem)
@@ -1905,8 +1909,8 @@
 
      (primitive-kind gru-fwd-desc) => :rnn
      (execute! s gru-fwd gru-fwd-args) => s
-     (seq dst-vec) => [0.20144839584827423 0.10882259160280228 0.20144839584827423 0.10882259160280228]
-     (seq dst-iter-vec) => [0.11286896467208862 0.05168459191918373 0.20144839584827423 0.10882259160280228]
+     (seq dst-vec) => [0.1986464262008667 0.10329369455575943 0.3485546410083771 0.19498808681964874]
+     (seq dst-iter-vec) => [0.20356373488903046 0.161529079079628 0.3485546410083771 0.19498808681964874]
      (seq src-vec) => (map float [2.0 3.0 0.2 0.3])
      (primitive-kind gru-bwd-desc) => :rnn
      (execute! s reorder-weights-fb (fwd-args weights-mem bwd-weights-mem)) => s
@@ -1918,23 +1922,22 @@
      (execute! s reorder-weights-iter-bf (fwd-args bwd-weights-iter-mem weights-iter-mem)) => s
      (execute! s reorder-diff-weights-pack (fwd-args diff-weights-mem diff-weights-packed-mem))
      (execute! s reorder-diff-weights-iter-pack (fwd-args diff-weights-iter-mem diff-weights-iter-packed-mem))
-     (map float (seq weights-vec)) => (map float [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                                                  0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
-                                                  0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
-     (seq dst-vec) => [0.20144839584827423 0.10882259160280228 0.20144839584827423 0.10882259160280228]
-     (seq src-vec) => [-0.01570914126932621 -0.024218741804361343 6.92690434789256E-7 3.4634520034160232E-6]
-     (seq src-iter-vec) => [-14.01021671295166 -0.2687637507915497 24.973596572875977 55.256988525390625]
-     (seq diff-weights-vec)
-     => (map float [0.2792283594608307 -0.021774962544441223 0.30000001192092896 0.4000000059604645
-                    0.27774378657341003 0.40422722697257996 0.7688425779342651 0.2673375606536865
-                    0.10000000149011612 0.20000000298023224 0.2666156589984894 0.4063408076763153
-                    0.22422274947166443 0.474124550819397 0.5 0.6000000238418579 0.15224650502204895
-                    0.19450163841247559 0.2652982175350189 0.433944970369339 0.30000001192092896
-                    0.4000000059604645 0.5239260196685791 0.5974820852279663])
+     (map float (seq weights-vec)) => (map float [0.111 0.112 0.121 0.122 0.131 0.132
+                                                  0.211 0.212 0.221 0.222 0.231 0.232
+                                                  0.311 0.312 0.321 0.322 0.331 0.332
+                                                  0.411 0.412 0.421 0.422 0.431 0.432])
+     (seq dst-vec) => [0.1986464262008667 0.10329369455575943 0.3485546410083771 0.19498808681964874]
+     (seq src-vec) => [-0.019561385735869408 -0.036919500678777695 0.0 0.0]
+     (seq src-iter-vec) => [-43.723384857177734 -75.57097625732422 2.7878310680389404 -5.621692180633545]
+     (map float (seq diff-weights-vec))
+     => (map float [0.36496845 -0.48433483 0.121 0.122 0.02170933 0.23649475
+                    0.5919527 -0.6825022 0.221 0.222 0.067064 0.38874215
+                    0.12007338 0.50730044 0.32101682 0.32201445 0.44945595 0.31934232
+                    0.25949857 0.5669721 0.42101333 0.42201144 0.5249955 0.42195606])
      (seq diff-weights-iter-vec)
-     => (map float [100.0 200.0 300.0 400.0 0.009999999776482582
-                    0.019999999552965164 0.0300003569573164 0.03999999910593033
-                    100.0 200.0 300.0 400.0 0.009999999776482582
-                    0.019999999552965164 0.029999999329447746 0.03999999910593033
-                    100.0 200.0 300.0 400.0 0.009999999776482582
-                    0.019999999552965164 0.029999999329447746 0.03999999910593033]))))
+     => (map float [100.0 200.0 100.0 200.0 100.0 200.0
+                    300.0 400.0 300.0 400.0 300.0 400.0
+                    -0.06661617755889893 0.09495311975479126 0.010016393847763538
+                    0.020014090463519096 0.0518181174993515 0.016099922358989716
+                    -0.009839469566941261 0.07897470146417618 0.030008524656295776
+                    0.0400073267519474 0.05569284409284592 0.03760381042957306]))))
