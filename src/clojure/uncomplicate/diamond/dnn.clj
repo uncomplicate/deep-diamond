@@ -13,7 +13,7 @@
             [uncomplicate.fluokitten.core :refer [fmap foldmap]]
             [uncomplicate.neanderthal
              [core :refer [ncols transfer! view-vctr]]
-             [random :refer [rand-normal! rand-uniform! rng-state]]]
+             [random :refer [rand-normal! rng-state]]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* shape input output batcher TensorContainer
                      tensor data-type layout desc]]

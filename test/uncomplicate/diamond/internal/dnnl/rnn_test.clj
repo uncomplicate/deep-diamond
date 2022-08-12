@@ -18,15 +18,11 @@
   (test-vanilla-rnn-inference-no-iter fact)
   (test-vanilla-rnn-training fact)
   (test-vanilla-rnn-training-zero-iter fact)
-  (test-vanilla-rnn-training-no-iter fact) ;; TODO DNNL fails
+  (test-vanilla-rnn-training-no-iter fact) ;; TODO DNNL fails. The last layer of weights-iter is different than in CUDA.
   (test-rnn-inference fact)
-  (test-rnn-training fact) ;; TODO DNNL fails
+  (test-rnn-training fact)
   (test-rnn-training-no-iter fact)
   (test-lstm-training-no-iter fact)
   (test-lstm-training-no-iter-adam fact)
   (test-gru-training-no-iter-adam fact)
   (test-ending fact))
-
-(with-release [fact (dnnl-factory)]
-  (test-rnn-training fact) ;; TODO now CUDNN matches zero-iter!, but DNNL doesn't!
-  )

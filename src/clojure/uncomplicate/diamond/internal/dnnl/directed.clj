@@ -28,7 +28,8 @@
              [core :refer :all :as dnnl]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]]
             [uncomplicate.diamond.internal.neanderthal.directed
-             :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint]])
+             :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint ->NopActivation
+                     ->NopActivationBlueprint sgd-layer adam-layer]])
   (:import [clojure.lang IFn AFn]
            [uncomplicate.diamond.internal.neanderthal.directed
             DirectedLayerBlueprint GaussianDropoutBlueprint]))
@@ -164,6 +165,14 @@
   ([fact eng data-desc activ alpha beta]
    (dnnl-activation-blueprint fact eng data-desc data-desc data-desc activ alpha beta)))
 
+(defn dnnl-nop-activation-blueprint
+  ([fact inf-src-desc train-src-desc]
+   (let [inf-src-desc (desc inf-src-desc)
+         train-src-desc (desc train-src-desc)]
+     (->NopActivationBlueprint fact inf-src-desc train-src-desc)))
+  ([fact data-desc]
+   (dnnl-nop-activation-blueprint fact data-desc)))
+
 ;; ================================ Softmax =============================================
 
 (deftype DnnlSoftmaxTraining [strm bluep z-tz da-tz
@@ -265,8 +274,9 @@
 
 (defn dnnl-activ-blueprint
   ([fact eng inf-src-desc train-src-desc diff-desc activ alpha beta]
-   (if (= :softmax activ)
-     (dnnl-softmax-blueprint fact eng inf-src-desc train-src-desc diff-desc)
+   (case activ
+     :nop (dnnl-nop-activation-blueprint fact inf-src-desc train-src-desc)
+     :softmax (dnnl-softmax-blueprint fact eng inf-src-desc train-src-desc diff-desc)
      (dnnl-activation-blueprint fact eng inf-src-desc train-src-desc diff-desc activ alpha beta)))
   ([fact eng data-desc activ alpha beta]
    (dnnl-activ-blueprint fact eng data-desc data-desc data-desc activ alpha beta)))
@@ -551,6 +561,14 @@
   ([fact eng src-desc dst-desc]
    (dnnl-inner-product-blueprint fact eng src-desc dst-desc nil)))
 
+(defmethod transfer! [DnnlProductInference Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
+
+(defmethod transfer! [DnnlProductTraining Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
+
 ;; ================================ Directed Layer ==================================
 
 (defn dnnl-fc-blueprint [fact eng src-desc dst-desc activ alpha beta weights-type]
@@ -560,7 +578,8 @@
     (let-release [ip-bluep (dnnl-inner-product-blueprint fact eng src-desc dst-desc weights-type)
                   activ-bluep (dnnl-activ-blueprint fact eng (inf-desc ip-bluep) (train-desc ip-bluep)
                                                     (train-desc ip-bluep) activ alpha beta)]
-      (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep))))
+      (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep
+                                {:sgd sgd-layer :adam adam-layer}))))
 
 ;; ============================= Cost Function ========================================
 
@@ -704,7 +723,8 @@
                                                   (train-desc convolution-bluep)
                                                   (train-desc convolution-bluep)
                                                   activ alpha beta)]
-    (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep)))
+    (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep
+                              {:sgd sgd-layer :adam adam-layer})))
 
 ;; ================================ Pooling =============================================
 
@@ -1278,7 +1298,8 @@
                                                   (train-desc batch-norm-op-bluep)
                                                   (train-desc batch-norm-op-bluep)
                                                   activ alpha beta)]
-    (->DirectedLayerBlueprint fact :batch-normalization batch-norm-op-bluep activ-bluep)))
+    (->DirectedLayerBlueprint fact :batch-normalization batch-norm-op-bluep activ-bluep
+                              {:sgd sgd-layer :adam adam-layer})))
 
 (defmethod transfer! [DnnlBatchNormalizationInference Object]
   [source destination]

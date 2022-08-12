@@ -11,6 +11,7 @@
              :refer [Releaseable release let-release with-release Info info view]]
             [uncomplicate.neanderthal
              [core :refer [axpby! transfer! scal! entry!]]
+             [random :refer [rand-normal!]]
              [block :refer [buffer initialize]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
@@ -20,13 +21,16 @@
               :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
                       DiffParameters Backprop forward DiffTransfer diff-input diff-output LinearBackprop
                       backward-diff train-desc Initializable init RnnParameters DiffRnnParameters
-                      batch-index]]
-             [utils :refer [default-strides direction-count]]]
+                      batch-index inf-desc train-desc]]
+             [utils :refer [default-strides direction-count transfer-rnn-weights-bias!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
-             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]]
-            [uncomplicate.diamond.internal.neanderthal.rnn :refer [->RnnLayerBlueprint]])
+             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]
+             [directed :refer [dnnl-nop-activation-blueprint]]]
+            [uncomplicate.diamond.internal.neanderthal
+             [directed :refer [->DirectedLayerBlueprint]]
+             [rnn :refer [sgd-rnn-layer adam-rnn-layer]]])
   (:import [clojure.lang IFn AFn]))
 
 ;; ================================ RNN ====================================================
@@ -72,15 +76,18 @@
   (weights [_]
     weights-tz)
   RnnParameters
-  (weights-iter [_]
-    weights-iter-tz)
+  (weights-layer [this]
+    (weights-tz))
+  (weights-iter [this]
+    (weights-iter-tz))
   ParametersSeq
   (parameters [_]
-    [weights-tz bias-tz weights-iter-tz])
+    [weights-tz bias-tz])
   Initializable
-  (init [this init-fn]
-    (init-fn weights-tz)
-    (init-fn weights-iter-tz)
+  (init [this _] ;;TODO perhaps rethink universal init infrastructure
+    (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-tz) 2))) weights-tz)
+    (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-iter-tz) 2))) weights-iter-tz) ;;TODO pass rng-state! when you make this work!
+    (entry! bias-tz 0.0)
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
         (initialize src-iter-tz (data (buffer src-iter-tz)) 0.0)))
@@ -100,6 +107,7 @@
 
 (deftype DnnlRnnTraining [strm bluep srcs dsts diff-dsts
                           src-conn src-iter-conn src-iter-c-conn bias-tz
+                          fused-weights-tz
                           weights-tz weights-conn weights-iter-tz weights-iter-conn
                           dst-tz dst-iter-tz dst-iter-c-tz
                           workspace-tz fwd-prim fwd-args
@@ -108,8 +116,9 @@
                           bwd-dst-conn bwd-dst-iter-conn bwd-dst-iter-c-conn
                           diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz
                           diff-src-conn diff-src-iter-conn diff-src-iter-c-conn
-                          diff-weights-tz post-diff-weights-tz diff-weights-conn
-                          diff-weights-iter-tz post-diff-weights-iter-tz diff-weights-iter-conn
+                          fused-diff-weights-tz post-diff-weights-tz
+                          diff-weights-tz diff-weights-conn
+                          diff-weights-iter-tz diff-weights-iter-conn
                           diff-bias-tz
                           bwd-prim bwd-args]
   Releaseable
@@ -118,6 +127,7 @@
     (release src-iter-conn)
     (release src-iter-c-conn)
     (release bias-tz)
+    (release fused-weights-tz)
     (release weights-tz)
     (release weights-conn)
     (release weights-iter-tz)
@@ -141,11 +151,11 @@
     (release diff-src-conn)
     (release diff-src-iter-conn)
     (release diff-src-iter-c-conn)
-    (release diff-weights-tz)
+    (release fused-diff-weights-tz)
     (release post-diff-weights-tz)
+    (release diff-weights-tz)
     (release diff-weights-conn)
     (release diff-weights-iter-tz)
-    (release post-diff-weights-iter-tz)
     (release diff-weights-iter-conn)
     (release diff-bias-tz)
     (release bwd-prim)
@@ -153,19 +163,15 @@
   Info
   (info [this]
     {:bias (info bias-tz)
-     :weights (info weights-tz)
+     :weights (info fused-weights-tz)
      :dst (info dst-tz)
-     :diff-weights (info diff-weights-tz)
-     :weights-iter (info weights-iter-tz)
-     :diff-weights-iter (info diff-weights-iter-tz)})
+     :diff-weights (info post-diff-weights-tz)})
   (info [this info-type]
     (case info-type
       :bias (info bias-tz)
-      :weights (info weights-tz)
+      :weights (info fused-weights-tz)
       :dst (info dst-tz)
-      :diff-weights (info diff-weights-tz)
-      :weights-iter (info weights-iter-tz)
-      :diff-weights-iter (info diff-weights-iter-tz)
+      :diff-weights (info post-diff-weights-tz)
       nil))
   Transfer
   (input [_]
@@ -181,23 +187,22 @@
   (bias [_]
     bias-tz)
   (weights [_]
-    weights-tz)
+    fused-weights-tz)
   RnnParameters
-  (weights-iter [_]
-    weights-iter-tz)
+  (weights-layer [this]
+    (weights-tz))
+  (weights-iter [this]
+    (weights-iter-tz))
   ParametersSeq
   (parameters [_]
-    [weights-tz bias-tz weights-iter-tz])
+    [fused-weights-tz bias-tz])
   DiffParameters
   (diff-weights [_]
-    post-diff-weights-tz);;TODO think about fusing weights-tz and weights-iter-tz
-  DiffRnnParameters
-  (diff-weights-iter [_]
-    post-diff-weights-iter-tz)
+    post-diff-weights-tz)
   Initializable
   (init [this init-fn]
-    (init-fn weights-tz)
-    (init-fn weights-iter-tz)
+    (rand-normal! 0.0 (/ 2.0 (long (get (shape fused-weights-tz) 2))) fused-weights-tz)
+    (entry! bias-tz 0.0)
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
         (initialize src-iter-tz (data (buffer src-iter-tz)) 0.0)))
@@ -237,20 +242,18 @@
     (entry! diff-bias-tz 0.0)
     (execute! strm bwd-prim bwd-args)
     (diff-weights-conn)
-    (when diff-weights-iter-conn (diff-weights-iter-conn))
+    (diff-weights-iter-conn)
     (if (= 0.0 scal-g)
       (when-not (= 1.0 scal-diff-w)
-        (scal! scal-diff-w diff-weights-tz)
-        (scal! scal-diff-w diff-weights-iter-tz))
-      (do (axpby! scal-diff-w diff-weights-tz scal-g post-diff-weights-tz)
-          (axpby! scal-diff-w diff-weights-iter-tz scal-g post-diff-weights-iter-tz)))
+        (scal! scal-diff-w fused-diff-weights-tz))
+      (axpby! scal-diff-w fused-diff-weights-tz scal-g post-diff-weights-tz))
     (axpby! scal-diff-b diff-bias-tz scal-b bias-tz)
     (when diff-src-conn (diff-src-conn))
     (when diff-src-iter-conn (diff-src-iter-conn))
     (when diff-src-iter-c-conn (diff-src-iter-c-conn))
     this))
 
-(deftype DnnlRnnBlueprint [fact weights-desc weights-iter-desc bias-desc
+(deftype DnnlRnnBlueprint [fact fused-weights-desc weights-desc weights-iter-desc bias-desc
                            infer-pd train-pd bwd-pd]
   Object
   (hashCode [_]
@@ -280,6 +283,7 @@
              :dst (dst-md infer-pd)}))
   Releaseable
   (release [_]
+    (release fused-weights-desc)
     (release weights-desc)
     (release weights-iter-desc)
     (release bias-desc)
@@ -376,9 +380,10 @@
                     src-iter-c-conn (when-let [src-iter-c-desc (arg-md infer-pd :src-iter-c)]
                                       (connector src-iter-c-tz src-iter-c-desc))
                     bias-tz (dnnl-tensor fact bias-desc)
-                    weights-tz (dnnl-tensor fact weights-desc)
+                    fused-weights-tz (dnnl-tensor fact fused-weights-desc)
+                    weights-tz (view-tz fused-weights-tz weights-desc) ;;(dnnl-tensor fact weights-desc) TODO remove comment
                     weights-conn (connector weights-tz (weights-md train-pd))
-                    weights-iter-tz (dnnl-tensor fact weights-iter-desc)
+                    weights-iter-tz (tz/offset! (view-tz fused-weights-tz weights-iter-desc) (apply * (shape weights-desc)));;(dnnl-tensor fact weights-iter-desc) ;;(dnnl-tensor fact weights-desc) TODO remove comment
                     weights-iter-conn (connector weights-iter-tz (arg-md train-pd :weights-iter))
                     dst-tz (dnnl-tensor fact (dst-md train-pd) 1)
                     dst-iter-tz (when-let [dst-iter-desc (arg-md train-pd :dst-iter)]
@@ -415,13 +420,13 @@
                                        (dnnl-tensor fact diff-dst-iter-desc))
                     diff-dst-iter-c-tz (when-let [diff-dst-iter-c-desc (arg-md bwd-pd :diff-dst-iter-c)]
                                          (dnnl-tensor fact diff-dst-iter-c-desc))
-                    diff-weights-tz (dnnl-tensor fact weights-desc)
-                    post-diff-weights-tz (if post-process-diff? (dnnl-tensor fact weights-desc)
-                                             diff-weights-tz)
+                    fused-diff-weights-tz (dnnl-tensor fact fused-weights-desc)
+                    post-diff-weights-tz (if post-process-diff? (dnnl-tensor fact fused-weights-desc)
+                                             fused-diff-weights-tz)
+                    diff-weights-tz (view-tz fused-diff-weights-tz weights-desc) ;;TODO remove (dnnl-tensor fact weights-desc)
+
                     diff-weights-conn (connector (diff-weights-md bwd-pd) diff-weights-tz)
-                    diff-weights-iter-tz (dnnl-tensor fact weights-iter-desc)
-                    post-diff-weights-iter-tz (if post-process-diff? (dnnl-tensor fact weights-iter-desc)
-                                                  diff-weights-iter-tz)
+                    diff-weights-iter-tz (tz/offset! (view-tz fused-diff-weights-tz weights-iter-desc) (apply * (shape weights-desc)));; TODO remove(dnnl-tensor fact weights-iter-desc)
                     diff-weights-iter-conn (connector (arg-md bwd-pd :diff-weights-iter) diff-weights-iter-tz)
                     diff-bias-tz (dnnl-tensor fact bias-desc)
                     diff-src-conn (connector (diff-src-md bwd-pd) src-tz)
@@ -466,6 +471,7 @@
                                 diff-dst-tz)]
         (->DnnlRnnTraining (flow fact) this srcs dsts diff-dsts
                            src-conn src-iter-conn src-iter-c-conn bias-tz
+                           fused-weights-tz
                            weights-tz weights-conn weights-iter-tz weights-iter-conn
                            dst-tz dst-iter-tz dst-iter-c-tz
                            workspace-tz
@@ -475,12 +481,21 @@
                            bwd-dst-conn bwd-dst-iter-conn bwd-dst-iter-c-conn
                            diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz
                            diff-src-conn diff-src-iter-conn diff-src-iter-c-conn
-                           diff-weights-tz post-diff-weights-tz diff-weights-conn
-                           diff-weights-iter-tz post-diff-weights-iter-tz diff-weights-iter-conn
+                           fused-diff-weights-tz post-diff-weights-tz
+                           diff-weights-tz diff-weights-conn
+                           diff-weights-iter-tz diff-weights-iter-conn
                            diff-bias-tz
                            bwd-prim bwd-args))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
+
+(defmethod transfer! [DnnlRnnInference Object]
+  [source destination]
+  (transfer-rnn-weights-bias! source destination))
+
+(defmethod transfer! [DnnlRnnTraining Object]
+  [source destination]
+  (transfer-rnn-weights-bias! source destination))
 
 ;; ================================ Vanilla RNN =================================================
 
@@ -493,13 +508,14 @@
         [_ _ dst-ch] (shape dst-desc)
         dirs (direction-count dir)
         gts 1
-        dst-iter-shape [lrs dirs N (if (= :bidirectional-concat dir) (* dst-ch 2) dst-ch)]
+        dst-iter-shape [lrs dirs N (if (= :bidirectional-concat dir) (* (long dst-ch) 2) dst-ch)]
         src-iter-shape dst-iter-shape
         dst-type (data-type dst-desc)
         weights-shape [lrs dirs src-ch gts dst-ch]
         weights-type (or weights-type (data-type src-desc) dst-type)
         weights-iter-shape [lrs dirs dst-ch gts dst-ch]
-        bias-shape [lrs dirs gts dst-ch]]
+        bias-shape [lrs dirs gts dst-ch]
+        fused-weights-shape [lrs dirs (+ src-ch dst-ch) gts dst-ch]]
     (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape (data-type src-desc) :any))
                   dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
@@ -521,8 +537,9 @@
                       train-pd (primitive-desc eng train-desc)
                       bwd-pd (primitive-desc eng bwd-desc train-pd)
                       weights-desc-export (dnnl-contiguous-desc (weights-md train-pd))
-                      weights-iter-desc-export (dnnl-contiguous-desc (arg-md train-pd :weights-iter))]
-          (->DnnlRnnBlueprint fact weights-desc-export weights-iter-desc-export bias-desc
+                      weights-iter-desc-export (dnnl-contiguous-desc (arg-md train-pd :weights-iter))
+                      fused-weights-desc (memory-desc fused-weights-shape weights-type :ldigo)];;TODO ldgoi is not exactly true unless I do weights/weihgts-iter striding! Improve this as part of cudnn/dnnl unification.
+          (->DnnlRnnBlueprint fact fused-weights-desc weights-desc-export weights-iter-desc-export bias-desc
                               infer-pd train-pd bwd-pd))))))
 
 (defn dnnl-rnn-blueprint [fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
@@ -532,10 +549,16 @@
                                        :any)]
     (let-release [rnn-op-bluep (dnnl-rnn-op-blueprint fact eng src-desc dst-desc weights-type
                                                       activ alpha beta :unidirectional lrs
-                                                      src-iter? dst-iter?)]
-      (->RnnLayerBlueprint fact :rnn rnn-op-bluep))))
+                                                      src-iter? dst-iter?)
+                  nop-activ-bluep (dnnl-nop-activation-blueprint fact
+                                                                 (inf-desc rnn-op-bluep)
+                                                                 (train-desc rnn-op-bluep))]
+      (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep
+                                {:sgd sgd-rnn-layer :adam adam-rnn-layer}))))
 
 ;; ================================ LSTM =======================================================
+
+;; TODO maybe unify all these variants of rnn. Lots of code is the same.
 
 (defn dnnl-gated-op-blueprint [fwd-desc-fn bwd-desc-fn gts
                                fact eng src-desc dst-desc weights-type
@@ -546,13 +569,15 @@
         dst-desc (desc dst-desc)
         [_ _ dst-ch] (shape dst-desc)
         dirs (direction-count dir)
-        dst-iter-shape [lrs dirs N (if (= :bidirectional-concat dir) (* dst-ch 2) dst-ch)]
+        dst-iter-shape [lrs dirs N (if (= :bidirectional-concat dir) (* (long dst-ch) 2) dst-ch)]
         src-iter-shape dst-iter-shape
         dst-type (data-type dst-desc)
         weights-shape [lrs dirs src-ch gts dst-ch]
         weights-type (or weights-type (data-type src-desc) dst-type)
         weights-iter-shape [lrs dirs dst-ch gts dst-ch]
-        bias-shape [lrs dirs gts dst-ch]]
+        bias-shape [lrs dirs gts dst-ch]
+        fused-weights-shape [lrs dirs (+ src-ch dst-ch) gts dst-ch]
+        fused-weights-desc (memory-desc fused-weights-shape weights-type :ldigo)]
     (let-release [src-iter-desc (when src-iter? (memory-desc src-iter-shape (data-type src-desc) :any))
                   dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
@@ -575,7 +600,7 @@
                       bwd-pd (primitive-desc eng bwd-desc train-pd)
                       weights-desc-export (dnnl-contiguous-desc (weights-md train-pd))
                       weights-iter-desc-export (dnnl-contiguous-desc (arg-md train-pd :weights-iter))]
-          (->DnnlRnnBlueprint fact weights-desc-export weights-iter-desc-export bias-desc
+          (->DnnlRnnBlueprint fact fused-weights-desc weights-desc-export weights-iter-desc-export bias-desc
                               infer-pd train-pd bwd-pd))))))
 
 (def dnnl-lstm-op-blueprint (partial dnnl-gated-op-blueprint lstm-fwd-desc lstm-bwd-desc 4))
@@ -586,8 +611,12 @@
                                        (or (tz/data-type dst-desc) (tz/data-type src-desc))
                                        :any)]
     (let-release [lstm-op-bluep (dnnl-lstm-op-blueprint fact eng src-desc dst-desc weights-type
-                                                        :unidirectional lrs src-iter? dst-iter?)]
-      (->RnnLayerBlueprint fact :lstm lstm-op-bluep))))
+                                                        :unidirectional lrs src-iter? dst-iter?)
+                  nop-activ-bluep (dnnl-nop-activation-blueprint fact
+                                                        (inf-desc lstm-op-bluep)
+                                                        (train-desc lstm-op-bluep))]
+      (->DirectedLayerBlueprint fact :lstm lstm-op-bluep nop-activ-bluep
+                                {:sgd sgd-rnn-layer :adam adam-rnn-layer}))))
 
 ;; ================================ GRU =======================================================
 
@@ -599,8 +628,12 @@
                                        (or (tz/data-type dst-desc) (tz/data-type src-desc))
                                        :any)]
     (let-release [gru-op-bluep (dnnl-gru-op-blueprint fact eng src-desc dst-desc weights-type
-                                                      :unidirectional lrs src-iter? dst-iter?)]
-      (->RnnLayerBlueprint fact :gru gru-op-bluep))))
+                                                      :unidirectional lrs src-iter? dst-iter?)
+                  nop-activ-bluep (dnnl-nop-activation-blueprint fact
+                                                                 (inf-desc gru-op-bluep)
+                                                                 (train-desc gru-op-bluep))]
+      (->DirectedLayerBlueprint fact :gru gru-op-bluep nop-activ-bluep
+                                {:sgd sgd-rnn-layer :adam adam-rnn-layer}))))
 
 ;; ================================= Ending Layer ==============================
 

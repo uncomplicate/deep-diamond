@@ -64,6 +64,7 @@
   (bias [this]))
 
 (defprotocol RnnParameters
+  (weights-layer [this])
   (weights-iter [this]))
 
 (defprotocol ParametersSeq  ;;TODO consider making parameters a map instead of a vector.
@@ -72,7 +73,7 @@
 (defprotocol DiffParameters
   (diff-weights [this]))
 
-(defprotocol DiffRnnParameters
+(defprotocol DiffRnnParameters ;;TODO remove
   (diff-weights-iter [this]))
 
 (defprotocol Initializable

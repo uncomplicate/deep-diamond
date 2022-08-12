@@ -10,6 +10,7 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.neanderthal
              [core :refer [rk! mm! mv! trans axpy! axpby! view-vctr view-ge mrows
                            ncols vctr zero dim transfer! raw]]
@@ -32,6 +33,77 @@
                                 neanderthal-factory inf-desc train-desc Initializable init]]
              [utils :refer [transfer-weights-bias!]]])
   (:import [clojure.lang IFn AFn]))
+
+(deftype NopActivation [bluep data diff]
+  Releaseable
+  (release [_]
+    (release data)
+    (release diff))
+  Info
+  (info [this]
+    {:activation (info bluep :activation)
+     :data (fmap info data)
+     :diff (fmap info diff)})
+  (info [this info-type]
+    (case info-type
+      :data (fmap info data)
+      :diff (fmap info diff)
+      (info bluep info-type)))
+  Transfer
+  (input [_]
+    data)
+  (output [_]
+    data)
+  DiffTransfer
+  (diff-input [_]
+    diff)
+  (diff-output [_]
+    diff)
+  IFn
+  (invoke [_]
+    data)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
+  Backprop
+  (forward [this]
+    this)
+  (backward [this]
+    this))
+
+(deftype NopActivationBlueprint [fact inf-desc train-desc]
+  Releaseable
+  (release [_]
+    (release inf-desc)
+    (release train-desc))
+  Info
+  (info [this]
+    {:activation :nop})
+  (info [this info-type]
+    (case info-type
+      :activation :nop
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [_]
+    inf-desc)
+  (train-desc [_]
+    train-desc)
+  TensorDescriptor
+  (shape [this]
+    (shape train-desc))
+  (data-type [this]
+    (data-type train-desc))
+  (layout [this]
+    (layout train-desc))
+  IFn
+  (invoke [this data-tz]
+    (->NopActivation this data-tz nil))
+  (invoke [this data-tz diff-tz]
+    (->NopActivation this data-tz diff-tz))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
 
 (deftype InnerProductInference [ones b w a-1 z
                                 src-conn bias-tz weights-tz dst-tz]
@@ -257,6 +329,14 @@
                    ones (entry! (vctr (neanderthal-factory fact src-type) (long (get src-shape 0))) 1.0)]
        (->InnerProductBlueprint fact ones src-desc weights-desc bias-desc dst-desc)))))
 
+(defmethod transfer! [InnerProductInference Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
+
+(defmethod transfer! [InnerProductTraining Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
+
 (deftype InferenceLayer [fact bluep op activ]
   Releaseable
   (release [_]
@@ -380,7 +460,7 @@
   (forward [this]
     (forward activ)
     this)
-  (forward [this [_ _ mu nesterov?]]
+  (forward [this [_ _ _ mu nesterov?]]
     (when nesterov? (axpy! mu v w))
     (forward op)
     (forward activ)
@@ -397,7 +477,8 @@
 
 (defn sgd-layer [fact bluep op-bluep activ-bluep src-tz prop-diff?]
   (let-release [z-tz (create-tensor fact (train-desc op-bluep) false)
-                a-tz (create-tensor fact (train-desc activ-bluep) false)
+                a-tz (if (instance? NopActivationBlueprint activ-bluep)
+                       nil (create-tensor fact (train-desc activ-bluep) false))
                 op (op-bluep src-tz z-tz prop-diff? true)
                 activ (activ-bluep z-tz a-tz)]
     (->SGDLayer fact bluep op activ (first (shape bluep))
@@ -505,7 +586,8 @@
 
 (defn adam-layer [fact bluep op-bluep activ-bluep src-tz prop-diff?]
   (let-release [z-tz (create-tensor fact (train-desc op-bluep) false)
-                a-tz (create-tensor fact (train-desc activ-bluep) false)
+                a-tz (if (instance? NopActivationBlueprint activ-bluep) ;; make it more elegant
+                       nil (create-tensor fact (train-desc activ-bluep) false))
                 op (op-bluep src-tz z-tz prop-diff? false)
                 activ (activ-bluep z-tz a-tz)
                 w (view-vctr (weights op))
@@ -520,7 +602,7 @@
                     (info layer :topology) (info layer :shape) (info layer :activation)
                     (pr-str (weights layer)) (pr-str (bias layer)))))
 
-(deftype DirectedLayerBlueprint [fact topology op-bluep activ-bluep]
+(deftype DirectedLayerBlueprint [fact topology op-bluep activ-bluep training-layer]
   Releaseable
   (release [_]
     (release op-bluep)
@@ -567,19 +649,15 @@
     (max (long (train-ws-size op-bluep)) (long (train-ws-size activ-bluep))))
   IFn
   (invoke [this prev-layer]
-    (let-release [src-tz (output prev-layer)
-                  op (op-bluep src-tz)
+    (let-release [op (op-bluep (fmap output prev-layer))
                   activ (activ-bluep (output op))]
       (->InferenceLayer fact this op activ)))
   (invoke [this prev-layer prop-diff? optimization]
-    (let [src-tz (output prev-layer)
-          training-layer (case optimization
-                           :sgd sgd-layer
-                           :adam adam-layer
-                           (dragan-says-ex
-                            (format "Optimization algorithm %s is not available." optimization)
-                            {:optimization optimization}))]
-      (training-layer fact this op-bluep activ-bluep src-tz prop-diff?)))
+    (if-let [training-layer (get training-layer optimization)]
+      (training-layer fact this op-bluep activ-bluep (fmap output prev-layer) prop-diff?)
+      (dragan-says-ex
+       (format "Optimization algorithm %s is not available." optimization)
+       {:requested optimization :available (keys training-layer)})))
   (invoke [this prev-layer prop-diff?]
     (.invoke this prev-layer prop-diff? :sgd))
   (applyTo [this xs]
@@ -599,19 +677,20 @@
                                                :nc)
                   ip-bluep (inner-product-blueprint fact src-desc dst-desc weights-type)
                   activ-bluep (activ-blueprint fact (view dst-desc) activ alpha beta)]
-      (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep))))
+      (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep
+                                {:sgd sgd-layer :adam adam-layer}))))
 
 (defmethod transfer! [InferenceLayer Object]
-  [source destination]
-  (transfer-weights-bias! source destination))
+  [^InferenceLayer source destination]
+  (transfer! (.op source) destination))
 
 (defmethod transfer! [AdamLayer Object]
-  [source destination]
-  (transfer-weights-bias! source destination))
+  [^AdamLayer source destination]
+  (transfer! (.op source) destination))
 
 (defmethod transfer! [SGDLayer Object]
-  [source destination]
-  (transfer-weights-bias! source destination))
+  [^SGDLayer source destination]
+  (transfer! (.op source) destination))
 
 ;; ================================ Gaussian Dropout ======================================
 

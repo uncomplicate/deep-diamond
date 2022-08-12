@@ -12,7 +12,7 @@
              [utils :refer [dragan-says-ex with-check]]]
             [uncomplicate.fluokitten.core :refer [foldmap]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
-            [uncomplicate.diamond.internal.protocols :refer [weights bias]])
+            [uncomplicate.diamond.internal.protocols :refer [weights bias weights-layer weights-iter]])
   (:import uncomplicate.neanderthal.internal.api.Block))
 
 (defmacro deftype-wrapper [name release-method error]
@@ -66,6 +66,12 @@ Please use a copy or create a transformer."
 (defn transfer-weights-bias! [source destination]
   (transfer! (bias source) (bias destination))
   (transfer! (weights source) (weights destination))
+  destination)
+
+(defn transfer-rnn-weights-bias! [source destination]
+  (transfer! (bias source) (bias destination))
+  (transfer! (weights-layer source) (weights-layer destination))
+  (transfer! (weights-iter source) (weights-iter destination))
   destination)
 
 (defn concat-offsets [split-dim sub-shapes]

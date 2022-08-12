@@ -22,7 +22,8 @@
              [protocols :refer :all]
              [tensor :refer [cudnn-tensor-desc cudnn-tensor cudnn-transformer]]]
             [uncomplicate.diamond.internal.neanderthal.directed
-             :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint]])
+             :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint ->NopActivation
+                     ->NopActivationBlueprint sgd-layer adam-layer]])
   (:import [clojure.lang IFn AFn]
            [uncomplicate.diamond.internal.neanderthal.directed
             InnerProductBlueprint DirectedLayerBlueprint GaussianDropoutBlueprint]))
@@ -309,10 +310,12 @@
     (AFn/applyToHelper this xs)))
 
 (defn cudnn-activ-blueprint [fact data-desc activ coef]
-  (if (= :softmax activ)
-    (->CUDnnSoftmaxBlueprint fact data-desc)
-    (let-release [ad (activation-descriptor activ true coef)]
-      (->CUDnnActivationBlueprint fact activ ad data-desc))))
+  (let [data-desc (desc data-desc)]
+    (case activ
+      :nop (->NopActivationBlueprint fact data-desc data-desc)
+      :softmax (->CUDnnSoftmaxBlueprint fact data-desc)
+      (let-release [ad (activation-descriptor activ true coef)]
+        (->CUDnnActivationBlueprint fact activ ad data-desc)))))
 
 ;; ============================= Cost Function ========================================
 
@@ -671,7 +674,16 @@
                   convolution-bluep (cudnn-convolution-op-blueprint
                                      fact src-desc weights-desc dst-desc strides padding dilation)
                   activ-bluep (cudnn-activ-blueprint fact (view dst-desc) activ alpha)]
-      (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep))))
+      (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep
+                                {:sgd sgd-layer :adam adam-layer}))))
+
+(defmethod transfer! [CUDnnConvolutionInference Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
+
+(defmethod transfer! [CUDnnConvolutionTraining Object]
+  [source destination]
+  (transfer-weights-bias! source destination))
 
 ;; ================================ Pooling =============================================
 
@@ -1194,7 +1206,8 @@
 (defn cudnn-batch-norm-layer-blueprint [fact data-desc activ alpha beta]
   (let-release [batch-norm-bluep (cudnn-batch-norm-op-blueprint fact (view data-desc))
                 activ-bluep (cudnn-activ-blueprint fact (view data-desc) activ alpha)]
-    (->DirectedLayerBlueprint fact :batch-norm batch-norm-bluep activ-bluep)))
+    (->DirectedLayerBlueprint fact :batch-norm batch-norm-bluep activ-bluep
+                              {:sgd sgd-layer :adam adam-layer})))
 
 (defmethod transfer! [CUDnnBatchNormalizationInference Object]
   [source destination]
