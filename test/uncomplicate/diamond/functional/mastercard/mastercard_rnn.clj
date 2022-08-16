@@ -15,7 +15,7 @@
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor offset! connector transformer
                              desc revert shape input output view-tz batcher]]
-             [dnn :refer [lstm gru infer sum activation inner-product fully-connected
+             [dnn :refer [rnn lstm gru infer sum activation inner-product fully-connected
                           network init! train cost train ending]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
@@ -60,13 +60,19 @@
 
            (facts "Adam gradient descent - learning increment with RNN."
 
-                  (time (train net x-train y-train :quadratic 1 [])) => (roughly 0.0 0.5)
+                  (time (train net x-train y-train :quadratic 50 [])) => (roughly 0.0)
+
                   (transfer! net net-infer)
+                  (drop 400 (seq (infer net-infer x-train))) => :a
+                  (drop 400 (seq y-train)) => :y
                   ))
          (finally
            (release x-train)
            (release y-train)
            ))))
+
+(with-release [fact (dnnl-factory)]
+  (test-timeseries fact rnn))
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact lstm))
@@ -75,11 +81,3 @@
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact gru))
 ;;"Elapsed time: 445.922226 msecs"
-
-
-
-;; (with-release [fact (neanderthal-factory)]
-;;   (test-boston-regression fact))
-
-;; (with-release [fact (cudnn-factory)]
-;;   (test-boston-regression fact))

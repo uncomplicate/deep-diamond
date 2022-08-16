@@ -444,10 +444,10 @@
       0 src-desc
       1 {:shape [t n (get dst-shape 0)]
          :data-type (data-type dst-desc)
-         :layout (layout dst-desc)}
+         :layout :tnc}
       2 {:shape [(get dst-shape 0) n (get (dst-shape 1))]
          :data-type (data-type dst-desc)
-         :layout (layout dst-desc)}
+         :layout :tnc}
       dst-desc)))
 
 (defn rnn-op

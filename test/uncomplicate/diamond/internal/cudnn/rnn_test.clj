@@ -32,5 +32,5 @@
 
 (with-release [fact (cudnn-factory)]
 
-  (test-lstm-training-no-iter fact)
+  ;;(test-ending fact)
   )

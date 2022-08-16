@@ -969,7 +969,7 @@
        SC 4
        DC 2
        G 4
-       L 1
+       L 2
        D 1
        src-dim [T N SC]
        src-iter-dim [L D N DC]
@@ -1263,8 +1263,8 @@
       rnn-fwd-desc (vanilla-rnn-fwd-desc :training :relu :unidirectional src-desc src-iter-desc
                                          weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
       rnn-fwd-pd (primitive-desc eng rnn-fwd-desc)
-      rnn-no-iter-fwd-desc (vanilla-rnn-fwd-desc :training :relu :unidirectional src-desc nil
-                                                 weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
+      rnn-no-iter-fwd-desc (vanilla-rnn-fwd-desc :training :relu :unidirectional src-desc src-iter-desc
+                                                 weights-desc weights-desc bias-desc dst-desc nil)
       rnn-no-iter-fwd-pd (primitive-desc eng rnn-no-iter-fwd-desc)
 
       src-vec (fv [2 3 0.2 0.3])
@@ -1314,12 +1314,12 @@
                                          bwd-weights-desc bwd-weights-desc bias-desc
                                          dst-desc dst-iter-desc)
       rnn-bwd-pd (primitive-desc eng rnn-bwd-desc rnn-fwd-pd)
-      rnn-no-iter-bwd-desc (vanilla-rnn-bwd-desc :relu :unidirectional src-desc nil
+      rnn-no-iter-bwd-desc (vanilla-rnn-bwd-desc :relu :unidirectional src-desc src-iter-desc
                                                  bwd-weights-desc bwd-weights-desc bias-desc
-                                                 dst-desc dst-iter-desc
-                                                 src-desc nil
+                                                 dst-desc nil
+                                                 src-desc src-iter-desc
                                                  bwd-weights-desc bwd-weights-desc bias-desc
-                                                 dst-desc dst-iter-desc)
+                                                 dst-desc nil)
       rnn-no-iter-bwd-pd (primitive-desc eng rnn-no-iter-bwd-desc rnn-no-iter-fwd-pd)
       bwd-weights-mem (memory eng (arg-md rnn-bwd-pd :weights))
       reorder-weights-fb-pd (reorder eng weights-mem bwd-weights-mem)
