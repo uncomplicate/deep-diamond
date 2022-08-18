@@ -30,9 +30,7 @@
              [core :refer :all]
              [tensor :refer :all]
              [directed :refer [cudnn-activ-blueprint]]]
-            [uncomplicate.diamond.internal.neanderthal
-             [directed :refer [->DirectedLayerBlueprint]]
-             [rnn :refer [sgd-rnn-layer adam-rnn-layer]]])
+            [uncomplicate.diamond.internal.neanderthal.directed :refer [->DirectedLayerBlueprint]])
   (:import [clojure.lang IFn AFn]))
 
 ;; ================================ RNN ====================================================
@@ -303,6 +301,8 @@
     (view dst-desc))
   (train-desc [_]
     (view dst-desc))
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -471,5 +471,4 @@
                 rnn-op-bluep (cudnn-rnn-op-blueprint gts fact cudnn-hdl src-desc dst-desc weights-type
                                                      activ :unidirectional lrs src-iter? dst-iter? false)
                 nop-activ-bluep (cudnn-activ-blueprint fact (train-desc rnn-op-bluep) :nop nil)]
-    (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep
-                              {:sgd sgd-rnn-layer :adam adam-rnn-layer})))
+    (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep)))

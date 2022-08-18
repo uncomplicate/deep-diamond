@@ -15,7 +15,7 @@
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor offset! connector transformer
                              desc revert shape input output view-tz batcher]]
-             [dnn :refer [rnn lstm gru infer sum activation inner-product fully-connected
+             [dnn :refer [rnn lstm gru infer sum activation inner-product dense
                           network init! train cost train ending]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
@@ -52,18 +52,19 @@
 (defn test-timeseries [fact rnn]
   (let [[x-train y-train] (split-series fact mastercard-train 64)]
     (try (with-release [net-bp (network fact (desc [64 32 1] :float :tnc)
-                                        [(rnn 128)
+                                        [(rnn 64 :sigmoid)
+;;                                         (rnn 8 3 {})
                                          (ending)
-                                         (fully-connected [1] :linear)])
+                                         (dense [1] :linear)])
                         net (init! (net-bp :adam))
                         net-infer (net-bp)]
 
            (facts "Adam gradient descent - learning increment with RNN."
 
-                  (time (train net x-train y-train :quadratic 50 [])) => (roughly 0.0)
+                  (time (train net x-train y-train :quadratic 10 [])) => (roughly 0.0)
 
                   (transfer! net net-infer)
-                  (drop 400 (seq (infer net-infer x-train))) => :a
+                  (drop 400 (seq (infer net x-train))) => :a
                   (drop 400 (seq y-train)) => :y
                   ))
          (finally

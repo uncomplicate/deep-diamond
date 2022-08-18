@@ -351,7 +351,7 @@
 
   * `alg-kind`: operation algorithm, such as `:relu` or `:logistic`
   (defined in `[[constants/dnnl-eltwise-alg-kind]]`)
-  * `diff-desc`: the source memory descriptor
+  * `diff-desc`: the diff memory descriptor
   * `src-desc`: the source memory descriptor
   * `dst-desc`: the destination memory descriptor
   * `alpha`, and `beta`: optional coefficients, depending on `alg-kind`."
@@ -569,17 +569,18 @@
 
 (defn softmax-bwd-args
   "Creates DNNL's data structure that holds arguments as required by
-  the Softmax operation."
-  ([dst diff-src-and-dst]
-   (let-release [args (dnnl_exec_arg_t. 3)]
-     (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
-     (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-src-and-dst))
-     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src-and-dst))))
+  softmax operations."
   ([dst diff-dst diff-src]
    (let-release [args (dnnl_exec_arg_t. 3)]
      (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
      (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
-     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src)))))
+     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))))
+  ([src dst diff-dst diff-src]
+   (let-release [args (dnnl_exec_arg_t. 3)]
+     (args* args 0 dnnl/DNNL_ARG_DST (extract dst))
+     (args* args 1 dnnl/DNNL_ARG_DIFF_DST (extract diff-dst))
+     (args* args 2 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))
+     (args* args 3 dnnl/DNNL_ARG_SRC (extract src)))))
 
 ;; ====================== Convolution ===========================================
 

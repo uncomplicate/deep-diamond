@@ -57,7 +57,8 @@
 
 (defprotocol DescriptorProvider
   (inf-desc [this])
-  (train-desc [this]))
+  (train-desc [this])
+  (diff-desc [this]))
 
 (defprotocol Parameters
   (weights [this])

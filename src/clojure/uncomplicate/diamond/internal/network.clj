@@ -7,11 +7,10 @@
             [uncomplicate.diamond.tensor :refer [Transfer input output tensor TensorDescriptor
                                                  shape data-type layout]]
             [uncomplicate.diamond.internal.protocols
-             :refer [Backprop forward backward DiamondFactoryProvider
-                     diamond-factory native-diamond-factory DiffTransfer diff-input
-                     diff-output diff-z Workspace inf-ws-size train-ws-size
-                     create-workspace *workspace* DescriptorProvider inf-desc train-desc
-                     Initializable init]])
+             :refer [Backprop forward backward DiamondFactoryProvider diamond-factory
+                     native-diamond-factory DiffTransfer diff-input diff-output diff-z Workspace
+                     inf-ws-size train-ws-size create-workspace *workspace* DescriptorProvider
+                     inf-desc train-desc diff-desc Initializable init]])
   (:import [clojure.lang IFn AFn Seqable Indexed ILookup]))
 
 (extend-type java.lang.Object
@@ -88,7 +87,7 @@
   (output [_] (output (peek forward-layers)))
   DiffTransfer
   (diff-input [this]
-    (output this))
+    (dragan-says-ex "Inference network does not calculate gradients."))
   (diff-output [_]
     (dragan-says-ex "Inference network does not calculate gradients."))
   IFn
@@ -248,6 +247,8 @@
     (inf-desc (peek layer-blueprints)))
   (train-desc [_]
     (train-desc (peek layer-blueprints)))
+  (diff-desc [_]
+    (diff-desc (peek layer-blueprints)))
   TensorDescriptor
   (shape [_]
     (shape (peek layer-blueprints)))
@@ -517,6 +518,8 @@
     (fmap inf-desc layer-blueprints))
   (train-desc [_]
     (fmap train-desc layer-blueprints))
+  (diff-desc [_]
+    (fmap diff-desc layer-blueprints))
   TensorDescriptor
   (shape [_]
     (fmap shape layer-blueprints))

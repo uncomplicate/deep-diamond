@@ -492,6 +492,8 @@
     (desc tz-mem))
   (train-desc [_]
     (desc tz-mem))
+  (diff-desc [_]
+    (desc tz-mem))
   TensorDescriptor
   (shape [_]
     (dims tz-mem))

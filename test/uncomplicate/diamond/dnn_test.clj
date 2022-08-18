@@ -25,10 +25,9 @@
 
 (defn test-activation-relu [fact]
   (with-release [src-tz (tensor fact [1 3 2 1] :float :nchw)
-                 dst-tz (tensor fact [1 3 2 1] :float :nchw)
                  activ-bluep (activation fact src-tz :relu)
                  activ-infer (activ-bluep src-tz)
-                 activ-train (activ-bluep src-tz dst-tz)]
+                 activ-train (activ-bluep src-tz src-tz)]
 
     (transfer! [-0.5 0 0.2 1 0.3 -0.7] src-tz)
 
@@ -48,17 +47,16 @@
 
     (facts
      "Activation backward test."
-     (transfer! [-0.1 0.1 1 2 7 -0.6] dst-tz)
+     (transfer! [-0.1 0.1 1 2 7 -0.6] (output activ-train))
      (backward activ-train)
      (view-vctr (output activ-train)) => (vctr src-tz [-0.1 0.1 1 2 7 -0.6])
      (view-vctr (input activ-train)) => (vctr src-tz [0 0 1 2 7.0 0]))))
 
 (defn test-activation-sigmoid [fact]
   (with-release [src-tz (tensor fact [1 1 1 1] :float :nchw)
-                 dst-tz (tensor fact [1 1 1 1] :float :nchw)
                  activ-bluep (activation fact src-tz :sigmoid)
                  activ-infer (activ-bluep src-tz)
-                 activ-train (activ-bluep src-tz dst-tz)]
+                 activ-train (activ-bluep src-tz src-tz)]
 
     (transfer! [0.7] src-tz)
 
@@ -180,7 +178,7 @@
              (set! *warn-on-reflection* reflection-warn))
            (backward fc-output)
            (backward fc) => fc
-           (backward fc [1 1]) => fc
+           (backward fc [ 1 1]) => fc
            (view-vctr input-tz) => (vctr train-tz -0.5 0 0.2 1.0 0.3 -0.69999999)
            (nrm2 (view-vctr (weights fc))) => (float 149791.78)
            (nrm2 (axpy! -1 (view-vctr (bias fc))
@@ -239,9 +237,9 @@
            (view-vctr (weights fc2)) => (vctr train-tz [0.6875])
            (view-vctr (bias fc2)) => (vctr train-tz [0.050000012])
            (backward fc1) => fc1
-           (view-vctr (output fc1)) => (vctr train-tz 0.35999998 0.35999998)
+           (view-vctr (diff-input fc1)) => (vctr train-tz 0.35999998 0.35999998)
            (backward fc1 [nil 1 0 0 false]) => fc1
-           (view-vctr (input fc1)) => (vctr train-tz -0.036 -0.036)
+           (view-vctr (diff-output fc1)) => (vctr train-tz -0.036 -0.036)
            (view-vctr (weights fc1)) => (vctr train-tz [0.07999999])
            (view-vctr (bias fc1)) => (vctr train-tz [-0.15999998]))))
 
@@ -888,27 +886,6 @@
 
 (defn test-vanilla-rnn-inference [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
-                 rnn-bluep-iter (rnn-op fact input-tz [2 1 2] 2 true true)
-                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz])
-                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer rnn-iter))
-                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter rnn-iter))]
-    (facts "Vanilla RNN inference operation."
-           (transfer! [2 3 0.2 0.3] input-tz)
-           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
-           (input-weights)
-           (transfer! [100 200 300 400 0.01 0.02 0.03 0.04] (input input-weights-iter))
-           (input-weights-iter)
-           (transfer! [0.3 0.7 1 2] (bias rnn-iter))
-           (flatten (map (comp seq native) (rnn-iter)))
-           => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)
-                     830.4099731445312 1200.8599853515625 850.6968994140625 (roughly 1054.8890)])
-           (flatten(map (comp seq native) (output rnn-iter)))
-           => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)
-                     830.4099731445312 1200.8599853515625 850.6968994140625 (roughly 1054.8890)]))))
-
-(defn test-vanilla-rnn-inference-no-iter [fact]
-  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  rnn-bluep-no-iter (rnn-op fact input-tz [2 1 2] 2)
                  rnn-no-iter (rnn-bluep-no-iter input-tz)
                  input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer rnn-no-iter))
@@ -927,84 +904,11 @@
            (seq (native (bias rnn-no-iter)))
            => (just [(roughly 0.3) (roughly 0.7) (roughly 1.0) (roughly 2.0)]))))
 
-
-(defn test-vanilla-rnn-training [fact] ;;TODO continue here. check whether all those connectors etc. match up in training. Also, add a few tensors you create to the constructor, so they can later be released!
+(defn test-vanilla-rnn-training [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 dst-tz (tensor fact [2 1 2] :float :tnc)
-                 src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
-                 dst-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
-                 rnn-bluep-iter (rnn-op fact input-tz [2 1 2] 2 true true)
-                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz] false false)
-                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer rnn-iter))
-                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter rnn-iter))
-                 output-weights (revert input-weights)
-                 output-weights-iter (connector (weights-iter rnn-iter)
-                                                (desc [2 1 2 1 2] :float :ldigo))]
-    (facts "Vanilla RNN training operation."
-           (transfer! [2 3 0.2 0.3] input-tz)
-           (transfer! [0 0 0 0] src-iter-tz)
-           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
-           (input-weights)
-           (transfer! [100 200 300 400 0.01 0.02 0.03 0.04] (input input-weights-iter))
-           (input-weights-iter)
-           (transfer! [0.3 0.7 1 2] (bias rnn-iter))
-           (forward rnn-iter)
-           (flatten (map (comp seq native) (output rnn-iter)))
-           => (just [(roughly 2.57) (roughly 3.94) (roughly 850.697) (roughly 1054.889)
-                     (roughly 830.41) (roughly 1200.86) (roughly 850.697) (roughly 1054.889)])
-           (transfer! [1.1 -2.2 3.3 -4.4] (first (diff-input rnn-iter)))
-           (transfer! [-1 2 0.1 -0.2] (second (diff-input rnn-iter)))
-           (backward rnn-iter)
-           (flatten (map (comp seq native) (diff-output rnn-iter)))
-           => (just [(roughly -33.6297) (roughly -66.7194) (roughly 0.006) (roughly -0.17)
-                     (roughly -33629) (roughly -66719) (roughly -0.03522) (roughly -0.06002)])
-           (map float (seq (native (output-weights)))) => (map float [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
-           (map float (seq (native (output-weights-iter)))) => (map float [100 200 300 400 0.01 0.02 0.03 0.04])
-           (float (nrm2 (diff-weights rnn-iter))) => (float 8380.802)
-           (seq (native (bias rnn-iter)))
-           => (just [(roughly 3.58) (roughly -169.91) (roughly 4.442) (roughly -6.882)]))))
-
-(defn test-vanilla-rnn-training-zero-iter [fact]
-  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 dst-tz (tensor fact [2 1 2] :float :tnc)
-                 src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
-                 dst-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
-                 rnn-bluep-iter (rnn-op fact input-tz [2 1 2] 2 true true)
-                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz] false false)
-                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer rnn-iter))
-                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter rnn-iter))
-                 output-weights (revert input-weights)
-                 output-weights-iter (connector (weights-iter rnn-iter)
-                                                (desc [2 1 2 1 2] :float :ldigo))]
-    (facts "Vanilla RNN training operation with zero src iter vectors."
-           (transfer! [2 3 0.2 0.3] input-tz)
-           (transfer! [0 0 0 0] src-iter-tz)
-           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
-           (input-weights)
-           (transfer! [100 200 300 400 0.01 0.02 0.03 0.04] (input input-weights-iter))
-           (input-weights-iter)
-           (transfer! [0.3 0.7 1 2] (bias rnn-iter))
-           (forward rnn-iter)
-           (flatten (map (comp seq native) (output rnn-iter)))
-           => (just [(roughly 2.57) (roughly 3.94) (roughly 850.697) (roughly 1054.889)
-                     (roughly 830.41) (roughly 1200.86) (roughly 850.697) (roughly 1054.889)])
-           (transfer! [1.1 -2.2 3.3 -4.4] (first (diff-input rnn-iter)))
-           (transfer! [0 0 0 0] (second (diff-input rnn-iter)))
-           (backward rnn-iter)
-           (flatten (map (comp seq native) (diff-output rnn-iter)))
-           => (just [(roughly -153.1285) (roughly -333.8167) (roughly -0.275) (roughly -0.627)
-                     (roughly -153128.484) (roughly -333816.6875) (roughly -0.0351) (roughly -0.05973)])
-           (map float (seq (native (output-weights)))) => (map float [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6])
-           (map float (seq (native (output-weights-iter)))) => (map float [100 200 300 400 0.01 0.02 0.03 0.04])
-           (nrm2 (diff-weights rnn-iter)) => (roughly 8408.49)
-           (seq (native (bias rnn-iter)))
-           => (just [(roughly -276.36731) (roughly -628.8337) (roughly 4.345) (roughly -6.677)]))))
-
-(defn test-vanilla-rnn-training-no-iter [fact]
-  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 dst-tz (tensor fact [2 1 2] :float :tnc)
+                 dst-desc (desc [2 1 2] :float :tnc)
                  rnn-bluep-no-iter (rnn-op fact input-tz [2 1 2] 2 false false)
-                 rnn-no-iter (rnn-bluep-no-iter input-tz false false)
+                 rnn-no-iter (rnn-bluep-no-iter input-tz input-tz false false)
                  input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer rnn-no-iter))
                  input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter rnn-no-iter))
                  output-weights (revert input-weights)
@@ -1032,9 +936,8 @@
 
 (defn test-rnn-inference [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
                  rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 :relu {:src-iter true :dst-iter true})
-                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz])
+                 rnn-iter (rnn-bluep-iter input-tz)
                  input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer (.op rnn-iter)))
                  input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter (.op rnn-iter)))]
     (facts "Vanilla RNN layer inference."
@@ -1044,51 +947,10 @@
            (transfer! [100 200 300 400 0.01 0.02 0.03 0.04] (input input-weights-iter))
            (input-weights-iter)
            (transfer! [0.3 0.7 1 2] (bias rnn-iter))
-           (flatten (map (comp seq native) (rnn-iter)))
-           => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)
-                     830.4099731445312 1200.8599853515625 850.6968994140625 (roughly 1054.8890)])
-           (flatten (map (comp seq native) (output rnn-iter)))
-           => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)
-                     830.4099731445312 1200.8599853515625 850.6968994140625 (roughly 1054.8890)]))))
-
-(defn test-rnn-training [fact]
-  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 src-iter-tz (tensor fact [2 1 1 2] :float :ldnc)
-                 rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 :relu {:src-iter true :dst-iter true})
-                 rnn-iter (rnn-bluep-iter [input-tz src-iter-tz] nil :sgd)
-                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer (.op rnn-iter)))
-                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter (.op rnn-iter)))
-                 output-weights (revert input-weights)
-                 output-weights-iter (revert input-weights-iter)]
-    (facts "Vanilla RNN layer training."
-           (transfer! [2 3 0.2 0.3] input-tz)
-           (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
-           (input-weights)
-           (transfer! [100 200 300 400 0.01 0.02 0.03 0.04] (input input-weights-iter))
-           (input-weights-iter)
-           (transfer! [0.3 0.7 1 2] (bias rnn-iter))
-           (forward rnn-iter [nil 1 0 0 true])
-           (flatten (map (comp seq native) (output rnn-iter)))
-           => (just [(roughly 2.57) (roughly 3.94) (roughly 850.697) (roughly 1054.889)
-                     (roughly 830.41) (roughly 1200.86) (roughly 850.697) (roughly 1054.889)])
-           (flatten (map (comp seq native) (rnn-iter)))
-           => (just [(roughly 2.57) (roughly 3.94) (roughly 850.697) (roughly 1054.889)
-                     (roughly 830.41) (roughly 1200.86) (roughly 850.697) (roughly 1054.889)])
-           (transfer! [1.1 -2.2 3.3 -4.4] (first (diff-input rnn-iter)))
-           (transfer! [-1 2 0.1 -0.2] (second (diff-input rnn-iter)))
-           (backward rnn-iter)
-           (backward rnn-iter [nil 1 0 0 true])
-           (flatten (map (comp seq native) (diff-output rnn-iter)))
-           => (just [(roughly -33.6297) (roughly -66.7194) (roughly 0.006) (roughly -0.17)
-                     (roughly -33629) (roughly -66719) (roughly -0.03522) (roughly -0.06002)])
-           (seq (native (output-weights)))
-           => (just [(roughly -10.3355) (roughly 341.7086) (roughly -15.3533) (roughly 512.6629)
-                     (roughly -2824.5525) (roughly 3823.4805) (roughly -4084.8203) (roughly 5529.8047)])
-           (seq (native (output-weights-iter)))
-           => (just [(roughly 102.548) (roughly 198.684) (roughly 304.186) (roughly 397.838)
-                     (roughly -8.728) (roughly 11.842001) (roughly -13.366) (roughly 18.164001)])
-           (seq (native (bias rnn-iter)))
-           => (just [(roughly -3.2798) (roughly 170.608) (roughly -3.442) (roughly 8.882)]))))
+           (seq (native (rnn-iter)))
+           => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)])
+           (seq (native (output rnn-iter)))
+           => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)]))))
 
 (defn test-rnn-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
@@ -1201,4 +1063,4 @@
            (transfer! (range 100 200) (diff-input edg))
            (backward edg nil)
            (seq (output edg)) => (range 100.0 108.0)
-           (seq src-tz) => (into (vec (range 0.0 16.0)) (range 100.0 108.0)))))
+           (seq src-tz) => (into (vec (repeat 16 0.0)) (range 100.0 108.0)))))

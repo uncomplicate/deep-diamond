@@ -169,6 +169,8 @@
     (view data-desc))
   (train-desc [_]
     (view data-desc))
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [_]
     (shape data-desc))
@@ -290,6 +292,8 @@
     (view data-desc))
   (train-desc [_]
     (view data-desc))
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [_]
     (shape data-desc))
@@ -602,6 +606,8 @@
     (view dst-desc))
   (train-desc [_]
     (view dst-desc))
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -674,8 +680,7 @@
                   convolution-bluep (cudnn-convolution-op-blueprint
                                      fact src-desc weights-desc dst-desc strides padding dilation)
                   activ-bluep (cudnn-activ-blueprint fact (view dst-desc) activ alpha)]
-      (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep
-                                {:sgd sgd-layer :adam adam-layer}))))
+      (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep))))
 
 (defmethod transfer! [CUDnnConvolutionInference Object]
   [source destination]
@@ -852,6 +857,8 @@
     (view dst-desc))
   (train-desc [_]
     (view dst-desc))
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -1152,6 +1159,8 @@
     data-desc)
   (train-desc [_]
     data-desc)
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [this]
     (shape data-desc))
@@ -1206,8 +1215,7 @@
 (defn cudnn-batch-norm-layer-blueprint [fact data-desc activ alpha beta]
   (let-release [batch-norm-bluep (cudnn-batch-norm-op-blueprint fact (view data-desc))
                 activ-bluep (cudnn-activ-blueprint fact (view data-desc) activ alpha)]
-    (->DirectedLayerBlueprint fact :batch-norm batch-norm-bluep activ-bluep
-                              {:sgd sgd-layer :adam adam-layer})))
+    (->DirectedLayerBlueprint fact :batch-norm batch-norm-bluep activ-bluep)))
 
 (defmethod transfer! [CUDnnBatchNormalizationInference Object]
   [source destination]
@@ -1363,6 +1371,8 @@
     dst-descs)
   (train-desc [_]
     dst-descs)
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [this]
     (fmap shape dst-descs))
@@ -1428,6 +1438,8 @@
     dst-desc)
   (train-desc [_]
     dst-desc)
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [this]
     (shape dst-desc))
@@ -1605,6 +1617,8 @@
     (train-desc this))
   (train-desc [_]
     (vec (repeat n src-desc)))
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [_]
     (vec (repeat n (shape src-desc))))
@@ -1728,6 +1742,8 @@
     (get src-descs 0))
   (train-desc [_]
     (get src-descs 0))
+  (diff-desc [_]
+    "TODO")
   TensorDescriptor
   (shape [_]
     (shape (get src-descs 0)))

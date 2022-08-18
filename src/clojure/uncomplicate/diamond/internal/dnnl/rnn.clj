@@ -21,21 +21,19 @@
               :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
                       DiffParameters Backprop forward DiffTransfer diff-input diff-output LinearBackprop
                       backward-diff train-desc Initializable init RnnParameters DiffRnnParameters
-                      batch-index inf-desc train-desc]]
+                      batch-index inf-desc train-desc diff-desc]]
              [utils :refer [default-strides direction-count transfer-rnn-weights-bias!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
              [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]
              [directed :refer [dnnl-nop-activation-blueprint]]]
-            [uncomplicate.diamond.internal.neanderthal
-             [directed :refer [->DirectedLayerBlueprint]]
-             [rnn :refer [sgd-rnn-layer adam-rnn-layer]]])
+            [uncomplicate.diamond.internal.neanderthal.directed :refer [->DirectedLayerBlueprint]])
   (:import [clojure.lang IFn AFn]))
 
 ;; ================================ RNN ====================================================
 
-(deftype DnnlRnnInference [strm bluep srcs dsts
+(deftype DnnlRnnInference [strm bluep
                            src-conn src-iter-conn src-iter-c-conn
                            bias-tz weights-tz weights-iter-tz
                            dst-tz dst-iter-tz dst-iter-c-tz
@@ -67,9 +65,9 @@
       nil))
   Transfer
   (input [_]
-    srcs)
+    (input src-conn))
   (output [_]
-    dsts)
+    dst-tz)
   Parameters
   (bias [_]
     bias-tz)
@@ -101,11 +99,11 @@
     (when src-iter-conn (src-iter-conn))
     (when src-iter-c-conn (src-iter-c-conn))
     (execute! strm fwd-prim fwd-args)
-    dsts)
+    dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype DnnlRnnTraining [strm bluep srcs dsts diff-dsts
+(deftype DnnlRnnTraining [strm bluep
                           src-conn src-iter-conn src-iter-c-conn bias-tz
                           fused-weights-tz
                           weights-tz weights-conn weights-iter-tz weights-iter-conn
@@ -175,14 +173,14 @@
       nil))
   Transfer
   (input [_]
-    srcs)
+    (input src-conn))
   (output [_]
-    dsts)
+    dst-tz)
   DiffTransfer
   (diff-input [_]
-    diff-dsts)
+    diff-dst-tz)
   (diff-output [_]
-    srcs)
+    (output diff-src-conn))
   Parameters
   (bias [_]
     bias-tz)
@@ -213,7 +211,7 @@
   IFn
   (invoke [this]
     (forward this)
-    dsts)
+    dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   Backprop
@@ -248,7 +246,7 @@
         (scal! scal-diff-w fused-diff-weights-tz))
       (axpby! scal-diff-w fused-diff-weights-tz scal-g post-diff-weights-tz))
     (axpby! scal-diff-b diff-bias-tz scal-b bias-tz)
-    (when diff-src-conn (diff-src-conn))
+    (diff-src-conn)
     (when diff-src-iter-conn (diff-src-iter-conn))
     (when diff-src-iter-c-conn (diff-src-iter-c-conn))
     this))
@@ -321,6 +319,8 @@
     (dst-md infer-pd))
   (train-desc [_]
     (dst-md train-pd))
+  (diff-desc [_]
+    (diff-dst-md bwd-pd))
   TensorDescriptor
   (shape [this]
     (dims (train-desc this)))
@@ -329,8 +329,8 @@
   (layout [this]
     (strides (train-desc this)))
   IFn
-  (invoke [this srcs]
-    (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
+  (invoke [this src-tz]
+    (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz (src-md infer-pd))
                     src-iter-conn (when-let [src-iter-desc (arg-md infer-pd :src-iter)]
                                     (if src-iter-tz
@@ -360,24 +360,14 @@
                                               :dst-layer dst-tz
                                               :dst-iter dst-iter-tz
                                               :dst-iter-c dst-iter-c-tz
-                                              :workspace workspace-tz})
-                    srcs (if src-iter-conn
-                           (if src-iter-c-conn
-                             [(input src-conn) (input src-iter-conn) (input src-iter-c-conn)]
-                             [(input src-conn) (input src-iter-conn)])
-                           (input src-conn))
-                    dsts (if dst-iter-tz
-                           (if dst-iter-c-tz
-                             [dst-tz dst-iter-tz dst-iter-c-tz]
-                             [dst-tz dst-iter-tz])
-                           dst-tz)]
-        (->DnnlRnnInference (flow fact) this srcs dsts
+                                              :workspace workspace-tz})]
+        (->DnnlRnnInference (flow fact) this
                             src-conn src-iter-conn src-iter-c-conn
                             bias-tz weights-tz weights-iter-tz
                             dst-tz dst-iter-tz dst-iter-c-tz
                             fwd-prim fwd-args))))
-  (invoke [this srcs _ post-process-diff?]
-    (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
+  (invoke [this src-tz diff-src-tz prop-diff? post-process-diff?]
+    (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz (src-md train-pd))
                     src-iter-conn (when-let [src-iter-desc (arg-md train-pd :src-iter)]
                                     (if src-iter-tz
@@ -437,7 +427,9 @@
                     diff-weights-iter-tz (tz/offset! (view-tz fused-diff-weights-tz weights-iter-desc) (apply * (shape weights-desc)));; TODO remove(dnnl-tensor fact weights-iter-desc)
                     diff-weights-iter-conn (connector (arg-md bwd-pd :diff-weights-iter) diff-weights-iter-tz)
                     diff-bias-tz (dnnl-tensor fact bias-desc)
-                    diff-src-conn (connector (diff-src-md bwd-pd) src-tz)
+                    diff-src-conn (if prop-diff?
+                                    (connector (diff-src-md bwd-pd) diff-src-tz)
+                                    (dnnl-tensor fact (diff-src-md bwd-pd)))
                     diff-src-iter-conn (when-let [diff-src-iter-desc (arg-md bwd-pd :diff-src-iter)]
                                          (if src-iter-tz
                                            (connector diff-src-iter-desc src-iter-tz)
@@ -465,23 +457,8 @@
                                               :diff-src-iter-c (when diff-src-iter-c-conn (input diff-src-iter-c-conn))
                                               :diff-weights-layer (input diff-weights-conn)
                                               :diff-weights-iter (input diff-weights-iter-conn)
-                                              :diff-bias diff-bias-tz})
-                    srcs (if src-iter-conn
-                           (if src-iter-c-conn
-                             [(input src-conn) (input src-iter-conn) (input src-iter-c-conn)]
-                             [(input src-conn) (input src-iter-conn)])
-                           (input src-conn))
-                    dsts (if dst-iter-tz
-                           (if dst-iter-c-tz
-                             [dst-tz dst-iter-tz dst-iter-c-tz]
-                             [dst-tz dst-iter-tz])
-                           dst-tz)
-                    diff-dsts (if diff-dst-iter-tz
-                                (if diff-dst-iter-c-tz
-                                  [diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz]
-                                  [diff-dst-tz diff-dst-iter-tz])
-                                diff-dst-tz)]
-        (->DnnlRnnTraining (flow fact) this srcs dsts diff-dsts
+                                              :diff-bias diff-bias-tz})]
+        (->DnnlRnnTraining (flow fact) this
                            src-conn src-iter-conn src-iter-c-conn bias-tz
                            fused-weights-tz
                            weights-tz weights-conn weights-iter-tz weights-iter-conn
@@ -564,9 +541,9 @@
                                                       src-iter? dst-iter?)
                   nop-activ-bluep (dnnl-nop-activation-blueprint fact
                                                                  (inf-desc rnn-op-bluep)
-                                                                 (train-desc rnn-op-bluep))]
-      (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep
-                                {:sgd sgd-rnn-layer :adam adam-rnn-layer}))))
+                                                                 (train-desc rnn-op-bluep)
+                                                                 (diff-desc rnn-op-bluep))]
+      (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep))))
 
 ;; ================================ LSTM =======================================================
 
@@ -626,9 +603,9 @@
                                                         :unidirectional lrs src-iter? dst-iter?)
                   nop-activ-bluep (dnnl-nop-activation-blueprint fact
                                                         (inf-desc lstm-op-bluep)
-                                                        (train-desc lstm-op-bluep))]
-      (->DirectedLayerBlueprint fact :lstm lstm-op-bluep nop-activ-bluep
-                                {:sgd sgd-rnn-layer :adam adam-rnn-layer}))))
+                                                        (train-desc lstm-op-bluep)
+                                                        (diff-desc lstm-op-bluep))]
+      (->DirectedLayerBlueprint fact :lstm lstm-op-bluep nop-activ-bluep))))
 
 ;; ================================ GRU =======================================================
 
@@ -643,37 +620,45 @@
                                                       :unidirectional lrs src-iter? dst-iter?)
                   nop-activ-bluep (dnnl-nop-activation-blueprint fact
                                                                  (inf-desc gru-op-bluep)
-                                                                 (train-desc gru-op-bluep))]
-      (->DirectedLayerBlueprint fact :gru gru-op-bluep nop-activ-bluep
-                                {:sgd sgd-rnn-layer :adam adam-rnn-layer}))))
+                                                                 (train-desc gru-op-bluep)
+                                                                 (diff-desc gru-op-bluep))]
+      (->DirectedLayerBlueprint fact :gru gru-op-bluep nop-activ-bluep))))
 
 ;; ================================= Ending Layer ==============================
 
-(deftype DnnlEnding [fact bluep transform-forward dst-tz transform-diff diff-tz]
+(deftype DnnlEnding [fact strm bluep transform-forward dst-tz transform-diff
+                     subtract-prim subtract-args diff-sub src-sub target-sub]
   Releaseable
   (release [_]
     (release transform-forward)
     (release dst-tz)
     (release transform-diff)
-    (release diff-tz))
+    (release subtract-prim)
+    (release target-sub)
+    (release src-sub)
+    (release diff-sub))
   Object
   (hashCode [_]
     (hash-combine (hash :ending) (shape dst-tz)))
   (equals [_ other]
     (and (instance? DnnlEnding other)
-         (= transform-forward (.transform-forward ^DnnlEnding other))
-         (= transform-diff (.transform-diff ^DnnlEnding other))
-         (= dst-tz (.dst-tz ^DnnlEnding other))))
+         (let [other ^DnnlEnding other]
+           (= transform-forward (.transform-forward other))
+           (= transform-diff (.transform-diff other))
+           (= dst-tz (.dst-tz other))
+           (= src-sub (.src-sub other))
+           (= target-sub (.target-sub other))
+           (= diff-sub (.diff-sub other)))))
   (toString [this]
     (str bluep))
   Info
   (info [this]
-    {:src transform-forward
+    {:src (input transform-forward)
      :dst dst-tz
      :topology :ending})
   (info [this info-type]
     (case info-type
-      :src transform-forward
+      :src (input transform-forward)
       :dst dst-tz
       :topology :ending
       (info bluep info-type)))
@@ -705,7 +690,10 @@
   (backward [this]
     this)
   (backward [this _]
-    (entry! diff-tz 0.0)
+    (when diff-sub
+      (if subtract-prim
+        (execute! strm subtract-prim subtract-args)
+        (entry! diff-sub 0.0)))
     (transform-diff)
     this)
   IFn
@@ -753,6 +741,8 @@
     dst-desc)
   (train-desc [_]
     dst-desc)
+  (diff-desc [_]
+    dst-desc)
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -769,20 +759,34 @@
                     dst-tz (dnnl-tensor fact dst-desc)
                     transform-forward (dnnl-transformer eng (flow fact) src-sub dst-tz)
                     transform-diff (dnnl-transformer eng (flow fact) dst-tz src-sub)]
-        (->DnnlEnding fact this transform-forward dst-tz transform-diff nil))))
+        (->DnnlEnding fact (flow fact) this transform-forward dst-tz transform-diff nil nil nil nil nil))))
   (invoke [this prev-layer _ _]
     (let [src-tz (output prev-layer)
-          diff-tz (view (diff-input prev-layer))]
-      (let-release [src-sub (tz/offset! (view-tz src-tz (shape dst-desc))
-                                        (* (dec (long (get (shape src-tz) 0)))
-                                           (long (get (strides src-tz) 0))))
-                    diff-sub (tz/offset! (view-tz diff-tz (shape dst-desc))
-                                         (* (dec (long (get (shape diff-tz) 0)))
-                                            (long (get (strides diff-tz) 0))))
+          diff-tz (diff-input prev-layer)
+          input-tz (input prev-layer)
+          strm (flow fact)
+          target-shape (update (shape src-tz) 0 dec)]
+      (let-release [src-sub1 (tz/offset! (view-tz src-tz (shape dst-desc))
+                                         (* (long (get (shape target-shape) 0))
+                                            (long (get (strides src-tz) 0))))
+                    diff-sub1 (tz/offset! (view-tz diff-tz (shape dst-desc))
+                                          (* (long (get (shape target-shape) 0))
+                                             (long (get (strides diff-tz) 0))))
+                    diff-sub (view-tz diff-tz target-shape)
                     dst-tz (dnnl-tensor fact dst-desc)
-                    transform-forward (dnnl-transformer eng (flow fact) src-sub dst-tz)
-                    transform-diff (dnnl-transformer eng (flow fact) dst-tz diff-sub)]
-        (->DnnlEnding fact this transform-forward dst-tz transform-diff diff-tz))))
+                    transform-forward (dnnl-transformer eng strm src-sub1 dst-tz)
+                    transform-diff (dnnl-transformer eng strm dst-tz diff-sub1)]
+        (if (= (shape input-tz) (shape diff-tz))
+          (let-release [target-sub (tz/offset! (view-tz input-tz target-shape)
+                                               (get strides src-tz 0))
+                        src-sub (view-tz src-tz target-shape)]
+            (with-release [subtract-desc (sum! eng diff-sub 1.0 src-sub -1.0 target-sub)]
+              (let-release [subtract-prim (primitive subtract-desc)
+                            subtract-args (dnnl-args multi-args diff-sub src-sub target-sub)]
+                (->DnnlEnding fact strm this transform-forward dst-tz transform-diff
+                              subtract-prim subtract-args diff-sub src-sub target-sub))))
+          (->DnnlEnding fact strm this transform-forward dst-tz transform-diff
+                        nil nil diff-sub nil nil)))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 

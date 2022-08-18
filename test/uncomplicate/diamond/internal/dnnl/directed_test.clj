@@ -29,10 +29,10 @@
 (facts "Inner product tests."
        (with-release [fact (dnnl-factory)
                       src-tz (tensor fact [1 3 2 1] :float :nchw)
-                      dst-tz (tensor fact [1 2] :float :nc)
-                      ip (inner-product fact src-tz dst-tz)
+                      dst-desc (desc [1 2] :float :nc)
+                      ip (inner-product fact src-tz dst-desc)
                       ip-infer (ip src-tz)
-                      ip-train (ip src-tz dst-tz true false)]
+                      ip-train (ip src-tz src-tz true false)]
          (transfer! [-0.5 0 0.2 1 0.3 -0.7] src-tz)
          (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights ip-infer))
          (transfer! [-0.1 0.2] (bias ip-infer))
@@ -50,10 +50,10 @@
 (facts "Inner product backprop step by step."
        (with-release [fact (dnnl-factory)
                       src-tz (tensor fact [1 1] :float :nc)
-                      dst-tz (tensor fact [1 1] :float :nc)
-                      ip (inner-product fact src-tz dst-tz)
+                      dst-desc (desc [1 1] :float :nc)
+                      ip (inner-product fact src-tz dst-desc)
                       ip-infer (ip src-tz)
-                      ip-train (ip src-tz dst-tz true false)]
+                      ip-train (ip src-tz src-tz true false)]
          (transfer! [-0.5] src-tz)
          (transfer! [-0.1] (weights ip-infer))
          (transfer! [ 0.2] (bias ip-infer))

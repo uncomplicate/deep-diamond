@@ -24,13 +24,13 @@
              [tensor :refer [Transfer input output connector view-tz revert shape
                              layout data-type TensorDescriptor]]]
             [uncomplicate.diamond.internal
-             [protocols :refer [Parameters bias weights ParametersSeq parameters
-                                DescriptorProvider DiamondFactoryProvider DiffParameters
-                                diff-weights Backprop forward backward
-                                create-tensor activ-blueprint DiffTransfer diff-input
-                                diff-output diff-z create-tensor-desc LinearBackprop
-                                backward-diff Workspace inf-ws-size train-ws-size
-                                neanderthal-factory inf-desc train-desc Initializable init]]
+             [protocols :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
+                                DiamondFactoryProvider DiffParameters diff-weights Backprop forward
+                                backward create-tensor activ-blueprint DiffTransfer diff-input
+                                diff-output diff-z create-tensor-desc LinearBackprop backward-diff
+                                Workspace inf-ws-size train-ws-size neanderthal-factory inf-desc
+                                train-desc diff-desc Initializable init batch-index
+                                RnnParameters weights-layer weights-iter]]
              [utils :refer [transfer-weights-bias!]]])
   (:import [clojure.lang IFn AFn]))
 
@@ -70,17 +70,17 @@
   (backward [this]
     this))
 
-(deftype NopActivationBlueprint [fact inf-desc train-desc]
+(deftype NopActivationBlueprint [fact inf-desc train-desc diff-desc]
   Releaseable
   (release [_]
     (release inf-desc)
     (release train-desc))
   Info
   (info [this]
-    {:activation :nop})
+    {:activation :identity})
   (info [this info-type]
     (case info-type
-      :activation :nop
+      :activation :identity
       nil))
   DiamondFactoryProvider
   (diamond-factory [_]
@@ -90,6 +90,8 @@
     inf-desc)
   (train-desc [_]
     train-desc)
+  (diff-desc [_]
+    diff-desc)
   TensorDescriptor
   (shape [this]
     (shape train-desc))
@@ -99,9 +101,9 @@
     (layout train-desc))
   IFn
   (invoke [this data-tz]
-    (->NopActivation this data-tz nil))
-  (invoke [this data-tz diff-tz]
-    (->NopActivation this data-tz diff-tz))
+    (->NopActivation this data-tz data-tz))
+  (invoke [this data-tz diff-data-tz]
+    (->NopActivation this data-tz diff-data-tz))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
@@ -190,7 +192,7 @@
   (diff-input [_]
     dst-tz)
   (diff-output [_]
-    (input src-conn))
+    (output diff-src-conn))
   Parameters
   (bias [_]
     bias-tz)
@@ -271,6 +273,8 @@
     (view dst-desc))
   (train-desc [_]
     (view dst-desc))
+  (diff-desc [_]
+    (view dst-desc))
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -292,12 +296,13 @@
                                  b (trans (view-ge (view-vctr weights-tz) (mrows x) (dim b)))
                                  x (view-ge (view-vctr dst-tz) (dim b) (ncols x))
                                  src-conn bias-tz weights-tz dst-tz))))
-  (invoke [_ src-tz dst-tz prop-diff? _]
+  (invoke [_ src-tz diff-src-tz prop-diff? _]
     (let [src-shape (shape src-tz)]
       (let-release [src-conn (connector src-tz src-desc)
                     bias-tz (create-tensor fact (view bias-desc) false)
                     weights-tz (create-tensor fact (view weights-desc) false)
-                    diff-src-conn (revert src-conn)
+                    dst-tz (create-tensor fact (view dst-desc) false)
+                    diff-src-conn (connector src-desc diff-src-tz)
                     diff-weights-tz (raw weights-tz)
                     x (view-ge (view-vctr (output src-conn))
                                (apply * (rest src-shape)) (long (get src-shape 0)))
@@ -368,6 +373,11 @@
     (bias op))
   (weights [_]
     (weights op))
+  RnnParameters
+  (weights-layer [this]
+    (weights-layer op))
+  (weights-iter [this]
+    (weights-iter op))
   ParametersSeq
   (parameters [_]
     (parameters op))
@@ -442,6 +452,11 @@
     (weights op))
   (bias [_]
     (bias op))
+  RnnParameters
+  (weights-layer [this]
+    (weights-layer op))
+  (weights-iter [this]
+    (weights-iter op))
   ParametersSeq
   (parameters [_]
     (parameters op))
@@ -475,13 +490,11 @@
       (axpby! 1.0 v (inc (* eta-avg (double lambda))) w)
       this)))
 
-(defn sgd-layer [fact bluep op-bluep activ-bluep src-tz prop-diff?]
-  (let-release [z-tz (create-tensor fact (train-desc op-bluep) false)
-                a-tz (if (instance? NopActivationBlueprint activ-bluep)
-                       nil (create-tensor fact (train-desc activ-bluep) false))
-                op (op-bluep src-tz z-tz prop-diff? true)
-                activ (activ-bluep z-tz a-tz)]
-    (->SGDLayer fact bluep op activ (first (shape bluep))
+(defn sgd-layer [fact bluep op-bluep activ-bluep prev-layer prop-diff?]
+  (let-release [src-tz (output prev-layer)
+                op (op-bluep (output prev-layer) (diff-input prev-layer) prop-diff? true)
+                activ (activ-bluep (output op) (diff-input op))]
+    (->SGDLayer fact bluep op activ (get (shape src-tz) (batch-index src-tz))
                 (view-vctr (diff-weights op)) (view-vctr (weights op))
                 (view-vctr (bias op)))))
 
@@ -542,6 +555,11 @@
     (weights op))
   (bias [_]
     (bias op))
+  RnnParameters
+  (weights-layer [this]
+    (weights-layer op))
+  (weights-iter [this]
+    (weights-iter op))
   ParametersSeq
   (parameters [_]
     (parameters op))
@@ -584,16 +602,14 @@
       (axpby! 1.0 g (inc (* eta-avg lambda)) w)
       this)))
 
-(defn adam-layer [fact bluep op-bluep activ-bluep src-tz prop-diff?]
-  (let-release [z-tz (create-tensor fact (train-desc op-bluep) false)
-                a-tz (if (instance? NopActivationBlueprint activ-bluep) ;; make it more elegant
-                       nil (create-tensor fact (train-desc activ-bluep) false))
-                op (op-bluep src-tz z-tz prop-diff? false)
-                activ (activ-bluep z-tz a-tz)
+(defn adam-layer [fact bluep op-bluep activ-bluep prev-layer prop-diff?]
+  (let-release [src-tz (output prev-layer)
+                op (op-bluep src-tz (diff-input prev-layer) prop-diff? false)
+                activ (activ-bluep (output op) (diff-input op))
                 w (view-vctr (weights op))
                 s (zero w)
                 r (zero w)]
-    (->AdamLayer fact bluep op activ (first (shape bluep))
+    (->AdamLayer fact bluep op activ (get (shape src-tz) (batch-index src-tz))
                  s r w (view-vctr (diff-weights op)) (view-vctr (bias op)))))
 
 (defmethod print-method AdamLayer
@@ -602,7 +618,7 @@
                     (info layer :topology) (info layer :shape) (info layer :activation)
                     (pr-str (weights layer)) (pr-str (bias layer)))))
 
-(deftype DirectedLayerBlueprint [fact topology op-bluep activ-bluep training-layer]
+(deftype DirectedLayerBlueprint [fact topology op-bluep activ-bluep]
   Releaseable
   (release [_]
     (release op-bluep)
@@ -635,6 +651,8 @@
     (inf-desc activ-bluep))
   (train-desc [_]
     (train-desc activ-bluep))
+  (diff-desc [_]
+    (diff-desc activ-bluep))
   TensorDescriptor
   (shape [_]
     (shape activ-bluep))
@@ -653,11 +671,13 @@
                   activ (activ-bluep (output op))]
       (->InferenceLayer fact this op activ)))
   (invoke [this prev-layer prop-diff? optimization]
-    (if-let [training-layer (get training-layer optimization)]
-      (training-layer fact this op-bluep activ-bluep (fmap output prev-layer) prop-diff?)
-      (dragan-says-ex
-       (format "Optimization algorithm %s is not available." optimization)
-       {:requested optimization :available (keys training-layer)})))
+    (if-let [training-layer (case optimization
+                              :sgd sgd-layer
+                              :adam adam-layer
+                              (dragan-says-ex
+                               (format "Optimization algorithm %s is not available." optimization)
+                               {:requested optimization :available [:sgd :adam]}))]
+      (training-layer fact this op-bluep activ-bluep prev-layer prop-diff?)))
   (invoke [this prev-layer prop-diff?]
     (.invoke this prev-layer prop-diff? :sgd))
   (applyTo [this xs]
@@ -677,8 +697,7 @@
                                                :nc)
                   ip-bluep (inner-product-blueprint fact src-desc dst-desc weights-type)
                   activ-bluep (activ-blueprint fact (view dst-desc) activ alpha beta)]
-      (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep
-                                {:sgd sgd-layer :adam adam-layer}))))
+      (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep))))
 
 (defmethod transfer! [InferenceLayer Object]
   [^InferenceLayer source destination]
@@ -835,6 +854,8 @@
   (inf-desc [_]
     (view mask-desc))
   (train-desc [_]
+    (view mask-desc))
+  (diff-desc [_]
     (view mask-desc))
   TensorDescriptor
   (shape [this]

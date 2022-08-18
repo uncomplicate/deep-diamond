@@ -194,6 +194,7 @@
                       sum-pd (sum! eng md 2.0 md 3.0 md)
                       sum-prim (primitive sum-pd)
                       sum-args (multi-args dst src0 src1)]
+         (put-float dst-buf 0 100000.0)
          (put-float src0-buf 0 -100)
          (put-float src0-buf 1 20)
          (put-float src1-buf 0 -1000)
@@ -969,7 +970,7 @@
        SC 4
        DC 2
        G 4
-       L 2
+       L 1
        D 1
        src-dim [T N SC]
        src-iter-dim [L D N DC]
