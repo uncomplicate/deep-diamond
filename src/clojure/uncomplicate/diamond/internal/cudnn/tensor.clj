@@ -31,7 +31,7 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider create-tensor create-tensor-desc
                       diamond-factory neanderthal-factory tensor-engine native-diamond-factory
-                      Offset DiffTransfer diff-input diff-output Minibatch BatchDescriptor
+                      Offset DiffTransfer diff-input diff-output BatchDescriptor
                       batch-index]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
@@ -213,11 +213,6 @@
     dst-tz)
   (diff-output [_]
     src-tz)
-  Minibatch
-  (minibatch-size [_]
-    mb-size)
-  (source-size [_]
-    src-cnt)
   IFn
   (invoke [this]
     (.invoke this cudnn-hdl 0 0))

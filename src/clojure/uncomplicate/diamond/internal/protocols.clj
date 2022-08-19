@@ -44,10 +44,6 @@
 (defprotocol RnnFactory
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?])
   (rnn-blueprint [fact src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?])
-  (lstm-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?])
-  (lstm-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?])
-  (gru-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?])
-  (gru-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?])
   (ending-blueprint [fact src-desc dst-type]))
 
 (defprotocol CostFactory
@@ -74,9 +70,6 @@
 (defprotocol DiffParameters
   (diff-weights [this]))
 
-(defprotocol DiffRnnParameters ;;TODO remove
-  (diff-weights-iter [this]))
-
 (defprotocol Initializable
   (init [this init-fn]))
 
@@ -100,7 +93,3 @@
 
 (defprotocol BatchDescriptor
   (batch-index [this]))
-
-(defprotocol Minibatch
-  (minibatch-size [this])
-  (source-size [this]))

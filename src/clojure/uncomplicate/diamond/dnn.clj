@@ -15,8 +15,8 @@
              [core :refer [ncols transfer! view-vctr]]
              [random :refer [rand-normal! rng-state]]]
             [uncomplicate.diamond.tensor
-             :refer [*diamond-factory* shape input output batcher TensorContainer
-                     tensor data-type layout desc]]
+             :refer [*diamond-factory* shape input output batcher shuffler TensorContainer
+                     tensor data-type layout desc batch-size]]
             [uncomplicate.diamond.internal
              [protocols :as api]
              [network :refer [sequential-network parallel-network]]
@@ -337,9 +337,9 @@
    (map (fn [[epochs hyperparam]]
           (train* net cost! epochs hyperparam))
         options))
-  ([net in-batcher out-batcher cost! epochs hyperparam]
-   (let [b-size (api/source-size in-batcher)
-         mb-size (api/minibatch-size in-batcher)
+  ([selector net in-batcher out-batcher cost! epochs hyperparam]
+   (let [b-size (batch-size (input in-batcher))
+         mb-size (batch-size (output in-batcher))
          mb-count (quot b-size mb-size)
          [eta-decay eta-0 eta-tau]
          (let [eta (first hyperparam)]
@@ -352,17 +352,18 @@
        (assoc! hyperparam 0 t)
        (assoc! hyperparam 1 (eta-decay t epochs eta-0 eta-tau))
        (dotimes [n mb-count]
-         (in-batcher (* n mb-size))
-         (out-batcher (* n mb-size))
-         (api/forward net hyperparam)
-         (api/forward cost!)
-         (api/backward cost!)
-         (api/backward net hyperparam)))
+         (let [selection (selector n mb-size)]
+           (in-batcher selection)
+           (out-batcher selection)
+           (api/forward net hyperparam)
+           (api/forward cost!)
+           (api/backward cost!)
+           (api/backward net hyperparam))))
      (net)
      (cost!)))
-  ([net in-batcher out-batcher cost! options]
+  ([selector net in-batcher out-batcher cost! options]
    (map (fn [[epochs hyperparam]]
-          (train* net in-batcher out-batcher cost! epochs hyperparam))
+          (train* selector net in-batcher out-batcher cost! epochs hyperparam))
         options)))
 
 (defn train
@@ -386,8 +387,8 @@
            (train net in-batcher out cost! epochs hyperparam))
          (satisfies? TensorContainer out)
          (with-release [out-batcher (batcher out (api/diff-input cost!))]
-           (train* net in out-batcher cost! epochs hyperparam))
-         :default (train* net in out cost! epochs hyperparam)))
+           (train* * net in out-batcher cost! epochs hyperparam))
+         :default (train* * net in out cost! epochs hyperparam)))
   ([net in out cost! options]
    (cond (keyword? cost!)
          (with-release [cost! (cost net cost!)]
@@ -397,14 +398,42 @@
            (doall (train net in-batcher out cost! options)))
          (satisfies? TensorContainer out)
          (with-release [out-batcher (batcher out (api/diff-input cost!))]
-           (doall (train* net in out-batcher cost! options)))
-         :default (train* net in out cost! options))))
+           (doall (train* * net in out-batcher cost! options)))
+         :default (train* * net in out cost! options))))
+
+(defn ^:private random-cols [_ mb-size]
+  (shuffle (range mb-size)))
+
+(defn train-shuffle
+  "TODO"
+  ([net in out cost! epochs hyperparam]
+   (cond (keyword? cost!)
+         (with-release [cost! (cost net cost!)]
+           (train net in out cost! epochs hyperparam))
+         (satisfies? TensorContainer in)
+         (with-release [in-shuffler (shuffler in (input net))]
+           (train net in-shuffler out cost! epochs hyperparam))
+         (satisfies? TensorContainer out)
+         (with-release [out-shuffler (shuffler out (api/diff-input cost!))]
+           (train* random-cols net in out-shuffler cost! epochs hyperparam))
+         :default (train* random-cols net in out cost! epochs hyperparam)))
+  ([net in out cost! options]
+   (cond (keyword? cost!)
+         (with-release [cost! (cost net cost!)]
+           (doall (train net in out cost! options)))
+         (satisfies? TensorContainer in)
+         (with-release [in-shuffler (shuffler in (input net))]
+           (doall (train net in-shuffler out cost! options)))
+         (satisfies? TensorContainer out)
+         (with-release [out-shuffler (shuffler out (api/diff-input cost!))]
+           (doall (train* random-cols net in out-shuffler cost! options)))
+         :default (train* random-cols net in out cost! options))))
 
 (defn ^:private infer* [net in-batcher out-batcher]
-  (let [b-size (api/source-size in-batcher)
-        mb-size (api/minibatch-size in-batcher)
-        mb-count (quot b-size mb-size)
-        mb-rem (rem b-size mb-size)]
+  (let [b-size (batch-size (input in-batcher))
+        mb-size (batch-size (input net))
+        mb-count (long (quot b-size mb-size))
+        mb-rem (long (rem b-size mb-size))]
     (dotimes [n mb-count]
       (in-batcher (* n mb-size))
       (net)
@@ -480,82 +509,18 @@
       (rnn fact src-desc dst-desc lrs activ args))
      ([src-desc]
       (rnn *diamond-factory* src-desc dst-desc lrs activ args))))
-  ([dst-desc activ args]
-   (rnn dst-desc 1 activ args))
-  ([dst-desc activ]
-   (rnn dst-desc 1 activ nil))
-  ([dst-desc]
-   (rnn dst-desc 1 :relu nil))
+  ([lrs activ args]
+   (rnn [] lrs activ args))
+  ([lrs-or-dst-desc activ]
+   (if (number? lrs-or-dst-desc)
+     (rnn [] lrs-or-dst-desc activ nil)
+     (rnn lrs-or-dst-desc 1 activ nil)))
+  ([param]
+   (if (keyword param)
+     (rnn 1 param)
+     (rnn param :gru)))
   ([]
-   (rnn [] 1 :relu nil)))
-
-(defn lstm-op
-  ([fact src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
-   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                          weights-type dir lrs src-iter? dst-iter?))
-  ([fact src-desc dst-desc dir lrs src-iter? dst-iter?]
-   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                          nil dir lrs src-iter? dst-iter?))
-  ([fact src-desc dst-desc lrs src-iter? dst-iter?]
-   (api/lstm-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                          nil :unidirectional lrs src-iter? dst-iter?))
-  ([fact src-desc dst-desc lrs]
-   (lstm-op fact src-desc dst-desc lrs false false))
-  ([src-desc dst-desc lrs]
-   (lstm-op *diamond-factory* src-desc dst-desc lrs)))
-
-(defn lstm
-  ([fact src-desc dst-desc lrs args]
-   (api/lstm-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                       lrs (:weights-type args) (:src-iter args) (:dst-iter args)))
-  ([fact src-desc dst-desc args]
-   (lstm fact src-desc dst-desc 1 args))
-  ([dst-desc lrs args]
-   (fn
-     ([fact src-desc]
-      (lstm fact src-desc dst-desc lrs args))
-     ([src-desc]
-      (lstm *diamond-factory* src-desc dst-desc lrs args))))
-  ([dst-desc args]
-   (lstm dst-desc 1 args))
-  ([dst-desc]
-   (lstm dst-desc 1 nil))
-  ([]
-   (lstm [] 1 nil)))
-
-(defn gru-op
-  ([fact src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
-   (api/gru-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                          weights-type dir lrs src-iter? dst-iter?))
-  ([fact src-desc dst-desc dir lrs src-iter? dst-iter?]
-   (api/gru-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                          nil dir lrs src-iter? dst-iter?))
-  ([fact src-desc dst-desc lrs src-iter? dst-iter?]
-   (api/gru-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                          nil :unidirectional lrs src-iter? dst-iter?))
-  ([fact src-desc dst-desc lrs]
-   (gru-op fact src-desc dst-desc lrs false false))
-  ([src-desc dst-desc lrs]
-   (gru-op *diamond-factory* src-desc dst-desc lrs)))
-
-(defn gru
-  ([fact src-desc dst-desc lrs args]
-   (api/gru-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                       lrs (:weights-type args) (:src-iter args) (:dst-iter args)))
-  ([fact src-desc dst-desc args]
-   (gru fact src-desc dst-desc 1 args))
-  ([dst-desc lrs args]
-   (fn
-     ([fact src-desc]
-      (gru fact src-desc dst-desc lrs args))
-     ([src-desc]
-      (gru *diamond-factory* src-desc dst-desc lrs args))))
-  ([dst-desc args]
-   (gru dst-desc 1 args))
-  ([dst-desc]
-   (gru dst-desc 1 nil))
-  ([]
-   (gru [] 1 nil)))
+   (rnn [] 1 :gru nil)))
 
 (defn ending
   ([fact src-desc dst-type]

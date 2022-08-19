@@ -228,6 +228,9 @@
   [x y]
   (api/create-transformer (api/diamond-factory x) x y))
 
+(defn batch-size ^long [x]
+  ((shape x) (api/batch-index x)))
+
 (defn batcher
   "Creates a function that can transfer mini-batches of tensor `x`
   to tensor `y`.

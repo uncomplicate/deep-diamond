@@ -361,17 +361,15 @@ Please contribute towards making it possible, or use on of the supported types."
     (direct-buffer (max 1 (long byte-size))))
   RnnFactory
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
-    (dnnl-rnn-op-blueprint this eng src-desc dst-desc weights-type activ 0.0 0.0 dir lrs src-iter? dst-iter?))
-  (lstm-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
-    (dnnl-lstm-op-blueprint this eng src-desc dst-desc weights-type dir lrs src-iter? dst-iter?))
-  (gru-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
-    (dnnl-gru-op-blueprint this eng src-desc dst-desc weights-type dir lrs src-iter? dst-iter?))
+    (case activ
+      :gru (dnnl-gru-op-blueprint this eng src-desc dst-desc weights-type dir lrs src-iter? dst-iter?)
+      :lstm (dnnl-lstm-op-blueprint this eng src-desc dst-desc weights-type dir lrs src-iter? dst-iter?)
+      (dnnl-rnn-op-blueprint this eng src-desc dst-desc weights-type activ 0.0 0.0 dir lrs src-iter? dst-iter?)))
   (rnn-blueprint [fact src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
-    (dnnl-rnn-blueprint fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?))
-  (lstm-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?]
-    (dnnl-lstm-blueprint fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?))
-  (gru-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?]
-    (dnnl-gru-blueprint fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?))
+    (case activ
+      :gru (dnnl-gru-blueprint fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?)
+      :lstm (dnnl-lstm-blueprint fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?)
+      (dnnl-rnn-blueprint fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?)))
   (ending-blueprint [fact src-desc dst-type]
     (dnnl-ending-blueprint fact eng src-desc dst-type))
   CostFactory

@@ -21,7 +21,7 @@
             [uncomplicate.diamond.internal.protocols
              :refer [diff-weights forward backward diff-input diff-output
                      weights bias *workspace* inf-ws-size train-ws-size create-workspace
-                     parameters weights-layer weights-iter diff-weights-iter]]))
+                     parameters weights-layer weights-iter]]))
 
 (defn test-activation-relu [fact]
   (with-release [src-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -972,7 +972,7 @@
 
 (defn test-lstm-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 nil)
+                 lstm-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :lstm nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)
                  input-weights (connector (desc [2 1 2 4 2] :float :ldigo) ;;TODO support just :ldigo as desc.
                                           (weights-layer (.op lstm-no-iter)))]
@@ -997,7 +997,7 @@
 
 (defn test-lstm-training-no-iter-adam [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 lstm-bluep-no-iter (lstm fact input-tz [2 1 2] 2 nil)
+                 lstm-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :lstm nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :adam)
                  input-weights (connector (desc [2 1 2 4 2] :float :ldigo) ;;TODO support just :ldigo as desc.
                                           (weights-layer (.op lstm-no-iter)))]
@@ -1022,7 +1022,7 @@
 
 (defn test-gru-training-no-iter-adam [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
-                 gru-bluep-no-iter (gru fact input-tz [2 1 2] 2 nil)
+                 gru-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :gru nil)
                  gru-no-iter (gru-bluep-no-iter input-tz nil :adam)
                  input-weights (connector (desc [2 1 2 3 2] :float :ldigo) ;;TODO support just :ldigo as desc.
                                           (weights-layer (.op gru-no-iter)))

@@ -20,8 +20,8 @@
              [protocols
               :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
                       DiffParameters Backprop forward DiffTransfer diff-input diff-output LinearBackprop
-                      backward-diff train-desc Initializable init RnnParameters DiffRnnParameters
-                      batch-index inf-desc train-desc diff-desc]]
+                      backward-diff train-desc Initializable init RnnParameters batch-index inf-desc
+                      train-desc diff-desc]]
              [utils :refer [default-strides direction-count transfer-rnn-weights-bias!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -421,10 +421,10 @@
                     fused-diff-weights-tz (dnnl-tensor fact fused-weights-desc)
                     post-diff-weights-tz (if post-process-diff? (dnnl-tensor fact fused-weights-desc)
                                              fused-diff-weights-tz)
-                    diff-weights-tz (view-tz fused-diff-weights-tz weights-desc) ;;TODO remove (dnnl-tensor fact weights-desc)
-
+                    diff-weights-tz (view-tz fused-diff-weights-tz weights-desc)
                     diff-weights-conn (connector (diff-weights-md bwd-pd) diff-weights-tz)
-                    diff-weights-iter-tz (tz/offset! (view-tz fused-diff-weights-tz weights-iter-desc) (apply * (shape weights-desc)));; TODO remove(dnnl-tensor fact weights-iter-desc)
+                    diff-weights-iter-tz (tz/offset! (view-tz fused-diff-weights-tz weights-iter-desc)
+                                                     (apply * (shape weights-desc)))
                     diff-weights-iter-conn (connector (arg-md bwd-pd :diff-weights-iter) diff-weights-iter-tz)
                     diff-bias-tz (dnnl-tensor fact bias-desc)
                     diff-src-conn (if prop-diff?

@@ -23,14 +23,14 @@
             [uncomplicate.neanderthal.internal.host.buffer-block :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
-                     Revert ConnectorCreator connector view-tz transformer]
+                     Revert ConnectorCreator connector view-tz transformer batch-size]
              :as tz]
             [uncomplicate.diamond.internal
              [protocols
               :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
                       neanderthal-factory tensor-engine native-diamond-factory Offset
                       DiffTransfer diff-input diff-output create-tensor-desc parameters
-                      DescriptorProvider BatchDescriptor batch-index Minibatch]]
+                      DescriptorProvider BatchDescriptor batch-index]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory size strides submemory-desc
@@ -193,11 +193,6 @@
     dst-tz)
   (diff-output [_]
     src-tz)
-  Minibatch
-  (minibatch-size [_]
-    mb-size)
-  (source-size [_]
-    src-cnt)
   IFn
   (invoke [this]
     (.invoke this strm 0 0))
@@ -242,7 +237,7 @@
                          ((dims dst-tz) (batch-index dst-tz)) ((strides dst-sub) (batch-index dst-tz))
                          (entry-bytes (data-type dst-tz))))))))
 
-(deftype DnnlShuffler [strm batcher]
+(deftype DnnlShuffler [strm batcher batch-size mb-size]
   Releaseable
   (release [_]
     (release batcher))
@@ -259,6 +254,11 @@
     (diff-input batcher))
   (diff-output [_]
     (diff-output batcher))
+  IFn
+  (invoke [this]
+    (dotimes [i mb-size]
+      (batcher strm (rand-int batch-size) i))
+    (output batcher))
   IFn
   (invoke [this cols]
     (.invoke this strm cols))
@@ -277,7 +277,8 @@
       (connector batcher dst-desc))))
 
 (defn dnnl-shuffler [eng strm src-tz dst-tz]
-  (->DnnlShuffler strm (dnnl-batcher eng strm src-tz dst-tz 1)))
+  (->DnnlShuffler strm (dnnl-batcher eng strm src-tz dst-tz 1)
+                  (batch-size src-tz) (batch-size dst-tz)))
 
 ;; ================================ Tensor ======================================
 

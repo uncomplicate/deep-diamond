@@ -22,7 +22,7 @@
               :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
                       DiffParameters Backprop forward DiffTransfer diff-input diff-output LinearBackprop
                       backward-diff train-desc Initializable init Workspace inf-ws-size train-ws-size
-                      RnnParameters DiffRnnParameters]]
+                      RnnParameters]]
              [utils :refer [default-strides direction-count transfer-rnn-weights-bias!]]]
             [uncomplicate.diamond.internal.dnnl.core :refer [memory-desc]]
             [uncomplicate.diamond.internal.cudnn
