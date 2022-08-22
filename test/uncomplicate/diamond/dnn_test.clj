@@ -956,11 +956,14 @@
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  rnn-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :relu nil)
                  rnn-no-iter (rnn-bluep-no-iter input-tz nil :sgd)
-                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer (.op rnn-no-iter)))]
+                 input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer (.op rnn-no-iter)))
+                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter (.op rnn-no-iter)))]
     (facts "Vanilla RNN layer training without iter."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
            (input-weights)
+           (transfer! (repeat 8 0) (input input-weights-iter))
+           (input-weights-iter)
            (transfer! [0.3 0.7 1 2] (bias rnn-no-iter))
            (forward rnn-no-iter [1 0 0 true])
            (seq (native (output rnn-no-iter)))
@@ -975,7 +978,8 @@
                  lstm-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :lstm nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)
                  input-weights (connector (desc [2 1 2 4 2] :float :ldigo) ;;TODO support just :ldigo as desc.
-                                          (weights-layer (.op lstm-no-iter)))]
+                                          (weights-layer (.op lstm-no-iter)))
+                 input-weights-iter (connector (desc [2 1 2 4 2] :float :ldigo) (weights-iter (.op lstm-no-iter)))]
     (facts "LSTM layer training SGD."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
@@ -984,6 +988,8 @@
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]
                       (input input-weights))
            (input-weights)
+           (transfer! (repeat 32 0) (input input-weights-iter))
+           (input-weights-iter)
            (transfer! [0.3 0.7 1 2 0.3 0.7 1 2 0.3 0.7 1 2 0.3 0.7 1 2] (bias lstm-no-iter))
            (forward lstm-no-iter [1 0 0 true])
            (seq (native (output lstm-no-iter)))
@@ -1000,7 +1006,8 @@
                  lstm-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :lstm nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :adam)
                  input-weights (connector (desc [2 1 2 4 2] :float :ldigo) ;;TODO support just :ldigo as desc.
-                                          (weights-layer (.op lstm-no-iter)))]
+                                          (weights-layer (.op lstm-no-iter)))
+                 input-weights-iter (connector (desc [2 1 2 4 2] :float :ldigo) (weights-iter (.op lstm-no-iter)))]
     (facts "LSTM layer training Adam."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
@@ -1009,6 +1016,8 @@
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6]
                       (input input-weights))
            (input-weights)
+           (transfer! (repeat 32 0) (input input-weights-iter))
+           (input-weights-iter)
            (transfer! [0.3 0.7 1 2 0.3 0.7 1 2 0.3 0.7 1 2 0.3 0.7 1 2] (bias lstm-no-iter))
            (forward lstm-no-iter [])
            (seq (native (output lstm-no-iter)))
@@ -1026,6 +1035,7 @@
                  gru-no-iter (gru-bluep-no-iter input-tz nil :adam)
                  input-weights (connector (desc [2 1 2 3 2] :float :ldigo) ;;TODO support just :ldigo as desc.
                                           (weights-layer (.op gru-no-iter)))
+                 input-weights-iter (connector (desc [2 1 2 3 2] :float :ldigo) (weights-iter (.op gru-no-iter)))
                  input-bias (connector (desc [2 1 3 2] :float :ldgo) (bias gru-no-iter))
                  todo-ldigo (tensor fact [2 1 2 3 2] :float :ldigo)
                  todo-ldgoi (tensor fact [2 1 2 3 2] :float :ldgoi)]
@@ -1037,8 +1047,9 @@
                        0.411 0.412 0.421 0.422 0.431 0.432]
                       (input input-weights))
            (input-weights)
-           (transfer! [0.3 0.7 0.3 0.7 0.3 0.7
-                       1 2 1 2 1 2] (input input-bias))
+           (transfer! (repeat 24 0) (input input-weights-iter))
+           (input-weights-iter)
+           (transfer! [0.3 0.7 0.3 0.7 0.3 0.7 1 2 1 2 1 2] (input input-bias))
            (input-bias)
            (forward gru-no-iter [])
            (seq (native (output gru-no-iter)))

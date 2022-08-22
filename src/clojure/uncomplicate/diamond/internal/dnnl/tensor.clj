@@ -110,7 +110,6 @@
   (equals [_ other]
     (and (instance? DnnlTransformer other)
          (= (shape in-tz) (shape (.in-tz ^DnnlTransformer other)))
-         (= (shape out-tz) (shape (.out-tz ^DnnlTransformer other)))
          (= out-tz (.out-tz ^DnnlTransformer other))))
   (toString [this]
     (str {:input in-tz
@@ -126,11 +125,6 @@
     in-tz)
   (output [_]
     out-tz)
-  DiffTransfer
-  (diff-input [_]
-    out-tz)
-  (diff-output [_]
-    in-tz)
   IFn
   (invoke [_]
     (execute! strm reorder reorder-args)
@@ -176,7 +170,7 @@
          (= (shape src-tz) (shape (.src-tz ^DnnlBatcher other)))
          (= (shape dst-tz) (shape (.dst-tz ^DnnlBatcher other)))
          (= src-tz (.src-tz ^DnnlBatcher other))))
-  (toString [this]
+  (toString [_]
     (str {:input src-tz
           :output dst-tz
           :mb-size mb-size}))
@@ -188,11 +182,6 @@
     src-tz)
   (output [_]
     dst-tz)
-  DiffTransfer
-  (diff-input [_]
-    dst-tz)
-  (diff-output [_]
-    src-tz)
   IFn
   (invoke [this]
     (.invoke this strm 0 0))
@@ -241,21 +230,28 @@
   Releaseable
   (release [_]
     (release batcher))
+  Object
+  (hashCode [_]
+    (hash-combine (hash :shuffler) (hash batcher)))
+  (equals [_ other]
+    (and (instance? DnnlShuffler other)
+         (= batch-size (.batch-size ^DnnlShuffler other))
+         (= mb-size (.mb-size ^DnnlShuffler other))
+         (= batcher (.batcher ^DnnlShuffler other))))
+  (toString [this]
+    (str {:input (input this)
+          :output (output this)
+          :mb-size mb-size}))
   Viewable
   (view [_]
-    (->DnnlShuffler strm (view batcher)))
+    (->DnnlShuffler strm (view batcher) batch-size mb-size))
   Transfer
   (input [_]
     (input batcher))
   (output [_]
     (output batcher))
-  DiffTransfer
-  (diff-input [_]
-    (diff-input batcher))
-  (diff-output [_]
-    (diff-output batcher))
   IFn
-  (invoke [this]
+  (invoke [_]
     (dotimes [i mb-size]
       (batcher strm (rand-int batch-size) i))
     (output batcher))
@@ -282,67 +278,16 @@
 
 ;; ================================ Tensor ======================================
 
-#_(let [array? (partial instance? (type (long-array 0)))]
-    (defn offset
-      ([sa]
-       (cond
-         (integer? sa)
-         (let [sa (long sa)
-               strides (long-array [sa])]
-           (fn
-             (^longs []
-              strides)
-             (^long [^long a]
-              (* a sa))))
-         (array? sa)
-         (let [strides ^longs sa
-               n (alength strides)]
-           (fn
-             (^longs []
-              strides)
-             (^long [^longs indices]
-              (loop [i 0 res 0]
-                (if (< i n)
-                  (recur (inc i) (+ res (* (aget indices i) (aget strides i))))
-                  res)))))
-         (sequential? sa)
-         (offset (long-array sa))
-         :default (ex-info "Offset function cannot accept this type of stride collection."
-                           {:type (type sa)})))
-      ([^long sa ^long sb]
-       (let [strides (long-array [sa sb])]
-         (fn
-           (^longs []
-            strides)
-           (^long [^long a ^long b]
-            (+ (* a sa) (* b sb))))))
-      ([^long sa ^long sb ^long sc]
-       (let [strides (long-array [sa sb sc])]
-         (fn
-           (^longs []
-            strides)
-           (^long [^long a ^long b ^long c]
-            (+ (* a sa) (* b sb) (* c sc))))))
-      ([^long sa ^long sb ^long sc ^long sd]
-       (let [strides (long-array [sa sb sc sd])]
-         (fn
-           (^longs []
-            strides)
-           (^long [^long a ^long b ^long c ^long d]
-            (+ (* a sa) (* b sb) (* c sc) (* d sd))))))))
-
 (deftype DnnlTensor [diamond-fact neand-fact eng master tz-mem
                      ^long n ^long c ^long n-index]
   Object
   (hashCode [x]
     (-> (hash :DnnlTensor) (hash-combine (hash tz-mem))))
   (equals [x y]
-    (cond
-      (nil? y) false
-      (identical? x y) true
-      (and (instance? DnnlTensor y) (equal-desc? tz-mem (desc y)))
-      (= (view-vctr x) (view-vctr y))
-      :default false))
+    (or (identical? x y)
+        (and (instance? DnnlTensor y) (equal-desc? tz-mem (desc y))
+             (.isContiguous x) (.isContiguous ^DnnlTensor y)
+             (= (view-vctr x) (view-vctr y)))))
   (toString [this]
     (pr-str {:shape (dims tz-mem) :data-type (data-type tz-mem) :layout (strides tz-mem)}))
   Info

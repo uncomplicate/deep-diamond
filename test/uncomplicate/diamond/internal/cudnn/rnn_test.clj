@@ -16,21 +16,12 @@
 
 (with-release [fact (cudnn-factory)]
   (test-vanilla-rnn-inference fact)
-  (test-vanilla-rnn-inference-no-iter fact)
   (test-vanilla-rnn-training fact)
-  (test-vanilla-rnn-training-zero-iter fact)
-  (test-vanilla-rnn-training-no-iter fact)
   (test-rnn-inference fact)
-  (test-rnn-training fact)
   (test-rnn-training-no-iter fact)
   (test-lstm-training-no-iter fact)
   (test-lstm-training-no-iter-adam fact)
   (test-gru-training-no-iter-adam fact)
   ;;
   ;; (test-ending fact)
-  )
-
-(with-release [fact (cudnn-factory)]
-
-  ;;(test-ending fact)
   )

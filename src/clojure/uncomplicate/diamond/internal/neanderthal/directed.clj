@@ -205,9 +205,8 @@
   (diff-weights [_]
     diff-weights-tz)
   IFn
-  (invoke [_]
-    (src-conn)
-    (rk! 1.0 b ones (mm! 1.0 w a-1 0.0 z))
+  (invoke [this]
+    (forward this)
     dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
@@ -391,6 +390,11 @@
     (input op))
   (output [_]
     (output activ))
+  DiffTransfer
+  (diff-input [this]
+    (output activ))
+  (diff-output [_]
+    (dragan-says-ex "Inference layer does not calculate gradients."))
   IFn
   (invoke [_]
     (op)

@@ -7,8 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.internal.dnnl.rnn
-  (:require [uncomplicate.commons.core
-             :refer [Releaseable release let-release with-release Info info view]]
+  (:require [uncomplicate.commons
+             [core :refer [Releaseable release let-release with-release Info info view]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
              [core :refer [axpby! transfer! scal! entry!]]
              [random :refer [rand-normal!]]
@@ -72,7 +73,7 @@
   (bias [_]
     bias-tz)
   (weights [_]
-    weights-tz)
+    (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
   RnnParameters
   (weights-layer [this]
     (weights-tz))
@@ -80,7 +81,7 @@
     (weights-iter-tz))
   ParametersSeq
   (parameters [_]
-    [weights-tz bias-tz])
+    (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
   Initializable
   (init [this _] ;;TODO perhaps rethink universal init infrastructure
     (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-tz) 2))) weights-tz)
@@ -343,7 +344,7 @@
                     bias-tz (dnnl-tensor fact bias-desc)
                     weights-tz (dnnl-tensor fact (weights-md infer-pd))
                     weights-iter-tz (dnnl-tensor fact (arg-md infer-pd :weights-iter))
-                    dst-tz (dnnl-tensor fact (dst-md infer-pd) 1)
+                    dst-tz (dnnl-tensor fact (dst-md infer-pd) (batch-index src-tz))
                     dst-iter-tz (when-let [dst-iter-desc (arg-md infer-pd :dst-iter)]
                                   (dnnl-tensor fact dst-iter-desc))
                     dst-iter-c-tz (when-let [dst-iter-c-desc (arg-md infer-pd :dst-iter-c)]
@@ -381,9 +382,10 @@
                     fused-weights-tz (dnnl-tensor fact fused-weights-desc)
                     weights-tz (view-tz fused-weights-tz weights-desc)
                     weights-conn (connector weights-tz (weights-md train-pd))
-                    weights-iter-tz (tz/offset! (view-tz fused-weights-tz weights-iter-desc) (apply * (shape weights-desc)))
+                    weights-iter-tz (tz/offset! (view-tz fused-weights-tz weights-iter-desc)
+                                                (apply * (shape weights-desc)))
                     weights-iter-conn (connector weights-iter-tz (arg-md train-pd :weights-iter))
-                    dst-tz (dnnl-tensor fact (dst-md train-pd) 1)
+                    dst-tz (dnnl-tensor fact (dst-md train-pd) (batch-index src-tz))
                     dst-iter-tz (when-let [dst-iter-desc (arg-md train-pd :dst-iter)]
                                   (dnnl-tensor fact dst-iter-desc))
                     dst-iter-c-tz (when-let [dst-iter-c-desc (arg-md train-pd :dst-iter-c)]
@@ -413,7 +415,7 @@
                                         (connector dst-iter-tz dst-iter-desc))
                     bwd-dst-iter-c-conn (when-let [dst-iter-c-desc (arg-md bwd-pd :dst-iter-c)]
                                           (connector dst-iter-c-tz dst-iter-c-desc))
-                    diff-dst-tz (dnnl-tensor fact (diff-dst-md bwd-pd) 1)
+                    diff-dst-tz (dnnl-tensor fact (diff-dst-md bwd-pd) (batch-index dst-tz))
                     diff-dst-iter-tz (when-let [diff-dst-iter-desc (arg-md bwd-pd :diff-dst-iter)]
                                        (dnnl-tensor fact diff-dst-iter-desc))
                     diff-dst-iter-c-tz (when-let [diff-dst-iter-c-desc (arg-md bwd-pd :diff-dst-iter-c)]
@@ -429,7 +431,7 @@
                     diff-bias-tz (dnnl-tensor fact bias-desc)
                     diff-src-conn (if prop-diff?
                                     (connector (diff-src-md bwd-pd) diff-src-tz)
-                                    (dnnl-tensor fact (diff-src-md bwd-pd)))
+                                    (dnnl-tensor fact (diff-src-md bwd-pd) (batch-index diff-src-tz)))
                     diff-src-iter-conn (when-let [diff-src-iter-desc (arg-md bwd-pd :diff-src-iter)]
                                          (if src-iter-tz
                                            (connector diff-src-iter-desc src-iter-tz)

@@ -26,7 +26,7 @@
             [uncomplicate.diamond.tensor
              :as diamond
              :refer [TensorDescriptor shape layout data-type TensorContainer Transfer
-                     input output Revert ConnectorCreator connector view-tz]]
+                     input output Revert ConnectorCreator connector view-tz batch-size]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [TensorFactory DiamondFactoryProvider create-tensor create-tensor-desc
@@ -151,6 +151,18 @@
   (release [_]
     (release in-tz)
     (release out-tz))
+  Object
+  (hashCode [_]
+    (-> (hash :transformer)
+        (hash-combine (shape in-tz))
+        (hash-combine (shape out-tz))))
+  (equals [_ other]
+    (and (instance? CUDnnTransformer other)
+         (= (shape in-tz) (shape (.in-tz ^CUDnnTransformer other)))
+         (= out-tz (.out-tz ^CUDnnTransformer other))))
+  (toString [this]
+    (str {:input in-tz
+          :output out-tz}))
   Revert
   (revert [_]
     (cudnn-transformer cudnn-hdl (view out-tz) (view in-tz)))
@@ -162,11 +174,6 @@
     in-tz)
   (output [_]
     out-tz)
-  DiffTransfer
-  (diff-input [_]
-    out-tz)
-  (diff-output [_]
-    in-tz)
   IFn
   (invoke [this]
     (.invoke this cudnn-hdl)
@@ -200,6 +207,19 @@
     (release dst-tz)
     (release src-sub)
     (release dst-sub))
+  Object
+  (hashCode [_]
+    (-> (hash :batcher)
+        (hash-combine (shape src-sub))
+        (hash-combine (shape dst-sub))))
+  (equals [_ other]
+    (and (instance? CUDnnBatcher other)
+         (= (shape dst-tz) (shape (.dst-tz ^CUDnnBatcher other)))
+         (= src-tz (.src-tz ^CUDnnBatcher other))))
+  (toString [_]
+    (str {:input src-tz
+          :output dst-tz
+          :mb-size mb-size}))
   Viewable
   (view [_]
     (cudnn-batcher cudnn-hdl (view src-tz) (view dst-tz) mb-size))
@@ -208,11 +228,6 @@
     src-tz)
   (output [_]
     dst-tz)
-  DiffTransfer
-  (diff-input [_]
-    dst-tz)
-  (diff-output [_]
-    src-tz)
   IFn
   (invoke [this]
     (.invoke this cudnn-hdl 0 0))
@@ -252,24 +267,34 @@
                       ((dims dst-tz) (batch-index dst-tz)) ((strides dst-sub) (batch-index dst-tz))
                       (entry-width (data-accessor dst-sub))))))
 
-(deftype CUDnnShuffler [cudnn-hdl batcher]
+(deftype CUDnnShuffler [cudnn-hdl batcher batch-size mb-size]
   Releaseable
   (release [_]
     (release batcher))
+  (hashCode [_]
+    (hash-combine (hash :shuffler) (hash batcher)))
+  (equals [_ other]
+    (and (instance? CUDnnShuffler other)
+         (= batch-size (.batch-size ^CUDnnShuffler other))
+         (= mb-size (.mb-size ^CUDnnShuffler other))
+         (= batcher (.batcher ^CUDnnShuffler other))))
+  (toString [this]
+    (str {:input (input this)
+          :output (output this)
+          :mb-size mb-size}))
   Viewable
   (view [_]
-    (->CUDnnShuffler cudnn-hdl (view batcher)))
+    (->CUDnnShuffler cudnn-hdl (view batcher) batch-size mb-size))
   Transfer
   (input [_]
     (input batcher))
   (output [_]
     (output batcher))
-  DiffTransfer
-  (diff-input [_]
-    (diff-input batcher))
-  (diff-output [_]
-    (diff-output batcher))
   IFn
+  (invoke [_]
+    (dotimes [i mb-size]
+      (batcher cudnn-hdl (rand-int batch-size) i))
+    (output batcher))
   (invoke [this cols]
     (.invoke this cudnn-hdl cols))
   (invoke [_ cudnn-hdl2 cols]
@@ -287,7 +312,8 @@
       (connector batcher dst-desc))))
 
 (defn cudnn-shuffler [cudnn-hdl src-tz dst-tz]
-  (->CUDnnShuffler cudnn-hdl (cudnn-batcher cudnn-hdl src-tz dst-tz 1)))
+  (->CUDnnShuffler cudnn-hdl (cudnn-batcher cudnn-hdl src-tz dst-tz 1)
+                   (batch-size src-tz) (batch-size dst-tz)))
 
 ;; ================================ Tensor ======================================
 
@@ -297,12 +323,10 @@
   (hashCode [x]
     (-> (hash :CUDnnTensor) (hash-combine (hash cu-desc))))
   (equals [x y]
-    (cond
-      (nil? y) false
-      (identical? x y) true
-      (and (instance? CUDnnTensor y) (equal-desc? cu-desc (desc y)))
-      (equals-block eng x y)
-      :default false))
+    (or (identical? x y)
+        (and (instance? CUDnnTensor y) (equal-desc? cu-desc (desc y))
+             (.isContiguous x) (.isContiguous ^CUDnnTensor y)
+             (= (view-vctr x) (view-vctr y)))))
   (toString [this]
     (pr-str {:shape (.dims cu-desc) :data-type (.data-type cu-desc)
              :layout (.strides cu-desc)}))

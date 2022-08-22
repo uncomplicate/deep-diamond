@@ -7,8 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns uncomplicate.diamond.internal.cudnn.rnn
-  (:require [uncomplicate.commons.core
-             :refer [Releaseable release let-release with-release Info info view]]
+  (:require [uncomplicate.commons
+             [core :refer [Releaseable release let-release with-release Info info view]]
+             [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojurecuda.core :refer [mem-alloc memset! memcpy-host!]]
             [uncomplicate.neanderthal
              [core :refer [axpby! transfer! scal! entry!]]
@@ -22,7 +23,7 @@
               :refer [Parameters ParametersSeq DescriptorProvider DiamondFactoryProvider
                       DiffParameters Backprop forward DiffTransfer diff-input diff-output LinearBackprop
                       backward-diff train-desc Initializable init Workspace inf-ws-size train-ws-size
-                      RnnParameters]]
+                      RnnParameters batch-index]]
              [utils :refer [default-strides direction-count transfer-rnn-weights-bias!]]]
             [uncomplicate.diamond.internal.dnnl.core :refer [memory-desc]]
             [uncomplicate.diamond.internal.cudnn
@@ -35,7 +36,7 @@
 
 ;; ================================ RNN ====================================================
 
-(deftype CUDnnRnnInference [fact cudnn-hdl bluep srcs dsts dev-seq-lengths
+(deftype CUDnnRnnInference [fact cudnn-hdl bluep dev-seq-lengths
                             src-conn src-iter-tz src-iter-c-tz
                             bias-tz weights-tz weights-iter-tz
                             dst-tz dst-iter-tz dst-iter-c-tz
@@ -72,14 +73,14 @@
       nil))
   Transfer
   (input [_]
-    srcs)
+    (input src-conn))
   (output [_]
-    dsts)
+    dst-tz)
   Parameters
   (bias [_]
     bias-tz)
   (weights [_]
-    weights-tz)
+    (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
   RnnParameters
   (weights-layer [this]
     (weights-tz))
@@ -87,10 +88,10 @@
     (weights-iter-tz))
   ParametersSeq
   (parameters [_]
-    [weights-tz bias-tz weights-iter-tz])
+    (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
   Initializable
   (init [this init-fn]
-    (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-tz) 2))) weights-tz) ;; TODO use fused-weights
+    (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-tz) 2))) weights-tz)
     (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-iter-tz) 2))) weights-iter-tz)
     (entry! bias-tz 0.0)
     (when src-iter-tz
@@ -108,23 +109,22 @@
              iter-desc (when src-iter-c-tz (buffer src-iter-c-tz))
              (when dst-iter-c-tz (buffer dst-iter-c-tz))
              weights-mem work reserve)
-    dsts)
+    dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype CUDnnRnnTraining [fact cudnn-hdl bluep srcs dsts diff-dsts dev-seq-lengths
+(deftype CUDnnRnnTraining [fact cudnn-hdl bluep dev-seq-lengths
                            src-conn src-iter-tz src-iter-c-tz
                            bias-tz fused-weights-tz weights-tz weights-iter-tz
                            dst-tz dst-iter-tz dst-iter-c-tz
                            rnn-desc rnn-src-desc rnn-dst-desc iter-desc
                            diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz
-                           diff-src-tz diff-src-iter-tz diff-src-iter-c-tz
-                           diff-src-transformer diff-src-iter-transformer diff-src-iter-c-transformer
+                           diff-src-conn diff-src-iter-tz diff-src-iter-c-tz
                            fused-diff-weights-tz post-diff-weights-tz
                            diff-weights-tz diff-weights-iter-tz diff-bias-tz
                            weights-mem diff-weights-mem work reserve]
   Releaseable
-  (release [_];;TODO
+  (release [_]
     (release dev-seq-lengths)
     (release src-conn)
     (release src-iter-tz)
@@ -136,7 +136,16 @@
     (release dst-tz)
     (release dst-iter-tz)
     (release dst-iter-c-tz)
+    (release rnn-desc)
+    (release rnn-src-desc)
+    (release rnn-dst-desc)
     (release iter-desc)
+    (release diff-dst-tz)
+    (release diff-dst-iter-tz)
+    (release diff-dst-iter-c-tz)
+    (release diff-src-conn)
+    (release diff-src-iter-tz)
+    (release diff-src-iter-c-tz)
     (release fused-diff-weights-tz)
     (release post-diff-weights-tz)
     (release diff-weights-tz)
@@ -160,14 +169,14 @@
       nil))
   Transfer
   (input [_]
-    srcs)
+    (input src-conn))
   (output [_]
-    dsts)
+    dst-tz)
   DiffTransfer
   (diff-input [_]
-    diff-dsts)
+    diff-dst-tz)
   (diff-output [_]
-    srcs)
+    (output diff-src-conn))
   Parameters
   (bias [_]
     bias-tz)
@@ -197,7 +206,7 @@
   IFn
   (invoke [this]
     (forward this)
-    dsts)
+    dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   Backprop
@@ -217,7 +226,7 @@
   (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]
     (rnn-bwd-data cudnn-hdl rnn-desc dev-seq-lengths
                   rnn-dst-desc (buffer dst-tz) (buffer diff-dst-tz)
-                  rnn-src-desc (buffer diff-src-tz)
+                  rnn-src-desc (buffer (input diff-src-conn))
                   iter-desc (when src-iter-tz (buffer src-iter-tz))
                   (when diff-dst-iter-tz (buffer diff-dst-iter-tz))
                   (when diff-src-iter-tz (buffer diff-src-iter-tz))
@@ -227,7 +236,7 @@
                   weights-mem work reserve)
     (memset! diff-weights-mem 0.0)
     (rnn-bwd-weights cudnn-hdl rnn-desc :add dev-seq-lengths
-                     rnn-src-desc (buffer (output src-conn))
+                     rnn-src-desc (buffer (input src-conn))
                      iter-desc (when src-iter-tz (buffer src-iter-tz))
                      rnn-dst-desc (buffer dst-tz)
                      diff-weights-mem work reserve)
@@ -236,9 +245,7 @@
         (scal! scal-diff-w fused-diff-weights-tz))
       (axpby! scal-diff-w fused-diff-weights-tz scal-g post-diff-weights-tz))
     (axpby! scal-diff-b diff-bias-tz scal-b bias-tz)
-    (diff-src-transformer)
-    (when diff-src-iter-transformer (diff-src-iter-transformer))
-    (when diff-src-iter-c-transformer (diff-src-iter-c-transformer))
+    (diff-src-conn)
     this))
 
 (deftype CUDnnRnnBlueprint [fact cudnn-hdl rnn-desc ^long weights-size
@@ -249,8 +256,10 @@
                             src-desc fused-weights-desc weights-desc bias-desc dst-desc
                             ldnc-iter-desc iter-desc src-iter? dst-iter? iter-c?]
   Releaseable
-  (release [_];;TODO
+  (release [_]
     (release rnn-desc)
+    (release rnn-src-desc)
+    (release rnn-dst-desc)
     (release src-desc)
     (release fused-weights-desc)
     (release weights-desc)
@@ -302,22 +311,22 @@
   (train-desc [_]
     (view dst-desc))
   (diff-desc [_]
-    "TODO")
+    (view dst-desc))
   TensorDescriptor
-  (shape [_]
-    (shape dst-desc))
-  (data-type [_]
-    (data-type dst-desc))
-  (layout [_]
-    (strides dst-desc))
+  (shape [this]
+    (shape (train-desc this)))
+  (data-type [this]
+    (data-type (train-desc this)))
+  (layout [this]
+    (strides (train-desc this)))
   Workspace
   (inf-ws-size [this]
     inf-work-size)
   (train-ws-size [this]
     train-work-size)
   IFn
-  (invoke [this srcs]
-    (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
+  (invoke [this src-tz]
+    (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz src-desc)
                     dev-seq-lengths (mem-alloc (* Float/BYTES (alength seq-lengths)))
                     weights (mem-alloc weights-size)
@@ -328,26 +337,16 @@
                     dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
                     dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
                     work (mem-alloc inf-work-size);;TODO here we can use global workspace
-                    reserve (mem-alloc inf-reserve-size)
-                    srcs (if src-iter-tz
-                           (if src-iter-c-tz
-                             [(input src-conn) src-iter-tz src-iter-c-tz]
-                             [(input src-conn) src-iter-tz])
-                           (input src-conn))
-                    dsts (if dst-iter-tz
-                           (if dst-iter-c-tz
-                             [dst-tz dst-iter-tz dst-iter-c-tz]
-                             [dst-tz dst-iter-tz])
-                           dst-tz)]
+                    reserve (mem-alloc inf-reserve-size)]
         (memcpy-host! seq-lengths dev-seq-lengths)
-        (->CUDnnRnnInference fact cudnn-hdl this srcs dsts dev-seq-lengths
+        (->CUDnnRnnInference fact cudnn-hdl this dev-seq-lengths
                              src-conn src-iter-tz src-iter-c-tz
                              bias-tz weights-tz weights-iter-tz
                              dst-tz dst-iter-tz dst-iter-c-tz
-                             rnn-desc rnn-src-desc rnn-dst-desc (view iter-desc)
+                             (view rnn-desc) (view rnn-src-desc) (view rnn-dst-desc) (view iter-desc)
                              weights work reserve))))
-  (invoke [this srcs _ post-process-diff?];;TODO keep in mind that some of source tensors might have to be views!
-    (let [[src-tz src-iter-tz src-iter-c-tz] (if (sequential? srcs) srcs [srcs nil nil])]
+  (invoke [this src-tz diff-src-tz prop-diff? post-process-diff?];;TODO keep in mind that some of source tensors might have to be views!
+    (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz src-desc)
                     dev-seq-lengths (mem-alloc (* Float/BYTES (alength seq-lengths)))
                     weights (mem-alloc weights-size)
@@ -363,14 +362,11 @@
                     diff-dst-tz (cudnn-tensor fact (view dst-desc) 1)
                     diff-dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
                     diff-dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
-                    diff-src-tz (cudnn-tensor fact (view src-desc) 1)
-                    diff-src-iter-tz (when src-iter-tz (cudnn-tensor fact (view ldnc-iter-desc)))
-                    diff-src-iter-c-tz (when src-iter-c-tz (cudnn-tensor fact (view ldnc-iter-desc)))
-                    diff-src-transformer  (cudnn-transformer cudnn-hdl diff-src-tz src-tz)
-                    diff-src-iter-transformer (when diff-src-iter-tz
-                                                (cudnn-transformer cudnn-hdl diff-src-iter-tz src-iter-tz))
-                    diff-src-iter-c-transformer (when diff-src-iter-c-tz
-                                                  (cudnn-transformer cudnn-hdl diff-src-iter-c-tz src-iter-c-tz))
+                    diff-src-conn (if prop-diff?
+                                    (connector src-desc diff-src-tz)
+                                    (cudnn-tensor fact src-desc (batch-index diff-src-tz)))
+                    diff-src-iter-tz (when src-iter-tz (view-tz src-iter-tz (view ldnc-iter-desc)))
+                    diff-src-iter-c-tz (when src-iter-c-tz (view-tz src-iter-tz (view ldnc-iter-desc)))
                     diff-weights (mem-alloc weights-size)
                     fused-diff-weights-tz (cudnn-tensor fact false diff-weights 0 (view fused-weights-desc))
                     post-diff-weights-tz (if post-process-diff?
@@ -378,31 +374,15 @@
                                            fused-diff-weights-tz)
                     diff-weights-tz (cudnn-tensor fact false diff-weights 0 (view weights-desc))
                     diff-weights-iter-tz (cudnn-tensor fact false diff-weights weights-offset (view weights-desc))
-                    diff-bias-tz (cudnn-tensor fact false diff-weights bias-offset (view bias-desc))
-                    srcs (if src-iter-tz
-                           (if src-iter-c-tz
-                             [(input src-conn) src-iter-tz src-iter-c-tz]
-                             [(input src-conn) src-iter-tz])
-                           (input src-conn))
-                    dsts (if dst-iter-tz
-                           (if dst-iter-c-tz
-                             [dst-tz dst-iter-tz dst-iter-c-tz]
-                             [dst-tz dst-iter-tz])
-                           dst-tz)
-                    diff-dsts (if diff-dst-iter-tz
-                                (if diff-dst-iter-c-tz
-                                  [diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz]
-                                  [diff-dst-tz diff-dst-iter-tz])
-                                diff-dst-tz)]
+                    diff-bias-tz (cudnn-tensor fact false diff-weights bias-offset (view bias-desc))]
         (memcpy-host! seq-lengths dev-seq-lengths)
-        (->CUDnnRnnTraining fact cudnn-hdl this srcs dsts diff-dsts dev-seq-lengths
+        (->CUDnnRnnTraining fact cudnn-hdl this dev-seq-lengths
                             src-conn src-iter-tz src-iter-c-tz
                             bias-tz fused-weights-tz weights-tz weights-iter-tz
                             dst-tz dst-iter-tz dst-iter-c-tz
-                            rnn-desc rnn-src-desc rnn-dst-desc (view iter-desc)
+                            (view rnn-desc) (view rnn-src-desc) (view rnn-dst-desc) (view iter-desc)
                             diff-dst-tz diff-dst-iter-tz diff-dst-iter-c-tz
-                            diff-src-tz diff-src-iter-tz diff-src-iter-c-tz
-                            diff-src-transformer diff-src-iter-transformer diff-src-iter-c-transformer
+                            diff-src-conn diff-src-iter-tz diff-src-iter-c-tz
                             fused-diff-weights-tz post-diff-weights-tz
                             diff-weights-tz diff-weights-iter-tz diff-bias-tz
                             weights diff-weights work reserve))))
@@ -419,9 +399,13 @@
 
 ;; ================================ Vanilla RNN =================================================
 
-(defn cudnn-rnn-op-blueprint [gts fact cudnn-hdl src-desc dst-desc weights-type
-                              activ dir lrs src-iter? dst-iter? iter-c?]
-  (let [mode (case (long gts) 3 :gru 4 :lstm activ)
+(defn cudnn-rnn-op-blueprint [fact cudnn-hdl src-desc dst-desc weights-type
+                              activ dir lrs src-iter? dst-iter?]
+  (let [gts (case activ
+              :gru 3
+              :lstm 4
+              1)
+        mode (case (long gts) 3 :gru 4 :lstm activ)
         src-shape (shape src-desc)
         [T N src-ch] src-shape
         dst-shape (shape dst-desc)
@@ -460,15 +444,15 @@
                              seq-lengths weights-offset (apply * fused-weights-shape)
                              rnn-src-desc rnn-dst-desc
                              src-desc fused-weights-desc weights-desc bias-desc dst-desc
-                             ldnc-iter-desc iter-desc src-iter? dst-iter? iter-c?)))))
+                             ldnc-iter-desc iter-desc src-iter? dst-iter? (= :lstm activ))))))
 
-(defn cudnn-rnn-blueprint [gts fact cudnn-hdl src-desc dst-desc lrs activ weights-type src-iter? dst-iter?]
+(defn cudnn-rnn-blueprint [fact cudnn-hdl src-desc dst-desc lrs activ weights-type src-iter? dst-iter?]
   (let-release [src-desc (cudnn-tensor-desc (shape src-desc) (or (tz/data-type src-desc) :float)
                                             (or (layout src-desc) :tnc))
                 dst-desc (cudnn-tensor-desc (shape dst-desc)
                                             (or (tz/data-type dst-desc) (tz/data-type src-desc) :float)
                                             (or (layout dst-desc) :tnc))
-                rnn-op-bluep (cudnn-rnn-op-blueprint gts fact cudnn-hdl src-desc dst-desc weights-type
-                                                     activ :unidirectional lrs src-iter? dst-iter? false)
-                nop-activ-bluep (cudnn-activ-blueprint fact (train-desc rnn-op-bluep) :nop nil)]
+                rnn-op-bluep (cudnn-rnn-op-blueprint fact cudnn-hdl src-desc dst-desc weights-type
+                                                     activ :unidirectional lrs src-iter? dst-iter?)
+                nop-activ-bluep (cudnn-activ-blueprint fact (train-desc rnn-op-bluep) :identity nil)]
     (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep)))

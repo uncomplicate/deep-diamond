@@ -14,7 +14,8 @@
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
                       DiamondFactoryProvider DiffParameters Backprop forward backward DiffTransfer
                       diff-input diff-output diff-z LinearBackprop backward-diff inf-desc train-desc
-                      Initializable init Workspace inf-ws-size train-ws-size *workspace* create-tensor]]
+                      Initializable init Workspace inf-ws-size train-ws-size *workspace* create-tensor
+                      batch-index]]
              [utils :refer [transfer-weights-bias! concat-strides concat-dst-shape direction-count
                             concat-offsets default-strides]]]
             [uncomplicate.diamond.internal.cudnn
@@ -37,122 +38,133 @@
 
 ;; ================================ Activation =============================================
 
-(deftype CUDnnActivationInference [cudnn-hdl bluep activation-desc a-tz one zero linear]
+(deftype CUDnnActivationInference [cudnn-hdl bluep activation-desc data-tz one zero linear]
   Releaseable
   (release [_]
-    (release a-tz))
+    (release data-tz))
   Info
   (info [this]
     {:activation (info bluep :activation)
-     :a (info a-tz)})
+     :data (info data-tz)})
   (info [this info-type]
     (case info-type
-      :a (info a-tz)
+      :data (info data-tz)
       (info bluep info-type)))
   Transfer
   (input [_]
-    a-tz)
+    data-tz)
   (output [_]
-    a-tz)
+    data-tz)
   IFn
   (invoke [_]
     (when-not linear
       (activation-forward cudnn-hdl activation-desc
-                          one a-tz (buffer a-tz)
-                          zero a-tz (buffer a-tz)))
-    a-tz)
+                          one data-tz (buffer data-tz)
+                          zero data-tz (buffer data-tz)))
+    data-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype CUDnnLinearActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz one zero]
+(deftype CUDnnLinearActivationTraining [cudnn-hdl bluep activation-desc
+                                        src-tz dst-tz diff-src-tz one zero]
   Releaseable
   (release [_]
-    (release z-tz)
-    (release a-tz))
+    (release src-tz)
+    (release dst-tz)
+    (release diff-src-tz))
   Info
   (info [this]
     {:activation (info bluep :activation)
-     :z (info z-tz)
-     :a (info a-tz)})
+     :src (info src-tz)
+     :dst (info dst-tz)
+     :diff-src (info diff-src-tz)})
   (info [this info-type]
     (case info-type
-      :a (info a-tz)
-      :z (info z-tz)
+      :src (info src-tz)
+      :dst (info dst-tz)
+      :diff-src (info diff-src-tz)
       (info bluep info-type)))
   Transfer
   (input [_]
-    z-tz)
+    src-tz)
   (output [_]
-    a-tz)
+    dst-tz)
   DiffTransfer
   (diff-input [_]
-    a-tz)
+    dst-tz)
   (diff-output [_]
-    z-tz)
+    diff-src-tz)
   IFn
-  (invoke [_]
-    (copy! z-tz a-tz)
-    a-tz)
+  (invoke [this]
+    (forward this)
+    dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
-    (copy! z-tz a-tz)
+    (copy! src-tz dst-tz)
     this)
   (backward [this]
-    (copy! a-tz z-tz)
+    (copy! dst-tz diff-src-tz)
     this))
 
-(deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc z-tz a-tz da-tz one zero]
+(deftype CUDnnActivationTraining [cudnn-hdl bluep activation-desc
+                                  src-tz dst-tz diff-dst-tz diff-src-tz
+                                  one zero]
   Releaseable
   (release [_]
-    (release z-tz)
-    (release a-tz)
-    (release da-tz))
+    (release src-tz)
+    (release dst-tz)
+    (release diff-dst-tz)
+    (release diff-src-tz))
   Info
   (info [this]
     {:activation (info bluep :activation)
-     :z (info z-tz)
-     :a (info a-tz)
-     :da (info da-tz)})
+     :src (info src-tz)
+     :dst (info dst-tz)
+     :diff-dst (info diff-dst-tz)
+     :diff-src (info diff-src-tz)})
   (info [this info-type]
     (case info-type
-      :a (info a-tz)
-      :z (info z-tz)
-      :da (info da-tz)
+      :src (info src-tz)
+      :dst (info dst-tz)
+      :diff-dst (info diff-dst-tz)
+      :diff-src (info diff-src-tz)
       (info bluep info-type)))
   Transfer
   (input [_]
-    z-tz)
+    src-tz)
   (output [_]
-    a-tz)
+    dst-tz)
   DiffTransfer
   (diff-input [_]
-    da-tz)
+    diff-dst-tz)
   (diff-output [_]
-    z-tz)
+    diff-src-tz)
   IFn
   (invoke [_]
     (activation-forward cudnn-hdl activation-desc
-                        one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
-    a-tz)
+                        one src-tz (buffer src-tz) zero dst-tz (buffer dst-tz))
+    dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (activation-forward cudnn-hdl activation-desc
-                        one z-tz (buffer z-tz) zero a-tz (buffer a-tz))
+                        one src-tz (buffer src-tz) zero dst-tz (buffer dst-tz))
     this)
   (backward [this]
     (activation-backward cudnn-hdl activation-desc
-                         one a-tz (buffer a-tz) da-tz (buffer da-tz) z-tz (buffer z-tz)
-                         zero z-tz (buffer z-tz))
+                         one dst-tz (buffer dst-tz) diff-dst-tz (buffer diff-dst-tz) src-tz (buffer src-tz)
+                         zero diff-src-tz (buffer diff-src-tz))
     this))
 
-(deftype CUDnnActivationBlueprint [fact activ ad data-desc]
+(deftype CUDnnActivationBlueprint [fact activ ad inf-desc train-desc diff-desc]
   Releaseable
   (release [_]
-    (release data-desc)
+    (release inf-desc)
+    (release train-desc)
+    (release diff-desc)
     (release ad))
   Info
   (info [this]
@@ -166,117 +178,120 @@
     fact)
   DescriptorProvider
   (inf-desc [_]
-    (view data-desc))
+    (view inf-desc))
   (train-desc [_]
-    (view data-desc))
+    (view train-desc))
   (diff-desc [_]
-    "TODO")
+    (view diff-desc))
   TensorDescriptor
   (shape [_]
-    (shape data-desc))
+    (shape train-desc))
   (data-type [_]
-    (tz/data-type data-desc))
+    (data-type train-desc))
   (layout [_]
-    (layout data-desc))
+    (layout train-desc))
   IFn
   (invoke [this src-tz]
     (->CUDnnActivationInference (handle fact) this ad src-tz
                                 (cast-prim (data-accessor src-tz) 1.0)
                                 (cast-prim (data-accessor src-tz) 0.0)
                                 (or (= :linear activ) (= :identity activ))))
-  (invoke [this src-tz dst-tz]
-    (cond
-      (or (= :linear activ) (= :identity activ))
-      (->CUDnnLinearActivationTraining (handle fact) this ad src-tz dst-tz
-                                       (cast-prim (data-accessor src-tz) 1.0)
-                                       (cast-prim (data-accessor dst-tz) 0.0))
-      (or (= :sigmoid activ) (:logistic activ))
-      (let-release [diff-tz (create-tensor fact (view dst-tz) false)]
-        (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz diff-tz
+  (invoke [this src-tz diff-src-tz]
+    (let-release [dst-tz (cudnn-tensor fact (view diff-desc) (batch-index diff-src-tz))]
+      (cond
+        (or (= :linear activ) (= :identity activ))
+        (->CUDnnLinearActivationTraining (handle fact) this ad src-tz dst-tz diff-src-tz
+                                         (cast-prim (data-accessor src-tz) 1.0)
+                                         (cast-prim (data-accessor src-tz) 0.0))
+        (or (= :sigmoid activ) (:logistic activ))
+        (let-release [diff-dst-tz (cudnn-tensor fact (view diff-desc) (batch-index dst-tz))]
+          (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz diff-dst-tz diff-src-tz
+                                     (cast-prim (data-accessor src-tz) 1.0)
+                                     (cast-prim (data-accessor src-tz) 0.0)))
+        :default
+        (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz dst-tz diff-src-tz
                                    (cast-prim (data-accessor src-tz) 1.0)
-                                   (cast-prim (data-accessor dst-tz) 0.0)))
-      :default
-      (->CUDnnActivationTraining (handle fact) this ad src-tz dst-tz (view dst-tz)
-                                 (cast-prim (data-accessor src-tz) 1.0)
-                                 (cast-prim (data-accessor dst-tz) 0.0))))
+                                   (cast-prim (data-accessor src-tz) 0.0)))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
 ;; ================================ Softmax =============================================
 
-(deftype CUDnnSoftmaxInference [cudnn-hdl bluep z-tz one zero]
+(deftype CUDnnSoftmaxInference [cudnn-hdl bluep data-tz one zero]
   Releaseable
   (release [_]
-    (release z-tz))
+    (release data-tz))
   Info
   (info [this]
     {:activation :softmax
-     :z (info z-tz)})
+     :data (info data-tz)})
   (info [this info-type]
     (case info-type
       :activation :softmax
-      :z (info z-tz)
+      :data (info data-tz)
       (info bluep info-type)))
   Transfer
   (input [_]
-    z-tz)
+    data-tz)
   (output [_]
-    z-tz)
+    data-tz)
   IFn
   (invoke [_]
     (softmax-forward cudnn-hdl :accurate :instance
-                     one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
-    z-tz)
+                     one data-tz (buffer data-tz) zero data-tz (buffer data-tz))
+    data-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype CUDnnSoftmaxTraining [cudnn-hdl bluep z-tz da-tz one zero]
+(deftype CUDnnSoftmaxTraining [cudnn-hdl bluep data-tz diff-dst-tz diff-src-tz one zero]
   Releaseable
   (release [_]
-    (release z-tz)
-    (release da-tz))
+    (release data-tz)
+    (release diff-dst-tz))
   Info
   (info [this]
     {:activation :softmax
-     :z (info z-tz)
-     :da (info da-tz)})
+     :data (info data-tz)
+     :diff-dst (info diff-dst-tz)})
   (info [this info-type]
     (case info-type
-      :z (info z-tz)
-      :da (info da-tz)
+      :data (info data-tz)
+      :diff-dst (info diff-dst-tz)
       (info bluep info-type)))
   Transfer
   (input [_]
-    z-tz)
+    data-tz)
   (output [_]
-    z-tz)
+    data-tz)
   DiffTransfer
   (diff-input [_]
-    da-tz)
+    diff-dst-tz)
   (diff-output [_]
-    z-tz)
+    diff-src-tz)
   IFn
   (invoke [_]
     (softmax-forward cudnn-hdl :accurate :instance
-                     one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
-    z-tz)
+                     one data-tz (buffer data-tz) zero data-tz (buffer data-tz))
+    data-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
     (softmax-forward cudnn-hdl :accurate :instance
-                     one z-tz (buffer z-tz) zero z-tz (buffer z-tz))
+                     one data-tz (buffer data-tz) zero data-tz (buffer data-tz))
     this)
   (backward [this]
     (softmax-backward cudnn-hdl :accurate :instance
-                      one z-tz (buffer z-tz) da-tz (buffer da-tz)
-                      zero z-tz (buffer z-tz))
+                      one data-tz (buffer data-tz) diff-dst-tz (buffer diff-dst-tz)
+                      zero diff-src-tz (buffer diff-src-tz))
     this))
 
-(deftype CUDnnSoftmaxBlueprint [fact data-desc]
+(deftype CUDnnSoftmaxBlueprint [fact inf-desc train-desc diff-desc]
   Releaseable
   (release [_]
-    (release data-desc))
+    (release inf-desc)
+    (release train-desc)
+    (release diff-desc))
   Info
   (info [this]
     {:activation :softmax})
@@ -289,37 +304,43 @@
     fact)
   DescriptorProvider
   (inf-desc [_]
-    (view data-desc))
+    (view inf-desc))
   (train-desc [_]
-    (view data-desc))
+    (view train-desc))
   (diff-desc [_]
-    "TODO")
+    (view diff-desc))
   TensorDescriptor
   (shape [_]
-    (shape data-desc))
+    (shape train-desc))
   (data-type [_]
-    (tz/data-type data-desc))
+    (data-type train-desc))
   (layout [_]
-    (layout data-desc))
+    (layout train-desc))
   IFn
   (invoke [this src-tz]
     (->CUDnnSoftmaxInference (handle fact) this src-tz
                              (cast-prim (data-accessor src-tz) 1.0)
                              (cast-prim (data-accessor src-tz) 0.0)))
-  (invoke [this src-tz dst-tz]
-    (->CUDnnSoftmaxTraining (handle fact) this src-tz (view dst-tz)
-                            (cast-prim (data-accessor src-tz) 1.0)
-                            (cast-prim (data-accessor dst-tz) 0.0)))
+  (invoke [this src-tz diff-src-tz]
+    (let-release [diff-dst-tz (cudnn-tensor fact (view diff-desc) (batch-index diff-src-tz))]
+      (->CUDnnSoftmaxTraining (handle fact) this src-tz diff-dst-tz diff-src-tz
+                              (cast-prim (data-accessor src-tz) 1.0)
+                              (cast-prim (data-accessor src-tz) 0.0))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defn cudnn-activ-blueprint [fact data-desc activ coef]
-  (let [data-desc (desc data-desc)]
-    (case activ
-      :nop (->NopActivationBlueprint fact data-desc data-desc)
-      :softmax (->CUDnnSoftmaxBlueprint fact data-desc)
-      (let-release [ad (activation-descriptor activ true coef)]
-        (->CUDnnActivationBlueprint fact activ ad data-desc)))))
+(defn cudnn-activ-blueprint
+  ([fact inf-desc train-desc diff-desc activ coef]
+   (let [inf-desc (desc inf-desc)
+         train-desc (desc train-desc)
+         diff-desc (desc diff-desc)]
+     (case activ
+       :identity (->NopActivationBlueprint fact inf-desc train-desc diff-desc)
+       :softmax (->CUDnnSoftmaxBlueprint fact inf-desc train-desc diff-desc)
+       (let-release [ad (activation-descriptor activ true coef)]
+         (->CUDnnActivationBlueprint fact activ ad inf-desc train-desc diff-desc)))))
+  ([fact data-desc activ coef]
+   (cudnn-activ-blueprint fact data-desc data-desc data-desc activ coef)))
 
 ;; ============================= Cost Function ========================================
 
@@ -501,7 +522,7 @@
   (diff-input [_]
     dst-tz)
   (diff-output [_]
-    (input src-conn))
+    (output diff-src-conn))
   Parameters
   (bias [_]
     bias-tz)
@@ -565,7 +586,7 @@
     (release dst-desc))
   Object
   (hashCode [_]
-    (-> (hash :inner-product)
+    (-> (hash :convolution)
         (hash-combine src-desc) (hash-combine weights-desc)
         (hash-combine bias-desc) (hash-combine dst-desc)))
   (equals [_ other]
@@ -607,7 +628,7 @@
   (train-desc [_]
     (view dst-desc))
   (diff-desc [_]
-    "TODO")
+    (view dst-desc))
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -633,12 +654,13 @@
                                    (cast-prim (data-accessor a-tz) 0.0)
                                    conv-desc (view filter-desc) (:algo conv-fwd-algo)
                                    src-conn bias-tz weights-tz a-tz *workspace*)))
-  (invoke [this src-tz dst-tz prop-diff? _]
-    (let [da (data-accessor dst-tz)]
+  (invoke [this src-tz diff-src-tz prop-diff? _]
+    (let [da (data-accessor src-tz)]
       (let-release [src-conn (connector src-tz src-desc)
                     bias-tz (cudnn-tensor fact (view bias-desc))
                     weights-tz (cudnn-tensor fact (view weights-desc))
-                    diff-src-conn (revert src-conn)
+                    dst-tz (cudnn-tensor fact dst-desc (batch-index src-tz))
+                    diff-src-conn (connector src-desc diff-src-tz)
                     diff-weights-tz (create-tensor fact (view weights-desc) true)]
         (->CUDnnConvolutionTraining fact (handle fact) this da
                                     (cast-prim da 1.0) (cast-prim da 0.0)
@@ -747,13 +769,14 @@
                     (shape (output layer)) (info layer :algo) (pr-str (.dst-tz layer)))))
 
 (deftype CUDnnPoolingTrainingLayer [fact cudnn-hdl bluep pooling-desc
-                                    src-tz dst-tz diff-dst-tz
+                                    src-tz dst-tz diff-dst-tz diff-src-tz
                                     one zero prop-diff?]
   Releaseable
   (release [_]
     (release src-tz)
     (release dst-tz)
-    (release diff-dst-tz))
+    (release diff-dst-tz)
+    (release diff-src-tz))
   Object
   (hashCode [_]
     (-> (hash :pooling)
@@ -784,7 +807,7 @@
   (diff-input [_]
     diff-dst-tz)
   (diff-output [_]
-    src-tz)
+    diff-src-tz)
   ParametersSeq
   (parameters [_]
     [])
@@ -811,7 +834,7 @@
     (when prop-diff?
       (pooling-backward cudnn-hdl pooling-desc
                         one dst-tz (buffer dst-tz) diff-dst-tz (buffer diff-dst-tz)
-                        src-tz (buffer src-tz) zero src-tz (buffer src-tz)))
+                        src-tz (buffer src-tz) zero src-tz (buffer diff-src-tz)))
     this))
 
 (defmethod print-method CUDnnPoolingTrainingLayer
@@ -877,7 +900,8 @@
     (let-release [dst-tz (cudnn-tensor fact (view dst-desc))
                   diff-dst-tz (cudnn-tensor fact (view dst-desc))]
       (->CUDnnPoolingTrainingLayer fact (handle fact) this pd
-                                   (view (output prev-layer)) dst-tz diff-dst-tz
+                                   (view (output prev-layer)) dst-tz
+                                   diff-dst-tz (view (diff-input prev-layer))
                                    (cast-prim (data-accessor dst-tz) 1.0)
                                    (cast-prim (data-accessor dst-tz) 0.0)
                                    prop-diff?)))
@@ -1073,7 +1097,7 @@
   (diff-weights [_]
     diff-gamma-tz)
   IFn
-  (invoke [_]
+  (invoke [this]
     (src-conn)
     (batch-norm-fwd-training cudnn-hdl :spatial one zero
                              (output src-conn) (buffer (output src-conn))
@@ -1096,13 +1120,13 @@
     this)
   (backward [this]
     (backward-diff this 1.0 0.0 1.0 0.0))
-  LinearBackprop ;; TODO take prop-diff into account?
+  LinearBackprop
   (backward-diff [this scal-diff-w scal-g _ scal-b]
     (entry! diff-beta-tz 0.0)
     (batch-norm-bwd cudnn-hdl :spatial one zero
                     (cast-prim da scal-diff-w) (cast-prim da scal-g)
                     (output src-conn) (buffer (output src-conn))
-                    dst-tz (buffer dst-tz) (output src-conn) (buffer (output src-conn))
+                    dst-tz (buffer dst-tz) (input diff-src-conn) (buffer (input diff-src-conn))
                     param-desc (buffer gamma-tz) (buffer diff-gamma-tz) (buffer diff-beta-tz)
                     (buffer saved-mean-tz) (buffer saved-inv-var-tz))
     (axpby! 1.0 diff-beta-tz scal-b beta-tz)
@@ -1160,7 +1184,7 @@
   (train-desc [_]
     data-desc)
   (diff-desc [_]
-    "TODO")
+    data-desc)
   TensorDescriptor
   (shape [this]
     (shape data-desc))
@@ -1175,23 +1199,26 @@
                   beta-tz (cudnn-tensor fact (view gamma-desc))
                   mean-tz (cudnn-tensor fact (view gamma-desc))
                   var-tz (cudnn-tensor fact (view gamma-desc))
-                  dst-tz (cudnn-tensor fact (view gamma-desc))]
+                  dst-tz (cudnn-tensor fact (view data-desc))]
       (->CUDnnBatchNormalizationInference fact (handle fact) this
                                           (cast-prim (data-accessor gamma-tz) 1.0)
                                           (cast-prim (data-accessor gamma-tz) 0.0)
                                           gamma-desc src-conn gamma-tz beta-tz mean-tz var-tz)))
-  (invoke [this src-tz dst-tz _ _] ;;TODO see about handling prop-diff?
-    (let [da (data-accessor dst-tz)]
+  (invoke [this src-tz diff-src-tz prop-diff? _]
+    (let [da (data-accessor src-tz)]
       (let-release [src-conn (connector src-tz data-desc)
                     gamma-tz (cudnn-tensor fact (view gamma-desc))
                     beta-tz (cudnn-tensor fact (view gamma-desc))
                     mean-tz (cudnn-tensor fact (view gamma-desc))
                     var-tz (cudnn-tensor fact (view gamma-desc))
+                    dst-tz (cudnn-tensor fact (view data-desc) (batch-index src-tz))
                     saved-mean-tz (create-tensor fact (view gamma-desc) true)
                     saved-inv-var-tz (create-tensor fact (view gamma-desc) true)
                     diff-gamma-tz (create-tensor fact (view gamma-desc) true)
                     diff-beta-tz (create-tensor fact (view gamma-desc) true)
-                    diff-src-conn (revert src-conn)]
+                    diff-src-conn (if prop-diff?
+                                    (connector data-desc diff-src-tz)
+                                    (cudnn-tensor fact data-desc (batch-index diff-src-tz)))]
         (->CUDnnBatchNormalizationTraining fact (handle fact) this da (atom -1) un-bessel
                                            (cast-prim da 1.0) (cast-prim da 0.0)
                                            gamma-desc src-conn gamma-tz beta-tz dst-tz
@@ -1279,16 +1306,19 @@
   [layer ^java.io.Writer w]
   (.write w (format "#Branch[src:%s, dst:%s]" (input layer) (output layer))))
 
-(deftype CUDnnBranchTraining [fact bluep branch? data-tz fwd-trans bwd-trans prop-diff?]
+(deftype CUDnnBranchTraining [fact bluep branch? data-tz diff-data-tz
+                              fwd-trans bwd-trans prop-diff?]
   Releaseable
   (release [_]
+    (release data-tz)
+    (release diff-data-tz)
     (doseq [ft fwd-trans] (release ft))
     (doseq [bt bwd-trans] (release bt))
     true)
   Object
   (hashCode [_]
     (reduce #(hash-combine %1 (shape (output %2)))
-            (hash-combine (hash :concat-branch) (shape data-tz))
+            (hash-combine (hash :branch) (shape data-tz))
             fwd-trans))
   (equals [_ other]
     (and (instance? CUDnnBranchTraining other)
@@ -1315,9 +1345,9 @@
     (if branch? (mapv output fwd-trans) data-tz))
   DiffTransfer
   (diff-input [this]
-    (output this))
+    (if branch? (mapv output bwd-trans) data-tz))
   (diff-output [this]
-    (input this))
+    (if branch? diff-data-tz (mapv output bwd-trans)))
   ParametersSeq
   (parameters [_]
     [])
@@ -1347,7 +1377,7 @@
   [layer ^java.io.Writer w]
   (.write w (format "#Branch[src:%s, dst:%s]" (input layer) (output layer))))
 
-(deftype CUDnnBranchBlueprint [fact cudnn-hdl src-desc dst-descs sub-descs sub-offsets]
+(deftype CUDnnBranchBlueprint [fact cudnn-hdl src-desc dst-descs sub-descs sub-offsets branch-dim dst-dims]
   Releaseable
   (release [_]
     (doseq [dd dst-descs] (release dd))
@@ -1372,7 +1402,7 @@
   (train-desc [_]
     dst-descs)
   (diff-desc [_]
-    "TODO")
+    dst-descs)
   TensorDescriptor
   (shape [this]
     (fmap shape dst-descs))
@@ -1382,20 +1412,25 @@
     (fmap layout dst-descs))
   IFn
   (invoke [this prev-layer]
-    (let-release [src-tz (output prev-layer)
-                  dst-tzs (fmap (partial cudnn-tensor fact) dst-descs)
-                  sub-tzs (mapv #(cudnn-tensor fact false (buffer src-tz) (+ (offset src-tz) (long %1)) %2)
-                               sub-offsets sub-descs)
-                  fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) sub-tzs dst-tzs)]
-      (->CUDnnBranchInference fact this true src-tz fwd-trans)))
+    (let [src-tz (output prev-layer)]
+      (let-release [dst-tzs (fmap (partial cudnn-tensor fact) dst-descs)
+                    sub-tzs (mapv #(cudnn-tensor fact false (buffer src-tz) (+ (offset src-tz) (long %1)) %2)
+                                  sub-offsets sub-descs)
+                    fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) sub-tzs dst-tzs)]
+        (->CUDnnBranchInference fact this true src-tz fwd-trans))))
   (invoke [this prev-layer prop-diff? _]
-    (let-release [src-tz (output prev-layer)
-                  dst-tzs (fmap (partial cudnn-tensor fact) dst-descs)
-                  sub-tzs (mapv #(cudnn-tensor fact false (buffer src-tz) %1 %2)
-                                sub-offsets sub-descs)
-                  fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) sub-tzs dst-tzs)
-                  bwd-trans (mapv revert fwd-trans)]
-      (->CUDnnBranchTraining fact this true src-tz fwd-trans bwd-trans prop-diff?)))
+    (let [src-tz (output prev-layer)
+          diff-src-tz (diff-input prev-layer)
+          diff-src-sub-offsets (mapv (partial * (get (strides diff-src-tz) branch-dim))
+                                     (concat-offsets branch-dim dst-dims))]
+      (let-release [dst-tzs (fmap (partial cudnn-tensor fact) dst-descs)
+                    src-sub-tzs (mapv #(cudnn-tensor fact false (buffer src-tz) %1 %2)
+                                      sub-offsets sub-descs)
+                    diff-src-sub-tzs (mapv #(cudnn-tensor fact false (buffer diff-src-tz) %1 %2)
+                                           diff-src-sub-offsets sub-descs)
+                    fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-sub-tzs dst-tzs)
+                    bwd-trans (mapv (partial cudnn-transformer cudnn-hdl) dst-tzs diff-src-sub-tzs)]
+        (->CUDnnBranchTraining fact this true src-tz diff-src-tz fwd-trans bwd-trans prop-diff?))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
@@ -1412,7 +1447,7 @@
                 sub-descs (mapv #(cudnn-tensor-desc %1 dtype strd) dst-dims)
                 sub-offsets (mapv (partial * (get (strides src-desc) branch-dim))
                                   (concat-offsets branch-dim dst-dims))]
-    (->CUDnnBranchBlueprint fact (handle fact) src-desc dst-descs sub-descs sub-offsets)))
+    (->CUDnnBranchBlueprint fact (handle fact) src-desc dst-descs sub-descs sub-offsets branch-dim dst-dims)))
 
 (deftype CUDnnConcatBlueprint [fact cudnn-hdl src-descs dst-desc sub-descs sub-offsets]
   Releaseable
@@ -1439,7 +1474,7 @@
   (train-desc [_]
     dst-desc)
   (diff-desc [_]
-    "TODO")
+    dst-desc)
   TensorDescriptor
   (shape [this]
     (shape dst-desc))
@@ -1449,20 +1484,21 @@
     (layout dst-desc))
   IFn
   (invoke [this prev-layer]
-    (let-release [src-tzs (fmap output prev-layer)
+    (let-release [src-tzs (fmap (comp view output) prev-layer)
                   dst-tz (cudnn-tensor fact dst-desc)
                   sub-tzs (mapv #(cudnn-tensor fact false (buffer dst-tz) (+ (offset dst-tz) (long %1)) %2)
                                sub-offsets sub-descs)
                   fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-tzs sub-tzs)]
       (->CUDnnBranchInference fact this false dst-tz fwd-trans)))
   (invoke [this prev-layer prop-diff? _]
-    (let-release [src-tzs (fmap output prev-layer)
-                  dst-tz (cudnn-tensor fact dst-desc)
-                  sub-tzs (mapv #(cudnn-tensor fact false (buffer dst-tz) (+ (offset dst-tz) (long %1)) %2)
-                                sub-offsets sub-descs)
-                  fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-tzs sub-tzs)
-                  bwd-trans (mapv revert fwd-trans)]
-      (->CUDnnBranchTraining fact this false dst-tz fwd-trans bwd-trans prop-diff?)))
+    (let [src-tzs (fmap (comp view output) prev-layer)
+          diff-src-tzs (fmap (comp view diff-input) prev-layer)]
+      (let-release [dst-tz (cudnn-tensor fact dst-desc)
+                    sub-tzs (mapv #(cudnn-tensor fact false (buffer dst-tz) (+ (offset dst-tz) (long %1)) %2)
+                                  sub-offsets sub-descs)
+                    fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-tzs sub-tzs)
+                    bwd-trans (mapv (partial cudnn-transformer cudnn-hdl) sub-tzs diff-src-tzs)]
+        (->CUDnnBranchTraining fact this false dst-tz diff-src-tzs fwd-trans bwd-trans prop-diff?))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 

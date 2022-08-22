@@ -87,7 +87,7 @@
   (output [_] (output (peek forward-layers)))
   DiffTransfer
   (diff-input [this]
-    (dragan-says-ex "Inference network does not calculate gradients."))
+    (diff-input (peek forward-layers)))
   (diff-output [_]
     (dragan-says-ex "Inference network does not calculate gradients."))
   IFn
@@ -374,12 +374,13 @@
       (init layer init-fn))
     this)
   Transfer
-  (input [_] x-tzs)
+  (input [_]
+    x-tzs)
   (output [_]
     (fmap output parallel-layers))
   DiffTransfer
   (diff-input [this]
-    (output this))
+    (fmap diff-input parallel-layers))
   (diff-output [_]
     (dragan-says-ex "Inference network does not calculate gradients."))
   IFn
@@ -448,8 +449,10 @@
       (init layer init-fn))
     this)
   Transfer
-  (input [_] x-mb-tzs)
-  (output [_] (fmap output parallel-layers))
+  (input [_]
+    x-mb-tzs)
+  (output [_]
+    (fmap output parallel-layers))
   DiffTransfer
   (diff-input [_]
     (fmap diff-input parallel-layers))
