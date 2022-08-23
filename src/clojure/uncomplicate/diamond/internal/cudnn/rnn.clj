@@ -29,7 +29,7 @@
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer :all]
              [core :refer :all]
-             [tensor :refer :all]
+             [tensor :refer [cudnn-tensor-desc cudnn-tensor cudnn-transformer]]
              [directed :refer [cudnn-activ-blueprint]]]
             [uncomplicate.diamond.internal.neanderthal.directed :refer [->DirectedLayerBlueprint]])
   (:import [clojure.lang IFn AFn]))
@@ -456,3 +456,166 @@
                                                      activ :unidirectional lrs src-iter? dst-iter?)
                 nop-activ-bluep (cudnn-activ-blueprint fact (train-desc rnn-op-bluep) :identity nil)]
     (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep)))
+
+;; ================================= Ending Layer ==============================
+
+(deftype CUDnnEnding [fact cudnn-hdl bluep transform-forward dst-tz transform-diff diff-sub]
+  Releaseable
+  (release [_]
+    (release transform-forward)
+    (release dst-tz)
+    (release transform-diff)
+    (release diff-sub))
+  Object
+  (hashCode [_]
+    (hash-combine (hash :ending) (shape dst-tz)))
+  (equals [_ other]
+    (and (instance? CUDnnEnding other)
+         (let [other ^CUDnnEnding other]
+           (= transform-forward (.transform-forward other))
+           (= transform-diff (.transform-diff other))
+           (= dst-tz (.dst-tz other))
+           (= diff-sub (.diff-sub other)))))
+  (toString [this]
+    (str bluep))
+  Info
+  (info [this]
+    {:src (input transform-forward)
+     :dst dst-tz
+     :topology :ending})
+  (info [this info-type]
+    (case info-type
+      :src (input transform-forward)
+      :dst dst-tz
+      :topology :ending
+      (info bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [_]
+    (input transform-forward))
+  (output [_]
+    dst-tz)
+  DiffTransfer
+  (diff-input [_]
+    dst-tz)
+  (diff-output [_]
+    (output transform-diff))
+  ParametersSeq
+  (parameters [_]
+    [])
+  Initializable
+  (init [this _]
+    this)
+  Backprop
+  (forward [this]
+    this)
+  (forward [this _]
+    (transform-forward)
+    this)
+  (backward [this]
+    this)
+  (backward [this _]
+    (when diff-sub (entry! diff-sub 0.0))
+    (transform-diff)
+    this)
+  IFn
+  (invoke [this]
+    (transform-forward)
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnEnding
+  [layer ^java.io.Writer w]
+  (.write w (format "#Ending[dst:%s]" (output layer))))
+
+(deftype CUDnnEndingBlueprint [fact src-desc dst-desc]
+  Releaseable
+  (release [_]
+    (release src-desc)
+    (release dst-desc))
+  Object
+  (hashCode [_]
+    (-> (hash :ending)
+        (hash-combine src-desc)
+        (hash-combine dst-desc)))
+  (equals [_ other]
+    (and (instance? CUDnnEndingBlueprint other)
+         (equal-desc? src-desc (.src-desc ^CUDnnEndingBlueprint other))
+         (equal-desc? dst-desc (.dst-desc ^CUDnnEndingBlueprint other))))
+  (toString [this]
+    (str {:shape (shape this)
+          :topology :ending}))
+  Info
+  (info [this]
+    {:shape (shape this)
+     :topology :ending})
+  (info [this info-type]
+    (case info-type
+      :shape (shape this)
+      :topology :ending
+      nil))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [this]
+    dst-desc)
+  (train-desc [_]
+    dst-desc)
+  (diff-desc [_]
+    dst-desc)
+  TensorDescriptor
+  (shape [_]
+    (shape dst-desc))
+  (data-type [_]
+    (data-type dst-desc))
+  (layout [_]
+    (layout dst-desc))
+  IFn
+  (invoke [this prev-layer]
+    (let [src-tz (output prev-layer)]
+      (let-release [src-sub (tz/offset! (view-tz src-tz (shape dst-desc))
+                                        (* (dec (long (get (shape src-tz) 0)))
+                                           (long (get (strides src-tz) 0))))
+                    dst-tz (cudnn-tensor fact (view dst-desc))
+                    transform-forward (cudnn-transformer (flow fact) src-sub dst-tz)
+                    transform-diff (cudnn-transformer (flow fact) dst-tz src-sub)]
+        (->CUDnnEnding fact (flow fact) this transform-forward dst-tz transform-diff nil))))
+  (invoke [this prev-layer _ _]
+    (let [src-tz (output prev-layer)
+          diff-tz (diff-input prev-layer)
+          input-tz (input prev-layer)
+          cudnn-hdl(flow fact)
+          target-shape (update (shape src-tz) 0 dec)]
+      (let-release [src-sub1 (tz/offset! (view-tz src-tz (shape dst-desc))
+                                         (* (long (get (shape target-shape) 0))
+                                            (long (get (strides src-tz) 0))))
+                    diff-sub1 (tz/offset! (view-tz diff-tz (shape dst-desc))
+                                          (* (long (get (shape target-shape) 0))
+                                             (long (get (strides diff-tz) 0))))
+                    diff-sub (when (pos? (long (get target-shape 0)))
+                               (view-tz diff-tz target-shape))
+                    dst-tz (cudnn-tensor fact (view dst-desc))
+                    transform-forward (cudnn-transformer cudnn-hdl src-sub1 dst-tz)
+                    transform-diff (cudnn-transformer cudnn-hdl dst-tz diff-sub1)]
+        (->CUDnnEnding fact (flow fact) this transform-forward dst-tz transform-diff diff-sub))))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method CUDnnEnding
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
+(defn cudnn-ending-blueprint [fact src-desc dst-type]
+  (let-release [src-desc (desc src-desc)
+                dst-shape (vec (rest (shape src-desc)))
+                dst-desc (cudnn-tensor-desc dst-shape (or dst-type (data-type src-desc))
+                                            (default-strides dst-shape))]
+    (->CUDnnEndingBlueprint fact src-desc dst-desc)))
+
+(defmethod transfer! [CUDnnEnding Object]
+  [source destination]
+  destination)

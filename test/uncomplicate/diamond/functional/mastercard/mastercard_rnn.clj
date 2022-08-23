@@ -58,6 +58,7 @@
                    y-test y-test
                    net-bp (network fact (desc [64 32 1] :float :tnc)
                                    [(rnn [128] activ)
+                                    (rnn 2)
                                     (ending)
                                     (dense [128] :relu)
                                     (dense [1] :linear)])
@@ -79,5 +80,5 @@
   (test-timeseries fact :lstm))
 ;; "Elapsed time: 348.86187 msecs"
 
-#_(with-release [fact (dnnl-factory)]
-  (test-timeseries fact :sigmoid))
+(with-release [fact (dnnl-factory)]
+  (test-timeseries fact :relu))

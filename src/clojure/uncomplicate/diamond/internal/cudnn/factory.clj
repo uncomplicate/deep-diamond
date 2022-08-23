@@ -38,7 +38,7 @@
                                cudnn-convolution-layer-blueprint cudnn-gaussian-dropout-blueprint
                                cudnn-batch-norm-layer-blueprint cudnn-branch-blueprint
                                cudnn-concat-blueprint cudnn-sum-blueprint cudnn-split-blueprint]]
-             [rnn :refer [cudnn-rnn-op-blueprint cudnn-rnn-blueprint]]])
+             [rnn :refer [cudnn-rnn-op-blueprint cudnn-rnn-blueprint cudnn-ending-blueprint]]])
   (:import jcuda.jcudnn.JCudnn))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
@@ -414,18 +414,10 @@ Please contribute towards making it possible, or use on of the supported types."
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
     (cudnn-rnn-op-blueprint this cudnn-hdl src-desc dst-desc weights-type
                             activ dir lrs src-iter? dst-iter?))
-  ;; (lstm-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
-  ;;   (cudnn-rnn-op-blueprint 4 this cudnn-hdl src-desc dst-desc weights-type
-  ;;                           :lstm dir lrs src-iter? dst-iter? false))
-  ;; (gru-op-blueprint [this src-desc dst-desc weights-type dir lrs src-iter? dst-iter?]
-  ;;   (cudnn-rnn-op-blueprint 3 this cudnn-hdl src-desc dst-desc weights-type
-  ;;                           :gru dir lrs src-iter? dst-iter? false))
   (rnn-blueprint [fact src-desc dst-desc lrs activ _ _ weights-type src-iter? dst-iter?]
     (cudnn-rnn-blueprint fact cudnn-hdl src-desc dst-desc lrs activ weights-type src-iter? dst-iter?))
-  ;; (lstm-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?]
-  ;;   (cudnn-rnn-blueprint 4 fact cudnn-hdl src-desc dst-desc lrs :lstm weights-type src-iter? dst-iter?))
-  ;; (gru-blueprint [fact src-desc dst-desc lrs weights-type src-iter? dst-iter?]
-  ;;   (cudnn-rnn-blueprint 3 fact cudnn-hdl src-desc dst-desc lrs :gru weights-type src-iter? dst-iter?))
+  (ending-blueprint [fact src-desc dst-type]
+    (cudnn-ending-blueprint fact src-desc dst-type))
   CostFactory
   (quadratic-cost [_ prev-layer train-tz]
     (cudnn-universal-cost prev-layer train-tz quadratic-cost!))

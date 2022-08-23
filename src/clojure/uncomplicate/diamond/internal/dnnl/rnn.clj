@@ -506,7 +506,7 @@
         weights-type (or weights-type (data-type src-desc) dst-type)
         weights-iter-shape [lrs dirs dst-ch gts dst-ch]
         bias-shape [lrs dirs gts dst-ch]
-        fused-weights-shape [lrs dirs (+ src-ch dst-ch) gts dst-ch]]
+        fused-weights-shape [lrs dirs (+ (long src-ch) (long dst-ch)) gts dst-ch]]
     (let-release [src-iter-desc (memory-desc src-iter-shape (data-type src-desc) :any)
                   dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
@@ -567,7 +567,7 @@
         weights-type (or weights-type (data-type src-desc) dst-type)
         weights-iter-shape [lrs dirs dst-ch gts dst-ch]
         bias-shape [lrs dirs gts dst-ch]
-        fused-weights-shape [lrs dirs (+ src-ch dst-ch) gts dst-ch]]
+        fused-weights-shape [lrs dirs (+ (long src-ch) (long dst-ch)) gts dst-ch]]
     (let-release [src-iter-desc (memory-desc src-iter-shape (data-type src-desc) :any)
                   dst-iter-desc (when dst-iter? (memory-desc dst-iter-shape dst-type :any))
                   bias-desc (memory-desc bias-shape dst-type :ldgo)]
@@ -628,16 +628,12 @@
 
 ;; ================================= Ending Layer ==============================
 
-(deftype DnnlEnding [fact strm bluep transform-forward dst-tz transform-diff
-                     subtract-prim subtract-args diff-sub src-sub target-sub]
+(deftype DnnlEnding [fact strm bluep transform-forward dst-tz transform-diff diff-sub]
   Releaseable
   (release [_]
     (release transform-forward)
     (release dst-tz)
     (release transform-diff)
-    (release subtract-prim)
-    (release target-sub)
-    (release src-sub)
     (release diff-sub))
   Object
   (hashCode [_]
@@ -648,8 +644,6 @@
            (= transform-forward (.transform-forward other))
            (= transform-diff (.transform-diff other))
            (= dst-tz (.dst-tz other))
-           (= src-sub (.src-sub other))
-           (= target-sub (.target-sub other))
            (= diff-sub (.diff-sub other)))))
   (toString [this]
     (str bluep))
@@ -692,10 +686,7 @@
   (backward [this]
     this)
   (backward [this _]
-    (when diff-sub
-      (if subtract-prim
-        (execute! strm subtract-prim subtract-args)
-        (entry! diff-sub 0.0)))
+    (when diff-sub (entry! diff-sub 0.0))
     (transform-diff)
     this)
   IFn
@@ -761,7 +752,7 @@
                     dst-tz (dnnl-tensor fact dst-desc)
                     transform-forward (dnnl-transformer eng (flow fact) src-sub dst-tz)
                     transform-diff (dnnl-transformer eng (flow fact) dst-tz src-sub)]
-        (->DnnlEnding fact (flow fact) this transform-forward dst-tz transform-diff nil nil nil nil nil))))
+        (->DnnlEnding fact (flow fact) this transform-forward dst-tz transform-diff nil))))
   (invoke [this prev-layer _ _]
     (let [src-tz (output prev-layer)
           diff-tz (diff-input prev-layer)
@@ -774,21 +765,12 @@
                     diff-sub1 (tz/offset! (view-tz diff-tz (shape dst-desc))
                                           (* (long (get (shape target-shape) 0))
                                              (long (get (strides diff-tz) 0))))
-                    diff-sub (view-tz diff-tz target-shape)
+                    diff-sub (when (pos? (long (get target-shape 0)))
+                               (view-tz diff-tz target-shape))
                     dst-tz (dnnl-tensor fact dst-desc)
                     transform-forward (dnnl-transformer eng strm src-sub1 dst-tz)
                     transform-diff (dnnl-transformer eng strm dst-tz diff-sub1)]
-        (if (= (shape input-tz) (shape diff-tz))
-          (let-release [target-sub (tz/offset! (view-tz input-tz target-shape)
-                                               (get strides src-tz 0))
-                        src-sub (view-tz src-tz target-shape)]
-            (with-release [subtract-desc (sum! eng diff-sub 1.0 src-sub -1.0 target-sub)]
-              (let-release [subtract-prim (primitive subtract-desc)
-                            subtract-args (dnnl-args multi-args diff-sub src-sub target-sub)]
-                (->DnnlEnding fact strm this transform-forward dst-tz transform-diff
-                              subtract-prim subtract-args diff-sub src-sub target-sub))))
-          (->DnnlEnding fact strm this transform-forward dst-tz transform-diff
-                        nil nil diff-sub nil nil)))))
+        (->DnnlEnding fact strm this transform-forward dst-tz transform-diff diff-sub))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
