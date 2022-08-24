@@ -1345,7 +1345,7 @@
     (if branch? (mapv output fwd-trans) data-tz))
   DiffTransfer
   (diff-input [this]
-    (if branch? (mapv output bwd-trans) data-tz))
+    (if branch? (mapv input bwd-trans) data-tz))
   (diff-output [this]
     (if branch? diff-data-tz (mapv output bwd-trans)))
   ParametersSeq
