@@ -54,3 +54,9 @@
 #_(with-release [fact (cudnn-factory)]
   (bench-wide-layers fact))
 ;; "Elapsed time: 148.475214 msecs"
+
+(with-release [fact (cudnn-factory)]
+
+  (test-network-branch-concat fact)
+  (test-network-branch-concat-simplified fact)
+  )

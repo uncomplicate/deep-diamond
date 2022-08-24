@@ -8,11 +8,12 @@
 
 (ns uncomplicate.diamond.internal.utils
   (:require [uncomplicate.commons
-             [core :refer [Wrapper Releaseable extract]]
+             [core :refer [Wrapper Releaseable with-release extract]]
              [utils :refer [dragan-says-ex with-check]]]
             [uncomplicate.fluokitten.core :refer [foldmap]]
-            [uncomplicate.neanderthal.core :refer [transfer!]]
-            [uncomplicate.diamond.internal.protocols :refer [weights bias weights-layer weights-iter]])
+            [uncomplicate.neanderthal.core :refer [transfer! axpy entry!]]
+            [uncomplicate.diamond.internal.protocols
+             :refer [weights bias weights-layer weights-iter bias-layer bias-iter]])
   (:import uncomplicate.neanderthal.internal.api.Block))
 
 (defmacro deftype-wrapper [name release-method error]
@@ -69,7 +70,15 @@ Please use a copy or create a transformer."
   destination)
 
 (defn transfer-rnn-weights-bias! [source destination]
-  (transfer! (bias source) (bias destination))
+  (if (bias-iter source)
+    (if (bias-iter destination)
+      (do (transfer! (bias-layer source) (bias-layer destination))
+          (transfer! (bias-iter source) (bias-iter destination)))
+      (with-release [bias-sum (axpy 1.0 (bias-layer source) (bias-iter source))]
+        (transfer! bias-sum (bias-layer destination))))
+    (do (transfer! (bias-layer source) (bias-layer destination))
+        (when (bias-iter destination)
+          (entry! (bias-iter destination) 0.0))))
   (transfer! (weights-layer source) (weights-layer destination))
   (transfer! (weights-iter source) (weights-iter destination))
   destination)

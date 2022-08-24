@@ -62,7 +62,9 @@
 
 (defprotocol RnnParameters
   (weights-layer [this])
-  (weights-iter [this]))
+  (weights-iter [this])
+  (bias-layer [this])
+  (bias-iter [this]))
 
 (defprotocol ParametersSeq  ;;TODO consider making parameters a map instead of a vector.
   (parameters [this]))

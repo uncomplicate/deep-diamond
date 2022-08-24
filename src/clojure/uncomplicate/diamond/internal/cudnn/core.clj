@@ -519,6 +519,10 @@
 
 ;; ======================== RNN ==============================================================
 
+(defn build-rnn-dynamic! [cudnn-handle rd ^long mini-batch]
+  (with-check (JCudnn/cudnnBuildRNNDynamic (extract cudnn-handle) (extract rd) mini-batch)
+    rd))
+
 (defn rnn-descriptor
   ([algo mode bias-mode direction-mode input-mode data-type math-prec math-type
     input-size hidden-size proj-size num-layers dropout-desc & aux-flags]

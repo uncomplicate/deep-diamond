@@ -73,7 +73,7 @@
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :gru))
-;; "Elapsed time: 68752.409428 msecs"
+;; "Elapsed time: 56580.76743 msecs"
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :lstm))
@@ -83,4 +83,6 @@
 
 (with-release [fact (cudnn-factory)]
   (test-timeseries fact :gru))
-;; "Elapsed time: 21057.697005 msecs"
+;; "Elapsed time: 21057.697005 msecs" (:standard)
+;; "Elapsed time: 57792.445161 msecs" (:static)
+;; "Elapsed time: 40416.253165 msecs" (:dynamic)

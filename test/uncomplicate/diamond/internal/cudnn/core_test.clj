@@ -422,12 +422,12 @@
                    gpu-cx (mem-alloc (size desc-h1))
                    gpu-cy (mem-alloc (size desc-h1))
 
-                   rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
-                                            :float :float :default C C C L nil :padded-io-enabled)
+                   rnn-desc (rnn-descriptor :dynamic :relu :double :unidirectional :linear
+                                            :float :float :default C C C L nil :padded-io-disabled)
                    weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
                    gpu-w (mem-alloc weights-size)
                    ;; desc-w (tensor-descriptor weights-dim :float weights-strides)
-                   host-w (float-array [0.1 0.3 0.2 0.4 100 300 200 400 0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
+                   host-w (float-array [0.1 0.3 0.2 0.4 100 300 200 400 0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 10 11 1 2 0 0])
                    rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-unpacked C (repeat N T) 0.0)
                    dev-seq-lengths (mem-alloc (* Float/BYTES N))
                    temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference)
@@ -438,28 +438,29 @@
                    weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 gpu-w 0)
                    weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 gpu-w 1)
                    gpu-y (mem-alloc (size desc-x))]
+      (build-rnn-dynamic! cudnn-hdl rnn-desc N)
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
       (memcpy-host! (float-array (repeat N T)) dev-seq-lengths)
 
       (facts "CUDA RNN basic functionality."
              (let [rd (rnn-descriptor rnn-desc)]
-               (dissoc rd :dropout) => {:algo :standard :aux-flags 1 :bias :single :data-type :float
+               (dissoc rd :dropout) => {:algo :static :aux-flags 0 :bias :double :data-type :float
                                         :direction :unidirectional :hidden-size C :input :linear
                                         :input-size C :layers L :math-prec :float :math-type :default
                                         :mode :relu :proj-size C}
                (release (:dropout rd)))
-             (rnn-weights-space-size cudnn-hdl rnn-desc) => 80
+             (rnn-weights-space-size cudnn-hdl rnn-desc) => 96
              (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference) => [16777392 0]
              (map size (take-nth 2 weight-params-0)) => [16 8]
-             (map size (take-nth 2 weight-iter-params-0)) => [16 0]
+             (map size (take-nth 2 weight-iter-params-0)) => [16 8]
              (map size (take-nth 2 weight-params-1)) => [16 8]
-             (map size (take-nth 2 weight-iter-params-1)) => [16 0]
+             (map size (take-nth 2 weight-iter-params-1)) => [16 8]
              (seq (memcpy-host! gpu-x (float-array 5))) => (map float [2.0 3.0 0.2 0.3 0.0])
-             (seq (memcpy-host! gpu-w (float-array 20)))
+             (seq (memcpy-host! gpu-w (float-array 24)))
              => (map float [0.1 0.3 0.2 0.4 100.0 300.0 200.0 400.0 ;; weights and weights-iter layer 0
                             0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 ;; weights and weights-iter layer 1
-                            0.3 0.7 1 2]) ;; bias layer 0 and 1
+                            0.3 0.7 0 0 1 2 0 0]) ;; bias layer 0 and 1
              (seq (memcpy-host! (weight-params-0 1) (float-array 5))) => (map float [0.1 0.3 0.2 0.4 0.0])
              (seq (memcpy-host! (weight-params-0 3) (float-array 3))) => (map float [0.3 0.7 0.0])
              (seq (memcpy-host! (weight-iter-params-0 1) (float-array 5))) => (map float [100.0 300.0 200.0 400.0 0.0])

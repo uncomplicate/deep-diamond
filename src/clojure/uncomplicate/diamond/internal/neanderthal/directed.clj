@@ -30,7 +30,7 @@
                                 diff-output diff-z create-tensor-desc LinearBackprop backward-diff
                                 Workspace inf-ws-size train-ws-size neanderthal-factory inf-desc
                                 train-desc diff-desc Initializable init batch-index
-                                RnnParameters weights-layer weights-iter]]
+                                RnnParameters weights-layer weights-iter bias-layer bias-iter]]
              [utils :refer [transfer-weights-bias!]]])
   (:import [clojure.lang IFn AFn]))
 
@@ -377,6 +377,10 @@
     (weights-layer op))
   (weights-iter [this]
     (weights-iter op))
+  (bias-layer [this]
+    (bias-layer op))
+  (bias-iter [this]
+    (bias-iter op))
   ParametersSeq
   (parameters [_]
     (parameters op))
@@ -461,6 +465,10 @@
     (weights-layer op))
   (weights-iter [this]
     (weights-iter op))
+  (bias-layer [this]
+    (bias-layer op))
+  (bias-iter [this]
+    (bias-iter op))
   ParametersSeq
   (parameters [_]
     (parameters op))
@@ -564,6 +572,10 @@
     (weights-layer op))
   (weights-iter [this]
     (weights-iter op))
+  (bias-layer [this]
+    (bias-layer op))
+  (bias-iter [this]
+    (bias-iter op))
   ParametersSeq
   (parameters [_]
     (parameters op))

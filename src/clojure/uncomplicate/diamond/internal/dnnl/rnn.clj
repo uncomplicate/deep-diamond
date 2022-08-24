@@ -71,14 +71,18 @@
     dst-tz)
   Parameters
   (bias [_]
-    bias-tz)
+    (dragan-says-ex "Fused bias not available in RNNInference. Please use weights-layer and weights-iter."))
   (weights [_]
     (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
   RnnParameters
   (weights-layer [this]
-    (weights-tz))
+    weights-tz)
   (weights-iter [this]
-    (weights-iter-tz))
+    weights-iter-tz)
+  (bias-layer [this]
+    bias-tz)
+  (bias-iter [this]
+    nil)
   ParametersSeq
   (parameters [_]
     (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
@@ -192,6 +196,10 @@
     (weights-tz))
   (weights-iter [this]
     (weights-iter-tz))
+  (bias-layer [this]
+    bias-tz)
+  (bias-iter [this]
+    nil)
   ParametersSeq
   (parameters [_]
     [fused-weights-tz bias-tz])
