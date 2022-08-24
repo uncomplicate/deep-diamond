@@ -67,18 +67,20 @@
 
       (facts "Adam gradient descent - learning MasterCard stock prices with RNN."
 
-             (time (train-shuffle net x-train y-train :quadratic 20 [0.001])) => (roughly 0.0 0.005)
-
+             (time (train-shuffle net x-train y-train :quadratic 50 [0.001])) => (roughly 0.0 0.005)
              (transfer! net net-infer)
              (nrm2 (axpby! 1 y-test -1.0 (infer net x-test))) => (roughly 0.0 1.0)))))
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :gru))
-;;"Elapsed time: 445.922226 msecs"
+;; "Elapsed time: 68752.409428 msecs"
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :lstm))
-;; "Elapsed time: 348.86187 msecs"
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :relu))
+
+(with-release [fact (cudnn-factory)]
+  (test-timeseries fact :gru))
+;; "Elapsed time: 21057.697005 msecs"

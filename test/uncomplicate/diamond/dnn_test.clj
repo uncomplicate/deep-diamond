@@ -1036,9 +1036,7 @@
                  input-weights (connector (desc [2 1 2 3 2] :float :ldigo) ;;TODO support just :ldigo as desc.
                                           (weights-layer (.op gru-no-iter)))
                  input-weights-iter (connector (desc [2 1 2 3 2] :float :ldigo) (weights-iter (.op gru-no-iter)))
-                 input-bias (connector (desc [2 1 3 2] :float :ldgo) (bias gru-no-iter))
-                 todo-ldigo (tensor fact [2 1 2 3 2] :float :ldigo)
-                 todo-ldgoi (tensor fact [2 1 2 3 2] :float :ldgoi)]
+                 input-bias (connector (desc [2 1 3 2] :float :ldgo) (bias gru-no-iter))]
     (facts "GRU layer training Adam."
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.111 0.112 0.121 0.122 0.131 0.132
@@ -1068,10 +1066,10 @@
     (facts "Test transfer of an ending of a time series."
            (transfer! (range) src-tz)
            (forward edg nil)
-           (shape (output edg)) => [4 2]
-           (layout (output edg)) => [2 1]
-           (seq (output edg)) => (range 16.0 24.0)
+           (take 2 (shape (output edg))) => [4 2]
+           (take 2 (layout (output edg))) => [2 1]
+           (seq (native (output edg))) => (range 16.0 24.0)
            (transfer! (range 100 200) (diff-input edg))
            (backward edg nil)
-           (seq (output edg)) => (range 100.0 108.0)
-           (seq src-tz) => (into (vec (repeat 16 0.0)) (range 100.0 108.0)))))
+           (seq (native (output edg))) => (range 100.0 108.0)
+           (seq (native src-tz)) => (into (vec (repeat 16 0.0)) (range 100.0 108.0)))))

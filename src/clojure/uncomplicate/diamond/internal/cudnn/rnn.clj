@@ -269,18 +269,18 @@
     (release iter-desc))
   Object
   (hashCode [_]
-    (-> (hash :inner-product)
-        (hash-combine src-desc) (hash-combine weights-desc)
-        (hash-combine bias-desc) (hash-combine dst-desc)
-        ;;TODO
-        ))
+    (-> (hash :rnn) (hash-combine weights-desc) (hash-combine bias-desc)))
   (equals [_ other]
     (and (instance? CUDnnRnnBlueprint other)
-         (equal-desc? src-desc (.src-desc ^CUDnnRnnBlueprint other))
-         (equal-desc? weights-desc (.weights-desc ^CUDnnRnnBlueprint other))
-         (equal-desc? dst-desc (.dst-desc ^CUDnnRnnBlueprint other))
-         ;;TODO
-         ))
+         (let [other ^CUDnnRnnBlueprint other]
+           (and (equal-desc? src-desc (.src-desc ^CUDnnRnnBlueprint other))
+                (equal-desc? fused-weights-desc (.fused-weights-desc ^CUDnnRnnBlueprint other))
+                (equal-desc? dst-desc (.dst-desc ^CUDnnRnnBlueprint other))
+                (equal-desc? ldnc-iter-desc (.ldnc-iter-desc ^CUDnnRnnBlueprint other))
+                (equal-desc? iter-desc (.iter-desc ^CUDnnRnnBlueprint other))
+                (= src-iter? (.src-iter? other))
+                (= dst-iter? (.dst-iter? other))
+                (= iter-c? (.iter-c? other))))))
   (toString [this]
     (pr-str {:src src-desc :weights weights-desc :dst dst-desc}))
   Info
@@ -419,7 +419,7 @@
         weights-offset (get default-strd 0)
         weights-stride (update default-strd 0 (partial * 2))
         bias-shape [lrs dirs gts dst-ch]
-        fused-weights-shape [lrs dirs (* 2 (long dst-ch)) gts dst-ch]
+        fused-weights-shape [lrs dirs (+ (long src-ch) (long dst-ch)) gts dst-ch]
         fused-stride (with-release [md (memory-desc fused-weights-shape :float :ldgoi)] (layout md))]
     (let-release [src-desc (desc src-desc)
                   dst-desc (desc dst-desc)
@@ -472,10 +472,10 @@
   (equals [_ other]
     (and (instance? CUDnnEnding other)
          (let [other ^CUDnnEnding other]
-           (= transform-forward (.transform-forward other))
-           (= transform-diff (.transform-diff other))
-           (= dst-tz (.dst-tz other))
-           (= diff-sub (.diff-sub other)))))
+           (and (= transform-forward (.transform-forward other))
+                (= transform-diff (.transform-diff other))
+                (= dst-tz (.dst-tz other))
+                (= diff-sub (.diff-sub other))))))
   (toString [this]
     (str bluep))
   Info
@@ -531,7 +531,7 @@
   [layer ^java.io.Writer w]
   (.write w (format "#Ending[dst:%s]" (output layer))))
 
-(deftype CUDnnEndingBlueprint [fact src-desc dst-desc]
+(deftype CUDnnEndingBlueprint [fact src-desc dst-desc sub-shape sub1-shape]
   Releaseable
   (release [_]
     (release src-desc)
@@ -581,27 +581,27 @@
                                         (* (dec (long (get (shape src-tz) 0)))
                                            (long (get (strides src-tz) 0))))
                     dst-tz (cudnn-tensor fact (view dst-desc))
-                    transform-forward (cudnn-transformer (flow fact) src-sub dst-tz)
-                    transform-diff (cudnn-transformer (flow fact) dst-tz src-sub)]
-        (->CUDnnEnding fact (flow fact) this transform-forward dst-tz transform-diff nil))))
+                    transform-forward (cudnn-transformer (handle fact) src-sub dst-tz)
+                    transform-diff (cudnn-transformer (handle fact) dst-tz src-sub)]
+        (->CUDnnEnding fact (handle fact) this transform-forward dst-tz transform-diff nil))))
   (invoke [this prev-layer _ _]
     (let [src-tz (output prev-layer)
           diff-tz (diff-input prev-layer)
-          input-tz (input prev-layer)
-          cudnn-hdl(flow fact)
-          target-shape (update (shape src-tz) 0 dec)]
-      (let-release [src-sub1 (tz/offset! (view-tz src-tz (shape dst-desc))
-                                         (* (long (get (shape target-shape) 0))
+          cudnn-hdl (handle fact)]
+      (let-release [src-sub1 (tz/offset! (view-tz src-tz sub1-shape)
+                                         (* (long (get (shape sub-shape) 0))
                                             (long (get (strides src-tz) 0))))
-                    diff-sub1 (tz/offset! (view-tz diff-tz (shape dst-desc))
-                                          (* (long (get (shape target-shape) 0))
+                    diff-sub1 (tz/offset! (view-tz diff-tz sub1-shape)
+                                          (* (long (get (shape sub-shape) 0))
                                              (long (get (strides diff-tz) 0))))
-                    diff-sub (when (pos? (long (get target-shape 0)))
-                               (view-tz diff-tz target-shape))
+                    diff-sub (when (pos? (long (get sub-shape 0)))
+                               (view-tz diff-tz sub-shape))
                     dst-tz (cudnn-tensor fact (view dst-desc))
-                    transform-forward (cudnn-transformer cudnn-hdl src-sub1 dst-tz)
-                    transform-diff (cudnn-transformer cudnn-hdl dst-tz diff-sub1)]
-        (->CUDnnEnding fact (flow fact) this transform-forward dst-tz transform-diff diff-sub))))
+                    dst-sub1 (view-tz dst-tz (tz/desc sub1-shape (data-type dst-desc)
+                                                      (default-strides sub1-shape)))
+                    transform-forward (cudnn-transformer cudnn-hdl src-sub1 dst-sub1)
+                    transform-diff (cudnn-transformer cudnn-hdl dst-sub1 diff-sub1)]
+        (->CUDnnEnding fact (handle fact) this transform-forward dst-tz transform-diff diff-sub))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
@@ -611,10 +611,13 @@
 
 (defn cudnn-ending-blueprint [fact src-desc dst-type]
   (let-release [src-desc (desc src-desc)
-                dst-shape (vec (rest (shape src-desc)))
+                src-shape (shape src-desc)
+                dst-shape (vec (rest src-shape))
+                sub-shape (update src-shape 0 dec)
+                sub1-shape (assoc src-shape 0 1)
                 dst-desc (cudnn-tensor-desc dst-shape (or dst-type (data-type src-desc))
                                             (default-strides dst-shape))]
-    (->CUDnnEndingBlueprint fact src-desc dst-desc)))
+    (->CUDnnEndingBlueprint fact src-desc dst-desc sub-shape sub1-shape)))
 
 (defmethod transfer! [CUDnnEnding Object]
   [source destination]

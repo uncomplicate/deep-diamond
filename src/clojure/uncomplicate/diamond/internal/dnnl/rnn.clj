@@ -254,9 +254,18 @@
 
 (deftype DnnlRnnBlueprint [fact fused-weights-desc weights-desc weights-iter-desc bias-desc
                            infer-pd train-pd bwd-pd]
+  Releaseable
+  (release [_]
+    (release fused-weights-desc)
+    (release weights-desc)
+    (release weights-iter-desc)
+    (release bias-desc)
+    (release infer-pd)
+    (release train-pd)
+    (release bwd-pd))
   Object
   (hashCode [_]
-    (-> (hash weights-desc) (hash-combine weights-iter-desc) (hash-combine bias-desc)))
+    (-> (hash :rnn) (hash-combine weights-desc) (hash-combine bias-desc)))
   (equals [_ other]
     (and (instance? DnnlRnnBlueprint other)
          (let [other-infer-pd (.infer-pd ^DnnlRnnBlueprint other)
@@ -280,15 +289,6 @@
              :weights (weights-md infer-pd)
              :weights-iter (arg-md infer-pd :weights-iter)
              :dst (dst-md infer-pd)}))
-  Releaseable
-  (release [_]
-    (release fused-weights-desc)
-    (release weights-desc)
-    (release weights-iter-desc)
-    (release bias-desc)
-    (release infer-pd)
-    (release train-pd)
-    (release bwd-pd))
   Info
   (info [this info-type]
     (case info-type
@@ -756,7 +756,6 @@
   (invoke [this prev-layer _ _]
     (let [src-tz (output prev-layer)
           diff-tz (diff-input prev-layer)
-          input-tz (input prev-layer)
           strm (flow fact)
           target-shape (update (shape src-tz) 0 dec)]
       (let-release [src-sub1 (tz/offset! (view-tz src-tz (shape dst-desc))

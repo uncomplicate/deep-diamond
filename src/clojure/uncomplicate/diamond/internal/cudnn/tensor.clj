@@ -471,7 +471,6 @@
       (cudnn-tensor diamond-fact false buf ofst sub-desc n-index)))
   Offset
   (offset [this new-ofst]
-    (check-contiguous this)
     (cudnn-tensor diamond-fact false buf
                   (+ ofst (long new-ofst))
                   (view cu-desc) n-index))

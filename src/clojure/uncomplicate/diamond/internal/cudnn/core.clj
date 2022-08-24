@@ -33,7 +33,13 @@
   (math-type [this]))
 
 (defn cudnn-handle [stream]
-  (wrap (cudnn-handle* (extract stream))))
+  (let [status (remove zero? [(JCudnn/cudnnOpsInferVersionCheck)
+                              (JCudnn/cudnnOpsTrainVersionCheck)
+                              (JCudnn/cudnnCnnInferVersionCheck)
+                              (JCudnn/cudnnCnnTrainVersionCheck)])]
+    (if (empty? status)
+      (wrap (cudnn-handle* (extract stream)))
+      (throw (cudnn-error (first status) "cuDNN version mismatch.")))))
 
 (defn get-cudnn-stream [handle]
   (wrap (get-cudnn-stream* (extract handle))))
