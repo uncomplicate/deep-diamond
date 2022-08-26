@@ -85,7 +85,7 @@
     nil)
   ParametersSeq
   (parameters [_]
-    (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
+    [weights-tz weights-iter-tz bias-tz])
   Initializable
   (init [this _] ;;TODO perhaps rethink universal init infrastructure
     (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-tz) 2))) weights-tz)
@@ -612,9 +612,9 @@
     (let-release [lstm-op-bluep (dnnl-lstm-op-blueprint fact eng src-desc dst-desc weights-type
                                                         :unidirectional lrs src-iter? dst-iter?)
                   nop-activ-bluep (dnnl-nop-activation-blueprint fact
-                                                        (inf-desc lstm-op-bluep)
-                                                        (train-desc lstm-op-bluep)
-                                                        (diff-desc lstm-op-bluep))]
+                                                                 (inf-desc lstm-op-bluep)
+                                                                 (train-desc lstm-op-bluep)
+                                                                 (diff-desc lstm-op-bluep))]
       (->DirectedLayerBlueprint fact :lstm lstm-op-bluep nop-activ-bluep))))
 
 ;; ================================ GRU =======================================================
@@ -634,9 +634,9 @@
                                                                  (diff-desc gru-op-bluep))]
       (->DirectedLayerBlueprint fact :gru gru-op-bluep nop-activ-bluep))))
 
-;; ================================= Ending Layer ==============================
+;; ================================= Abbreviate Layer ==============================
 
-(deftype DnnlEnding [fact strm bluep transform-forward dst-tz transform-diff diff-sub]
+(deftype DnnlAbbreviate [fact strm bluep transform-forward dst-tz transform-diff diff-sub]
   Releaseable
   (release [_]
     (release transform-forward)
@@ -645,10 +645,10 @@
     (release diff-sub))
   Object
   (hashCode [_]
-    (hash-combine (hash :ending) (shape dst-tz)))
+    (hash-combine (hash :abbreviate) (shape dst-tz)))
   (equals [_ other]
-    (and (instance? DnnlEnding other)
-         (let [other ^DnnlEnding other]
+    (and (instance? DnnlAbbreviate other)
+         (let [other ^DnnlAbbreviate other]
            (= transform-forward (.transform-forward other))
            (= transform-diff (.transform-diff other))
            (= dst-tz (.dst-tz other))
@@ -659,12 +659,12 @@
   (info [this]
     {:src (input transform-forward)
      :dst dst-tz
-     :topology :ending})
+     :topology :abbreviate})
   (info [this info-type]
     (case info-type
       :src (input transform-forward)
       :dst dst-tz
-      :topology :ending
+      :topology :abbreviate
       (info bluep info-type)))
   DiamondFactoryProvider
   (diamond-factory [_]
@@ -704,35 +704,35 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defmethod print-method DnnlEnding
+(defmethod print-method DnnlAbbreviate
   [layer ^java.io.Writer w]
-  (.write w (format "#Ending[dst:%s]" (output layer))))
+  (.write w (format "#Abbreviate[dst:%s]" (output layer))))
 
-(deftype DnnlEndingBlueprint [fact eng src-desc dst-desc]
+(deftype DnnlAbbreviateBlueprint [fact eng src-desc dst-desc]
   Releaseable
   (release [_]
     (release src-desc)
     (release dst-desc))
   Object
   (hashCode [_]
-    (-> (hash :ending)
+    (-> (hash :abbreviate)
         (hash-combine src-desc)
         (hash-combine dst-desc)))
   (equals [_ other]
-    (and (instance? DnnlEndingBlueprint other)
-         (equal-desc? src-desc (.src-desc ^DnnlEndingBlueprint other))
-         (equal-desc? dst-desc (.dst-desc ^DnnlEndingBlueprint other))))
+    (and (instance? DnnlAbbreviateBlueprint other)
+         (equal-desc? src-desc (.src-desc ^DnnlAbbreviateBlueprint other))
+         (equal-desc? dst-desc (.dst-desc ^DnnlAbbreviateBlueprint other))))
   (toString [this]
     (str {:shape (shape this)
-          :topology :ending}))
+          :topology :abbreviate}))
   Info
   (info [this]
     {:shape (shape this)
-     :topology :ending})
+     :topology :abbreviate})
   (info [this info-type]
     (case info-type
       :shape (shape this)
-      :topology :ending
+      :topology :abbreviate
       nil))
   DiamondFactoryProvider
   (diamond-factory [_]
@@ -760,7 +760,7 @@
                     dst-tz (dnnl-tensor fact dst-desc)
                     transform-forward (dnnl-transformer eng (flow fact) src-sub dst-tz)
                     transform-diff (dnnl-transformer eng (flow fact) dst-tz src-sub)]
-        (->DnnlEnding fact (flow fact) this transform-forward dst-tz transform-diff nil))))
+        (->DnnlAbbreviate fact (flow fact) this transform-forward dst-tz transform-diff nil))))
   (invoke [this prev-layer _ _]
     (let [src-tz (output prev-layer)
           diff-tz (diff-input prev-layer)
@@ -777,21 +777,21 @@
                     dst-tz (dnnl-tensor fact dst-desc)
                     transform-forward (dnnl-transformer eng strm src-sub1 dst-tz)
                     transform-diff (dnnl-transformer eng strm dst-tz diff-sub1)]
-        (->DnnlEnding fact strm this transform-forward dst-tz transform-diff diff-sub))))
+        (->DnnlAbbreviate fact strm this transform-forward dst-tz transform-diff diff-sub))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defmethod print-method DnnlEnding
+(defmethod print-method DnnlAbbreviate
   [bp ^java.io.Writer w]
   (.write w (str bp)))
 
-(defn dnnl-ending-blueprint [fact eng src-desc dst-type]
+(defn dnnl-abbreviate-blueprint [fact eng src-desc dst-type]
   (let-release [src-desc (desc src-desc)
                 dst-shape (vec (rest (shape src-desc)))
                 dst-desc (memory-desc dst-shape (or dst-type (data-type src-desc))
                                       (default-strides dst-shape))]
-    (->DnnlEndingBlueprint fact eng src-desc dst-desc)))
+    (->DnnlAbbreviateBlueprint fact eng src-desc dst-desc)))
 
-(defmethod transfer! [DnnlEnding Object]
+(defmethod transfer! [DnnlAbbreviate Object]
   [source destination]
   destination)

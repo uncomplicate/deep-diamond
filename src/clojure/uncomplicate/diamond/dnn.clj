@@ -522,14 +522,14 @@
   ([]
    (rnn [] 1 :gru nil)))
 
-(defn ending
+(defn abbreviate
   ([fact src-desc dst-type]
-   (api/ending-blueprint fact src-desc (or dst-type (data-type src-desc))))
+   (api/abbreviate-blueprint fact src-desc (or dst-type (data-type src-desc))))
   ([dst-type]
    (fn
      ([fact src-desc]
-      (ending fact src-desc dst-type))
+      (abbreviate fact src-desc dst-type))
      ([src-desc]
-      (ending *diamond-factory* src-desc dst-type))))
+      (abbreviate *diamond-factory* src-desc dst-type))))
   ([]
-   (ending nil)))
+   (abbreviate nil)))

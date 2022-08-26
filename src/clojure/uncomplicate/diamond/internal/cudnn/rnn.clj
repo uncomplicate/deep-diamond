@@ -494,9 +494,9 @@
                 nop-activ-bluep (cudnn-activ-blueprint fact (train-desc rnn-op-bluep) :identity nil)]
     (->DirectedLayerBlueprint fact :rnn rnn-op-bluep nop-activ-bluep)))
 
-;; ================================= Ending Layer ==============================
+;; ================================= Abbreviate Layer ==============================
 
-(deftype CUDnnEnding [fact cudnn-hdl bluep transform-forward dst-tz transform-diff diff-sub]
+(deftype CUDnnAbbreviate [fact cudnn-hdl bluep transform-forward dst-tz transform-diff diff-sub]
   Releaseable
   (release [_]
     (release transform-forward)
@@ -505,10 +505,10 @@
     (release diff-sub))
   Object
   (hashCode [_]
-    (hash-combine (hash :ending) (shape dst-tz)))
+    (hash-combine (hash :abbreviate) (shape dst-tz)))
   (equals [_ other]
-    (and (instance? CUDnnEnding other)
-         (let [other ^CUDnnEnding other]
+    (and (instance? CUDnnAbbreviate other)
+         (let [other ^CUDnnAbbreviate other]
            (and (= transform-forward (.transform-forward other))
                 (= transform-diff (.transform-diff other))
                 (= dst-tz (.dst-tz other))
@@ -519,12 +519,12 @@
   (info [this]
     {:src (input transform-forward)
      :dst dst-tz
-     :topology :ending})
+     :topology :abbreviate})
   (info [this info-type]
     (case info-type
       :src (input transform-forward)
       :dst dst-tz
-      :topology :ending
+      :topology :abbreviate
       (info bluep info-type)))
   DiamondFactoryProvider
   (diamond-factory [_]
@@ -564,35 +564,35 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defmethod print-method CUDnnEnding
+(defmethod print-method CUDnnAbbreviate
   [layer ^java.io.Writer w]
-  (.write w (format "#Ending[dst:%s]" (output layer))))
+  (.write w (format "#Abbreviate[dst:%s]" (output layer))))
 
-(deftype CUDnnEndingBlueprint [fact src-desc dst-desc sub-shape sub1-shape]
+(deftype CUDnnAbbreviateBlueprint [fact src-desc dst-desc sub-shape sub1-shape]
   Releaseable
   (release [_]
     (release src-desc)
     (release dst-desc))
   Object
   (hashCode [_]
-    (-> (hash :ending)
+    (-> (hash :abbreviate)
         (hash-combine src-desc)
         (hash-combine dst-desc)))
   (equals [_ other]
-    (and (instance? CUDnnEndingBlueprint other)
-         (equal-desc? src-desc (.src-desc ^CUDnnEndingBlueprint other))
-         (equal-desc? dst-desc (.dst-desc ^CUDnnEndingBlueprint other))))
+    (and (instance? CUDnnAbbreviateBlueprint other)
+         (equal-desc? src-desc (.src-desc ^CUDnnAbbreviateBlueprint other))
+         (equal-desc? dst-desc (.dst-desc ^CUDnnAbbreviateBlueprint other))))
   (toString [this]
     (str {:shape (shape this)
-          :topology :ending}))
+          :topology :abbreviate}))
   Info
   (info [this]
     {:shape (shape this)
-     :topology :ending})
+     :topology :abbreviate})
   (info [this info-type]
     (case info-type
       :shape (shape this)
-      :topology :ending
+      :topology :abbreviate
       nil))
   DiamondFactoryProvider
   (diamond-factory [_]
@@ -614,13 +614,14 @@
   IFn
   (invoke [this prev-layer]
     (let [src-tz (output prev-layer)]
-      (let-release [src-sub (tz/offset! (view-tz src-tz (shape dst-desc))
-                                        (* (dec (long (get (shape src-tz) 0)))
-                                           (long (get (strides src-tz) 0))))
+      (let-release [src-sub1 (tz/offset! (view-tz src-tz sub1-shape)
+                                         (* (long (get (shape sub-shape) 0))
+                                            (long (get (strides src-tz) 0))))
                     dst-tz (cudnn-tensor fact (view dst-desc))
-                    transform-forward (cudnn-transformer (handle fact) src-sub dst-tz)
-                    transform-diff (cudnn-transformer (handle fact) dst-tz src-sub)]
-        (->CUDnnEnding fact (handle fact) this transform-forward dst-tz transform-diff nil))))
+                    dst-sub1 (view-tz dst-tz (tz/desc sub1-shape (data-type dst-desc)
+                                                      (default-strides sub1-shape)))
+                    transform-forward (cudnn-transformer (handle fact) src-sub1 dst-sub1)]
+        (->CUDnnAbbreviate fact (handle fact) this transform-forward dst-tz nil nil))))
   (invoke [this prev-layer _ _]
     (let [src-tz (output prev-layer)
           diff-tz (diff-input prev-layer)
@@ -638,15 +639,15 @@
                                                       (default-strides sub1-shape)))
                     transform-forward (cudnn-transformer cudnn-hdl src-sub1 dst-sub1)
                     transform-diff (cudnn-transformer cudnn-hdl dst-sub1 diff-sub1)]
-        (->CUDnnEnding fact (handle fact) this transform-forward dst-tz transform-diff diff-sub))))
+        (->CUDnnAbbreviate fact (handle fact) this transform-forward dst-tz transform-diff diff-sub))))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(defmethod print-method CUDnnEnding
+(defmethod print-method CUDnnAbbreviate
   [bp ^java.io.Writer w]
   (.write w (str bp)))
 
-(defn cudnn-ending-blueprint [fact src-desc dst-type]
+(defn cudnn-abbreviate-blueprint [fact src-desc dst-type]
   (let-release [src-desc (desc src-desc)
                 src-shape (shape src-desc)
                 dst-shape (vec (rest src-shape))
@@ -654,8 +655,8 @@
                 sub1-shape (assoc src-shape 0 1)
                 dst-desc (cudnn-tensor-desc dst-shape (or dst-type (data-type src-desc))
                                             (default-strides dst-shape))]
-    (->CUDnnEndingBlueprint fact src-desc dst-desc sub-shape sub1-shape)))
+    (->CUDnnAbbreviateBlueprint fact src-desc dst-desc sub-shape sub1-shape)))
 
-(defmethod transfer! [CUDnnEnding Object]
+(defmethod transfer! [CUDnnAbbreviate Object]
   [source destination]
   destination)

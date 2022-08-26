@@ -2,21 +2,16 @@
   (:require [midje.sweet :refer [facts throws => roughly]]
             [clojure.java.io :as io]
             [clojure.data.csv :as csv]
-            [clojure.string :as string]
-            [uncomplicate.commons [core :refer [with-release let-release release]]]
+            [uncomplicate.commons.core :refer [with-release let-release release]]
             [uncomplicate.neanderthal
-             [core :refer [ge dim amax submatrix subvector mrows trans transfer transfer! view-vctr native view-ge
-                           cols mv! rk! raw col row nrm2 scal! ncols dim rows axpby!]]
-             [real :refer [entry! entry]]
-             [native :refer [fge native-float fv]]
-             [random :refer [rand-uniform!]]
-             [math :refer [pi sqrt]]
-             [vect-math :refer [linear-frac!]]]
+             [core :refer [ge dim amax submatrix subvector mrows trans transfer transfer! view-vctr
+                           native view-ge cols mv! rk! raw col row nrm2 scal! ncols dim rows axpby!]]
+             [native :refer [fge native-float fv]]]
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor offset! connector transformer
                              desc revert shape input output view-tz batcher]]
              [dnn :refer [rnn infer sum activation inner-product dense
-                          network init! train cost train train-shuffle ending]]]
+                          network init! train cost train train-shuffle abbreviate]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
@@ -59,7 +54,7 @@
                    net-bp (network fact (desc [64 32 1] :float :tnc)
                                    [(rnn [128] activ)
                                     (rnn 2)
-                                    (ending)
+                                    (abbreviate)
                                     (dense [128] :relu)
                                     (dense [1] :linear)])
                    net (init! (net-bp :adam))
@@ -69,7 +64,7 @@
 
              (time (train-shuffle net x-train y-train :quadratic 50 [0.001])) => (roughly 0.0 0.005)
              (transfer! net net-infer)
-             (nrm2 (axpby! 1 y-test -1.0 (infer net x-test))) => (roughly 0.0 1.0)))))
+             (nrm2 (axpby! 1 y-test -1.0 (infer net-infer x-test))) => (roughly 0.0 1.0)))))
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :gru))

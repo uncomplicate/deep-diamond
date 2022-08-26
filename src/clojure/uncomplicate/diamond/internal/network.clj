@@ -46,8 +46,8 @@
       (= forward-layers (seq other))
       (= other this)))
   (toString [_]
-    (format "#SequentialNetwork[inference, input:%s, layers:%d, workspace:%d]"
-            (shape x-tz) (count forward-layers) (.capacity ^java.nio.Buffer workspace)))
+    (format "#SequentialNetwork[inference, input:%s, layers:%d]"
+            (shape x-tz) (count forward-layers)))
   Info
   (info [x]
     {:topology :sequential
@@ -121,8 +121,8 @@
              (= SequentialNetworkInference (type other)))
          (= forward-layers (seq other))))
   (toString [_]
-    (format "#SequentialNetwork[train, input:%s, layers:%d, workspace:%d]"
-            (shape x-mb-tz) (count forward-layers) (.capacity ^java.nio.Buffer workspace)))
+    (format "#SequentialNetwork[train, input:%s, layers:%d]"
+            (shape x-mb-tz) (count forward-layers)))
   Info
   (info [x]
     {:topology :sequential

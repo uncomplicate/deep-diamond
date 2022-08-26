@@ -408,9 +408,9 @@
 
 (defmethod print-method InferenceLayer
   [layer ^java.io.Writer w]
-  (.write w (format "#Inference[topology%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+  (.write w (format "#Inference[topology%s, shape:%s, activation: %s]\n parameters: %s\n"
                     (info layer :topology) (info layer :shape) (info layer :activation)
-                    (pr-str (weights layer)) (pr-str (bias layer)))))
+                    (pr-str (parameters layer)))))
 
 (deftype SGDLayer [fact bluep op activ ^long n v w b]
   Releaseable
@@ -512,9 +512,9 @@
 
 (defmethod print-method SGDLayer
   [layer ^java.io.Writer w]
-  (.write w (format "#SGD[topology:%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+  (.write w (format "#SGD[topology:%s, shape:%s, activation: %s]\n parameters: %s\n"
                     (info layer :topology) (info layer :shape) (info layer :activation)
-                    (pr-str (weights layer)) (pr-str (bias layer)))))
+                    (pr-str (parameters layer)))))
 
 (deftype AdamLayer [fact bluep op activ ^long n
                     s r w g b]
@@ -630,9 +630,9 @@
 
 (defmethod print-method AdamLayer
   [layer ^java.io.Writer w]
-  (.write w (format "#Adam[topology:%s, shape:%s, activation: %s]\n..........\n weights: %s\n..........\n bias: %s"
+  (.write w (format "#Adam[topology:%s, shape:%s, activation: %s]\n parameters: %s\n"
                     (info layer :topology) (info layer :shape) (info layer :activation)
-                    (pr-str (weights layer)) (pr-str (bias layer)))))
+                    (pr-str (parameters layer)))))
 
 (deftype DirectedLayerBlueprint [fact topology op-bluep activ-bluep]
   Releaseable

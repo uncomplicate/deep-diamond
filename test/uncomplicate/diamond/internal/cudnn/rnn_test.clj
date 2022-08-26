@@ -22,4 +22,4 @@
   (test-lstm-training-no-iter fact)
   (test-lstm-training-no-iter-adam fact)
   (test-gru-training-no-iter-adam fact)
-  (test-ending fact))
+  (test-abbreviate fact))

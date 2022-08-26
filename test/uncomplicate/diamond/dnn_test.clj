@@ -1073,11 +1073,11 @@
            (seq (native (diff-output gru-no-iter)))
            => (just [(roughly -0.003 0.01) (roughly -0.006 0.01) (roughly 0.003 0.01) (roughly 0.005 0.01)]))))
 
-(defn test-ending [fact]
+(defn test-abbreviate [fact]
   (with-release [src-tz (tensor fact [3 4 2] :float :tnc)
-                 edg-blueprint (ending fact src-tz nil)
+                 edg-blueprint (abbreviate fact src-tz nil)
                  edg (edg-blueprint src-tz nil nil)]
-    (facts "Test transfer of an ending of a time series."
+    (facts "Test transfer of an abbreviation of a time series."
            (transfer! (range) src-tz)
            (forward edg nil)
            (take 2 (shape (output edg))) => [4 2]
