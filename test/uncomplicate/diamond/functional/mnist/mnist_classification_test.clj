@@ -1,4 +1,4 @@
-o(ns uncomplicate.diamond.functional.mnist.mnist-classification-test
+(ns uncomplicate.diamond.functional.mnist.mnist-classification-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons
              [core :refer [let-release Releaseable release with-release]]
