@@ -6,16 +6,15 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.26.0"
+(defproject uncomplicate/deep-diamond "0.27.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.11.1"]
-                 [uncomplicate/neanderthal "0.46.0"]
-                 [org.bytedeco/dnnl-platform "2.7.1-1.5.8"]
-                 [org.jcuda/jcudnn "11.8.0"]]
+                 [uncomplicate/neanderthal "0.48.0-SNAPSHOT"]
+                 [org.bytedeco/dnnl-platform "3.2.1-1.5.10-SNAPSHOT"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
                              [lein-codox "0.10.7"]]
@@ -27,10 +26,7 @@
                    :dependencies [[midje "1.10.9"]
                                   [org.clojure/data.csv "1.0.1"]]
 
-                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
-                                        "-XX:MaxDirectMemorySize=16g" "-XX:+UseLargePages"
-                                        "--add-opens=java.base/jdk.internal.ref=ALL-UNNAMED"
-                                        "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED"]}}
+                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}}
 
   :repositories [["snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots/"
                                :snapshots true :sign-releases false :checksum :warn :update :daily}]]
@@ -40,5 +36,4 @@
           :src-linenum-anchor-prefix "L"
           :output-path "docs/codox"}
 
-  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/device"])

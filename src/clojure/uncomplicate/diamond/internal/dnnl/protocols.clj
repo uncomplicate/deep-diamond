@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.dnnl.protocols)
 
-(defprotocol PointerCreator
+#_(defprotocol PointerCreator;;TODO replace with JavaCPP
   (pointer [this]))
 
 (defprotocol DnnlCloneable
@@ -17,9 +17,9 @@
 (defprotocol BlockedDesc
   (memory-desc* [this dims data-type]))
 
-(defprotocol Memory
-  (data [this])
-  (ptr [this]))
+(defprotocol Memory ;;TODO see which part could be replaced with JavaCPP
+  (data [this]) ;;TODO maybe support Block/buffer in tensors, or replace it with extract/pointer
+  (ptr [this])) ;;TODO remove
 
 (defprotocol DescProvider
   (desc [this]))

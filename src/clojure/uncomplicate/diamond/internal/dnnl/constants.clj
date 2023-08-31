@@ -74,44 +74,53 @@
     3 :ab
     4 :abc
     5 :abcd
-    6 :acbd
-    7 :abcde
-    8 :abcdef
-    9 :abcdefg
-    10 :abcdefgh
-    11 :abcdefghi
-    12 :abcdefghij
-    13 :abcdefghijk
-    14 :abcdefghijkl
-    15 :abdc
-    16 :abdec
-    17 :acb
-    18 :acbde
-    19 :acbdef
-    20 :acdb
-    21 :acdeb
-    22 :ba
-    23 :bac
-    24 :bacd
-    25 :bacde
-    26 :bca
-    27 :bcda
-    28 :bcdea
-    29 :cba
-    30 :cdba
-    31 :dcab
-    32 :cdeba
-    33 :decab
-    34 :defcab
-    35 :abced
-    36 :abcdfe
-    37 :abcdegf
-    38 :abcdefhg
-    39 :abcdefgih
-    40 :abcdefghji
-    41 :abcdefghikj
-    42 :abcdefghijlk
-    (if (< 28 format dnnl/dnnl_format_tag_last) :opaque
+    6 :abcde
+    7 :abcdef
+    8 :abcdefg
+    9 :abcdefgh
+    10 :abcdefghi
+    11 :abcdefghij
+    12 :abcdefghijk
+    13 :abcdefghijkl
+    14 :ba
+    15 :acb
+    16 :bac
+    17 :bca
+    18 :cab
+    19 :cba
+    20 :abdc
+    21 :acbd
+    22 :acdb
+    23 :adbc
+    24 :adcb
+    25 :bacd
+    26 :bcda
+    27 :cdab
+    28 :cdba
+    29 :dcab
+    30 :abced
+    31 :abdec
+    32 :acbde
+    33 :acdeb
+    34 :adecb
+    35 :bacde
+    36 :bcdea
+    37 :cdeab
+    38 :cdeba
+    39 :decab
+    40 :abcdfe
+    41 :abdefc
+    42 :abdfce
+    43 :acbdef
+    44 :adefcb
+    45 :defcab
+    46 :abcdegf
+    47 :abcdefhg
+    48 :abcdefgih
+    49 :abcdefghji
+    50 :abcdefghikj
+    51 :abcdefghijlk
+    (if (< 52 format dnnl/dnnl_format_tag_last) :opaque
         (dragan-says-ex "Unknown format." {:format format}))))
 
 (def ^:const dnnl-format
@@ -167,7 +176,6 @@
    :ab dnnl/dnnl_ab
    :abc dnnl/dnnl_abc
    :abcd dnnl/dnnl_abcd
-   :acbd dnnl/dnnl_acbd
    :abcde dnnl/dnnl_abcde
    :abcdef dnnl/dnnl_abcdef
    :abcdefg dnnl/dnnl_abcdefg
@@ -176,28 +184,38 @@
    :abcdefghij dnnl/dnnl_abcdefghij
    :abcdefghijk dnnl/dnnl_abcdefghijk
    :abcdefghijkl dnnl/dnnl_abcdefghijkl
-   :abdc dnnl/dnnl_abdc
-   :abdec dnnl/dnnl_abdec
-   :acb dnnl/dnnl_acb
-   :acbde dnnl/dnnl_acbde
-   :acbdef dnnl/dnnl_acbdef
-   :acdb dnnl/dnnl_acdb
-   :acdeb dnnl/dnnl_acdeb
    :ba dnnl/dnnl_ba
+   :acb dnnl/dnnl_acb
    :bac dnnl/dnnl_bac
-   :bacd dnnl/dnnl_bacd
-   :bacde dnnl/dnnl_bacde
    :bca dnnl/dnnl_bca
-   :bcda dnnl/dnnl_bcda
-   :bcdea dnnl/dnnl_bcdea
+   :cab dnnl/dnnl_cab
    :cba dnnl/dnnl_cba
+   :abdc dnnl/dnnl_abdc
+   :acbd dnnl/dnnl_acbd
+   :acdb dnnl/dnnl_acdb
+   :adbc dnnl/dnnl_adbc
+   :adcb dnnl/dnnl_adcb
+   :bacd dnnl/dnnl_bacd
+   :bcda dnnl/dnnl_bcda
+   :cdab dnnl/dnnl_cdab
    :cdba dnnl/dnnl_cdba
    :dcab dnnl/dnnl_dcab
+   :abced dnnl/dnnl_abced
+   :abdec dnnl/dnnl_abdec
+   :acbde dnnl/dnnl_acbde
+   :acdeb dnnl/dnnl_acdeb
+   :adecb dnnl/dnnl_adecb
+   :bacde dnnl/dnnl_bacde
+   :bcdea dnnl/dnnl_bcdea
+   :cdeab dnnl/dnnl_cdeab
    :cdeba dnnl/dnnl_cdeba
    :decab dnnl/dnnl_decab
-   :defcab dnnl/dnnl_defcab
-   :abced dnnl/dnnl_abced
    :abcdfe dnnl/dnnl_abcdfe
+   :abdefc dnnl/dnnl_abdefc
+   :abdfce dnnl/dnnl_abdfce
+   :acbdef dnnl/dnnl_acbdef
+   :adefcb dnnl/dnnl_adefcb
+   :defcab dnnl/dnnl_defcab
    :abcdegf dnnl/dnnl_abcdegf
    :abcdefhg dnnl/dnnl_abcdefhg
    :abcdefgih dnnl/dnnl_abcdefgih
@@ -236,7 +254,7 @@
 (def ^:const dnnl-forward-prop-kind
   {:training dnnl/dnnl_forward_training
    :inference dnnl/dnnl_forward_inference
-   :scoring dnnl/dnnl_forward_scoring})
+   :scoring dnnl/dnnl_forward_inference})
 
 (def ^:const dnnl-backward-prop-kind
   {:backward dnnl/dnnl_backward
@@ -253,12 +271,11 @@
    :sqrt dnnl/dnnl_eltwise_sqrt
    :linear dnnl/dnnl_eltwise_linear
    :identity dnnl/dnnl_eltwise_linear
-   :bounded-relu dnnl/dnnl_eltwise_bounded_relu
    :soft-relu dnnl/dnnl_eltwise_soft_relu
    :logistic dnnl/dnnl_eltwise_logistic
    :sigmoid dnnl/dnnl_eltwise_logistic
    :exp dnnl/dnnl_eltwise_exp
-   :gelu dnnl/dnnl_eltwise_gelu
+   :gelu dnnl/dnnl_eltwise_gelu_tanh
    :gelu-tanh dnnl/dnnl_eltwise_gelu_tanh
    :gelu-erf dnnl/dnnl_eltwise_gelu_erf
    :swish dnnl/dnnl_eltwise_swish
@@ -266,7 +283,6 @@
    :log dnnl/dnnl_eltwise_log
    :clip dnnl/dnnl_eltwise_clip
    :pow dnnl/dnnl_eltwise_pow
-   :logsigmoid dnnl/dnnl_eltwise_logsigmoid
    :mish dnnl/dnnl_eltwise_mish
    :clip-v2 dnnl/dnnl_eltwise_clip_v2
    :relu-dst-bwd dnnl/dnnl_eltwise_relu_use_dst_for_bwd
@@ -278,6 +294,12 @@
    :sigmoid-dst-bwd dnnl/dnnl_eltwise_logistic_use_dst_for_bwd
    :clip-v2-dst-bwd dnnl/dnnl_eltwise_clip_v2_use_dst_for_bwd
    :round dnnl/dnnl_eltwise_round})
+
+(def ^:const dnnl-softmax-alg-kind
+  {:accurate dnnl/dnnl_softmax_accurate
+   :softmax-accurate dnnl/dnnl_softmax_accurate
+   :log dnnl/dnnl_softmax_log
+   :softmax-log dnnl/dnnl_softmax_log})
 
 (defn entry-bytes ^long [data-type]
   (case data-type
@@ -302,7 +324,7 @@
 
 (def ^:const dnnl-pooling-alg-kind
   {:max dnnl/dnnl_pooling_max
-   :avg dnnl/dnnl_pooling_avg
+   :avg dnnl/dnnl_pooling_avg_exclude_padding
    :avg-padding dnnl/dnnl_pooling_avg_include_padding
    :avg-include-padding dnnl/dnnl_pooling_avg_include_padding
    :avg-exclude-padding dnnl/dnnl_pooling_avg_exclude_padding})
@@ -310,10 +332,10 @@
 (def ^:const dnnl-normalization-flags
   {:none dnnl/dnnl_normalization_flags_none
    :global-stats dnnl/dnnl_use_global_stats
-   :scaleshift dnnl/dnnl_use_scaleshift
    :scale dnnl/dnnl_use_scale
    :shift dnnl/dnnl_use_shift
-   :fuse-relu dnnl/dnnl_fuse_norm_relu})
+   :fuse-relu dnnl/dnnl_fuse_norm_relu
+   :fuse-add-relu dnnl/dnnl_fuse_norm_add_relu})
 
 (def ^:const dnnl-binary-alg-kind
   {:add dnnl/dnnl_binary_add
@@ -347,8 +369,6 @@
 (def ^:const dnnl-format-kind
   {:any dnnl/dnnl_format_kind_any
    :blocked dnnl/dnnl_blocked
-   :wino dnnl/dnnl_format_kind_wino
-   :rnn-packed dnnl/dnnl_format_kind_rnn_packed
    :undef dnnl/dnnl_format_kind_undef})
 
 (def ^:const dnnl-reduction-alg-kind
@@ -365,13 +385,12 @@
 (def ^:const dnnl-direction
   {:left2right dnnl/dnnl_unidirectional_left2right
    :right2left dnnl/dnnl_unidirectional_right2left
-   :unidirectional dnnl/dnnl_unidirectional
+   :unidirectional dnnl/dnnl_unidirectional_left2right
    :bidirectional-concat dnnl/dnnl_bidirectional_concat
    :bidirectional-sum dnnl/dnnl_bidirectional_sum})
 
-(def ^:const dnnl-query
+#_(def ^:const dnnl-query TODO remove this (replaced by DNNL 3.1)
   {:batch-normalization dnnl/dnnl_query_batch_normalization_d
-   :binary dnnl/dnnl_query_binary_d
    :convolution dnnl/dnnl_query_convolution_d
    :deconvolution dnnl/dnnl_query_deconvolution_d
    :diff-dst-md dnnl/dnnl_query_diff_dst_md
@@ -415,6 +434,66 @@
    :weights-md dnnl/dnnl_query_weights_md
    :workspace-md dnnl/dnnl_query_workspace_md})
 
+(def ^:const dnnl-query
+  {:undef                  dnnl/dnnl_query_undef
+   :engine                 dnnl/dnnl_query_engine
+   :primitive-kind         dnnl/dnnl_query_primitive_kind
+   :num-of-inputs-s32      dnnl/dnnl_query_num_of_inputs_s32
+   :num-of-outputs-s32     dnnl/dnnl_query_num_of_outputs_s32
+   :time-estimate-f64      dnnl/dnnl_query_time_estimate_f64
+   :memory-consumption-s64 dnnl/dnnl_query_memory_consumption_s64
+   :scratchpad-engine      dnnl/dnnl_query_scratchpad_engine
+   :reorder-src-engine     dnnl/dnnl_query_reorder_src_engine
+   :reorder-dst-engine     dnnl/dnnl_query_reorder_dst_engine
+   :impl-info-str          dnnl/dnnl_query_impl_info_str
+   :prop-kind              dnnl/dnnl_query_prop_kind
+   :cache-blob-id-size-s64 dnnl/dnnl_query_cache_blob_id_size_s64
+   :cache-blob-id          dnnl/dnnl_query_cache_blob_id
+   :strides                dnnl/dnnl_query_strides
+   :dilations              dnnl/dnnl_query_dilations
+   :padding-l              dnnl/dnnl_query_padding_l
+   :padding-r              dnnl/dnnl_query_padding_r
+   :epsilon-f32            dnnl/dnnl_query_epsilon_f32
+   :flags                  dnnl/dnnl_query_flags
+   :alg-kind               dnnl/dnnl_query_alg_kind
+   :alpha-f32              dnnl/dnnl_query_alpha_f32
+   :beta-f32               dnnl/dnnl_query_beta_f32
+   :axis-s32               dnnl/dnnl_query_axis_s32
+   :local-size-s64         dnnl/dnnl_query_local_size_s64
+   :k-f32                  dnnl/dnnl_query_k_f32
+   :p-f32                  dnnl/dnnl_query_p_f32
+   :factors                dnnl/dnnl_query_factors
+   :cell-kind              dnnl/dnnl_query_cell_kind
+   :direction              dnnl/dnnl_query_direction
+   :activation-kind        dnnl/dnnl_query_activation_kind
+   :kernel                 dnnl/dnnl_query_kernel
+   :group-size-s64         dnnl/dnnl_query_group_size_s64
+   :src-md                 dnnl/dnnl_query_src_md
+   :diff-src-md            dnnl/dnnl_query_diff_src_md
+   :weights-md             dnnl/dnnl_query_weights_md
+   :diff-weights-md        dnnl/dnnl_query_diff_weights_md
+   :dst-md                 dnnl/dnnl_query_dst_md
+   :diff-dst-md            dnnl/dnnl_query_diff_dst_md
+   :workspace-md           dnnl/dnnl_query_workspace_md
+   :scratchpad-md          dnnl/dnnl_query_scratchpad_md
+   :exec-arg-md            dnnl/dnnl_query_exec_arg_md})
+
+(def ^:const dnnl-query-memory
+  {:undef                  dnnl/dnnl_query_undef
+   :ndims  dnnl/dnnl_query_ndims_s32
+   :ndims-s32  dnnl/dnnl_query_ndims_s32
+   :dims                   dnnl/dnnl_query_dims
+   :data-type              dnnl/dnnl_query_data_type
+   :submemory-offset   dnnl/dnnl_query_submemory_offset_s64
+   :submemory-offset-s64   dnnl/dnnl_query_submemory_offset_s64
+   :padded-dims            dnnl/dnnl_query_padded_dims
+   :padded-offsets         dnnl/dnnl_query_padded_offsets
+   :format-kind            dnnl/dnnl_query_format_kind
+   :inner-nblks        dnnl/dnnl_query_inner_nblks_s32
+   :inner-nblks-s32        dnnl/dnnl_query_inner_nblks_s32
+   :inner-blks             dnnl/dnnl_query_inner_blks
+   :inner-idxs             dnnl/dnnl_query_inner_idxs})
+
 (def ^:const dnnl-arg
   {:src dnnl/DNNL_ARG_SRC
    :src-0 dnnl/DNNL_ARG_SRC_0
@@ -444,7 +523,7 @@
    :diff-dst-iter-c dnnl/DNNL_ARG_DIFF_DST_ITER_C
    :diff-dst-layer dnnl/DNNL_ARG_DIFF_DST_LAYER
    :diff-scale dnnl/DNNL_ARG_DIFF_SCALE
-   :diff-scale-shift dnnl/DNNL_ARG_DIFF_SCALE_SHIFT
+   ;;:diff-scale-shift dnnl/DNNL_ARG_DIFF_SCALE_SHIFT
    :diff-shift dnnl/DNNL_ARG_DIFF_SHIFT
    :diff-src dnnl/DNNL_ARG_DIFF_SRC
    :diff-src-0 dnnl/DNNL_ARG_DIFF_SRC_0
@@ -467,7 +546,7 @@
    :multiple-dst dnnl/DNNL_ARG_MULTIPLE_DST
    :multiple-src dnnl/DNNL_ARG_MULTIPLE_SRC
    :scale dnnl/DNNL_ARG_SCALE
-   :scale-shift dnnl/DNNL_ARG_SCALE_SHIFT
+   ;;:scale-shift dnnl/DNNL_ARG_SCALE_SHIFT
    :scratchpad dnnl/DNNL_ARG_SCRATCHPAD
    :shift dnnl/DNNL_ARG_SHIFT
    :to dnnl/DNNL_ARG_TO
