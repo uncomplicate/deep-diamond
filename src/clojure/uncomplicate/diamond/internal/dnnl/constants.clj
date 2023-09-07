@@ -523,7 +523,6 @@
    :diff-dst-iter-c dnnl/DNNL_ARG_DIFF_DST_ITER_C
    :diff-dst-layer dnnl/DNNL_ARG_DIFF_DST_LAYER
    :diff-scale dnnl/DNNL_ARG_DIFF_SCALE
-   ;;:diff-scale-shift dnnl/DNNL_ARG_DIFF_SCALE_SHIFT
    :diff-shift dnnl/DNNL_ARG_DIFF_SHIFT
    :diff-src dnnl/DNNL_ARG_DIFF_SRC
    :diff-src-0 dnnl/DNNL_ARG_DIFF_SRC_0
@@ -546,9 +545,8 @@
    :multiple-dst dnnl/DNNL_ARG_MULTIPLE_DST
    :multiple-src dnnl/DNNL_ARG_MULTIPLE_SRC
    :scale dnnl/DNNL_ARG_SCALE
-   ;;:scale-shift dnnl/DNNL_ARG_SCALE_SHIFT
-   :scratchpad dnnl/DNNL_ARG_SCRATCHPAD
    :shift dnnl/DNNL_ARG_SHIFT
+   :scratchpad dnnl/DNNL_ARG_SCRATCHPAD
    :to dnnl/DNNL_ARG_TO
    :variance dnnl/DNNL_ARG_VARIANCE
    :weights dnnl/DNNL_ARG_WEIGHTS

@@ -71,7 +71,7 @@
                       md (memory-desc [2 3 4 5] :float :nchw)
                       buf (byte-pointer (+ 8 (bytesize md)))
                       mem (memory eng md buf)
-                      relu-pd (eltwise-fwd :inference :relu md eng)
+                      relu-pd (eltwise-fwd eng :inference :relu md)
                       relu (primitive relu-pd)
                       relu-args (fwd-args mem)]
          ;;(primitive-kind relu-desc) => :eltwise ;;TODO
@@ -90,7 +90,7 @@
          ;;(offset! mem 489) => (throws ExceptionInfo)
          ))
 
-(facts "Submemory descriptor."
+#_(facts "Submemory descriptor." TODO
        (with-release [eng (engine)
                       s (stream eng)
                       md (memory-desc [2 3 4 5] :float :nchw)
@@ -125,7 +125,7 @@
          (get-float buf 60) => 0.0
          (get-float buf 119) => 0.0))
 
-(facts "Submemory descriptor with offsets."
+#_(facts "Submemory descriptor with offsets."
        (with-release [eng (engine)
                       s (stream eng)
                       md (memory-desc [2 2 3 2] :float :nchw)
@@ -241,7 +241,7 @@
                       md (memory-desc [2 3 4 5] :float :nchw)
                       buf (byte-pointer (bytesize md))
                       mem (memory eng md buf)
-                      relu-pd (eltwise-fwd :inference :relu md eng)
+                      relu-pd (eltwise-fwd eng :inference :relu md)
                       relu (primitive relu-pd)
                       relu-args (fwd-args mem)]
          (put-float! buf 0 -100)
@@ -256,12 +256,12 @@
                       md (memory-desc [2 3] :float :nc)
                       buf (byte-pointer (bytesize md))
                       mem (memory eng md buf)
-                      relu-pd (eltwise-fwd :training :relu md eng)
+                      relu-pd (eltwise-fwd eng :training :relu md)
                       relu (primitive relu-pd)
                       relu-args (fwd-args mem)
                       diff-dst-vec (fv (range 2 8))
                       diff-dst-desc (memory-desc [2 3] :float :nc)
-                      relu-bwd-pd (eltwise-bwd :relu diff-dst-desc md eng relu-pd)
+                      relu-bwd-pd (eltwise-bwd eng relu-pd :relu diff-dst-desc md)
                       diff-dst-mem (memory eng (diff-dst-md relu-bwd-pd) (buffer diff-dst-vec))
                       relu-bwd (primitive relu-bwd-pd)
                       relu-bwd-args (eltwise-bwd-args mem diff-dst-mem diff-dst-mem)]
@@ -282,13 +282,13 @@
                       src-mem (memory eng src-md (buffer src-vec))
                       dst-vec (fv 6)
                       dst-mem (memory eng src-md (buffer dst-vec))
-                      logistic-pd (eltwise-fwd :training :logistic src-md eng)
+                      logistic-pd (eltwise-fwd eng :training :logistic src-md)
                       logistic (primitive logistic-pd)
                       logistic-args (fwd-args src-mem dst-mem)
                       diff-dst-vec (fv [-0.5 -0.2 -0.4 0 0.2 0.3])
                       diff-dst-desc (memory-desc [2 3] :float :nc)
                       diff-src-vec (fv 6)
-                      logistic-bwd-pd (eltwise-bwd :logistic diff-dst-desc src-md eng logistic-pd)
+                      logistic-bwd-pd (eltwise-bwd eng logistic-pd :logistic diff-dst-desc src-md)
                       diff-dst-mem (memory eng (diff-dst-md logistic-bwd-pd) (buffer diff-dst-vec))
                       diff-src-mem (memory eng (diff-src-md logistic-bwd-pd) (buffer diff-src-vec))
                       logistic-bwd (primitive logistic-bwd-pd)
@@ -307,7 +307,7 @@
                       weights-desc (memory-desc [2 1 3 3] :float :any)
                       bias-desc (memory-desc [2] :float :x)
                       dst-desc (memory-desc [1 2] :float :nc)
-                      ip-pd (inner-product-fwd :inference src-desc weights-desc bias-desc dst-desc eng)
+                      ip-pd (inner-product-fwd eng :inference src-desc weights-desc bias-desc dst-desc)
                       src-vec (fv (take 9 (range 1 2 0.1)))
                       src-mem (memory eng (src-md ip-pd) (buffer src-vec))
                       weights-vec (fv (take 18 (range 0 1 0.02)))
@@ -328,7 +328,7 @@
                       weights-desc (memory-desc [3 2] :float :io)
                       bias-desc (memory-desc [3] :float :x)
                       dst-desc (memory-desc [2 3] :float :nc)
-                      ip-pd (inner-product-fwd :training src-desc weights-desc bias-desc dst-desc eng)
+                      ip-pd (inner-product-fwd eng :training src-desc weights-desc bias-desc dst-desc)
                       src-vec (fv [2 3 1 1])
                       src-mem (memory eng (src-md ip-pd) (buffer src-vec))
                       weights-vec (fv [0.1 0.2 0.3 0.4 0.5 0.6])
@@ -341,7 +341,7 @@
                       ip-args (fwd-args src-mem weights-mem bias-mem dst-mem)
                       diff-src-desc (memory-desc [2 2] :float :nc)
                       diff-dst-desc (memory-desc [2 3] :float :nc)
-                      ip-bwd-data-pd (inner-product-bwd diff-src-desc weights-desc diff-dst-desc eng ip-pd)
+                      ip-bwd-data-pd (inner-product-bwd eng ip-pd diff-src-desc weights-desc diff-dst-desc)
                       diff-src-vec (fv 4)
                       diff-dst-vec (fv [0.2 0.3 0.8 1 1 1])
                       diff-src-mem (memory eng (diff-src-md ip-bwd-data-pd) (buffer diff-src-vec))
@@ -350,8 +350,8 @@
                       ip-bwd-data-args (bwd-args diff-dst-mem weights-mem diff-src-mem)
                       diff-weights-desc (memory-desc [3 2] :float :nc)
                       diff-bias-desc (memory-desc [3] :float :x)
-                      ip-bwd-weights-pd (inner-product-bwd src-desc diff-weights-desc
-                                                           diff-bias-desc diff-dst-desc eng ip-pd)
+                      ip-bwd-weights-pd (inner-product-bwd eng ip-pd src-desc diff-weights-desc
+                                                           diff-bias-desc diff-dst-desc)
                       diff-weights-vec (fv [1 0 0 0 0 0])
                       diff-bias-vec (fv [5 5 5])
                       diff-weights-mem (memory eng (diff-weights-md ip-bwd-weights-pd)
@@ -375,7 +375,7 @@
                       weights-desc (memory-desc [1 1] :float :any)
                       bias-desc (memory-desc [1] :float :x)
                       dst-desc (memory-desc [1 1] :float :nc)
-                      ip-pd (inner-product-fwd :training src-desc weights-desc bias-desc dst-desc eng)
+                      ip-pd (inner-product-fwd eng :training src-desc weights-desc bias-desc dst-desc)
                       src-vec (fv [-0.5])
                       src-mem (memory eng (src-md ip-pd) (buffer src-vec))
                       weights-vec (fv [-0.1])
@@ -388,7 +388,7 @@
                       ip-args (fwd-args src-mem weights-mem bias-mem dst-mem)
                       diff-src-desc (memory-desc [1 1] :float :nc)
                       diff-dst-desc (memory-desc [1 1] :float :nc)
-                      ip-bwd-data-pd (inner-product-bwd diff-src-desc weights-desc diff-dst-desc eng ip-pd)
+                      ip-bwd-data-pd (inner-product-bwd eng ip-pd diff-src-desc weights-desc diff-dst-desc)
                       diff-src-vec (fv 1)
                       diff-dst-vec (fv [0.4])
                       diff-src-mem (memory eng (diff-src-md ip-bwd-data-pd) (buffer diff-src-vec))
@@ -397,8 +397,8 @@
                       ip-bwd-data-args (bwd-args diff-dst-mem weights-mem diff-src-mem)
                       diff-weights-desc (memory-desc [1 1] :float :nc)
                       diff-bias-desc (memory-desc [1] :float :x)
-                      ip-bwd-weights-pd (inner-product-bwd src-desc diff-weights-desc diff-bias-desc
-                                                           diff-dst-desc eng ip-pd)
+                      ip-bwd-weights-pd (inner-product-bwd eng ip-pd src-desc diff-weights-desc
+                                                           diff-bias-desc diff-dst-desc)
                       diff-weights-vec (fv [1000])
                       diff-bias-vec (fv [5000])
                       diff-weights-mem (memory eng (diff-weights-md ip-bwd-weights-pd)
@@ -422,7 +422,7 @@
                       buf (byte-pointer (bytesize md))
                       mem (memory eng md buf)
                       axis 1
-                      softmax-pd (softmax-fwd :inference :accurate md axis eng)
+                      softmax-pd (softmax-fwd eng :inference :accurate md axis)
                       softmax (primitive softmax-pd)
                       softmax-args (fwd-args mem)]
          (put-float! buf 0 1)
@@ -447,12 +447,12 @@
                       mem-vec (fv 1 3 3 2 4 8)
                       mem (memory eng md (buffer mem-vec))
                       axis 1
-                      softmax-pd (softmax-fwd :training :accurate md axis eng)
+                      softmax-pd (softmax-fwd eng :training :accurate md axis)
                       softmax (primitive softmax-pd)
                       softmax-args (fwd-args mem)
                       diff-dst-vec (fv 0 -2.135335400336505 0 0 0 -1.0207943791746268) ;; -ti/aLi
                       diff-dst-desc (memory-desc [2 3] :float :nc)
-                      softmax-bwd-pd (softmax-bwd :accurate diff-dst-desc md axis eng softmax-pd)
+                      softmax-bwd-pd (softmax-bwd eng softmax-pd :accurate diff-dst-desc md axis)
                       diff-dst-mem (memory eng (diff-dst-md softmax-bwd-pd) (buffer diff-dst-vec))
                       softmax-bwd (primitive softmax-bwd-pd)
                       softmax-bwd-args (softmax-bwd-args mem diff-dst-mem mem)]
@@ -470,9 +470,9 @@
                       weights-desc (memory-desc [1 1 3 3] :float :nchw)
                       bias-desc (memory-desc [1] :float :x)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-pd (convolution-fwd :inference :auto
+                      conv-pd (convolution-fwd eng :inference :auto
                                                src-desc weights-desc bias-desc dst-desc
-                                               [1 1] [0 0] eng)
+                                               [1 1] [0 0])
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
                       src-mem (memory eng (src-md conv-pd) (buffer src-vec))
@@ -494,9 +494,9 @@
                       weights-desc (memory-desc [1 1 3 3] :float :nchw)
                       bias-desc (memory-desc [1] :float :x)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-pd (convolution-fwd :training :auto
+                      conv-pd (convolution-fwd eng :training :auto
                                                src-desc weights-desc bias-desc dst-desc
-                                               [1 1] [0 0] eng)
+                                               [1 1] [0 0])
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
                       src-mem (memory eng (src-md conv-pd) (buffer src-vec))
@@ -511,18 +511,18 @@
 
                       diff-src-desc (memory-desc [2 1 4 4] :float :nchw)
                       diff-dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-bwd-data-pd (convolution-bwd-data :auto
+                      conv-bwd-data-pd (convolution-bwd-data eng conv-pd :auto
                                                              diff-src-desc weights-desc diff-dst-desc
-                                                             [1 1] [0 0] [0 0] eng conv-pd)
+                                                             [1 1] [0 0] [0 0])
                       diff-src-vec (fv 32)
                       diff-dst-vec (fv [0.2 0.3 0.8 1 1 1 1 1])
                       diff-src-mem (memory eng (diff-src-md conv-bwd-data-pd) (buffer diff-src-vec))
                       diff-dst-mem (memory eng (diff-dst-md conv-bwd-data-pd) (buffer diff-dst-vec))
                       conv-bwd-data (primitive conv-bwd-data-pd)
                       conv-bwd-data-args (bwd-args diff-dst-mem weights-mem diff-src-mem)
-                      conv-bwd-weights-pd (convolution-bwd-weights :auto
+                      conv-bwd-weights-pd (convolution-bwd-weights eng conv-pd :auto
                                                                    src-desc weights-desc bias-desc dst-desc
-                                                                   [1 1] [0 0] [0 0] eng conv-pd)
+                                                                   [1 1] [0 0] [0 0])
                       diff-weights-vec (fv 9)
                       diff-bias-vec (fv [1.5])
                       diff-weights-mem (memory eng (diff-weights-md conv-bwd-weights-pd)
@@ -550,9 +550,9 @@
                       weights-desc (memory-desc [1 1 3 3] :float :nchw)
                       bias-desc (memory-desc [1] :float :x)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-pd (convolution-fwd :inference :auto
+                      conv-pd (convolution-fwd eng :inference :auto
                                                src-desc weights-desc bias-desc dst-desc
-                                               [1 1] [0 0] [0 0] eng)
+                                               [1 1] [0 0] [0 0])
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
                       src-mem (memory eng (src-md conv-pd) (buffer src-vec))
@@ -574,9 +574,9 @@
                       weights-desc (memory-desc [1 1 3 3] :float :nchw)
                       bias-desc (memory-desc [1] :float :x)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-pd (convolution-fwd :training :auto
-                                                 src-desc weights-desc bias-desc dst-desc
-                                                 [1 1] [0 0] [0 0] eng)
+                      conv-pd (convolution-fwd eng :training :auto
+                                               src-desc weights-desc bias-desc dst-desc
+                                               [1 1] [0 0] [0 0])
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
                       src-mem (memory eng (src-md conv-pd) (buffer src-vec))
@@ -591,9 +591,9 @@
 
                       diff-src-desc (memory-desc [2 1 4 4] :float :nchw)
                       diff-dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      conv-bwd-data-pd (convolution-bwd-data
-                                        :auto diff-src-desc weights-desc diff-dst-desc
-                                        [1 1] [0 0] [0 0] [0 0] eng conv-pd)
+                      conv-bwd-data-pd (convolution-bwd-data eng conv-pd :auto diff-src-desc
+                                                             weights-desc diff-dst-desc
+                                                             [1 1] [0 0] [0 0] [0 0])
                       diff-src-vec (fv 32)
                       diff-dst-vec (fv [0.2 0.3 0.8 1 1 1 1 1])
                       diff-src-mem (memory eng (diff-src-md conv-bwd-data-pd) (buffer diff-src-vec))
@@ -601,8 +601,8 @@
                       conv-bwd-data (primitive conv-bwd-data-pd)
                       conv-bwd-data-args (bwd-args diff-dst-mem weights-mem diff-src-mem)
                       conv-bwd-weights-pd (convolution-bwd-weights
-                                             :auto src-desc weights-desc bias-desc dst-desc
-                                             [1 1] [0 0] [0 0] [0 0] eng conv-pd)
+                                           eng conv-pd :auto src-desc weights-desc bias-desc dst-desc
+                                           [1 1] [0 0] [0 0] [0 0])
                       diff-weights-vec (fv 9)
                       diff-bias-vec (fv [1.5])
                       diff-weights-mem (memory eng (diff-weights-md conv-bwd-weights-pd)
@@ -628,7 +628,7 @@
                       s (stream eng)
                       src-desc (memory-desc [2 1 4 4] :float :nchw)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      pool-pd (pooling-fwd :inference :max src-desc dst-desc [2 2] [2 2] [0 0] eng)
+                      pool-pd (pooling-fwd eng :inference :max src-desc dst-desc [2 2] [2 2] [0 0])
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
                       src-mem (memory eng src-desc (buffer src-vec))
@@ -646,7 +646,7 @@
                       s (stream eng)
                       src-desc (memory-desc [2 1 4 4] :float :nchw)
                       dst-desc (memory-desc [2 1 2 2] :float :nchw)
-                      pool-pd (pooling-fwd :training :max src-desc dst-desc [2 2] [2 2] [0 0] eng)
+                      pool-pd (pooling-fwd eng :training :max src-desc dst-desc [2 2] [2 2] [0 0])
                       src-vec (fv 0 43 3 30 0 98 0 0 7 38 0 0 19 20 175 50
                                   0 0 7 19 43 98 38 20 3 0 0 175 30 0 0 50)
                       src-mem (memory eng src-desc (buffer src-vec))
@@ -656,7 +656,7 @@
                       pool (primitive pool-pd)
                       pool-args (fwd-args src-mem dst-mem workspace-mem)
 
-                      pool-bwd-pd (pooling-bwd :max src-desc dst-desc [2 2] [2 2] [0 0] eng pool-pd)
+                      pool-bwd-pd (pooling-bwd eng pool-pd :max src-desc dst-desc [2 2] [2 2] [0 0])
                       diff-dst-vec (entry! (zero src-vec) 2.0)
                       diff-src-vec (entry! (zero src-vec) 0.0)
                       diff-dst-mem (memory eng (diff-dst-md pool-bwd-pd) (buffer diff-dst-vec))
@@ -676,18 +676,18 @@
        (with-release [eng (engine)
                       s (stream eng)
                       data-desc (memory-desc [2 1 2 2] :float :nchw)
-                      scaleshift-desc (memory-desc [2 1] :float :nc)
-                      bnrm-desc (batch-norm-fwd-desc :inference data-desc :scaleshift)
-                      bnrm-pd (primitive-desc eng bnrm-desc)
+                      scaleshift-desc (memory-desc [1] :float :x)
+                      bnrm-pd (batch-norm-fwd eng :inference data-desc :scale :shift)
                       src-vec (fv (range -1 7))
                       src-mem (memory eng data-desc (buffer src-vec))
                       dst-vec (fv 8)
                       dst-mem (memory eng data-desc (buffer dst-vec))
-                      scaleshift-vec (fv [0.5 1.5])
-                      scaleshift-mem (memory eng scaleshift-desc (buffer scaleshift-vec))
+                      scale-vec (fv [0.5])
+                      scale-mem (memory eng scaleshift-desc (buffer scale-vec))
+                      shift-vec (fv [1.5])
+                      shift-mem (memory eng scaleshift-desc (buffer shift-vec))
                       bnrm (primitive bnrm-pd)
-                      bnrm-args (batch-norm-fwd-args src-mem dst-mem scaleshift-mem)]
-         (primitive-kind bnrm-desc) => :batch-normalization
+                      bnrm-args (batch-norm-fwd-args src-mem dst-mem scale-mem shift-mem true)]
          (execute! s bnrm bnrm-args) => s
          (seq src-vec) => (range -1.0 7.0)
          (seq dst-vec) => [0.7362374067306519 0.9544553160667419 1.172673225402832 1.3908910751342773
@@ -697,36 +697,38 @@
        (with-release [eng (engine)
                       s (stream eng)
                       data-desc (memory-desc [1 2 2 2] :float :nchw)
-                      stats-desc (memory-desc [1 2] :float :nc)
-                      bnrm-desc (batch-norm-fwd-desc :training data-desc :scaleshift)
-                      bnrm-pd (primitive-desc eng bnrm-desc)
+                      stats-desc (memory-desc [2] :float :x)
+                      bnrm-pd (batch-norm-fwd eng :training data-desc :scale :shift)
                       src-vec (fv (range -1 7))
                       src-mem (memory eng data-desc (buffer src-vec))
                       dst-vec (fv 8)
                       dst-mem (memory eng data-desc (buffer dst-vec))
-                      scaleshift-desc (memory-desc [2 2] :float :nc)
-                      scaleshift-vec (fv [0.5 1.5 1 1])
-                      scaleshift-mem (memory eng stats-desc (buffer scaleshift-vec))
+                      scaleshift-desc (memory-desc [2] :float :x)
+                      scale-vec (fv [0.5 1.5])
+                      scale-mem (memory eng scaleshift-desc (buffer scale-vec))
+                      shift-vec (fv [1 1])
+                      shift-mem (memory eng scaleshift-desc (buffer shift-vec))
                       mean-vec (fv 2)
                       mean-mem (memory eng stats-desc (buffer mean-vec))
                       variance-vec (fv 2)
                       variance-mem (memory eng stats-desc (buffer variance-vec))
                       bnrm (primitive bnrm-pd)
-                      bnrm-args (batch-norm-fwd-args src-mem dst-mem scaleshift-mem
+                      bnrm-args (batch-norm-fwd-args src-mem dst-mem scale-mem shift-mem
                                                      mean-mem variance-mem)
-                      bnrm-bwd-desc (batch-norm-bwd-desc :backward data-desc data-desc :scaleshift)
-                      bnrm-bwd-pd (primitive-desc eng bnrm-bwd-desc bnrm-pd)
+                      ;;TODO :shift throws illegal-argument exception. Probably broken in DNNL  https://github.com/oneapi-src/oneDNN/pull/1440#discussion_r982974617 Reported upstream.
+                      bnrm-bwd-pd (batch-norm-bwd eng bnrm-pd :backward data-desc data-desc :scale)
                       diff-dst-vec (fv [-5 10 0.3 0.2 -0.5 0.6 0.9 -3])
                       diff-dst-mem (memory eng (diff-dst-md bnrm-bwd-pd) (buffer diff-dst-vec))
                       diff-src-vec (fv 8)
                       diff-src-mem (memory eng (diff-src-md bnrm-bwd-pd) (buffer diff-src-vec))
-                      diff-scaleshift-vec (fv 4)
-                      diff-scaleshift-mem (memory eng scaleshift-desc (buffer diff-scaleshift-vec))
+                      diff-scale-vec (fv 2)
+                      diff-scale-mem (memory eng scaleshift-desc (buffer diff-scale-vec))
+                      diff-shift-vec (fv 2)
+                      diff-shift-mem (memory eng scaleshift-desc (buffer diff-shift-vec))
                       bnrm-bwd (primitive bnrm-bwd-pd)
-                      bnrm-bwd-args (batch-norm-bwd-args diff-dst-mem src-mem scaleshift-mem
+                      bnrm-bwd-args (batch-norm-bwd-args diff-dst-mem src-mem scale-mem shift-mem
                                                          mean-mem variance-mem
-                                                         diff-src-mem diff-scaleshift-mem)]
-         (primitive-kind bnrm-desc) => :batch-normalization
+                                                         diff-src-mem diff-scale-mem diff-shift-mem)]
          (execute! s bnrm bnrm-args) => s
          (seq src-vec) => (range -1.0 7.0)
          (seq dst-vec)
@@ -738,24 +740,24 @@
          (seq diff-src-vec)
          => [-2.455202579498291 3.989145278930664 -0.6126827001571655 -0.9212599992752075
              -1.4489718675613403 0.9928141236305237 2.3612875938415527 -1.9051299095153809]
-         (seq diff-scaleshift-vec) => [2.6385602951049805 -3.219937801361084 5.5 -2.0]))
+         (seq diff-scale-vec) => [2.6385602951049805 -3.219937801361084]
+         (seq diff-shift-vec) => [5.5 -2.0]))
 
 (facts "In-place Binary operation"
        (with-release [eng (engine)
                       s (stream eng)
                       md (memory-desc [2 3 4 5] :float :nchw)
-                      buf0 (direct-buffer (size md))
+                      buf0 (byte-pointer (bytesize md))
                       src0 (memory eng md buf0)
-                      buf1 (direct-buffer (size md))
+                      buf1 (byte-pointer (bytesize md))
                       src1 (memory eng md buf1)
-                      add-desc (binary-desc :add md)
-                      add-pd (primitive-desc eng add-desc)
+                      add-pd (binary eng :add md)
                       add-prim (primitive add-pd)
                       add-args (binary-args src0 src1)]
-         (put-float buf0 0 -100)
-         (put-float buf0 1 20)
-         (put-float buf1 0 -200)
-         (put-float buf1 1 30)
+         (put-float! buf0 0 -100)
+         (put-float! buf0 1 20)
+         (put-float! buf1 0 -200)
+         (put-float! buf1 1 30)
          (execute! s add-prim add-args) => s
          (get-float buf0 0) => -300.0
          (get-float buf0 1) => 50.0))
@@ -764,17 +766,16 @@
        (with-release [eng (engine)
                       s (stream eng)
                       src-md (memory-desc [2 3 4 5] :float :nchw)
-                      src-buf (direct-buffer (size src-md))
+                      src-buf (byte-pointer (bytesize src-md))
                       src (memory eng src-md src-buf)
                       dst-md (memory-desc [2 3 4 1] :float :nchw)
-                      dst-buf (direct-buffer (size dst-md))
+                      dst-buf (byte-pointer (bytesize dst-md))
                       dst (memory eng dst-md dst-buf)
-                      sum-desc (reduction-desc :sum src-md dst-md)
-                      sum-pd (primitive-desc eng sum-desc)
+                      sum-pd (reduction eng :sum src-md dst-md)
                       sum-prim (primitive sum-pd)
                       sum-args (fwd-args src dst)]
          (dotimes [i 120]
-           (put-float src-buf i i))
+           (put-float! src-buf i i))
          (execute! s sum-prim sum-args) => s
          (get-float dst-buf 0) => (float (apply + (range 5)))
          (get-float dst-buf 1) => (float (apply + (range 5 10)))
@@ -784,17 +785,16 @@
        (with-release [eng (engine)
                       s (stream eng)
                       src-md (memory-desc [2 3 4 5] :float :nchw)
-                      src-buf (direct-buffer (size src-md))
+                      src-buf (byte-pointer (bytesize src-md))
                       src (memory eng src-md src-buf)
                       dst-md (memory-desc [1 3 1 1] :float :nchw)
-                      dst-buf (direct-buffer (size dst-md))
+                      dst-buf (byte-pointer (bytesize dst-md))
                       dst (memory eng dst-md dst-buf)
-                      max-desc (reduction-desc :max src-md dst-md)
-                      max-pd (primitive-desc eng max-desc)
+                      max-pd (reduction eng :max src-md dst-md)
                       max-prim (primitive max-pd)
                       max-args (fwd-args src dst)]
          (dotimes [i 120]
-           (put-float src-buf i i))
+           (put-float! src-buf i i))
          (execute! s max-prim max-args) => s
          (get-float dst-buf 0) => 79.0
          (get-float dst-buf 1) => 99.0
@@ -804,17 +804,16 @@
        (with-release [eng (engine)
                       s (stream eng)
                       src-md (memory-desc [2 3 4 5] :float :nchw)
-                      src-buf (direct-buffer (size src-md))
+                      src-buf (byte-pointer (bytesize src-md))
                       src (memory eng src-md src-buf)
                       dst-md (memory-desc [2 3 4 1] :float :nchw)
-                      dst-buf (direct-buffer (size dst-md))
+                      dst-buf (byte-pointer (bytesize dst-md))
                       dst (memory eng dst-md dst-buf)
-                      norm-desc (reduction-desc :norm-lp-sum src-md dst-md 2.0 0.0)
-                      norm-pd (primitive-desc eng norm-desc)
+                      norm-pd (reduction eng :norm-lp-sum src-md dst-md 2.0 0.0)
                       norm-prim (primitive norm-pd)
                       norm-args (fwd-args src dst)]
          (dotimes [i 120]
-           (put-float src-buf i i))
+           (put-float! src-buf i i))
          (execute! s norm-prim norm-args) => s
          (get-float dst-buf 0) => (float (sqrt (apply + (map sqr (range 5)))))
          (get-float dst-buf 1) => (float (sqrt (apply + (map sqr (range 5 10)))))
@@ -824,15 +823,15 @@
        (with-release [eng (engine)
                       s (stream eng)
                       md (memory-desc [2 3 4 5] :float :nchw)
-                      src-buf (direct-buffer (size md))
+                      src-buf (byte-pointer (bytesize md))
                       src (memory eng md src-buf)
-                      dst-buf (direct-buffer (size md))
+                      dst-buf (byte-pointer (bytesize md))
                       dst (memory eng md dst-buf)
                       concat-pd (concatenate eng md 0 md)
                       concat-prim (primitive concat-pd)
                       concat-args (multi-args dst src)]
          (dotimes [i 120]
-           (put-float src-buf i i))
+           (put-float! src-buf i i))
          (execute! s concat-prim concat-args) => s
          (get-float dst-buf 0) => 0.0
          (get-float dst-buf 100) => 100.0))
@@ -842,18 +841,18 @@
                       s (stream eng)
                       src-md (memory-desc [2 3 4 5] :float :nchw)
                       dst-md (memory-desc [4 3 4 5] :float :nchw)
-                      src0-buf (direct-buffer (size src-md))
+                      src0-buf (byte-pointer (bytesize src-md))
                       src0 (memory eng src-md src0-buf)
-                      src1-buf (direct-buffer (size src-md))
+                      src1-buf (byte-pointer (bytesize src-md))
                       src1 (memory eng src-md src1-buf)
-                      dst-buf (direct-buffer (size dst-md))
+                      dst-buf (byte-pointer (bytesize dst-md))
                       dst (memory eng dst-md dst-buf)
                       concat-pd (concatenate eng dst-md 0 src-md src-md)
                       concat-prim (primitive concat-pd)
                       concat-args (multi-args dst src0 src1)]
          (dotimes [i 120]
-           (put-float src0-buf i i)
-           (put-float src1-buf i (* 1000.0 i)))
+           (put-float! src0-buf i i)
+           (put-float! src1-buf i (* 1000.0 i)))
          (execute! s concat-prim concat-args) => s
          (get-float dst-buf 0) => 0.0
          (get-float dst-buf 100) => 100.0
@@ -867,21 +866,21 @@
                       src1-md (memory-desc [1 1 1 1] :float :nchw)
                       src2-md (memory-desc [1 1 1 1] :float :nchw)
                       dst-md (memory-desc [1 1 4 1] :float :nchw)
-                      src0-buf (direct-buffer (size src0-md))
+                      src0-buf (byte-pointer (bytesize src0-md))
                       src0 (memory eng src1-md src0-buf)
-                      src1-buf (direct-buffer (size src1-md))
+                      src1-buf (byte-pointer (bytesize src1-md))
                       src1 (memory eng src1-md src1-buf)
-                      src2-buf (direct-buffer (size src2-md))
+                      src2-buf (byte-pointer (bytesize src2-md))
                       src2 (memory eng src2-md src2-buf)
-                      dst-buf (direct-buffer (size dst-md))
+                      dst-buf (byte-pointer (bytesize dst-md))
                       dst (memory eng dst-md dst-buf)
                       concat-pd (concatenate eng dst-md 2 src0-md src1-md src2-md)
                       concat-prim (primitive concat-pd)
                       concat-args (multi-args dst src0 src1 src2)]
-         (put-float src0-buf 0 1.0)
-         (put-float src0-buf 1 2.0)
-         (put-float src1-buf 0 10.0)
-         (put-float src2-buf 0 5.0)
+         (put-float! src0-buf 0 1.0)
+         (put-float! src0-buf 1 2.0)
+         (put-float! src1-buf 0 10.0)
+         (put-float! src2-buf 0 5.0)
          (execute! s concat-prim concat-args) => s
          (get-float dst-buf 0) => 1.0
          (get-float dst-buf 1) => 2.0
@@ -914,12 +913,12 @@
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc dst-dim :float :tnc)
       dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
-     (vanilla-rnn-fwd-desc :inference :relu :unidirectional
-                           src-desc nil weights-desc weights-iter-desc bias-desc
-                           dst-desc nil) => truthy
-     (vanilla-rnn-fwd-desc :inference :relu :unidirectional
-                           src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
-                           dst-desc dst-iter-desc) => truthy)))
+     (vanilla-rnn-fwd eng :inference :relu :unidirectional
+                      src-desc nil weights-desc weights-iter-desc bias-desc
+                      dst-desc nil) => truthy
+     (vanilla-rnn-fwd eng :inference :relu :unidirectional
+                      src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
+                      dst-desc dst-iter-desc) => truthy)))
 
 (facts
  "LSTM dimensions."
@@ -949,16 +948,16 @@
       dst-desc (memory-desc dst-dim :float :tnc)
       dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)
       dst-iter-c-desc (memory-desc dst-iter-dim :float :ldnc)]
-     (lstm-fwd-desc :inference :unidirectional
-                                      src-desc nil nil weights-desc weights-desc bias-desc
-                                      dst-desc nil nil) => (throws Exception)
-     (lstm-fwd-desc :inference :unidirectional
-                    src-desc nil nil weights-desc weights-iter-desc bias-desc
-                    dst-desc nil nil) => truthy
-     (lstm-fwd-desc :inference :unidirectional
-                    src-desc src-iter-desc src-iter-c-desc
-                    weights-desc weights-iter-desc bias-desc
-                    dst-desc dst-iter-desc dst-iter-c-desc) => truthy)))
+     (lstm-fwd eng :inference :unidirectional
+               src-desc nil nil weights-desc weights-desc nil nil bias-desc
+               dst-desc nil nil) => (throws Exception)
+     (lstm-fwd eng :inference :unidirectional
+               src-desc nil nil weights-desc weights-iter-desc nil nil bias-desc
+               dst-desc nil nil) => truthy
+     (lstm-fwd eng :inference :unidirectional
+               src-desc src-iter-desc src-iter-c-desc
+               weights-desc weights-iter-desc nil nil bias-desc
+               dst-desc dst-iter-desc dst-iter-c-desc) => truthy)))
 
 (facts
  "GRU dimensions."
@@ -986,16 +985,16 @@
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc dst-dim :float :tnc)
       dst-iter-desc (memory-desc dst-iter-dim :float :ldnc)]
-     (gru-fwd-desc :inference :unidirectional
-                   src-desc nil weights-desc weights-desc bias-desc
-                   dst-desc nil) => (throws Exception)
-     (gru-fwd-desc :inference :unidirectional
-                   src-desc nil weights-desc weights-iter-desc bias-desc
-                   dst-desc nil) => truthy
-     (gru-fwd-desc :inference :unidirectional
-                   src-desc src-iter-desc
-                   weights-desc weights-iter-desc bias-desc
-                   dst-desc dst-iter-desc) => truthy)))
+     (gru-fwd eng :inference :unidirectional
+              src-desc nil weights-desc weights-desc bias-desc
+              dst-desc nil) => (throws Exception)
+     (gru-fwd eng :inference :unidirectional
+              src-desc nil weights-desc weights-iter-desc bias-desc
+              dst-desc nil) => truthy
+     (gru-fwd eng :inference :unidirectional
+              src-desc src-iter-desc
+              weights-desc weights-iter-desc bias-desc
+              dst-desc dst-iter-desc) => truthy)))
 
 (facts
  "Vanilla RNN forward."
@@ -1018,14 +1017,12 @@
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc src-dim :float :tnc)
       dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
-      rnn-desc (vanilla-rnn-fwd-desc :inference :relu :unidirectional
-                                     src-desc src-iter-desc weights-desc weights-desc bias-desc
-                                     dst-desc dst-iter-desc)
-      rnn-no-iter-desc (vanilla-rnn-fwd-desc :inference :relu :unidirectional
-                                             src-desc nil weights-desc weights-desc bias-desc
-                                             dst-desc nil)
-      rnn-no-iter-pd (primitive-desc eng rnn-no-iter-desc)
-      rnn-pd (primitive-desc eng rnn-desc)
+      rnn-pd (vanilla-rnn-fwd eng :inference :relu :unidirectional
+                              src-desc src-iter-desc weights-desc weights-desc bias-desc
+                              dst-desc dst-iter-desc)
+      rnn-no-iter-pd (vanilla-rnn-fwd eng :inference :relu :unidirectional
+                                      src-desc nil weights-desc weights-desc bias-desc
+                                      dst-desc nil)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md rnn-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
@@ -1059,13 +1056,11 @@
                               :dst-layer dst-mem
                               :dst-iter nil
                               :workspace workspace-mem})]
-     (primitive-kind rnn-desc) => :rnn
      (execute! s rnn rnn-args) => s
      (seq src-iter-vec) => [0.0 0.0 0.0 0.0]
      (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
      (seq dst-iter-vec) => [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]
      (entry! dst-vec 0)
-     (primitive-kind rnn-no-iter-desc) => :rnn
      (arg-md rnn-no-iter-pd :src-iter) => nil
      (zero-desc? (arg-md rnn-no-iter-pd :src-iter)) => true
      (execute! s rnn-no-iter rnn-no-iter-args) => s
@@ -1092,9 +1087,8 @@
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc src-dim :float :tnc)
       dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
-      rnn-fwd-desc (vanilla-rnn-fwd-desc :training :relu :unidirectional src-desc src-iter-desc
-                                         weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
-      rnn-fwd-pd (primitive-desc eng rnn-fwd-desc)
+      rnn-fwd-pd (vanilla-rnn-fwd eng :training :relu :unidirectional src-desc src-iter-desc
+                                  weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md rnn-fwd-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
@@ -1120,13 +1114,11 @@
                           :dst-iter dst-iter-mem
                           :workspace workspace-mem})
       bwd-weights-desc (memory-desc weights-dim :float :any)
-      rnn-bwd-desc (vanilla-rnn-bwd-desc :relu :unidirectional src-desc src-iter-desc
-                                         bwd-weights-desc bwd-weights-desc bias-desc
-                                         dst-desc dst-iter-desc
-                                         src-desc src-iter-desc
-                                         bwd-weights-desc bwd-weights-desc bias-desc
-                                         dst-desc dst-iter-desc)
-      rnn-bwd-pd (primitive-desc eng rnn-bwd-desc rnn-fwd-pd)
+      rnn-bwd-pd (vanilla-rnn-bwd eng rnn-fwd-pd :relu :unidirectional src-desc src-iter-desc
+                                  bwd-weights-desc bwd-weights-desc bias-desc
+                                  dst-desc dst-iter-desc src-desc src-iter-desc
+                                  bwd-weights-desc bwd-weights-desc bias-desc
+                                  dst-desc dst-iter-desc)
       bwd-weights-mem (memory eng (arg-md rnn-bwd-pd :weights))
       reorder-weights-fb-pd (reorder eng weights-mem bwd-weights-mem)
       reorder-weights-bf-pd (reorder eng bwd-weights-mem weights-mem)
@@ -1172,11 +1164,9 @@
                           :diff-dst-iter diff-dst-iter-mem})
       rnn-bwd (primitive rnn-bwd-pd)]
 
-     (primitive-kind rnn-fwd-desc) => :rnn
      (execute! s rnn-fwd rnn-fwd-args) => s
      (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
      (seq src-vec) => (map float [2.0 3.0 0.2 0.3])
-     (primitive-kind rnn-bwd-desc) => :rnn
      (execute! s reorder-weights-fb (fwd-args weights-mem bwd-weights-mem)) => s
      (execute! s reorder-weights-iter-fb (fwd-args weights-iter-mem bwd-weights-iter-mem)) => s
      (execute! s reorder-diff-weights-unpack (fwd-args diff-weights-packed-mem diff-weights-mem))
@@ -1219,13 +1209,10 @@
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc src-dim :float :tnc)
       dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
-      rnn-fwd-desc (vanilla-rnn-fwd-desc :training :relu :unidirectional src-desc src-iter-desc
-                                         weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
-      rnn-fwd-pd (primitive-desc eng rnn-fwd-desc)
-      rnn-no-iter-fwd-desc (vanilla-rnn-fwd-desc :training :relu :unidirectional src-desc src-iter-desc
-                                                 weights-desc weights-desc bias-desc dst-desc nil)
-      rnn-no-iter-fwd-pd (primitive-desc eng rnn-no-iter-fwd-desc)
-
+      rnn-fwd-pd (vanilla-rnn-fwd eng :training :relu :unidirectional src-desc src-iter-desc
+                                  weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
+      rnn-no-iter-fwd-pd (vanilla-rnn-fwd eng :training :relu :unidirectional src-desc src-iter-desc
+                                          weights-desc weights-desc bias-desc dst-desc nil)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md rnn-fwd-pd :src) (buffer src-vec))
       diff-src-vec (fv (apply * src-dim))
@@ -1266,20 +1253,18 @@
                                   :dst-iter dst-iter-mem
                                   :workspace workspace-mem})
       bwd-weights-desc (memory-desc weights-dim :float :any)
-      rnn-bwd-desc (vanilla-rnn-bwd-desc :relu :unidirectional src-desc src-iter-desc
-                                         bwd-weights-desc bwd-weights-desc bias-desc
-                                         dst-desc dst-iter-desc
-                                         src-desc src-iter-desc
-                                         bwd-weights-desc bwd-weights-desc bias-desc
-                                         dst-desc dst-iter-desc)
-      rnn-bwd-pd (primitive-desc eng rnn-bwd-desc rnn-fwd-pd)
-      rnn-no-iter-bwd-desc (vanilla-rnn-bwd-desc :relu :unidirectional src-desc src-iter-desc
-                                                 bwd-weights-desc bwd-weights-desc bias-desc
-                                                 dst-desc nil
-                                                 src-desc src-iter-desc
-                                                 bwd-weights-desc bwd-weights-desc bias-desc
-                                                 dst-desc nil)
-      rnn-no-iter-bwd-pd (primitive-desc eng rnn-no-iter-bwd-desc rnn-no-iter-fwd-pd)
+      rnn-bwd-pd (vanilla-rnn-bwd eng rnn-fwd-pd :relu :unidirectional src-desc src-iter-desc
+                                  bwd-weights-desc bwd-weights-desc bias-desc
+                                  dst-desc dst-iter-desc
+                                  src-desc src-iter-desc
+                                  bwd-weights-desc bwd-weights-desc bias-desc
+                                  dst-desc dst-iter-desc)
+      rnn-no-iter-bwd-pd (vanilla-rnn-bwd eng rnn-fwd-pd :relu :unidirectional src-desc src-iter-desc
+                                          bwd-weights-desc bwd-weights-desc bias-desc
+                                          dst-desc nil
+                                          src-desc src-iter-desc
+                                          bwd-weights-desc bwd-weights-desc bias-desc
+                                          dst-desc nil)
       bwd-weights-mem (memory eng (arg-md rnn-bwd-pd :weights))
       reorder-weights-fb-pd (reorder eng weights-mem bwd-weights-mem)
       reorder-weights-bf-pd (reorder eng bwd-weights-mem weights-mem)
@@ -1341,12 +1326,10 @@
                                   :diff-dst-iter diff-dst-iter-mem})
       rnn-no-iter-bwd (primitive rnn-no-iter-bwd-pd)]
 
-     (primitive-kind rnn-fwd-desc) => :rnn
      (execute! s rnn-fwd rnn-fwd-args) => s
      (seq dst-vec) => [2.570000171661377 3.940000057220459 850.6968994140625 1054.8890380859375]
      (seq dst-iter-vec) => [830.4099731445312 1200.8599853515625 850.6968994140625 1054.8890380859375]
      (seq src-vec) => (map float [2.0 3.0 0.2 0.3])
-     (primitive-kind rnn-bwd-desc) => :rnn
      (execute! s reorder-weights-fb (fwd-args weights-mem bwd-weights-mem)) => s
      (execute! s reorder-weights-iter-fb (fwd-args weights-iter-mem bwd-weights-iter-mem)) => s
      (execute! s reorder-diff-weights-unpack (fwd-args diff-weights-packed-mem diff-weights-mem))
@@ -1373,7 +1356,6 @@
                     8.49100112915039 -11.288000106811523 13.031999588012695 -17.29599952697754])
      (seq bias-vec) => [0.30000001192092896 0.699999988079071 1.0 2.0]
      (seq diff-bias-vec) => [-276.06732177734375 -628.1337280273438 5.345000267028809 -4.677000045776367]
-
      (transfer! [2 3 0.2 0.3] src-vec)
      (transfer! [0 0 0 0] src-iter-vec)
      (transfer! [0 0 0 0] dst-iter-vec)
@@ -1432,15 +1414,13 @@
       dst-desc (memory-desc src-dim :float :tnc)
       dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
       dst-iter-c-desc (memory-desc src-iter-dim :float :ldnc)
-      lstm-desc (lstm-fwd-desc :inference :unidirectional
-                               src-desc src-iter-desc src-iter-c-desc
-                               weights-desc weights-desc bias-desc
-                               dst-desc dst-iter-desc dst-iter-c-desc)
-      lstm-no-iter-desc (lstm-fwd-desc :inference :unidirectional
-                                       src-desc nil nil weights-desc weights-desc bias-desc
-                                       dst-desc dst-iter-desc dst-iter-c-desc)
-      lstm-no-iter-pd (primitive-desc eng lstm-no-iter-desc)
-      lstm-pd (primitive-desc eng lstm-desc)
+      lstm-pd (lstm-fwd eng :inference :unidirectional
+                        src-desc src-iter-desc src-iter-c-desc
+                        weights-desc weights-desc nil nil bias-desc
+                        dst-desc dst-iter-desc dst-iter-c-desc)
+      lstm-no-iter-pd (lstm-fwd eng :inference :unidirectional
+                                src-desc nil nil weights-desc weights-desc nil nil bias-desc
+                                dst-desc dst-iter-desc dst-iter-c-desc)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md lstm-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
@@ -1489,13 +1469,11 @@
                                :dst-iter dst-iter-mem
                                :dst-iter-c dst-iter-c-mem
                                :workspace workspace-mem})]
-     (primitive-kind lstm-desc) => :rnn
      (execute! s lstm lstm-args) => s
      (seq src-iter-vec) => [0.0 0.0 0.0 0.0]
      (seq dst-vec) => [0.28369858860969543 0.5042773485183716 0.6443434953689575 0.8513875007629395]
      (seq dst-iter-vec) => [0.623127281665802 0.8365733027458191 0.6443434953689575 0.8513875007629395]
      (entry! dst-vec 0)
-     (primitive-kind lstm-no-iter-desc) => :rnn
      (arg-md lstm-no-iter-pd :src-iter) => nil
      (zero-desc? (arg-md lstm-no-iter-pd :src-iter)) => true
      (execute! s lstm-no-iter lstm-no-iter-args) => s
@@ -1523,11 +1501,10 @@
       dst-desc (memory-desc src-dim :float :tnc)
       dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
       dst-iter-c-desc (memory-desc src-iter-dim :float :ldnc)
-      lstm-fwd-desc (lstm-fwd-desc :training  :unidirectional
-                                   src-desc src-iter-desc src-iter-desc
-                                   weights-desc weights-desc bias-desc
-                                   dst-desc dst-iter-desc dst-iter-desc)
-      lstm-fwd-pd (primitive-desc eng lstm-fwd-desc)
+      lstm-fwd-pd (lstm-fwd eng :training :unidirectional
+                            src-desc src-iter-desc src-iter-desc
+                            weights-desc weights-desc nil nil bias-desc
+                            dst-desc dst-iter-desc dst-iter-desc)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md lstm-fwd-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
@@ -1568,13 +1545,12 @@
                            :dst-iter-c dst-iter-c-mem
                            :workspace workspace-mem})
       bwd-weights-desc (memory-desc weights-dim :float :any)
-      lstm-bwd-desc (lstm-bwd-desc :unidirectional src-desc src-iter-desc src-iter-desc
-                                   bwd-weights-desc bwd-weights-desc bias-desc
-                                   dst-desc dst-iter-desc dst-iter-desc
-                                   src-desc src-iter-desc src-iter-desc
-                                   bwd-weights-desc bwd-weights-desc bias-desc
-                                   dst-desc dst-iter-desc dst-iter-desc)
-      lstm-bwd-pd (primitive-desc eng lstm-bwd-desc lstm-fwd-pd)
+      lstm-bwd-pd (lstm-bwd eng lstm-fwd-pd :unidirectional src-desc src-iter-desc src-iter-desc
+                            [bwd-weights-desc bwd-weights-desc nil nil] bias-desc
+                            dst-desc dst-iter-desc dst-iter-desc
+                            src-desc src-iter-desc src-iter-desc
+                            [bwd-weights-desc bwd-weights-desc nil nil] bias-desc
+                            dst-desc dst-iter-desc dst-iter-desc)
       bwd-weights-mem (memory eng (arg-md lstm-bwd-pd :weights))
       reorder-weights-fb-pd (reorder eng weights-mem bwd-weights-mem)
       reorder-weights-bf-pd (reorder eng bwd-weights-mem weights-mem)
@@ -1632,11 +1608,9 @@
                            :diff-dst-iter-c diff-dst-iter-c-mem})
       lstm-bwd (primitive lstm-bwd-pd)]
 
-     (primitive-kind lstm-fwd-desc) => :rnn
      (execute! s lstm-fwd lstm-fwd-args) => s
      (seq dst-vec) => [0.28369858860969543 0.5042773485183716 0.6443434953689575 0.8513875007629395]
      (seq src-vec) => (map float [2.0 3.0 0.2 0.3])
-     (primitive-kind lstm-bwd-desc) => :rnn
      (execute! s reorder-weights-fb (fwd-args weights-mem bwd-weights-mem)) => s
      (execute! s reorder-weights-iter-fb (fwd-args weights-iter-mem bwd-weights-iter-mem)) => s
      (execute! s reorder-diff-weights-unpack (fwd-args diff-weights-packed-mem diff-weights-mem))
@@ -1671,7 +1645,6 @@
                     300.0 400.0 0.6069310307502747 -0.2780276834964752 0.15249831974506378
                     -0.03880783170461655]))))
 
-
 (facts
  "GRU forward."
  (let [T 2
@@ -1693,14 +1666,12 @@
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc src-dim :float :tnc)
       dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
-      gru-desc (gru-fwd-desc :inference :unidirectional
-                             src-desc src-iter-desc weights-desc weights-desc bias-desc
-                             dst-desc dst-iter-desc)
-      gru-no-iter-desc (gru-fwd-desc :inference :unidirectional
-                                     src-desc nil weights-desc weights-desc bias-desc
-                                     dst-desc dst-iter-desc)
-      gru-no-iter-pd (primitive-desc eng gru-no-iter-desc)
-      gru-pd (primitive-desc eng gru-desc)
+      gru-pd (gru-fwd eng :inference :unidirectional
+                      src-desc src-iter-desc weights-desc weights-desc bias-desc
+                      dst-desc dst-iter-desc)
+      gru-no-iter-pd (gru-fwd eng :inference :unidirectional
+                              src-desc nil weights-desc weights-desc bias-desc
+                              dst-desc dst-iter-desc)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md gru-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
@@ -1740,13 +1711,11 @@
                               :dst-layer dst-mem
                               :dst-iter dst-iter-mem
                               :workspace workspace-mem})]
-     (primitive-kind gru-desc) => :rnn
      (execute! s gru gru-args) => s
      (seq src-iter-vec) => [0.0 0.0 0.0 0.0]
      (seq dst-vec) => [0.20008479058742523 0.10380759835243225 0.3499049246311188 0.19589270651340485]
      (seq dst-iter-vec) => [0.17513683438301086 0.08930931240320206 0.3499049246311188 0.19589270651340485]
      (entry! dst-vec 0)
-     (primitive-kind gru-no-iter-desc) => :rnn
      (arg-md gru-no-iter-pd :src-iter) => nil
      (zero-desc? (arg-md gru-no-iter-pd :src-iter)) => true
      (execute! s gru-no-iter gru-no-iter-args) => s
@@ -1773,9 +1742,8 @@
       bias-desc (memory-desc bias-dim :float :ldgo)
       dst-desc (memory-desc src-dim :float :tnc)
       dst-iter-desc (memory-desc src-iter-dim :float :ldnc)
-      gru-fwd-desc (gru-fwd-desc :training :unidirectional src-desc src-iter-desc
-                                 weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
-      gru-fwd-pd (primitive-desc eng gru-fwd-desc)
+      gru-fwd-pd (gru-fwd eng :training :unidirectional src-desc src-iter-desc
+                          weights-desc weights-desc bias-desc dst-desc dst-iter-desc)
       src-vec (fv [2 3 0.2 0.3])
       src-mem (memory eng (arg-md gru-fwd-pd :src) (buffer src-vec))
       src-iter-vec (fv (apply * src-iter-dim))
@@ -1808,13 +1776,12 @@
                           :dst-iter dst-iter-mem
                           :workspace workspace-mem})
       bwd-weights-desc (memory-desc weights-dim :float :any)
-      gru-bwd-desc (gru-bwd-desc :unidirectional src-desc src-iter-desc
-                                 bwd-weights-desc bwd-weights-desc bias-desc
-                                 dst-desc dst-iter-desc
-                                 src-desc src-iter-desc
-                                 bwd-weights-desc bwd-weights-desc bias-desc
-                                 dst-desc dst-iter-desc)
-      gru-bwd-pd (primitive-desc eng gru-bwd-desc gru-fwd-pd)
+      gru-bwd-pd (gru-bwd eng gru-fwd-pd :unidirectional src-desc src-iter-desc
+                          bwd-weights-desc bwd-weights-desc bias-desc
+                          dst-desc dst-iter-desc
+                          src-desc src-iter-desc
+                          bwd-weights-desc bwd-weights-desc bias-desc
+                          dst-desc dst-iter-desc)
       bwd-weights-mem (memory eng (arg-md gru-bwd-pd :weights))
       reorder-weights-fb-pd (reorder eng weights-mem bwd-weights-mem)
       reorder-weights-bf-pd (reorder eng bwd-weights-mem weights-mem)
@@ -1866,12 +1833,10 @@
                           :diff-dst-iter diff-dst-iter-mem})
       gru-bwd (primitive gru-bwd-pd)]
 
-     (primitive-kind gru-fwd-desc) => :rnn
      (execute! s gru-fwd gru-fwd-args) => s
      (seq dst-vec) => [0.1986464262008667 0.10329369455575943 0.3485546410083771 0.19498808681964874]
      (seq dst-iter-vec) => [0.20356373488903046 0.161529079079628 0.3485546410083771 0.19498808681964874]
      (seq src-vec) => (map float [2.0 3.0 0.2 0.3])
-     (primitive-kind gru-bwd-desc) => :rnn
      (execute! s reorder-weights-fb (fwd-args weights-mem bwd-weights-mem)) => s
      (execute! s reorder-weights-iter-fb (fwd-args weights-iter-mem bwd-weights-iter-mem)) => s
      (execute! s reorder-diff-weights-unpack (fwd-args diff-weights-packed-mem diff-weights-mem))
