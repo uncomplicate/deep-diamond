@@ -26,7 +26,7 @@
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [core :refer :all :as dnnl]
-             [tensor :refer [dnnl-tensor dnnl-transformer dnnl-args]]]
+             [tensor :refer [dnnl-tensor dnnl-transformer]]]
             [uncomplicate.diamond.internal.neanderthal.directed
              :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint ->NopActivation
                      ->NopActivationBlueprint]])
@@ -157,7 +157,7 @@
                   eltw-fwd-args (fwd-args (buffer src-tz) (buffer dst-tz))
                   eltw-bwd-prim (primitive eltw-bwd-pd)
                   diff-src-conn (connector (diff-src-md eltw-bwd-pd) diff-tz)
-                  eltw-bwd-args (dnnl-args eltwise-bwd-args src-tz dst-tz (input diff-src-conn))]
+                  eltw-bwd-args (eltwise-bwd-args src-tz dst-tz (input diff-src-conn))]
       (->DnnlActivationTraining (flow fact) this src-tz dst-tz dst-tz diff-src-conn
                                 eltw-fwd-prim eltw-fwd-args
                                 eltw-bwd-prim eltw-bwd-args)))
@@ -207,7 +207,7 @@
                   softmax-fwd-prim (primitive softmax-train-pd)
                   softmax-fwd-args (fwd-args (buffer (output src-conn)))
                   softmax-bwd-prim (primitive softmax-bwd-pd)
-                  softmax-bwd-args (dnnl-args softmax-bwd-args (output src-conn) diff-dst-tz diff-tz)]
+                  softmax-bwd-args (softmax-bwd-args (output src-conn) diff-dst-tz diff-tz)]
       (->DnnlActivationTraining (flow fact) this src-conn (output src-conn) diff-dst-tz diff-tz
                                 softmax-fwd-prim softmax-fwd-args
                                 softmax-bwd-prim softmax-bwd-args)))
@@ -224,14 +224,11 @@
 (defn dnnl-activation-blueprint
   ([fact eng inf-src-desc train-src-desc activ alpha beta]
    (let-release [inf-src-desc (desc inf-src-desc)
-                 train-src-desc (desc train-src-desc)]
-     (with-release [eltw-infer-desc (eltwise-fwd-desc :inference activ inf-src-desc alpha beta)
-                    eltw-train-desc (eltwise-fwd-desc :training activ train-src-desc alpha beta)
-                    eltw-bwd-desc (eltwise-bwd-desc activ train-src-desc train-src-desc alpha beta)]
-       (let-release [eltw-infer-pd (primitive-desc eng eltw-infer-desc)
-                     eltw-train-pd (primitive-desc eng eltw-train-desc)
-                     eltw-bwd-pd (primitive-desc eng eltw-bwd-desc eltw-train-pd)]
-         (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd)))))
+                 train-src-desc (desc train-src-desc)
+                 eltw-infer-pd (eltwise-fwd eng :inference activ inf-src-desc alpha beta)
+                 eltw-train-pd (eltwise-fwd eng :training activ train-src-desc alpha beta)
+                 eltw-bwd-pd (eltwise-bwd eng eltw-train-pd activ train-src-desc train-src-desc alpha beta)]
+     (->DnnlActivationBlueprint fact activ eltw-infer-pd eltw-train-pd eltw-bwd-pd)))
   ([fact eng data-desc activ alpha beta]
    (dnnl-activation-blueprint fact eng data-desc data-desc activ alpha beta)))
 
@@ -243,14 +240,11 @@
                 train-desc (case (count (shape train-src-desc))
                                  2 (memory-desc (shape train-src-desc) (data-type train-src-desc) :ab)
                                  4 (memory-desc (shape train-src-desc) (data-type train-src-desc) :acdb)
-                                 (desc train-src-desc))]
-    (with-release [softmax-infer-desc (softmax-fwd-desc :inference inf-desc 1);;TODO currently DNNL is optimized for 1
-                   softmax-train-desc (softmax-fwd-desc :training train-desc 1)
-                   softmax-bwd-desc (softmax-bwd-desc train-desc train-desc 1)]
-      (let-release [softmax-infer-pd (primitive-desc eng softmax-infer-desc)
-                    softmax-train-pd (primitive-desc eng softmax-train-desc)
-                    softmax-bwd-pd (primitive-desc eng softmax-bwd-desc softmax-train-pd)]
-        (->DnnlSoftmaxBlueprint fact softmax-infer-pd softmax-train-pd softmax-bwd-pd)))))
+                                 (desc train-src-desc))
+                softmax-infer-pd (softmax-fwd eng :inference inf-desc 1);;TODO currently DNNL is optimized for 1
+                softmax-train-pd (softmax-fwd eng :training train-desc 1)
+                softmax-bwd-pd (softmax-bwd eng softmax-train-pd train-desc train-desc 1)]
+    (->DnnlSoftmaxBlueprint fact softmax-infer-pd softmax-train-pd softmax-bwd-pd)))
 
 (defn dnnl-activ-blueprint
   ([fact eng inf-src-desc train-src-desc diff-desc activ alpha beta]
@@ -460,8 +454,7 @@
                   weights-tz (dnnl-tensor fact (weights-md infer-pd))
                   dst-tz (dnnl-tensor fact (dst-md infer-pd) (batch-index src-tz))
                   fwd-prim (primitive infer-pd)
-                  fwd-args (dnnl-args fwd-args (output src-conn)
-                                      weights-tz bias-tz dst-tz)]
+                  fwd-args (fwd-args (output src-conn) weights-tz bias-tz dst-tz)]
       (->DnnlProductInference (flow fact) this
                               src-conn bias-tz weights-tz dst-tz
                               fwd-prim fwd-args)))
@@ -472,8 +465,7 @@
                   weights-conn (connector weights-tz (weights-md train-pd))
                   dst-tz (dnnl-tensor fact (dst-md train-pd) (batch-index src-tz))
                   fwd-prim (primitive train-pd)
-                  fwd-args (dnnl-args fwd-args (output src-conn)
-                                      (output weights-conn) bias-tz dst-tz)
+                  fwd-args (fwd-args (output src-conn) (output weights-conn) bias-tz dst-tz)
                   bwd-src-conn (connector src-conn (src-md bwd-weights-pd))
                   diff-dst-conn (connector dst-tz (diff-dst-md bwd-weights-pd))
                   diff-weights-tz (dnnl-tensor fact weights-desc)
@@ -482,19 +474,18 @@
                   diff-weights-conn (connector (diff-weights-md bwd-weights-pd) diff-weights-tz)
                   diff-bias-tz (dnnl-tensor fact bias-desc)
                   bwd-weights-prim (primitive bwd-weights-pd)
-                  bwd-weights-args (dnnl-args bwd-args (output bwd-src-conn)
-                                              (output diff-dst-conn)
-                                              (input diff-weights-conn)
-                                              diff-bias-tz)]
+                  bwd-weights-args (bwd-args (output bwd-src-conn)
+                                             (output diff-dst-conn)
+                                             (input diff-weights-conn)
+                                             diff-bias-tz)]
       (if prop-diff?
         (let-release [diff-dst-data-conn (connector diff-dst-conn (diff-dst-md bwd-data-pd))
                       weights-data-conn (connector weights-tz (weights-md bwd-data-pd)) ;; TODO perhaps I have to use weights-weights-conn too? between forward and backward? Yes, according to the documentation!
                       diff-src-conn (connector (diff-src-md bwd-data-pd) diff-src-tz)
                       bwd-data-prim (primitive bwd-data-pd)
-                      bwd-data-args (dnnl-args bwd-args
-                                               (output diff-dst-data-conn)
-                                               (output weights-data-conn)
-                                               (input diff-src-conn))]
+                      bwd-data-args (bwd-args (output diff-dst-data-conn)
+                                              (output weights-data-conn)
+                                              (input diff-src-conn))]
           (->DnnlProductTraining (flow fact) this bias-tz weights-tz dst-tz
                                  diff-weights-tz post-diff-weights-tz diff-bias-tz
                                  src-conn weights-conn
@@ -522,22 +513,18 @@
          weights-shape (vec (cons (dst-shape 1) (rest (dims src-desc))))
          weights-type (or weights-type (data-type src-desc) dst-type)
          bias-shape [(dst-shape 1)]]
-     (let-release [bias-desc (memory-desc bias-shape dst-type :x)]
-       (with-release [weights-desc-any (memory-desc weights-shape weights-type :any)
-                      infer-desc (inner-product-fwd-desc :inference src-desc weights-desc-any
-                                                         bias-desc dst-desc)
-                      train-desc (inner-product-fwd-desc :training src-desc weights-desc-any
-                                                         bias-desc dst-desc)
-                      bwd-weights-desc (inner-product-bwd-desc src-desc weights-desc-any
-                                                               bias-desc dst-desc)
-                      bwd-data-desc (inner-product-bwd-desc src-desc weights-desc-any dst-desc)]
-         (let-release [infer-pd (primitive-desc eng infer-desc)
-                       train-pd (primitive-desc eng train-desc)
-                       bwd-weights-pd (primitive-desc eng bwd-weights-desc train-pd)
-                       bwd-data-pd (primitive-desc eng bwd-data-desc train-pd)
-                       weights-desc-export (dnnl-contiguous-desc (weights-md train-pd))]
-           (->DnnlProductBlueprint fact weights-desc-export bias-desc infer-pd
-                                   train-pd bwd-weights-pd bwd-data-pd))))))
+     (with-release [weights-desc-any (memory-desc weights-shape weights-type :any)]
+       (let-release [bias-desc (memory-desc bias-shape dst-type :x)
+                     infer-pd (inner-product-fwd eng :inference src-desc weights-desc-any
+                                                 bias-desc dst-desc)
+                     train-pd (inner-product-fwd eng :training src-desc weights-desc-any
+                                                 bias-desc dst-desc)
+                     bwd-weights-pd (inner-product-bwd eng train-pd src-desc weights-desc-any
+                                                       bias-desc dst-desc)
+                     bwd-data-pd (inner-product-bwd eng train-pd src-desc weights-desc-any dst-desc)
+                     weights-desc-export (dnnl-contiguous-desc (weights-md train-pd))]
+         (->DnnlProductBlueprint fact weights-desc-export bias-desc infer-pd
+                                 train-pd bwd-weights-pd bwd-data-pd)))))
   ([fact eng src-desc dst-desc]
    (dnnl-inner-product-blueprint fact eng src-desc dst-desc nil)))
 
@@ -602,16 +589,15 @@
 
 (defn dnnl-universal-cost [eng strm prev-layer train-tz cost]
   (let [train-desc (desc train-tz)]
-    (let-release [connect-output (connector (output prev-layer) train-desc)
-                  connect-diff (connector train-desc (diff-input prev-layer))]
-      (with-release [sum-desc (sum! eng train-desc 1.0 train-desc -1.0 train-tz)]
-        (let-release [sum-prim (primitive sum-desc)]
-          (->DnnlUniversalCost strm prev-layer sum-prim
-                               (dnnl-args multi-args (input connect-diff)
-                                          (output connect-output) train-tz)
-                               connect-output connect-diff train-tz
-                               (view-vctr (input connect-diff))
-                               cost))))))
+    (with-release [sum-pd (sum! eng train-desc 1.0 train-desc -1.0 train-tz)]
+      (let-release [connect-output (connector (output prev-layer) train-desc)
+                    connect-diff (connector train-desc (diff-input prev-layer))
+                    sum-prim (primitive sum-pd)]
+        (->DnnlUniversalCost strm prev-layer sum-prim
+                             (multi-args (input connect-diff) (output connect-output) train-tz)
+                             connect-output connect-diff train-tz
+                             (view-vctr (input connect-diff))
+                             cost)))))
 
 (deftype DnnlCustomCost [strm prev-layer sum-prim sum-args
                          connect-output connect-diff train-tz a y cost]
@@ -648,16 +634,15 @@
 
 (defn dnnl-custom-cost [eng strm prev-layer train-tz cost]
   (let [train-desc (desc train-tz)]
-    (let-release [connect-output (connector (output prev-layer) train-desc)
-                  connect-diff (connector train-desc (diff-z prev-layer))]
-      (with-release [sum-desc (sum! eng train-desc 1.0 train-desc -1.0 train-desc)]
-        (let-release [sum-prim (primitive sum-desc)]
-          (->DnnlCustomCost strm prev-layer sum-prim
-                            (dnnl-args multi-args (input connect-diff)
-                                       (output connect-output) train-tz)
-                            connect-output connect-diff (view train-tz)
-                            (view-vctr (output connect-output)) (view-vctr train-tz)
-                            cost))))))
+    (with-release [sum-pd (sum! eng train-desc 1.0 train-desc -1.0 train-desc)]
+      (let-release [connect-output (connector (output prev-layer) train-desc)
+                    connect-diff (connector train-desc (diff-z prev-layer))
+                    sum-prim (primitive sum-pd)]
+        (->DnnlCustomCost strm prev-layer sum-prim
+                          (multi-args (input connect-diff) (output connect-output) train-tz)
+                          connect-output connect-diff (view train-tz)
+                          (view-vctr (output connect-output)) (view-vctr train-tz)
+                          cost)))))
 
 ;; =========================== Convolution =============================================
 
@@ -665,28 +650,24 @@
   [fact eng src-desc weights-desc dst-desc strides dilation padding-l padding-r]
   (let [src-desc (desc src-desc)
         dst-desc (desc dst-desc)]
-    (let-release [bias-desc (memory-desc [(get (dims dst-desc) 1)] (data-type dst-desc) :x)]
-      (with-release [weights-desc (desc weights-desc)
-                     conv-infer-desc (convolution-fwd-desc :inference :auto
-                                                           src-desc weights-desc bias-desc dst-desc
-                                                           strides dilation padding-l padding-r)
-                     conv-train-desc (convolution-fwd-desc :training :auto
-                                                           src-desc weights-desc bias-desc dst-desc
-                                                           strides dilation padding-l padding-r)
-                     conv-bwd-weights-desc (convolution-bwd-desc :auto
+    (with-release [weights-desc (desc weights-desc)]
+      (let-release [bias-desc (memory-desc [(get (dims dst-desc) 1)] (data-type dst-desc) :x)
+                    conv-infer-pd (convolution-fwd eng :inference :auto
+                                                   src-desc weights-desc bias-desc dst-desc
+                                                   strides dilation padding-l padding-r)
+                    conv-train-pd (convolution-fwd eng :training :auto
+                                                   src-desc weights-desc bias-desc dst-desc
+                                                   strides dilation padding-l padding-r)
+                    conv-bwd-weights-pd (convolution-bwd-weights eng conv-train-pd :auto
                                                                  src-desc weights-desc
                                                                  bias-desc dst-desc
                                                                  strides dilation padding-l padding-r)
-                     conv-bwd-data-desc (convolution-bwd-desc :auto
-                                                              src-desc weights-desc dst-desc
-                                                              strides dilation padding-l padding-r)]
-        (let-release [conv-infer-pd (primitive-desc eng conv-infer-desc)
-                      conv-train-pd (primitive-desc eng conv-train-desc)
-                      conv-bwd-weights-pd (primitive-desc eng conv-bwd-weights-desc conv-train-pd)
-                      conv-bwd-data-pd (primitive-desc eng conv-bwd-data-desc conv-train-pd)
-                      weights-desc-export (dnnl-contiguous-desc (weights-md conv-train-pd))]
-          (->DnnlProductBlueprint fact weights-desc-export bias-desc conv-infer-pd
-                                  conv-train-pd conv-bwd-weights-pd conv-bwd-data-pd))))))
+                    conv-bwd-data-pd (convolution-bwd-data eng conv-train-pd :auto
+                                                           src-desc weights-desc dst-desc
+                                                           strides dilation padding-l padding-r)
+                    weights-desc-export (dnnl-contiguous-desc (weights-md conv-train-pd))]
+        (->DnnlProductBlueprint fact weights-desc-export bias-desc conv-infer-pd
+                                conv-train-pd conv-bwd-weights-pd conv-bwd-data-pd)))))
 
 (defn dnnl-convolution-layer-blueprint [fact eng src-desc weights-desc dst-desc activ
                                         strides dilation padding-l padding-r alpha beta]
@@ -909,13 +890,12 @@
                   workspace-tz (when-let [workspace-desc (workspace-md pool-train-pd)]
                                  (dnnl-tensor fact workspace-desc))
                   pool-train-prim (primitive pool-train-pd)
-                  pool-train-args (dnnl-args fwd-args (output src-conn) dst-tz workspace-tz)]
+                  pool-train-args (fwd-args (output src-conn) dst-tz workspace-tz)]
       (if prop-diff?
         (let-release [diff-dst-conn (connector dst-tz (diff-dst-md pool-bwd-pd))
                       diff-src-conn (connector (diff-src-md pool-bwd-pd) (diff-input prev-layer))
                       pool-bwd-prim (primitive pool-bwd-pd)
-                      pool-bwd-args (dnnl-args pooling-bwd-args (output diff-dst-conn)
-                                               (input diff-src-conn) workspace-tz)]
+                      pool-bwd-args (pooling-bwd-args (output diff-dst-conn) (input diff-src-conn) workspace-tz)]
           (->DnnlPoolingTrainingLayer fact (flow fact) this src-conn dst-tz workspace-tz
                                       pool-train-prim pool-train-args
                                       diff-dst-conn diff-src-conn
@@ -939,17 +919,14 @@
                                           (or (tz/layout dst-desc) :any))
                 train-dst-desc (memory-desc (shape dst-desc)
                                             (or (tz/data-type dst-desc) (data-type train-src-desc))
-                                            (or (tz/layout dst-desc) :any))]
-    (with-release [pool-infer-desc (pooling-fwd-desc :inference algo inf-src-desc inf-dst-desc
-                                                     kernel strides padding-l padding-r)
-                   pool-train-desc (pooling-fwd-desc :training algo train-src-desc train-dst-desc
-                                                     kernel strides padding-l padding-r)
-                   pool-bwd-desc (pooling-bwd-desc algo train-src-desc train-dst-desc
-                                                   kernel strides padding-l padding-r)]
-      (let-release [pool-infer-pd (primitive-desc eng pool-infer-desc)
-                    pool-train-pd (primitive-desc eng pool-train-desc)
-                    pool-bwd-pd (primitive-desc eng pool-bwd-desc pool-train-pd)]
-        (->DnnlPoolingBlueprint fact algo pool-infer-pd pool-train-pd pool-bwd-pd)))))
+                                            (or (tz/layout dst-desc) :any))
+                pool-infer-pd (pooling-fwd eng :inference algo inf-src-desc inf-dst-desc
+                                           kernel strides padding-l padding-r)
+                pool-train-pd (pooling-fwd eng :training algo train-src-desc train-dst-desc
+                                           kernel strides padding-l padding-r)
+                pool-bwd-pd (pooling-bwd eng pool-train-pd algo train-src-desc train-dst-desc
+                                         kernel strides padding-l padding-r)]
+    (->DnnlPoolingBlueprint fact algo pool-infer-pd pool-train-pd pool-bwd-pd)))
 
 (defmethod transfer! [DnnlPoolingInferenceLayer Object]
   [source destination]
@@ -967,7 +944,7 @@
 
 ;; ================================ Batch Normalization  ===========================================
 
-(deftype DnnlBatchNormalizationInference [fact strm bluep scaleshift-tz
+(deftype DnnlBatchNormalizationInference [fact strm bluep
                                           src-conn gamma-tz beta-tz mean-tz var-tz
                                           fwd-prim fwd-args]
   Releaseable
@@ -975,7 +952,6 @@
     (release src-conn)
     (release gamma-tz)
     (release beta-tz)
-    (release scaleshift-tz)
     (release mean-tz)
     (release var-tz)
     (release fwd-prim))
@@ -1043,14 +1019,12 @@
   (.write w (format "#BatchNorm[]\n gamma:\n beta: \n output: %s\n"
                     (weights layer) (bias layer) (pr-str (output layer)))))
 
-(deftype DnnlBatchNormalizationTraining [fact strm bluep scaleshift-tz diff-scaleshift-tz
+(deftype DnnlBatchNormalizationTraining [fact strm bluep
                                          src-conn gamma-tz beta-tz dst-tz mean-tz var-tz
-                                         diff-gamma-tz diff-beta-tz post-diff-gamma-tz
+                                         diff-gamma-tz post-diff-gamma-tz
                                          diff-src-conn fwd-prim fwd-args bwd-prim bwd-args]
   Releaseable
   (release [_]
-    (release scaleshift-tz)
-    (release diff-scaleshift-tz)
     (release src-conn)
     (release dst-tz)
     (release mean-tz)
@@ -1059,7 +1033,6 @@
     (release beta-tz)
     (release diff-gamma-tz)
     (release post-diff-gamma-tz)
-    (release diff-beta-tz)
     (release diff-src-conn)
     (release fwd-prim)
     (release fwd-args)
@@ -1147,7 +1120,7 @@
     (if (= 0.0 scal-g)
       (when-not (= 1.0 scal-diff-w) (scal! scal-diff-w diff-gamma-tz))
       (axpby! scal-diff-w diff-gamma-tz scal-g post-diff-gamma-tz))
-    (axpby! scal-diff-b diff-beta-tz scal-b beta-tz)
+    (when (not= 1.0 scal-b) (scal! scal-b beta-tz))
     (diff-src-conn)
     this))
 
@@ -1156,7 +1129,7 @@
   (.write w (format "#BatchNorm[]\n gamma:\n beta: \n output: %s\n"
                     (weights layer) (bias layer) (pr-str (output layer)))))
 
-(deftype DnnlBatchNormalizationBlueprint [fact data-desc scaleshift-desc gamma-desc
+(deftype DnnlBatchNormalizationBlueprint [fact data-desc scaleshift-desc
                                           infer-pd train-pd bwd-pd ^long c]
   Releaseable
   (release [_]
@@ -1180,21 +1153,21 @@
   Info
   (info [this info-type]
     (case info-type
-      :bias gamma-desc
+      :bias scaleshift-desc
       :inference {:src (src-md infer-pd)
-                  :weights gamma-desc
+                  :weights scaleshift-desc
                   :dst (dst-md infer-pd)}
       :training {:src (src-md train-pd)
-                 :weights gamma-desc
+                 :weights scaleshift-desc
                  :dst (dst-md train-pd)}
       nil))
   (info [this]
-    {:bias gamma-desc
+    {:bias scaleshift-desc
      :inference {:src (src-md infer-pd)
-                 :weights gamma-desc
+                 :weights scaleshift-desc
                  :dst (dst-md infer-pd)}
      :training {:src (src-md train-pd)
-                :weights gamma-desc
+                :weights scaleshift-desc
                 :dst (dst-md train-pd)}})
   DiamondFactoryProvider
   (diamond-factory [_]
@@ -1216,42 +1189,38 @@
   IFn
   (invoke [this src-tz]
     (let-release [src-conn (connector src-tz data-desc)
-                  scaleshift-tz (dnnl-tensor fact scaleshift-desc)
-                  gamma-tz (view-tz scaleshift-tz gamma-desc)
-                  beta-tz (tz/offset! (view-tz scaleshift-tz gamma-desc) c)
-                  mean-tz (dnnl-tensor fact gamma-desc)
-                  var-tz (dnnl-tensor fact gamma-desc)
+                  gamma-tz (dnnl-tensor fact scaleshift-desc)
+                  beta-tz (dnnl-tensor fact scaleshift-desc)
+                  mean-tz (dnnl-tensor fact scaleshift-desc)
+                  var-tz (dnnl-tensor fact scaleshift-desc)
                   fwd-prim (primitive infer-pd)
-                  fwd-args (dnnl-args batch-norm-fwd-args (output src-conn) (output src-conn)
-                                      scaleshift-tz mean-tz var-tz)]
-      (->DnnlBatchNormalizationInference fact (flow fact) this scaleshift-tz
+                  fwd-args (batch-norm-fwd-args (output src-conn) (output src-conn)
+                                                gamma-tz beta-tz mean-tz var-tz)]
+      (->DnnlBatchNormalizationInference fact (flow fact) this
                                          src-conn gamma-tz beta-tz mean-tz var-tz
                                          fwd-prim fwd-args)))
   (invoke [this src-tz diff-src-tz prop-diff? post-process-diff?]
     (let-release [src-conn (connector src-tz data-desc)
                   dst-tz (dnnl-tensor fact (dst-md train-pd) (batch-index src-tz))
-                  scaleshift-tz (dnnl-tensor fact scaleshift-desc)
-                  diff-scaleshift-tz (dnnl-tensor fact scaleshift-desc)
-                  gamma-tz (view-tz scaleshift-tz gamma-desc)
-                  beta-tz (tz/offset! (view-tz scaleshift-tz gamma-desc) c)
-                  mean-tz (dnnl-tensor fact gamma-desc)
-                  var-tz (dnnl-tensor fact gamma-desc)
-                  diff-gamma-tz (view-tz diff-scaleshift-tz gamma-desc)
-                  diff-beta-tz (tz/offset! (view-tz diff-scaleshift-tz gamma-desc) c)
-                  post-diff-gamma-tz (if post-process-diff? (dnnl-tensor fact gamma-desc)
+                  gamma-tz (dnnl-tensor fact scaleshift-desc)
+                  beta-tz (dnnl-tensor fact scaleshift-desc)
+                  diff-gamma-tz (dnnl-tensor fact scaleshift-desc)
+                  mean-tz (dnnl-tensor fact scaleshift-desc)
+                  var-tz (dnnl-tensor fact scaleshift-desc)
+                  diff-gamma-tz (dnnl-tensor fact scaleshift-desc)
+                  post-diff-gamma-tz (if post-process-diff? (dnnl-tensor fact scaleshift-desc)
                                          diff-gamma-tz)
                   diff-src-conn (if prop-diff?
                                   (connector data-desc diff-src-tz)
                                   (dnnl-tensor fact (src-md bwd-pd) (batch-index diff-src-tz)))
                   fwd-prim (primitive train-pd)
-                  fwd-args (dnnl-args batch-norm-fwd-args (output src-conn) dst-tz scaleshift-tz
-                                      mean-tz var-tz)
+                  fwd-args (batch-norm-fwd-args (output src-conn) dst-tz gamma-tz beta-tz mean-tz var-tz)
                   bwd-prim (primitive bwd-pd)
-                  bwd-args (dnnl-args batch-norm-bwd-args dst-tz (output src-conn) scaleshift-tz
-                                      mean-tz var-tz (input diff-src-conn) diff-scaleshift-tz)]
-      (->DnnlBatchNormalizationTraining fact (flow fact) this scaleshift-tz diff-scaleshift-tz
+                  bwd-args (batch-norm-bwd-args dst-tz (output src-conn) gamma-tz beta-tz
+                                                mean-tz var-tz (input diff-src-conn) diff-gamma-tz)]
+      (->DnnlBatchNormalizationTraining fact (flow fact) this
                                         src-conn gamma-tz beta-tz dst-tz mean-tz var-tz
-                                        diff-gamma-tz diff-beta-tz post-diff-gamma-tz diff-src-conn
+                                        diff-gamma-tz  post-diff-gamma-tz diff-src-conn
                                         fwd-prim fwd-args
                                         bwd-prim bwd-args)))
   (applyTo [this xs]
@@ -1264,16 +1233,12 @@
 (defn dnnl-batch-norm-op-blueprint [fact eng data-desc]
   (let [data-desc (desc data-desc)
         c (get (dims data-desc) 1)
-        scaleshift-desc (memory-desc [2 c] :float :ab)
-        gamma-desc (memory-desc [1 c] :float :ab)]
-    (with-release [bnorm-infer-desc (batch-norm-fwd-desc :inference data-desc :scaleshift :global-stats)
-                   bnorm-train-desc (batch-norm-fwd-desc :training data-desc :scaleshift)
-                   bnorm-bwd-desc (batch-norm-bwd-desc :backward data-desc data-desc :scaleshift)]
-      (let-release [bnorm-infer-pd (primitive-desc eng bnorm-infer-desc)
-                    bnorm-train-pd (primitive-desc eng bnorm-train-desc)
-                    bnorm-bwd-pd (primitive-desc eng bnorm-bwd-desc bnorm-train-pd)]
-        (->DnnlBatchNormalizationBlueprint fact data-desc scaleshift-desc gamma-desc
-                                           bnorm-infer-pd bnorm-train-pd bnorm-bwd-pd c)))))
+        scaleshift-desc (memory-desc [1 c] :float :ab)]
+    (with-release [bnorm-infer-pd (batch-norm-fwd eng :inference data-desc :scale :shift :global-stats)
+                   bnorm-train-pd (batch-norm-fwd eng :training data-desc :scale :shift)
+                   bnorm-bwd-pd (batch-norm-bwd eng bnorm-train-pd :backward data-desc data-desc :scale)]
+      (->DnnlBatchNormalizationBlueprint fact data-desc scaleshift-desc
+                                         bnorm-infer-pd bnorm-train-pd bnorm-bwd-pd c))))
 
 (defn dnnl-batch-norm-layer-blueprint [fact eng src-desc activ alpha beta]
   (let-release [data-desc (dnnl-contiguous-desc (desc src-desc))
@@ -1468,7 +1433,7 @@
                     branch-prims (mapv primitive branch-pds)
                     branch-args (mapv (partial fwd-args (buffer src-tz)) (map buffer dst-tzs))
                     concat-prim (primitive concat-pd)
-                    concat-args (apply dnnl-args multi-args (input diff-src-conn) dst-tzs)]
+                    concat-args (apply multi-args (input diff-src-conn) dst-tzs)]
         (->DnnlBranchTraining fact (flow fact) this src-tz dst-tzs diff-src-conn
                               concat-prim concat-args branch-prims branch-args
                               prop-diff?))))
@@ -1674,14 +1639,14 @@
     (let [src-tzs (fmap (comp view output) prev-layer)]
       (let-release [dst-tz (dnnl-tensor fact dst-desc)
                     concat-prim (primitive concat-pd)
-                    concat-args (apply dnnl-args multi-args dst-tz src-tzs)]
+                    concat-args (apply multi-args dst-tz src-tzs)]
         (->DnnlConcatInference fact (flow fact) this src-tzs dst-tz concat-prim concat-args))))
   (invoke [this prev-layer prop-diff? _]
     (let [src-tzs (fmap (comp view output) prev-layer)
           diff-src-cons (fmap connector (fmap desc src-tzs) (fmap diff-input prev-layer))]
       (let-release [dst-tz (dnnl-tensor fact dst-desc)
                     concat-prim (primitive concat-pd)
-                    concat-args (apply dnnl-args multi-args dst-tz src-tzs)
+                    concat-args (apply multi-args dst-tz src-tzs)
                     branch-prims (mapv primitive branch-pds)
                     branch-args (mapv (partial fwd-args (buffer dst-tz)) (map (comp buffer input) diff-src-cons))]
         (->DnnlConcatTraining fact (flow fact) this src-tzs dst-tz diff-src-cons
@@ -1870,7 +1835,7 @@
                   diff-src-tz (view (diff-output prev-layer))
                   diff-tzs (mapv (partial dnnl-tensor fact) (repeat n src-desc))
                   sum-prim (primitive sum-pd)
-                  sum-args (apply dnnl-args multi-args diff-src-tz diff-tzs)]
+                  sum-args (apply multi-args diff-src-tz diff-tzs)]
       (->DnnlSplitTraining fact (flow fact) this n src-tz diff-tzs diff-src-tz
                            sum-prim sum-args prop-diff?)))
   (applyTo [this xs]
@@ -2001,7 +1966,7 @@
           diff-src-tzs (fmap (comp view diff-input) prev-layer)
           strm (flow fact)]
       (let-release [sum-prim (primitive sum-pd)
-                    sum-args (apply dnnl-args multi-args (get src-tzs 0) src-tzs)
+                    sum-args (apply multi-args (get src-tzs 0) src-tzs)
                     diff-transformers (mapv (partial dnnl-transformer eng strm (get diff-src-tzs 0))
                                             (rest diff-src-tzs))]
         (->DnnlSum fact (flow fact) this src-tzs diff-src-tzs

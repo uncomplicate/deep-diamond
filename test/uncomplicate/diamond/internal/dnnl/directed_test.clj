@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.dnnl.directed-test
   (:require [midje.sweet :refer [facts throws => roughly]]
-            [uncomplicate.commons [core :refer [with-release]]]
+            [uncomplicate.commons [core :refer [with-release release]]];;TODO remove release
             [uncomplicate.neanderthal
              [core :refer [transfer! native view-vctr view-ge cols]]
              [real :refer [entry! entry]]
@@ -27,7 +27,7 @@
   (:import clojure.lang.ExceptionInfo))
 
 (facts "Inner product tests."
-       (with-release [fact (dnnl-factory)
+       (let [fact (dnnl-factory)
                       src-tz (tensor fact [1 3 2 1] :float :nchw)
                       dst-desc (desc [1 2] :float :nc)
                       ip (inner-product fact src-tz dst-desc)
@@ -45,7 +45,10 @@
          (transfer! [-0.1 0.8299999594688416] (view-vctr (output ip-train)))
          (backward ip-train) => ip-train
          (view-vctr (diff-weights ip-train)) => (fv 0.05 0 -0.020000001 -0.1 -0.030000001 0.07
-                                               -0.415 0.0 0.166 0.83 0.249 -0.581)))
+                                                    -0.415 0.0 0.166 0.83 0.249 -0.581)
+         (release ip-train)
+         (release ip-infer)
+         (release ip)))
 
 (facts "Inner product backprop step by step."
        (with-release [fact (dnnl-factory)
@@ -110,3 +113,45 @@
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
 ;; "Elapsed time: 4990.836368 msecs"
+
+
+(with-release [fact (dnnl-factory)] ;;TODO remove
+  (test-activation-relu fact)
+  ;; (test-activation-sigmoid fact)
+  ;; (test-fully-connected-inference fact)
+  ;; (test-fully-connected-transfer fact)
+  ;; (test-fully-connected-training fact)
+  ;; (test-fully-connected-training-adam fact)
+  ;; (test-fully-connected-layer-1 fact)
+  ;; (test-fully-connected-layer-2 fact)
+  ;; (test-sequential-network-linear fact)
+  ;; (test-sequential-network-detailed fact)
+  ;; (test-sequential-network-batched fact)
+  ;; (test-quadratic-cost fact)
+  ;; (test-sequential-network-sigmoid-sgd fact)
+  ;; (test-sequential-network-sigmoid-adam fact)
+  ;; (test-gradient-descent fact)
+  ;; (test-stochastic-gradient-descent-sgd fact)
+  ;; (test-stochastic-gradient-descent-adam fact)
+  ;; (test-crossentropy-cost fact)
+  ;; (test-inner-product-training fact)
+  ;; (test-convolution-inference fact)
+  ;; (test-convolution-inference-relu fact)
+  ;; (test-convolution-training fact)
+  ;; (test-pooling-max fact)
+  ;; (test-pooling-avg fact)
+  ;; (test-sequential-network-convolution-adam fact)
+  ;; (test-gaussian-dropout fact)
+  ;; (test-batch-normalization-inference fact)
+  ;; (test-batch-normalization-training fact)
+  ;; (test-concatenate fact)
+  ;; (test-branch fact)
+  ;; (test-network-concat fact)
+  ;; (test-network-branch-concat fact)
+  ;; (test-network-branch-concat-simplified fact)
+  ;; (test-parallel-network-solo fact)
+  ;; (test-parallel-network-concat fact)
+  ;; (test-parallel-network-nested fact)
+  ;; (test-sum fact)
+  ;; (test-split fact)
+  )

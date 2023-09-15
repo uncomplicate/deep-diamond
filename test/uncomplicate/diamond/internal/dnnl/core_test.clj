@@ -8,8 +8,10 @@
 
 (ns uncomplicate.diamond.internal.dnnl.core-test
   (:require [midje.sweet :refer [facts throws => roughly truthy just]]
-            [uncomplicate.commons.core :refer [with-release bytesize]]
-            [uncomplicate.clojure-cpp :refer [pointer put-float! get-float byte-pointer]]
+            [uncomplicate.commons.core :refer [with-release bytesize size]]
+            [uncomplicate.clojure-cpp
+             :refer [pointer put-float! get-float byte-pointer float-pointer put-entry! get-entry
+                     position pointer-seq position!]]
             [uncomplicate.neanderthal
              [core :refer [zero nrm2 entry! entry transfer!]]
              [native :refer [fv]]
@@ -65,7 +67,7 @@
          (pointer mem) => truthy
          (bytesize (pointer mem)) => 480))
 
-(facts "Memory offset operation." ;;TODO offset will hopefully not be needed any more.
+(facts "Memory offset operation."
        (with-release [eng (engine)
                       s (stream eng)
                       md (memory-desc [2 3 4 5] :float :nchw)
@@ -74,40 +76,65 @@
                       relu-pd (eltwise-fwd eng :inference :relu md)
                       relu (primitive relu-pd)
                       relu-args (fwd-args mem)]
-         ;;(primitive-kind relu-desc) => :eltwise ;;TODO
          (put-float! buf 0 -100)
          (put-float! buf 1 -20)
          (put-float! buf 2 -200)
          (put-float! buf 120 -400)
          (put-float! buf 121 -500)
-         ;;(offset! mem 4) TODO remove
+         (offset! mem 4)
+         (position (pointer mem)) => 4
+         (position buf) => 0
          (execute! s relu relu-args) => s
-         (get-float buf 0) => 0.0
+         (get-float buf 0) => -100.0
          (get-float buf 1) => 0.0
          (get-float buf 2) => 0.0
-         (get-float buf 120) => -400.0
+         (get-float buf 120) => 0.0
          (get-float buf 121) => -500.0
-         ;;(offset! mem 489) => (throws ExceptionInfo)
-         ))
+         (offset! mem 489) => (throws ExceptionInfo)))
 
-#_(facts "Submemory descriptor." TODO
+(facts "Memory with typed pointers (float)."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2] :float :x)
+                      buf (byte-pointer (+ (bytesize md) Float/BYTES))
+                      mem (memory eng md (position! buf 4))
+                      relu-pd (eltwise-fwd eng :inference :relu md)
+                      relu (primitive relu-pd)
+                      relu-args (fwd-args mem)]
+         (position! buf 0)
+         (put-float! buf 0 -1)
+         (put-float! buf 1 -2)
+         (put-float! buf 2 -3)
+         (position (pointer mem)) => 4
+         (position buf) => 0
+         (execute! s relu relu-args) => s
+         (get-float buf 0) => -1.0
+         (get-float buf 1) => 0.0
+         (get-float buf 2) => 0.0
+         (size buf) => 12
+         (position buf) => 0
+         (pointer-seq (float-pointer buf)) => [-1.0 0.0 0.0]))
+
+(facts "Submemory descriptor."
        (with-release [eng (engine)
                       s (stream eng)
                       md (memory-desc [2 3 4 5] :float :nchw)
-                      buf (direct-buffer (size md))
+                      buf (byte-pointer (bytesize md))
                       sub-md (submemory-desc md 1)
                       sub-mem (memory eng sub-md buf)
-                      relu-desc (eltwise-fwd :inference :relu sub-md eng)
-                      relu-pd (primitive-desc eng relu-desc)
+                      relu-pd (eltwise-fwd eng :inference :relu sub-md)
                       relu (primitive relu-pd)
                       relu-args (fwd-args sub-mem)]
-         (primitive-kind relu-desc) => :eltwise
-         (put-float buf 0 -100)
-         (put-float buf 1 -20)
-         (put-float buf 2 -200)
-         (put-float buf 59 -1)
-         (put-float buf 60 -2)
-         (put-float buf 119 -400)
+         (dims md) => [2 3 4 5]
+         (strides md) => [60 20 5 1]
+         (dims sub-md) => [1 3 4 5]
+         (strides sub-md) => [60 20 5 1]
+         (put-float! buf 0 -100)
+         (put-float! buf 1 -20)
+         (put-float! buf 2 -200)
+         (put-float! buf 59 -1)
+         (put-float! buf 60 -2)
+         (put-float! buf 119 -400)
          (offset! sub-mem (* Float/BYTES 60))
          (execute! s relu relu-args) => s
          (get-float buf 0) => -100.0
@@ -125,25 +152,24 @@
          (get-float buf 60) => 0.0
          (get-float buf 119) => 0.0))
 
-#_(facts "Submemory descriptor with offsets."
+(facts "Submemory descriptor with offsets."
        (with-release [eng (engine)
                       s (stream eng)
                       md (memory-desc [2 2 3 2] :float :nchw)
-                      buf (direct-buffer (size md))
+                      buf (float-pointer (quot (bytesize md) Float/BYTES))
                       sub-md (submemory-desc md [2 1 3 2] [0 1 0 0])
                       sub-mem (memory eng sub-md buf)
-                      relu-desc (eltwise-fwd-desc :inference :abs sub-md)
-                      relu-pd (primitive-desc eng relu-desc)
+                      relu-pd (eltwise-fwd eng :inference :abs sub-md)
                       relu (primitive relu-pd)
                       relu-args (fwd-args sub-mem)]
          (dotimes [i 24]
-           (put-float buf i (- i)))
+           (put-entry! buf i (- i)))
          (execute! s relu relu-args) => s
-         (get-float buf 5) => -5.0
-         (get-float buf 6) => 6.0
-         (get-float buf 11) => 11.0
-         (get-float buf 12) => -12.0
-         (get-float buf 23) => 23.0))
+         (get-entry buf 5) => -5.0
+         (get-entry buf 6) => 6.0
+         (get-entry buf 11) => 11.0
+         (get-entry buf 12) => -12.0
+         (get-entry buf 23) => 23.0))
 
 (facts "In-place Sum operation"
        (with-release [eng (engine)
@@ -234,6 +260,27 @@
            (= (nrm2 a-vec) (nrm2 b-vec)) => false
            (execute! s reorder-a-b reorder-a-b-args) => s
            (= a-vec b-vec) => true)))
+
+(facts "Reordering memory with offsets."
+       (let [dims [2 2 3 2]]
+         (with-release [eng (engine)
+                        s (stream eng)
+                        a-desc (memory-desc dims :float :nchw)
+                        b-desc (memory-desc dims :float :nchw)
+                        reorder-a-b-pd (reorder eng a-desc b-desc)
+                        a-vec (fv (range (apply * 3 dims)))
+                        b-vec (zero a-vec)
+                        a-mem (memory eng a-desc (buffer a-vec))
+                        b-mem (memory eng a-desc (position! (buffer b-vec) 5))
+                        reorder-a-b (primitive reorder-a-b-pd)
+                        reorder-a-b-args (fwd-args a-mem b-mem)]
+           (= a-vec b-vec) => false
+           (= (nrm2 a-vec) (nrm2 b-vec)) => false
+           (take 3 (pointer-seq (pointer (offset! a-mem 2)))) => [2.0 3.0 4.0]
+           (execute! s reorder-a-b reorder-a-b-args) => s
+           (take 6 (pointer-seq (pointer (offset! b-mem 2)))) => [0.0 0.0 0.0 2.0 3.0 4.0]
+           (pointer-seq (pointer a-mem)) => (range 2.0 (apply * 3 dims))
+           (take 25 (pointer-seq (pointer b-mem))) => (into [0.0 0.0 0.0] (range 2.0 (apply * dims))))))
 
 (facts "Elementwise forward ReLU operation."
        (with-release [eng (engine)
@@ -715,7 +762,6 @@
                       bnrm (primitive bnrm-pd)
                       bnrm-args (batch-norm-fwd-args src-mem dst-mem scale-mem shift-mem
                                                      mean-mem variance-mem)
-                      ;;TODO :shift throws illegal-argument exception. Probably broken in DNNL  https://github.com/oneapi-src/oneDNN/pull/1440#discussion_r982974617 Reported upstream.
                       bnrm-bwd-pd (batch-norm-bwd eng bnrm-pd :backward data-desc data-desc :scale)
                       diff-dst-vec (fv [-5 10 0.3 0.2 -0.5 0.6 0.9 -3])
                       diff-dst-mem (memory eng (diff-dst-md bnrm-bwd-pd) (buffer diff-dst-vec))
@@ -723,12 +769,10 @@
                       diff-src-mem (memory eng (diff-src-md bnrm-bwd-pd) (buffer diff-src-vec))
                       diff-scale-vec (fv 2)
                       diff-scale-mem (memory eng scaleshift-desc (buffer diff-scale-vec))
-                      diff-shift-vec (fv 2)
-                      diff-shift-mem (memory eng scaleshift-desc (buffer diff-shift-vec))
                       bnrm-bwd (primitive bnrm-bwd-pd)
                       bnrm-bwd-args (batch-norm-bwd-args diff-dst-mem src-mem scale-mem shift-mem
                                                          mean-mem variance-mem
-                                                         diff-src-mem diff-scale-mem diff-shift-mem)]
+                                                         diff-src-mem diff-scale-mem)]
          (execute! s bnrm bnrm-args) => s
          (seq src-vec) => (range -1.0 7.0)
          (seq dst-vec)
@@ -740,8 +784,7 @@
          (seq diff-src-vec)
          => [-2.455202579498291 3.989145278930664 -0.6126827001571655 -0.9212599992752075
              -1.4489718675613403 0.9928141236305237 2.3612875938415527 -1.9051299095153809]
-         (seq diff-scale-vec) => [2.6385602951049805 -3.219937801361084]
-         (seq diff-shift-vec) => [5.5 -2.0]))
+         (seq diff-scale-vec) => [2.6385602951049805 -3.219937801361084]))
 
 (facts "In-place Binary operation"
        (with-release [eng (engine)

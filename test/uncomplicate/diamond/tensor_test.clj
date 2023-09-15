@@ -10,6 +10,7 @@
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons
              [core :refer [with-release release]]]
+            [uncomplicate.clojure-cpp :refer [position!]]
             [uncomplicate.neanderthal
              [core :refer [asum view-vctr transfer! native entry entry! dim]]
              [block :refer [buffer contiguous?]]]
@@ -95,9 +96,11 @@
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native sub-y)) => [0.0 1.0 2.0]
            (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
-           (seq (native (offset! sub-y 3))) => [3.0 4.0 5.0]
+           (position! (buffer sub-y) 3)
+           (seq (native sub-y)) => [3.0 4.0 5.0]
            (seq (native sub-x)) => [0.0 1.0]
-           (seq (native (offset! sub-z 1))) => [1.0 2.0 3.0 4.0]
+           (position! (buffer sub-z) 1)
+           (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))
 
 ;; TODO implement and test fluokitten support.
@@ -184,6 +187,7 @@
            (transfer! (range 1 15) tz-x)
            (seq (native tz-x)) => (range 1.0 15.0)
            (seq (native tz-y)) => (repeat 6 0.0)
+           (seq (native (batch 0 0))) => (seq (native tz-y))
            (batch 0 0) => tz-y
            (seq (native tz-y)) => [1.0 3.0 5.0 2.0 4.0 6.0]
            (transfer! (repeat 0) tz-y)
@@ -208,9 +212,10 @@
            (transfer! (range 1 15) tz-x)
            (seq (transfer! sub-x (tensor fact [2 3 1] :float :tnc)))
            => [1.0 2.0 3.0 8.0 9.0 10.0]
-           (seq (transfer! (offset! sub-x 3) (tensor fact [2 3 1] :float :tnc)))
+           (seq (transfer! (do (position! (buffer sub-x) 3) sub-x)
+                           (tensor fact [2 3 1] :float :tnc)))
            => [4.0 5.0 6.0 11.0 12.0 13.0]
-           (seq (transfer! (offset! sub-x 6) (tensor fact [2 3 1] :float :tnc)))
+           (seq (transfer! (do (position! (buffer sub-x) 6) sub-x) (tensor fact [2 3 1] :float :tnc)))
            => (throws ExceptionInfo)
            ;; (seq (native tz-x)) => (range 1.0 15.0)
            ;; (seq (native tz-y)) => (repeat 6 0.0)

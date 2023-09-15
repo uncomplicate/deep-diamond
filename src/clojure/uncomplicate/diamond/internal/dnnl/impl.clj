@@ -9,12 +9,12 @@
 (ns uncomplicate.diamond.internal.dnnl.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info Wrapper Wrappable wrap
-                           extract info Viewable view Bytes]]
+                           extract info Viewable view Bytes bytesize Entries sizeof* sizeof size]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
-             :refer [null? pointer int-pointer long-pointer long-ptr element-count pointer-vec
+             :refer [null? pointer int-pointer long-pointer long-ptr pointer-vec
                      get-entry put-entry! fill! PointerCreator pointer-pointer get-pointer
-                     capacity!]]
+                     capacity! memcpy! byte-pointer]]
             [uncomplicate.diamond.internal.utils :refer [extend-dnnl-pointer]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -23,10 +23,7 @@
            org.bytedeco.dnnl.global.dnnl
            [org.bytedeco.dnnl dnnl_engine dnnl_stream dnnl_primitive_desc
             dnnl_primitive dnnl_exec_arg_t dnnl_memory_desc dnnl_memory
-            #_const_dnnl_op_desc dnnl_primitive_attr #_dnnl_eltwise_desc
-            #_dnnl_inner_product_desc #_dnnl_softmax_desc #_dnnl_convolution_desc
-            #_dnnl_pooling_desc #_dnnl_batch_normalization_desc #_dnnl_binary_desc
-            #_dnnl_reduction_desc #_dnnl_rnn_desc #_dnnl_rnn_packed_desc]))
+            dnnl_primitive_attr]))
 
 (defn dnnl-error
   ([^long err-code details]
@@ -135,14 +132,12 @@
 
 ;; ===================== Memory =========================================================
 
-(extend-dnnl-pointer dnnl_memory_desc dnnl/dnnl_memory_desc_destroy dnnl-error)
-
 (extend-type java.lang.Long
   BlockedDesc
   (memory-desc* [tag dims data-type]
     (let-release [res (dnnl_memory_desc.)]
       (with-check
-        (dnnl/dnnl_memory_desc_create_with_tag res (element-count dims) (long-ptr dims)
+        (dnnl/dnnl_memory_desc_create_with_tag res (size dims) (long-ptr dims)
                                                (int data-type) tag)
         res
         {:tag (dec-format tag)
@@ -154,7 +149,7 @@
   (memory-desc* [tag dims data-type]
     (let-release [res (dnnl_memory_desc.)]
       (with-check
-        (dnnl/dnnl_memory_desc_create_with_tag res (element-count dims) (long-ptr dims)
+        (dnnl/dnnl_memory_desc_create_with_tag res (size dims) (long-ptr dims)
                                                (int data-type) tag)
         res
         {:tag (dec-format tag)
@@ -166,7 +161,7 @@
   (memory-desc* [strides dims data-type]
     (let-release [res (dnnl_memory_desc.)]
       (with-check
-        (dnnl/dnnl_memory_desc_create_with_strides res (element-count dims) (long-ptr dims)
+        (dnnl/dnnl_memory_desc_create_with_strides res (size dims) (long-ptr dims)
                                                    (int data-type) strides)
         res
         {:strides (pointer-vec strides)
@@ -200,10 +195,13 @@
        (dnnl/dnnl_memory_desc_create_submemory res parent-desc dims offsets)
        res)))
   ([^dnnl_memory_desc parent-desc ^long n]
-   (with-release [dims (dims* parent-desc)
-                  strides (fill! (long-pointer (element-count dims)) 0)]
-     (put-entry! dims 0 n)
-     (submemory-desc* parent-desc dims strides))))
+   (let [ndims (ndims* parent-desc)]
+     (with-release [dims (long-pointer ndims)
+                    strides (fill! (long-pointer ndims) 0)]
+       (put-entry! (memcpy! (dims* parent-desc) dims (* Long/BYTES ndims)) 0 n)
+       (submemory-desc* parent-desc dims strides)))))
+
+(extend-dnnl-pointer dnnl_memory_desc dnnl/dnnl_memory_desc_destroy dnnl-error)
 
 (extend-type dnnl_memory_desc
   DescProvider
@@ -211,7 +209,10 @@
     this)
   Viewable
   (view [this]
-    this)
+    (let-release [res (dnnl_memory_desc.)]
+      (with-check
+        (dnnl/dnnl_memory_desc_clone res this)
+        res)))
   Bytes
   (bytesize* [this]
     (dnnl/dnnl_memory_desc_get_size this)))
@@ -236,14 +237,21 @@
   PointerCreator
   (pointer* [this]
     (if-not (or (null? mem) (null? data)) data nil))
+  (pointer* [this i]
+    (if-not (or (null? mem) (null? data)) (pointer data i) nil))
   Bytes
   (bytesize* [_]
-    (dnnl/dnnl_memory_desc_get_size mem)))
+    (dnnl/dnnl_memory_desc_get_size mem-desc))
+  Entries
+  (sizeof* [_]
+    (sizeof* data))
+  (size* [this]
+    (quot (bytesize this) (sizeof data) )))
 
 (defn memory* [^dnnl_memory_desc desc ^dnnl_engine eng data master]
   (let-release [mem (dnnl_memory.)
-                data-pointer (pointer data)]
-    (with-check (dnnl/dnnl_memory_create mem desc eng data-pointer)
+                data-pointer (pointer data 0)]
+    (with-check (dnnl/dnnl_memory_create mem desc eng (byte-pointer data-pointer))
       (->MemoryImpl mem desc data-pointer master))))
 
 (defn get-engine* [^dnnl_memory mem]
@@ -277,7 +285,7 @@
             ^dnnl_primitive_attr attr]
   (let-release [pd (dnnl_primitive_desc.)]
     (with-check
-      (dnnl/dnnl_sum_primitive_desc_create pd eng dst (element-count scales) scales src attr)
+      (dnnl/dnnl_sum_primitive_desc_create pd eng dst (size scales) scales src attr)
       pd)))
 
 (defn sum-pp* [^dnnl_engine eng ^dnnl_memory_desc dst ^FloatPointer scales ^PointerPointer srcs
@@ -285,7 +293,7 @@
   (with-release [pds (pointer-pointer 1)]
     (put-entry! pds 0 (dnnl_primitive_desc.))
     (with-check
-      (dnnl/dnnl_sum_primitive_desc_create (.position pds 0) eng dst (element-count scales)
+      (dnnl/dnnl_sum_primitive_desc_create (.position pds 0) eng dst (size scales)
                                            scales (.position srcs 0) attr)
       (dnnl_primitive_desc. (.get pds 0)))))
 

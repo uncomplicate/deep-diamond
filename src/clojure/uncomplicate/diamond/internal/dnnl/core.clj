@@ -8,11 +8,12 @@
 
 (ns uncomplicate.diamond.internal.dnnl.core
   (:require [uncomplicate.commons
-             [core :refer [let-release with-release extract view Info bytesize]]
+             [core :refer [let-release with-release extract view Info bytesize size]]
              [utils :refer [enc-keyword direct-buffer capacity dragan-says-ex mask]]]
             [uncomplicate.clojure-cpp
-             :refer [int-pointer long-pointer float-pointer pointer-pointer get-entry element-count
-                     fill! pointer-vec safe byte-pointer position! pointer get-pointer put-entry!]]
+             :refer [int-pointer long-pointer float-pointer pointer-pointer get-entry
+                     fill! pointer-vec safe byte-pointer position! get-pointer put-entry!
+                     type-pointer pointer position]]
             [uncomplicate.diamond.internal.utils :refer [default-strides]]
             [uncomplicate.diamond.internal.dnnl
              [impl :refer :all]
@@ -116,7 +117,7 @@
    (with-release [dims (long-pointer dims)
                   fmt (if (keyword? format)
                         (enc-keyword dnnl-format format)
-                        (long-pointer (drop (- (count format) (element-count dims)) format)))]
+                        (long-pointer (drop (- (count format) (size dims)) format)))]
      (memory-desc* (extract fmt) (extract dims) (enc-keyword dnnl-data-type data-type))))
   ([dims format]
    (memory-desc dims :float format))
@@ -136,7 +137,7 @@
    (if (number? dim)
      (submemory-desc* (desc parent-desc) dim)
      (with-release [dims (long-pointer dim)
-                    offsets (fill! (long-pointer (element-count dims)) 0)]
+                    offsets (fill! (long-pointer (size dims)) 0)]
        (submemory-desc* (desc parent-desc) (extract dims) (extract offsets))))))
 
 (defn equal-desc?
@@ -218,23 +219,30 @@
   ([eng mem-desc buf]
    (memory eng mem-desc buf false))
   ([eng mem-desc]
-   (let-release [buf (byte-pointer (bytesize (desc mem-desc)))]
-     (memory* (desc mem-desc) eng (safe buf) true))))
+   (if-let [mem-desc (desc mem-desc)]
+     (let-release [buf (byte-pointer (bytesize mem-desc))]
+       (memory* mem-desc
+                eng
+                (safe (if-let [ptr-fn (type-pointer (data-type mem-desc))]
+                        (ptr-fn buf)
+                        buf))
+                true))
+     nil)))
 
-(defn offset! ;; TODO consider getting rid of offset! (if possible) by using pointer methods
+(defn offset!
   "Sets the starting position in the buffer that the memory object `mem` controls."
   [mem ^long n]
   (let [p (pointer mem)]
-    (if (<= 0 n (bytesize p))
-      (with-check (dnnl/dnnl_memory_set_data_handle (extract mem) (extract (position! p n)))
+    (if (<= 0 n (size p))
+      (with-check (dnnl/dnnl_memory_set_data_handle (extract mem) (byte-pointer (position! p n)))
         mem)
       (dragan-says-ex "There is not enough capacity in the underlying buffer for this offset."
-                      {:requested n :available (bytesize p)}))))
+                      {:n n :requested n :available (size p)}))))
 
-(defn offset ;;TODO remove
+(defn offset
   "Gets the starting position in the buffer that the memory object `mem` controls."
   ^long [mem]
-  (ex-info "offset should be replaced with Pointer.position()" nil))
+  (position (pointer mem)))
 
 (defn get-engine
   "Returns the engine context of the memory object `mem`."
@@ -605,7 +613,7 @@
   ([eng prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides dilates padding-l padding-r]
    (with-release [strides (long-pointer strides)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (element-count strides)) 0))
+                              (fill! (long-pointer (size strides)) 0))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (convolution-forward* (extract eng)
@@ -628,7 +636,7 @@
     strides dilates padding-l padding-r]
    (with-release [strides (long-pointer strides)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (element-count strides)) 0))
+                              (fill! (long-pointer (size strides)) 0))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (convolution-backward-data* (extract eng)
@@ -649,7 +657,7 @@
     strides dilates padding-l padding-r]
    (with-release [strides (long-pointer strides)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (element-count strides)) 0))
+                              (fill! (long-pointer (size strides)) 0))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (convolution-backward-weights* (extract eng)
@@ -675,7 +683,7 @@
    (with-release [strides (long-pointer strides)
                   kernel(long-pointer kernel)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (element-count strides)) 0))
+                              (fill! (long-pointer (size strides)) 0))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (pooling-forward* (extract eng) (enc-keyword dnnl-forward-prop-kind prop-kind)
@@ -693,7 +701,7 @@
    (with-release [strides (long-pointer strides)
                   kernel(long-pointer kernel)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (element-count strides)) 0))
+                              (fill! (long-pointer (size strides)) 0))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (pooling-backward* (extract eng) (enc-keyword dnnl-pooling-alg-kind alg-kind)
@@ -775,9 +783,9 @@
      (args* args 3 dnnl/DNNL_ARG_VARIANCE (extract variance))
      (args* args 4 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))
      (.position args 0)))
-  ([diff-dst src scale shift mean variance diff-src diff-scale diff-shift]
-   (batch-norm-bwd-args diff-dst src scale shift mean variance diff-src diff-scale diff-shift nil))
-  ([diff-dst src scale shift mean variance diff-src diff-scale diff-shift workspace]
+  ([diff-dst src scale shift mean variance diff-src diff-scale]
+   (batch-norm-bwd-args diff-dst src scale shift mean variance diff-src diff-scale nil))
+  ([diff-dst src scale shift mean variance diff-src diff-scale workspace]
    (let-release [args (dnnl_exec_arg_t. (if workspace 10 9))]
      (when workspace
        (args* args 9 dnnl/DNNL_ARG_WORKSPACE (extract workspace)))
@@ -789,7 +797,6 @@
      (args* args 5 dnnl/DNNL_ARG_VARIANCE (extract variance))
      (args* args 6 dnnl/DNNL_ARG_DIFF_SRC (extract diff-src))
      (args* args 7 dnnl/DNNL_ARG_DIFF_SCALE (extract diff-scale))
-     (args* args 8 dnnl/DNNL_ARG_DIFF_SHIFT (extract diff-shift))
      (.position args 0))))
 
 ;; ======================= Reduction ========================================================

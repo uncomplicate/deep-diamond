@@ -8,11 +8,13 @@
 
 (ns uncomplicate.diamond.internal.dnnl.tensor
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info Viewable view]]
+             [core :refer [Releaseable release let-release with-release Info info Viewable view
+                           bytesize Wrapper extract size]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten
              [protocols :refer [Magma Monoid Applicative Functor]]
              [core :refer [fmap foldmap]]]
+            [uncomplicate.clojure-cpp :refer [pointer]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
              [block :refer [entry-width data-accessor buffer count-entries contiguous?]]]
@@ -20,7 +22,7 @@
              :refer [flow FactoryProvider EngineProvider DataAccessorProvider
                      Container raw copy MemoryContext set-all compatible? factory native-factory
                      create-vector DenseContainer view-vctr]]
-            [uncomplicate.neanderthal.internal.host.buffer-block :refer [real-block-vector]]
+            [uncomplicate.neanderthal.internal.cpp.structures :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
                      Revert ConnectorCreator connector view-tz transformer batch-size]
@@ -28,20 +30,20 @@
             [uncomplicate.diamond.internal
              [protocols
               :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
-                      neanderthal-factory tensor-engine native-diamond-factory Offset
+                      neanderthal-factory tensor-engine native-diamond-factory Offset offset
                       DiffTransfer diff-input diff-output create-tensor-desc parameters
                       DescriptorProvider BatchDescriptor batch-index]]
              [utils :refer [check-contiguous]]]
             [uncomplicate.diamond.internal.dnnl
-             [core :refer [memory-desc dims data-type memory size strides submemory-desc
+             [core :refer [memory-desc dims data-type memory strides submemory-desc
                            equal-desc? execute! reorder primitive fwd-args offset! ndims]
               :as dnnl-core]
              [constants :refer [entry-bytes]]
-             [protocols :refer [DescProvider desc data ptr dnnl-engine]]])
+             [protocols :refer [DescProvider desc dnnl-engine]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn AFn]
            [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable]
-           org.bytedeco.dnnl.dnnl_memory_desc_t
+           org.bytedeco.dnnl.dnnl_memory_desc
            uncomplicate.diamond.tensor.TensorDescriptorImpl))
 
 (declare ->DnnlTensor dnnl-transformer dnnl-tensor dnnl-batcher ->DnnlShuffler)
@@ -71,7 +73,7 @@
   (desc [this]
     (memory-desc (shape this) (or (tz/data-type this) :float) (or (layout this) :any))))
 
-(extend-type dnnl_memory_desc_t
+(extend-type dnnl_memory_desc
   TensorDescriptor
   (shape [this]
     (dims this))
@@ -90,8 +92,8 @@
             (let-release [in-tz (dnnl-tensor fact in-desc (batch-index out-tz))]
               (dnnl-transformer (dnnl-engine fact) (flow fact) in-tz (view out-tz)))))))))
 
-(defmethod print-method dnnl_memory_desc_t
-  [^dnnl_memory_desc_t d ^java.io.Writer w]
+(defmethod print-method dnnl_memory_desc
+  [^dnnl_memory_desc d ^java.io.Writer w]
   (.write w (pr-str {:shape (dims d) :data-type (data-type d) :layout (strides d)})))
 
 ;; =================== Transformer ==============================================
@@ -143,16 +145,15 @@
 (defn dnnl-transformer [eng strm in-tz out-tz]
   (with-release [reorder-pd (reorder eng in-tz out-tz)]
     (let-release [reorder-prim (primitive reorder-pd)]
-      (->DnnlTransformer eng strm reorder-prim
-                         (fwd-args (buffer in-tz) (buffer out-tz))
+      (->DnnlTransformer eng strm reorder-prim (fwd-args in-tz out-tz)
                          in-tz out-tz))))
 
 ;; =================== Batcher ==================================================
 
 (deftype DnnlBatcher [eng strm reorder reorder-args
                       src-sub dst-sub src-tz dst-tz ^long mb-size
-                      ^long src-cnt ^long src-stride-n ^long src-entry-width
-                      ^long dst-cnt ^long dst-stride-n ^long dst-entry-width]
+                      ^long src-cnt ^long src-stride-n
+                      ^long dst-cnt ^long dst-stride-n]
   Releaseable
   (release [_]
     (release src-tz)
@@ -192,10 +193,10 @@
   (invoke [_ strm2 src-n dst-n]
     (let [src-n (long src-n)
           dst-n (long dst-n)]
-      (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
+      #dbg (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
         (do
-          (offset! src-sub (* src-entry-width src-stride-n src-n))
-          (offset! dst-sub (* dst-entry-width dst-stride-n dst-n))
+          (offset src-sub (* src-stride-n src-n))
+          (offset dst-sub (* dst-stride-n dst-n))
           (execute! strm2 reorder reorder-args))
         (dragan-says-ex "Requested subtensor is outside of bounds."
                         {:src-index src-n :src-cnt src-cnt
@@ -217,14 +218,12 @@
       (with-release [reorder-pd (reorder eng src-sub dst-sub)]
         (let-release [reorder-prim (primitive reorder-pd)]
           (->DnnlBatcher eng strm reorder-prim
-                         (fwd-args (buffer src-sub) (buffer dst-sub))
-                         (buffer src-sub) (buffer dst-sub)
+                         (fwd-args src-sub dst-sub)
+                         src-sub dst-sub
                          src-tz dst-tz
                          mb-size
                          ((dims src-tz) (batch-index src-tz)) ((strides src-sub) (batch-index src-tz))
-                         (entry-bytes (data-type src-tz))
-                         ((dims dst-tz) (batch-index dst-tz)) ((strides dst-sub) (batch-index dst-tz))
-                         (entry-bytes (data-type dst-tz))))))))
+                         ((dims dst-tz) (batch-index dst-tz)) ((strides dst-sub) (batch-index dst-tz))))))))
 
 (deftype DnnlShuffler [strm batcher batch-size mb-size]
   Releaseable
@@ -297,7 +296,6 @@
      :device :cpu
      :shape (shape x)
      :strides (strides tz-mem)
-     :offset (dnnl-core/offset tz-mem)
      :master master
      :engine eng})
   (info [x info-type]
@@ -307,7 +305,6 @@
       :device :cpu
       :shape (shape x)
       :strides (strides tz-mem)
-      :offset (dnnl-core/offset tz-mem)
       :master master
       :engine eng
       nil))
@@ -316,6 +313,9 @@
     (if master
       (release tz-mem)
       true))
+  Wrapper
+  (extract [_]
+    (extract tz-mem))
   EngineProvider
   (engine [_]
     eng)
@@ -404,14 +404,13 @@
     (* n c))
   Block
   (buffer [_]
-    tz-mem)
+    (pointer tz-mem))
   (offset [_]
-    (quot (dnnl-core/offset tz-mem) (entry-width (data-accessor neand-fact))))
+    0)
   (stride [_]
-    (dragan-says-ex "Tensors do not have a single stride. You're doing something wrong."))
+    1)
   (isContiguous [_]
-    (= (size tz-mem)
-       (apply * (entry-width (data-accessor neand-fact)) (dims tz-mem)) ))
+    (= (size tz-mem) (apply * (dims tz-mem)) ))
   Revert
   (revert [this]
     this)
@@ -455,12 +454,10 @@
     (->DnnlTensor diamond-fact neand-fact eng false tz-mem n c n-index))
   DenseContainer
   (view-vctr [this]
-    (let [ewidth (entry-width (data-accessor neand-fact))]
-      (if (= (* (dim this) ewidth) (size tz-mem))
-        (create-vector neand-fact false (data tz-mem) (dim this)
-                       (/ (.position ^Pointer (ptr tz-mem)) ewidth) 1)
-        (dragan-says-ex "Strided tensors cannot be viewed as vectors."
-                        {:tensor (info this)}))))
+    (if (<= (dim this) (size tz-mem))
+      (create-vector neand-fact false (pointer tz-mem 0) (dim this) 0 1)
+      (dragan-says-ex "Strided tensors cannot be viewed as vectors."
+                      {:tensor (info this) :dim (dim this) :size (size tz-mem)})))
   TensorContainer
   (view-tz [this]
     this)
@@ -471,21 +468,20 @@
                                (submemory-desc tz-mem (assoc (dims tz-mem) n-index sub)))
                              (memory-desc (shape sub) (or (tz/data-type sub) (data-type tz-mem))
                                           (or (layout sub) (strides tz-mem))))
-                  sub-mem (memory (dnnl-engine diamond-fact) sub-desc (data tz-mem) false)
+                  sub-mem (memory (dnnl-engine diamond-fact) sub-desc (pointer tz-mem 0) false)
                   shp (dims sub-mem)]
       (->DnnlTensor diamond-fact neand-fact eng false sub-mem (first shp) (apply * (rest shp))
                     (if (= (count shp) (count (dims tz-mem))) n-index 0))))
   Offset
   (offset [this ofst]
-    (offset! tz-mem (* (long ofst) (entry-width (data-accessor neand-fact))))
+    (offset! tz-mem ofst)
     this)
   ConnectorCreator
   (connector [in-tz out-desc]
     (if (equal-desc? tz-mem out-desc)
       (view in-tz)
       (let-release [out-tz (dnnl-tensor diamond-fact neand-fact eng out-desc (batch-index in-tz))]
-        (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact)
-                          (view in-tz) out-tz)))))
+        (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view in-tz) out-tz)))))
 
 (defn dnnl-tensor
   ([diamond-fact neand-fact eng mem-desc n-index]
@@ -559,6 +555,3 @@
 (prefer-method transfer! [DnnlTensor Object] [Object DnnlTensor])
 (prefer-method transfer! [DnnlTensor DnnlTensor] [Object DnnlTensor])
 (prefer-method transfer! [DnnlTensor DnnlTensor] [DnnlTensor Object])
-
-(defn dnnl-args [args-fn & args]
-  (apply args-fn (map (fmap #(if % (buffer %) %)) args)))

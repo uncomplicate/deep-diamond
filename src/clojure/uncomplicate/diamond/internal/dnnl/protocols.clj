@@ -8,9 +8,6 @@
 
 (ns uncomplicate.diamond.internal.dnnl.protocols)
 
-#_(defprotocol PointerCreator;;TODO replace with JavaCPP
-  (pointer [this]))
-
 (defprotocol DnnlCloneable
   (clone [this]))
 
@@ -18,13 +15,12 @@
   (memory-desc* [this dims data-type]))
 
 (defprotocol Memory ;;TODO see which part could be replaced with JavaCPP
-  (data [this]) ;;TODO maybe support Block/buffer in tensors, or replace it with extract/pointer
-  (ptr [this])) ;;TODO remove
+  (data [this])) ;;TODO maybe support Block/buffer in tensors, or replace it with extract/pointer) ;;TODO remove
 
 (defprotocol DescProvider
   (desc [this]))
 
-(defprotocol PrimitiveKind
+(defprotocol PrimitiveKind ;;TODO see whether this is supported by DNNL 3.2.1
   (primitive-kind* [this]))
 
 (defprotocol DnnlEngineProvider
