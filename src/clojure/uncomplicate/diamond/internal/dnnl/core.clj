@@ -9,11 +9,11 @@
 (ns uncomplicate.diamond.internal.dnnl.core
   (:require [uncomplicate.commons
              [core :refer [let-release with-release extract view Info bytesize size]]
-             [utils :refer [enc-keyword direct-buffer capacity dragan-says-ex mask]]]
+             [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.clojure-cpp
              :refer [int-pointer long-pointer float-pointer pointer-pointer get-entry
                      fill! pointer-vec safe byte-pointer position! get-pointer put-entry!
-                     type-pointer pointer position]]
+                     type-pointer pointer position capacity]]
             [uncomplicate.diamond.internal.utils :refer [default-strides]]
             [uncomplicate.diamond.internal.dnnl
              [impl :refer :all]
@@ -233,7 +233,7 @@
   "Sets the starting position in the buffer that the memory object `mem` controls."
   [mem ^long n]
   (let [p (pointer mem)]
-    (if (<= 0 n (size p))
+    (if (<= 0 n (capacity p))
       (with-check (dnnl/dnnl_memory_set_data_handle (extract mem) (byte-pointer (position! p n)))
         mem)
       (dragan-says-ex "There is not enough capacity in the underlying buffer for this offset."

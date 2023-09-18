@@ -193,7 +193,7 @@
   (invoke [_ strm2 src-n dst-n]
     (let [src-n (long src-n)
           dst-n (long dst-n)]
-      #dbg (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
+      (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
         (do
           (offset src-sub (* src-stride-n src-n))
           (offset dst-sub (* dst-stride-n dst-n))

@@ -10,8 +10,12 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release view]]
              [utils :refer [dragan-says-ex direct-buffer]]]
+            [uncomplicate.clojure-cpp :refer [byte-pointer]]
+            [uncomplicate.neanderthal.core :refer [entry!]]
             [uncomplicate.neanderthal.native :refer [factory-by-type]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
+            [uncomplicate.neanderthal.internal.cpp.mkl.factory
+             :refer [->FloatVectorEngine ->IntVectorEngine ->ByteVectorEngine]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory*  output]]
             [uncomplicate.diamond.internal
              [protocols
@@ -28,8 +32,7 @@
                                dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
                                dnnl-split-blueprint dnnl-concat-blueprint
                                dnnl-batch-norm-layer-blueprint dnnl-pooling-blueprint
-                               dnnl-branch-blueprint dnnl-sum-blueprint]]
-             [factory :refer [->FloatTensorEngine]]]))
+                               dnnl-branch-blueprint dnnl-sum-blueprint]]]))
 
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the Neanderthal/DNNL platform.
@@ -61,10 +64,16 @@ Please contribute towards making it possible, or use on of the supported types."
     (memory-desc dims dtype format))
   (create-tensor-desc [this tz-desc]
     (desc tz-desc))
-  (create-tensor [this tensor-desc _]
-    (dnnl-tensor this tensor-desc))
-  (create-tensor [this tensor-desc batch-index _]
-    (dnnl-tensor this tensor-desc batch-index))
+  (create-tensor [this tensor-desc init]
+    (let-release [res (dnnl-tensor this tensor-desc)]
+      (when init
+        (entry! res 0))
+      res))
+  (create-tensor [this tensor-desc batch-index init]
+    (let-release [res (dnnl-tensor this tensor-desc batch-index)]
+      (when init
+        (entry! res 0))
+      res))
   (create-transformer [_ in-tz out-tz]
     (dnnl-transformer eng strm (view in-tz) (view out-tz)))
   (create-shuffler [_ src-tz dst-tz]
@@ -86,8 +95,7 @@ Please contribute towards making it possible, or use on of the supported types."
     (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ
                                       strides (mapv dec dilation) padding padding alpha beta))
   (pooling-blueprint [this src-desc dst-desc algo strides kernel padding]
-    (dnnl-pooling-blueprint this eng src-desc dst-desc algo
-                            strides kernel padding padding))
+    (dnnl-pooling-blueprint this eng src-desc dst-desc algo strides kernel padding padding))
   (gaussian-dropout-blueprint [this src-desc sd]
     (neanderthal-gaussian-dropout-blueprint this src-desc sd))
   (batch-norm-blueprint [this src-desc activ alpha beta]
@@ -101,7 +109,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (sum-blueprint [this src-descs]
     (dnnl-sum-blueprint this eng src-descs))
   (create-workspace [_ byte-size]
-    (direct-buffer (max 1 (long byte-size))))
+    (byte-pointer (max 1 (long byte-size))))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))
@@ -114,7 +122,13 @@ Please contribute towards making it possible, or use on of the supported types."
 
 (defn neanderthal-factory
   ([eng strm]
-   (->NeanderthalFactory eng strm false {:float (->FloatTensorEngine)}))
+   (->NeanderthalFactory eng strm false {:float (->FloatVectorEngine)
+                                         :int (->IntVectorEngine)
+                                         :byte (->ByteVectorEngine)
+                                         :uint8 (->ByteVectorEngine)}))
   ([]
    (let-release [eng (engine)]
-     (->NeanderthalFactory eng (stream eng) true {:float (->FloatTensorEngine)}))))
+     (->NeanderthalFactory eng (stream eng) true {:float (->FloatVectorEngine)
+                                                  :int (->IntVectorEngine)
+                                                  :byte (->ByteVectorEngine)
+                                                  :uint8 (->ByteVectorEngine)}))))

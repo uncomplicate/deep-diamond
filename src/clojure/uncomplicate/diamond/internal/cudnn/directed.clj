@@ -851,12 +851,12 @@
   (hashCode [this]
     (-> (hash :pooling)
         (hash-combine algo)
-        (hash-combine (train-desc this))))
+        (hash-combine dst-desc)))
   (equals [this other]
     (and (instance? CUDnnPoolingBlueprint other)
          (= algo (.algo ^CUDnnPoolingBlueprint other))
          (= (inf-desc this) (inf-desc other))
-         (= (train-desc this) (train-desc other))))
+         (= dst-desc (.-dst-desc ^CUDnnPoolingBlueprint other))))
   (toString [this]
     (str {:algo algo
           :shape (shape this)

@@ -217,6 +217,11 @@
   (bytesize* [this]
     (dnnl/dnnl_memory_desc_get_size this)))
 
+(extend-type dnnl_memory
+  Releaseable
+  (release [_]
+    (dragan-says-ex "You should never directly release dnn_memory. Please use MemoryImpl!")))
+
 (deftype MemoryImpl [^dnnl_memory mem mem-desc data master]
   Releaseable
   (release [this]

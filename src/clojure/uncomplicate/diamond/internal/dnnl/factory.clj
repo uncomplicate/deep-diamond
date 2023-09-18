@@ -9,7 +9,8 @@
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release view]]
-             [utils :refer [dragan-says-ex direct-buffer]]]
+             [utils :refer [dragan-says-ex]]]
+            [uncomplicate.clojure-cpp :refer [byte-pointer]]
             [uncomplicate.neanderthal
              [native :refer [factory-by-type]]
              [block :refer [data-accessor]]
@@ -363,7 +364,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (sum-blueprint [this src-descs]
     (dnnl-sum-blueprint this eng src-descs))
   (create-workspace [_ byte-size]
-    (direct-buffer (max 1 (long byte-size))))
+    (byte-pointer (max 1 (long byte-size))))
   RnnFactory
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
     (case activ
