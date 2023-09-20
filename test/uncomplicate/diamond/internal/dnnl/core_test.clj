@@ -8,10 +8,10 @@
 
 (ns uncomplicate.diamond.internal.dnnl.core-test
   (:require [midje.sweet :refer [facts throws => roughly truthy just]]
-            [uncomplicate.commons.core :refer [with-release bytesize size]]
+            [uncomplicate.commons.core :refer [with-release bytesize size release extract]]
             [uncomplicate.clojure-cpp
              :refer [pointer put-float! get-float byte-pointer float-pointer put-entry! get-entry
-                     position pointer-seq position!]]
+                     position pointer-seq position! null?]]
             [uncomplicate.neanderthal
              [core :refer [zero nrm2 entry! entry transfer!]]
              [native :refer [fv]]
@@ -114,6 +114,28 @@
          (size buf) => 12
          (position buf) => 0
          (pointer-seq (float-pointer buf)) => [-1.0 0.0 0.0]))
+
+(facts "Memory descriptor lifecycle."
+       (with-release [eng (engine)
+                      s (stream eng)
+                      md (memory-desc [2] :float :x)
+                      buf (byte-pointer (+ (bytesize md) Float/BYTES))
+                      mem (memory eng md (position! buf 4))
+                      mem-master (memory eng md)
+                      relu-pd (eltwise-fwd eng :inference :relu md)
+                      relu (primitive relu-pd)
+                      relu-args (fwd-args mem)]
+         (release mem-master) => true
+         (null? (api/desc mem-master)) => true
+         (null? md) => false
+         (extract md) => md
+         (release md) => true
+         (release md) => true
+         (null? md) => true
+         (extract md) => nil
+         (null? (api/desc mem)) => false
+         (null? (pointer mem)) => false
+         (execute! s relu relu-args) => s))
 
 (facts "Submemory descriptor."
        (with-release [eng (engine)

@@ -9,7 +9,8 @@
 (ns uncomplicate.diamond.internal.dnnl.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info Wrapper Wrappable wrap
-                           extract info Viewable view Bytes bytesize Entries sizeof* sizeof size]]
+                           extract info Viewable view Bytes bytesize Entries sizeof* bytesize*
+                           sizeof size]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.clojure-cpp
              :refer [null? pointer int-pointer long-pointer long-ptr pointer-vec
@@ -100,8 +101,8 @@
 (extend-dnnl-pointer dnnl_primitive_desc dnnl/dnnl_primitive_desc_destroy dnnl-error)
 
 (extend-type dnnl_primitive_desc
-  DnnlCloneable
-  (clone [this]
+  Viewable
+  (view [this]
     (let-release [pd (dnnl_primitive_desc.)]
       (dnnl/dnnl_primitive_desc_clone pd this))))
 
@@ -201,21 +202,39 @@
        (put-entry! (memcpy! (dims* parent-desc) dims (* Long/BYTES ndims)) 0 n)
        (submemory-desc* parent-desc dims strides)))))
 
-(extend-dnnl-pointer dnnl_memory_desc dnnl/dnnl_memory_desc_destroy dnnl-error)
+(declare ->MemoryDescImpl)
 
 (extend-type dnnl_memory_desc
+  Releaseable
+  (release [_]
+    (dragan-says-ex "You should never directly release dnn_memory_desc. Please use MemoryDescImpl!"))
+  Wrappable
+  (wrap [this]
+    (->MemoryDescImpl this true)))
+
+(deftype MemoryDescImpl [^dnnl_memory_desc mem-desc master]
+  Releaseable
+  (release [this]
+    (locking mem-desc
+      (if (and master (not (null? mem-desc)))
+        (with-check (dnnl/dnnl_memory_desc_destroy mem-desc)
+          (do (.deallocate mem-desc)
+              (.setNull mem-desc)))))
+    true)
+  Wrapper
+  (extract [this]
+    (if-not (null? mem-desc) mem-desc nil))
+  Viewable
+  (view [this]
+    (->MemoryDescImpl mem-desc false))
   DescProvider
   (desc [this]
     this)
-  Viewable
-  (view [this]
-    (let-release [res (dnnl_memory_desc.)]
-      (with-check
-        (dnnl/dnnl_memory_desc_clone res this)
-        res)))
   Bytes
-  (bytesize* [this]
-    (dnnl/dnnl_memory_desc_get_size this)))
+  (bytesize* [_]
+    (if (null? mem-desc)
+      nil
+      (dnnl/dnnl_memory_desc_get_size mem-desc))))
 
 (extend-type dnnl_memory
   Releaseable
@@ -230,6 +249,7 @@
         (with-check (dnnl/dnnl_memory_destroy mem)
           (do (.deallocate mem)
               (.setNull mem)
+              (release mem-desc)
               (when master
                 (release data))))))
     true)
@@ -246,7 +266,7 @@
     (if-not (or (null? mem) (null? data)) (pointer data i) nil))
   Bytes
   (bytesize* [_]
-    (dnnl/dnnl_memory_desc_get_size mem-desc))
+    (bytesize* mem-desc))
   Entries
   (sizeof* [_]
     (sizeof* data))
@@ -255,9 +275,11 @@
 
 (defn memory* [^dnnl_memory_desc desc ^dnnl_engine eng data master]
   (let-release [mem (dnnl_memory.)
-                data-pointer (pointer data 0)]
+                data-pointer (pointer data 0)
+                md (dnnl_memory_desc.)]
     (with-check (dnnl/dnnl_memory_create mem desc eng (byte-pointer data-pointer))
-      (->MemoryImpl mem desc data-pointer master))))
+      (with-check (dnnl/dnnl_memory_get_memory_desc mem md)
+        (->MemoryImpl mem (->MemoryDescImpl md false) data-pointer master)))))
 
 (defn get-engine* [^dnnl_memory mem]
   (let-release [res (dnnl_engine.)]

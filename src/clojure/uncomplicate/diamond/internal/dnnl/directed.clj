@@ -213,9 +213,9 @@
 
 (defn dnnl-nop-activation-blueprint
   [fact inf-src-desc train-src-desc diff-desc]
-  (let-release [inf-src-desc (desc inf-src-desc)
-                train-src-desc (desc train-src-desc)
-                diff-desc (desc diff-desc)]
+  (let-release [inf-src-desc (view (desc inf-src-desc))
+                train-src-desc (view (desc train-src-desc))
+                diff-desc (view (desc diff-desc))]
     (->NopActivationBlueprint fact inf-src-desc train-src-desc diff-desc)))
 
 (defn dnnl-activation-blueprint
@@ -230,18 +230,18 @@
    (dnnl-activation-blueprint fact eng data-desc data-desc activ alpha beta)))
 
 (defn dnnl-softmax-blueprint [fact eng inf-src-desc train-src-desc]
-  (let-release [inf-desc (case (count (shape inf-src-desc))
-                               2 (memory-desc (shape inf-src-desc) (data-type inf-src-desc) :ab)
-                               4 (memory-desc (shape inf-src-desc) (data-type inf-src-desc) :acdb)
-                               (desc inf-src-desc))
-                train-desc (case (count (shape train-src-desc))
-                                 2 (memory-desc (shape train-src-desc) (data-type train-src-desc) :ab)
-                                 4 (memory-desc (shape train-src-desc) (data-type train-src-desc) :acdb)
-                                 (desc train-src-desc))
-                softmax-infer-pd (softmax-fwd eng :inference :accurate inf-desc 1);;TODO currently DNNL is optimized for 1
-                softmax-train-pd (softmax-fwd eng :training :accurate train-desc 1)
-                softmax-bwd-pd (softmax-bwd eng softmax-train-pd :accurate train-desc train-desc 1)]
-    (->DnnlSoftmaxBlueprint fact softmax-infer-pd softmax-train-pd softmax-bwd-pd)))
+  (with-release [inf-desc (case (count (shape inf-src-desc))
+                            2 (memory-desc (shape inf-src-desc) (data-type inf-src-desc) :ab)
+                            4 (memory-desc (shape inf-src-desc) (data-type inf-src-desc) :acdb)
+                            (view (desc inf-src-desc)))
+                 train-desc (case (count (shape train-src-desc))
+                              2 (memory-desc (shape train-src-desc) (data-type train-src-desc) :ab)
+                              4 (memory-desc (shape train-src-desc) (data-type train-src-desc) :acdb)
+                              (view (desc train-src-desc)))]
+    (let-release [softmax-infer-pd (softmax-fwd eng :inference :accurate inf-desc 1);;TODO currently DNNL is optimized for 1
+                  softmax-train-pd (softmax-fwd eng :training :accurate train-desc 1)
+                  softmax-bwd-pd (softmax-bwd eng softmax-train-pd :accurate train-desc train-desc 1)]
+      (->DnnlSoftmaxBlueprint fact softmax-infer-pd softmax-train-pd softmax-bwd-pd))))
 
 (defn dnnl-activ-blueprint
   ([fact eng inf-src-desc train-src-desc diff-desc activ alpha beta]
@@ -540,8 +540,11 @@
                  dst-desc (memory-desc [(first (shape dst-desc)) (apply * (rest (shape dst-desc)))]
                                        (or (tz/data-type dst-desc) (tz/data-type src-desc)) :any)]
     (let-release [ip-bluep (dnnl-inner-product-blueprint fact eng src-desc dst-desc weights-type)
-                  activ-bluep (dnnl-activ-blueprint fact eng (inf-desc ip-bluep) (train-desc ip-bluep)
-                                                    (diff-desc ip-bluep) activ alpha beta)]
+                  activ-bluep (dnnl-activ-blueprint fact eng
+                                                    (inf-desc ip-bluep)
+                                                    (train-desc ip-bluep)
+                                                    (diff-desc ip-bluep)
+                                                    activ alpha beta)]
       (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep))))
 
 ;; ============================= Cost Function ========================================
@@ -586,7 +589,7 @@
 
 (defn dnnl-universal-cost [eng strm prev-layer train-tz cost]
   (let [train-desc (desc train-tz)]
-    (with-release [sum-pd (sum! eng train-desc 1.0 train-desc -1.0 train-tz)]
+    (with-release [sum-pd (sum! eng train-desc 1.0 train-desc -1.0 train-desc)]
       (let-release [connect-output (connector (output prev-layer) train-desc)
                     connect-diff (connector train-desc (diff-input prev-layer))
                     sum-prim (primitive sum-pd)]
@@ -645,42 +648,42 @@
 
 (defn dnnl-convolution-op-blueprint
   [fact eng src-desc weights-desc dst-desc strides dilation padding-l padding-r]
-  (let [src-desc (desc src-desc)
-        dst-desc (desc dst-desc)]
-    (with-release [weights-desc (desc weights-desc)]
-      (let-release [bias-desc (memory-desc [(get (dims dst-desc) 1)] (data-type dst-desc) :x)
-                    conv-infer-pd (convolution-fwd eng :inference :auto
-                                                   src-desc weights-desc bias-desc dst-desc
-                                                   strides dilation padding-l padding-r)
-                    conv-train-pd (convolution-fwd eng :training :auto
-                                                   src-desc weights-desc bias-desc dst-desc
-                                                   strides dilation padding-l padding-r)
-                    conv-bwd-weights-pd (convolution-bwd-weights eng conv-train-pd :auto
-                                                                 src-desc weights-desc
-                                                                 bias-desc dst-desc
-                                                                 strides dilation padding-l padding-r)
-                    conv-bwd-data-pd (convolution-bwd-data eng conv-train-pd :auto
-                                                           src-desc weights-desc dst-desc
-                                                           strides dilation padding-l padding-r)
-                    weights-desc-export (dnnl-contiguous-desc (weights-md conv-train-pd))]
-        (->DnnlProductBlueprint fact weights-desc-export bias-desc conv-infer-pd
-                                conv-train-pd conv-bwd-weights-pd conv-bwd-data-pd)))))
+  (let-release [src-desc (desc src-desc)
+                dst-desc (desc dst-desc)
+                weights-desc (desc weights-desc)
+                bias-desc (memory-desc [(get (dims dst-desc) 1)] (data-type dst-desc) :x)
+                conv-infer-pd (convolution-fwd eng :inference :auto
+                                               src-desc weights-desc bias-desc dst-desc
+                                               strides dilation padding-l padding-r)
+                conv-train-pd (convolution-fwd eng :training :auto
+                                               src-desc weights-desc bias-desc dst-desc
+                                               strides dilation padding-l padding-r)
+                conv-bwd-weights-pd (convolution-bwd-weights eng conv-train-pd :auto
+                                                             src-desc weights-desc
+                                                             bias-desc dst-desc
+                                                             strides dilation padding-l padding-r)
+                conv-bwd-data-pd (convolution-bwd-data eng conv-train-pd :auto
+                                                       src-desc weights-desc dst-desc
+                                                       strides dilation padding-l padding-r)
+                weights-desc-export (dnnl-contiguous-desc (weights-md conv-train-pd))]
+    (->DnnlProductBlueprint fact weights-desc-export bias-desc conv-infer-pd
+                            conv-train-pd conv-bwd-weights-pd conv-bwd-data-pd)))
 
 (defn dnnl-convolution-layer-blueprint [fact eng src-desc weights-desc dst-desc activ
                                         strides dilation padding-l padding-r alpha beta]
-  (let-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
-                dst-desc (memory-desc (shape dst-desc)
-                                      (or (tz/data-type dst-desc) (data-type src-desc))
-                                      :any)
-                convolution-bluep (dnnl-convolution-op-blueprint fact eng src-desc weights-desc
-                                                                 dst-desc strides dilation
-                                                                 padding-l padding-r)
-                activ-bluep (dnnl-activ-blueprint fact eng
-                                                  (inf-desc convolution-bluep)
-                                                  (train-desc convolution-bluep)
-                                                  (train-desc convolution-bluep)
-                                                  activ alpha beta)]
-    (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep)))
+  (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
+                 dst-desc (memory-desc (shape dst-desc)
+                                       (or (tz/data-type dst-desc) (data-type src-desc))
+                                       :any)]
+    (let-release [convolution-bluep (dnnl-convolution-op-blueprint fact eng src-desc weights-desc
+                                                                   dst-desc strides dilation
+                                                                   padding-l padding-r)
+                  activ-bluep (dnnl-activ-blueprint fact eng
+                                                    (inf-desc convolution-bluep)
+                                                    (train-desc convolution-bluep)
+                                                    (train-desc convolution-bluep)
+                                                    activ alpha beta)]
+      (->DirectedLayerBlueprint fact :convolution convolution-bluep activ-bluep))))
 
 ;; ================================ Pooling =============================================
 
@@ -908,21 +911,21 @@
 
 (defn dnnl-pooling-blueprint
   [fact eng src-desc dst-desc algo strides kernel padding-l padding-r]
-  (let-release [inf-src-desc (inf-desc src-desc);;TODO maybe this could be with-release...
-                train-src-desc (train-desc src-desc)
-                inf-dst-desc (memory-desc (shape dst-desc)
-                                          (or (tz/data-type dst-desc) (data-type inf-src-desc))
-                                          (or (tz/layout dst-desc) :any))
-                train-dst-desc (memory-desc (shape dst-desc)
-                                            (or (tz/data-type dst-desc) (data-type train-src-desc))
-                                            (or (tz/layout dst-desc) :any))
-                pool-infer-pd (pooling-fwd eng :inference algo inf-src-desc inf-dst-desc
-                                           kernel strides padding-l padding-r)
-                pool-train-pd (pooling-fwd eng :training algo train-src-desc train-dst-desc
-                                           kernel strides padding-l padding-r)
-                pool-bwd-pd (pooling-bwd eng pool-train-pd algo train-src-desc train-dst-desc
-                                         kernel strides padding-l padding-r)]
-    (->DnnlPoolingBlueprint fact algo pool-infer-pd pool-train-pd pool-bwd-pd)))
+  (let [inf-src-desc (inf-desc src-desc)
+        train-src-desc (train-desc src-desc)]
+    (with-release [inf-dst-desc (memory-desc (shape dst-desc)
+                                             (or (tz/data-type dst-desc) (data-type inf-src-desc))
+                                             (or (tz/layout dst-desc) :any))
+                   train-dst-desc (memory-desc (shape dst-desc)
+                                               (or (tz/data-type dst-desc) (data-type train-src-desc))
+                                               (or (tz/layout dst-desc) :any))]
+      (let-release [pool-infer-pd (pooling-fwd eng :inference algo inf-src-desc inf-dst-desc
+                                               kernel strides padding-l padding-r)
+                    pool-train-pd (pooling-fwd eng :training algo train-src-desc train-dst-desc
+                                               kernel strides padding-l padding-r)
+                    pool-bwd-pd (pooling-bwd eng pool-train-pd algo train-src-desc train-dst-desc
+                                             kernel strides padding-l padding-r)]
+        (->DnnlPoolingBlueprint fact algo pool-infer-pd pool-train-pd pool-bwd-pd)))))
 
 (defmethod transfer! [DnnlPoolingInferenceLayer Object]
   [source destination]
@@ -1129,7 +1132,7 @@
                                           infer-pd train-pd bwd-pd ^long c]
   Releaseable
   (release [_]
-    ;; TODO release data-desc
+    (release data-desc)
     (release scaleshift-desc)
     (release infer-pd)
     (release train-pd)
@@ -1388,8 +1391,8 @@
   (release [_]
     (release concat-pd)
     (doseq [sp branch-pds] (release sp))
-    #_(doseq [dd dst-descs] (release dd));;TODO
-    #_(release src-desc));;TODO
+    (doseq [dd dst-descs] (release dd))
+    (release src-desc))
   Object
   (hashCode [_]
     (hash-combine (reduce hash-combine (hash :branch) dst-descs) src-desc))
@@ -1444,7 +1447,7 @@
 
 (defn dnnl-branch-blueprint [fact eng src-desc branch-dim dst-descs]
   (let [dst-dims (map shape dst-descs)
-        dst-descs (mapv desc dst-descs)
+        dst-descs (mapv (comp view desc) dst-descs)
         src-desc (desc src-desc)]
     (let-release [concat-pd (apply concatenate eng src-desc branch-dim dst-descs)
                   src-desc (dst-md concat-pd)]
@@ -1592,9 +1595,9 @@
   Releaseable
   (release [_]
     (doseq [sp branch-pds] (release sp))
-    #_(doseq [sd src-descs] (release sd));;TODO
+    (doseq [sd src-descs] (release sd))
     (release concat-pd)
-    #_(release dst-desc)) ;;TODO
+    (release dst-desc))
   Object
   (hashCode [_]
     (hash-combine (reduce hash-combine (hash :concat) src-descs) dst-desc))
@@ -1660,7 +1663,7 @@
 (defn dnnl-concat-blueprint
   [fact eng src-descs conc-dim dst-type]
   (let [src-dims (mapv shape src-descs)
-        src-descs (mapv desc src-descs)
+        src-descs (mapv (comp view desc) src-descs)
         dst-type (or dst-type (tz/data-type (first src-descs)))
         dst-shape (concat-dst-shape conc-dim src-dims)]
     (let-release [dst-desc (memory-desc dst-shape dst-type :any)
@@ -1795,7 +1798,7 @@
   Releaseable
   (release [_]
     (release sum-pd)
-    #_(release src-desc));;TODO
+    (release src-desc))
   Object
   (hashCode [_]
     (-> (hash :split)
@@ -1844,9 +1847,9 @@
   (.write w (format "#Split[n:%d, src:%s]" (.n layer) (input layer))))
 
 (defn dnnl-split-blueprint [fact eng src-desc ^long n]
-  (let [src-desc (desc src-desc)]
-    (let-release [sum-pd (apply sum! eng src-desc (interleave (repeat (/ 1.0 n)) (repeat n src-desc)))]
-      (->DnnlSplitBlueprint fact n src-desc sum-pd))))
+  (let-release [src-desc (view (desc src-desc))
+                sum-pd (apply sum! eng src-desc (interleave (repeat (/ 1.0 n)) (repeat n src-desc)))]
+    (->DnnlSplitBlueprint fact n src-desc sum-pd)))
 
 (defmethod transfer! [DnnlSplitInference Object]
   [source destination]
@@ -1977,10 +1980,10 @@
   (.write w (str bp)))
 
 (defn dnnl-sum-blueprint [fact eng src-descs]
-  (let [src-descs (mapv desc src-descs)
-        n (count src-descs)]
-    (let-release [sum-pd (apply sum! eng (first src-descs) (interleave (repeat 1.0) src-descs))]
-      (->DnnlSumBlueprint fact eng src-descs sum-pd))))
+  (let-release [src-descs (mapv (comp view desc) src-descs)
+                n (count src-descs)
+                sum-pd (apply sum! eng (first src-descs) (interleave (repeat 1.0) src-descs))]
+    (->DnnlSumBlueprint fact eng src-descs sum-pd)))
 
 (defmethod transfer! [DnnlSum Object]
   [source destination]

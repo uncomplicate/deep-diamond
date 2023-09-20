@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.dnn-test
   (:require [midje.sweet :refer [facts throws => roughly just]]
-            [uncomplicate.commons [core :refer [with-release]]]
+            [uncomplicate.commons [core :refer [with-release release]]] ;;TODO remove release
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view-vctr vctr
                            cols view-ge nrm2 axpy!]]
@@ -941,7 +941,7 @@
            => (just [(roughly -276.36731) (roughly -628.83374) (roughly 4.345) (roughly -6.677)]))))
 
 (defn test-rnn-inference [fact]
-  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
+  (let [input-tz (tensor fact [2 1 2] :float :tnc);;TODO with-release
                  rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 :relu {:src-iter true :dst-iter true})
                  rnn-iter (rnn-bluep-iter input-tz)
                  input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer (.op rnn-iter)))
@@ -958,7 +958,13 @@
            (seq (native (rnn-iter)))
            => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)])
            (seq (native (output rnn-iter)))
-           => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)]))))
+           => (just [2.570000171661377 3.940000057220459 850.6968994140625 (roughly 1054.889)]))
+    (release input-tz)
+    (release input-weights)
+    (release input-weights-iter)
+    (release input-bias)
+    (release rnn-iter)
+    (release rnn-bluep-iter)))
 
 (defn test-rnn-training-no-iter [fact]
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)

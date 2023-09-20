@@ -93,10 +93,10 @@
     (entry! bias-tz 0.0)
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
-        (initialize src-iter-tz (data (buffer src-iter-tz)) 0.0)))
+        (initialize src-iter-tz (buffer src-iter-tz) 0.0)))
     (when src-iter-c-conn
       (let [src-iter-c-tz (input src-iter-c-conn)]
-        (initialize src-iter-c-tz (data (buffer src-iter-c-tz)) 0.0)))
+        (initialize src-iter-c-tz (buffer src-iter-c-tz) 0.0)))
     this)
   IFn
   (invoke [_]
@@ -212,10 +212,10 @@
     (entry! bias-tz 0.0)
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
-        (initialize src-iter-tz (data (buffer src-iter-tz)) 0.0)))
+        (initialize src-iter-tz (buffer src-iter-tz) 0.0)))
     (when src-iter-c-conn
       (let [src-iter-c-tz (input src-iter-c-conn)]
-        (initialize src-iter-c-tz (data (buffer src-iter-c-tz)) 0.0)))
+        (initialize src-iter-c-tz (buffer src-iter-c-tz) 0.0)))
     this)
   IFn
   (invoke [this]
@@ -781,7 +781,7 @@
   (.write w (str bp)))
 
 (defn dnnl-abbreviate-blueprint [fact eng src-desc dst-type]
-  (let-release [src-desc (desc src-desc)
+  (let-release [src-desc (view (desc src-desc))
                 dst-shape (vec (rest (shape src-desc)))
                 dst-desc (memory-desc dst-shape (or dst-type (data-type src-desc))
                                       (default-strides dst-shape))]

@@ -24,6 +24,13 @@
            (asum (entry! tz 1)) => 120.0
            (shape tz) => [2 3 4 5])))
 
+(defn test-tensor1 [fact]
+  (with-release [tz (tensor fact [2 3 4 5] :float :nchw)]
+    (
+     (asum tz)
+     (asum (entry! tz 1))
+     (shape tz))))
+
 (defn test-create [fact]
   (with-release [t1 (tensor fact [1 1 1 1] :float :nchw)
                  td3221 (desc [3 2 2 1] :float :nhwc)
