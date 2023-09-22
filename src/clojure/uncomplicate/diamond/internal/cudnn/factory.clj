@@ -414,7 +414,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
     (cudnn-rnn-op-blueprint this cudnn-hdl src-desc dst-desc weights-type
                             activ dir lrs src-iter? dst-iter?))
-  (rnn-blueprint [fact src-desc dst-desc lrs activ _ _ weights-type src-iter? dst-iter?]
+  (rnn-blueprint [fact src-desc dst-desc lrs activ _ weights-type src-iter? dst-iter?]
     (cudnn-rnn-blueprint fact cudnn-hdl src-desc dst-desc lrs activ weights-type src-iter? dst-iter?))
   (abbreviate-blueprint [fact src-desc dst-type]
     (cudnn-abbreviate-blueprint fact src-desc dst-type))

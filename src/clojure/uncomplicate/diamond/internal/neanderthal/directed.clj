@@ -144,6 +144,11 @@
   ParametersSeq
   (parameters [_]
     [weights-tz bias-tz])
+  Initializable
+  (init [this init-fn]
+    (init-fn weights-tz)
+    (init-fn bias-tz)
+    this)
   IFn
   (invoke [_]
     (src-conn)
@@ -204,6 +209,11 @@
   DiffParameters
   (diff-weights [_]
     diff-weights-tz)
+  Initializable
+  (init [this init-fn]
+    (init-fn weights-tz)
+    (init-fn bias-tz)
+    this)
   IFn
   (invoke [this]
     (forward this)
@@ -386,8 +396,8 @@
     (parameters op))
   Initializable
   (init [this init-fn]
-    (init-fn (bias op))
-    (init-fn (weights op))
+    (init op init-fn)
+    (init activ init-fn)
     this)
   Transfer
   (input [this]
@@ -474,8 +484,8 @@
     (parameters op))
   Initializable
   (init [this init-fn]
-    (init-fn (bias op))
-    (init-fn (weights op))
+    (init op init-fn)
+    (init activ init-fn)
     this)
   IFn
   (invoke [_]
@@ -581,8 +591,8 @@
     (parameters op))
   Initializable
   (init [this init-fn]
-    (init-fn (bias op))
-    (init-fn (weights op))
+    (init op init-fn)
+    (init activ init-fn)
     this)
   IFn
   (invoke [_]

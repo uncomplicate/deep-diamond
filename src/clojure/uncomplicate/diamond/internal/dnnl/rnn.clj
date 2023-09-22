@@ -38,7 +38,7 @@
                            src-conn src-iter-conn src-iter-c-conn
                            bias-tz weights-tz weights-iter-tz
                            dst-tz dst-iter-tz dst-iter-c-tz
-                           fwd-prim fwd-args]
+                           workspace-tz fwd-prim fwd-args]
   Releaseable
   (release [_]
     (release src-conn)
@@ -50,6 +50,7 @@
     (release dst-tz)
     (release dst-iter-tz)
     (release dst-iter-c-tz)
+    (release workspace-tz)
     (release fwd-prim))
   Info
   (info [this]
@@ -71,7 +72,7 @@
     dst-tz)
   Parameters
   (bias [_]
-    (dragan-says-ex "Fused bias not available in RNNInference. Please use weights-layer and weights-iter."))
+    (dragan-says-ex "Fused bias not available in RNNInference. Please use bias-layer and bias-iter."))
   (weights [_]
     (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
   RnnParameters
@@ -87,9 +88,9 @@
   (parameters [_]
     [weights-tz weights-iter-tz bias-tz])
   Initializable
-  (init [this _] ;;TODO perhaps rethink universal init infrastructure
-    (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-tz) 2))) weights-tz)
-    (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-iter-tz) 2))) weights-iter-tz) ;;TODO pass rng-state! when you make this work!
+  (init [this init-fn]
+    (init-fn weights-tz)
+    (init-fn weights-iter-tz)
     (entry! bias-tz 0.0)
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
@@ -208,7 +209,7 @@
     post-diff-weights-tz)
   Initializable
   (init [this init-fn]
-    (rand-normal! 0.0 (/ 2.0 (long (get (shape fused-weights-tz) 2))) fused-weights-tz)
+    (init-fn fused-weights-tz)
     (entry! bias-tz 0.0)
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
@@ -244,9 +245,6 @@
     (bwd-dst-conn)
     (when bwd-dst-iter-conn (bwd-dst-iter-conn))
     (when bwd-dst-iter-c-conn (bwd-dst-iter-c-conn))
-    (entry! (input diff-weights-conn) 0.0)
-    (entry! (input diff-weights-iter-conn) 0.0)
-    (entry! diff-bias-tz 0.0)
     (execute! strm bwd-prim bwd-args)
     (diff-weights-conn)
     (diff-weights-iter-conn)
@@ -374,6 +372,7 @@
                             src-conn src-iter-conn src-iter-c-conn
                             bias-tz weights-tz weights-iter-tz
                             dst-tz dst-iter-tz dst-iter-c-tz
+                            workspace-tz
                             fwd-prim fwd-args))))
   (invoke [this src-tz diff-src-tz prop-diff? post-process-diff?]
     (let [[src-iter-tz src-iter-c-tz] [nil nil]]
@@ -498,7 +497,7 @@
 
 ;; ================================ Vanilla RNN =================================================
 
-(defn dnnl-rnn-op-blueprint [fact eng src-desc dst-desc weights-type activ alpha beta
+(defn dnnl-rnn-op-blueprint [fact eng src-desc dst-desc weights-type activ alpha
                              dir lrs src-iter? dst-iter?]
   (let [src-desc (desc src-desc)
         src-shape (shape src-desc)
@@ -522,30 +521,29 @@
                     bias-desc (memory-desc bias-shape dst-type :ldgo)
                     infer-pd (vanilla-rnn-fwd eng :inference activ dir src-desc src-iter-desc
                                               weights-desc-any weights-iter-desc-any bias-desc
-                                              dst-desc dst-iter-desc alpha beta)
+                                              dst-desc dst-iter-desc alpha)
                     train-pd (vanilla-rnn-fwd eng :training activ dir src-desc src-iter-desc
                                               weights-desc-any weights-iter-desc-any bias-desc
-                                              dst-desc dst-iter-desc alpha beta)
+                                              dst-desc dst-iter-desc alpha)
                     bwd-pd (vanilla-rnn-bwd eng train-pd activ dir src-desc src-iter-desc
                                             weights-desc-any weights-iter-desc-any bias-desc
                                             dst-desc dst-iter-desc
                                             src-desc src-iter-desc
                                             weights-desc-any weights-iter-desc-any bias-desc
-                                            dst-desc dst-iter-desc alpha beta)
+                                            dst-desc dst-iter-desc alpha)
                     weights-desc-export (dnnl-contiguous-desc (weights-md train-pd))
                     weights-iter-desc-export (dnnl-contiguous-desc (arg-md train-pd :weights-iter))
                     fused-weights-desc (memory-desc fused-weights-shape weights-type :ldigo)];;TODO ldgoi is not exactly true unless I do weights/weihgts-iter striding! Improve this as part of cudnn/dnnl unification. Did I fix this then?
-        (let-release []
-          (->DnnlRnnBlueprint fact fused-weights-desc weights-desc-export weights-iter-desc-export bias-desc
-                              infer-pd train-pd bwd-pd))))))
+        (->DnnlRnnBlueprint fact fused-weights-desc weights-desc-export weights-iter-desc-export bias-desc
+                            infer-pd train-pd bwd-pd)))))
 
-(defn dnnl-rnn-blueprint [fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
+(defn dnnl-rnn-blueprint [fact eng src-desc dst-desc lrs activ alpha weights-type src-iter? dst-iter?]
   (with-release [src-desc (memory-desc (shape src-desc) (or (tz/data-type src-desc) :float) :any)
                  dst-desc (memory-desc (shape dst-desc)
                                        (or (tz/data-type dst-desc) (tz/data-type src-desc))
                                        :any)]
     (let-release [rnn-op-bluep (dnnl-rnn-op-blueprint fact eng src-desc dst-desc weights-type
-                                                      activ alpha beta :unidirectional lrs
+                                                      activ alpha :unidirectional lrs
                                                       src-iter? dst-iter?)
                   nop-activ-bluep (dnnl-nop-activation-blueprint fact
                                                                  (inf-desc rnn-op-bluep)

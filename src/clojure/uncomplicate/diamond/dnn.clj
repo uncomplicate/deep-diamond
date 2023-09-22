@@ -496,10 +496,9 @@
 
 (defn rnn
   ([fact src-desc dst-desc lrs activ args]
-   (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
-         beta (or (:beta args) 0.0)]
+   (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))]
      (api/rnn-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
-                        lrs activ alpha beta
+                        lrs activ alpha
                         (:weights-type args) (:src-iter args) (:dst-iter args))))
   ([fact src-desc dst-desc activ args]
    (rnn fact src-desc dst-desc 1 activ args))

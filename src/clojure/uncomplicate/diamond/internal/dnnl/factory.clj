@@ -127,12 +127,12 @@ Please contribute towards making it possible, or use on of the supported types."
     (case activ
       :gru (dnnl-gru-op-blueprint this eng src-desc dst-desc weights-type dir lrs src-iter? dst-iter?)
       :lstm (dnnl-lstm-op-blueprint this eng src-desc dst-desc weights-type dir lrs src-iter? dst-iter?)
-      (dnnl-rnn-op-blueprint this eng src-desc dst-desc weights-type activ 0.0 0.0 dir lrs src-iter? dst-iter?)))
-  (rnn-blueprint [fact src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?]
+      (dnnl-rnn-op-blueprint this eng src-desc dst-desc weights-type activ 0.0 dir lrs src-iter? dst-iter?)))
+  (rnn-blueprint [fact src-desc dst-desc lrs activ alpha weights-type src-iter? dst-iter?]
     (case activ
       :gru (dnnl-gru-blueprint fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?)
       :lstm (dnnl-lstm-blueprint fact eng src-desc dst-desc lrs weights-type src-iter? dst-iter?)
-      (dnnl-rnn-blueprint fact eng src-desc dst-desc lrs activ alpha beta weights-type src-iter? dst-iter?)))
+      (dnnl-rnn-blueprint fact eng src-desc dst-desc lrs activ alpha weights-type src-iter? dst-iter?)))
   (abbreviate-blueprint [fact src-desc dst-type]
     (dnnl-abbreviate-blueprint fact eng src-desc dst-type))
   CostFactory

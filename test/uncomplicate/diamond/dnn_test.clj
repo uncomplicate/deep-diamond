@@ -893,6 +893,7 @@
                  input-bias (connector (desc [2 1 1 2] :float :ldgo) (bias-layer rnn-no-iter))
                  output-bias (revert input-bias)]
     (facts "Vanilla RNN inference operation without iter."
+           (init! rnn-no-iter)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
            (input-weights)
@@ -920,6 +921,7 @@
                  input-bias (connector (desc [2 1 1 2] :float :ldgo) (bias-layer rnn-no-iter))
                  output-bias (revert input-bias)]
     (facts "Vanilla RNN training operation without iter."
+           (init! rnn-no-iter)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
            (input-weights)
@@ -941,13 +943,14 @@
            => (just [(roughly -276.36731) (roughly -628.83374) (roughly 4.345) (roughly -6.677)]))))
 
 (defn test-rnn-inference [fact]
-  (let [input-tz (tensor fact [2 1 2] :float :tnc);;TODO with-release
+  (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  rnn-bluep-iter (rnn fact input-tz [2 1 2] 2 :relu {:src-iter true :dst-iter true})
                  rnn-iter (rnn-bluep-iter input-tz)
                  input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer (.op rnn-iter)))
                  input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter (.op rnn-iter)))
                  input-bias (connector (desc [2 1 1 2] :float :ldgo) (bias-layer rnn-iter))]
     (facts "Vanilla RNN layer inference."
+           (init! rnn-iter)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
            (input-weights)
@@ -974,6 +977,7 @@
                  input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter (.op rnn-no-iter)))
                  input-bias (connector (desc [2 1 1 2] :float :ldgo) (bias-layer rnn-no-iter))]
     (facts "Vanilla RNN layer training without iter."
+           (init! rnn-no-iter)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
            (input-weights)
@@ -998,6 +1002,7 @@
                  input-weights-iter (connector (desc [2 1 2 4 2] :float :ldigo) (weights-iter (.op lstm-no-iter)))
                  input-bias (connector (desc [2 1 4 2] :float :ldgo) (bias-layer lstm-no-iter))]
     (facts "LSTM layer training SGD."
+           (init! (.op lstm-no-iter))
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
@@ -1028,6 +1033,7 @@
                  input-weights-iter (connector (desc [2 1 2 4 2] :float :ldigo) (weights-iter (.op lstm-no-iter)))
                  input-bias (connector (desc [2 1 4 2] :float :ldgo) (bias-layer lstm-no-iter))]
     (facts "LSTM layer training Adam."
+           (init! lstm-no-iter)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
@@ -1058,6 +1064,7 @@
                  input-weights-iter (connector (desc [2 1 2 3 2] :float :ldigo) (weights-iter (.op gru-no-iter)))
                  input-bias (connector (desc [2 1 3 2] :float :ldgo) (bias-layer gru-no-iter))]
     (facts "GRU layer training Adam."
+           (init! gru-no-iter)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.111 0.112 0.121 0.122 0.131 0.132
                        0.211 0.212 0.221 0.222 0.231 0.232

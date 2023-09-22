@@ -551,14 +551,14 @@
                             ^dnnl_memory_desc src-desc ^dnnl_memory_desc src-iter-desc
                             ^dnnl_memory_desc weights-desc ^dnnl_memory_desc weights-iter-desc
                             ^dnnl_memory_desc bias-desc ^dnnl_memory_desc dst-desc
-                            ^dnnl_memory_desc dst-iter-desc alpha beta
+                            ^dnnl_memory_desc dst-iter-desc alpha
                             ^dnnl_primitive_attr attr]
   (let-release [rnn-desc (dnnl_primitive_desc.)]
     (with-check
       (dnnl/dnnl_vanilla_rnn_forward_primitive_desc_create
        rnn-desc eng (int prop-kind) (int activation) (int direction)
        src-desc src-iter-desc weights-desc weights-iter-desc bias-desc
-       dst-desc dst-iter-desc dnnl/dnnl_rnn_flags_undef (float alpha) (float beta) attr)
+       dst-desc dst-iter-desc dnnl/dnnl_rnn_flags_diff_weights_overwrite (float alpha) (float 0.0) attr)
       rnn-desc)))
 
 (defn vanilla-rnn-backward* [^dnnl_engine eng activation direction
@@ -570,7 +570,7 @@
                              ^dnnl_memory_desc diff-weights-desc ^dnnl_memory_desc diff-weights-iter-desc
                              ^dnnl_memory_desc diff-bias-desc
                              ^dnnl_memory_desc diff-dst-desc ^dnnl_memory_desc diff-dst-iter-desc
-                             [alpha beta]
+                             alpha
                              ^dnnl_primitive_desc hint-fwd-pd ^dnnl_primitive_attr attr]
   (let-release [rnn-desc (dnnl_primitive_desc.)]
     (with-check
@@ -581,7 +581,7 @@
        diff-src-desc diff-src-iter-desc
        diff-weights-desc diff-weights-iter-desc diff-bias-desc
        diff-dst-desc diff-dst-iter-desc
-       dnnl/dnnl_rnn_flags_undef (float alpha) (float beta) hint-fwd-pd nil)
+       dnnl/dnnl_rnn_flags_diff_weights_overwrite (float alpha) (float 0.0) hint-fwd-pd nil)
       rnn-desc)))
 
 ;; ======================= LSTM ============================================================
@@ -598,7 +598,7 @@
       (dnnl/dnnl_lstm_forward_primitive_desc_create
        lstm-desc eng (int prop-kind) (int direction) src-desc src-iter-desc src-iter-c-desc
        weights-desc weights-iter-desc weights-peephole-desc weights-projection-desc
-       bias-desc dst-desc dst-iter-desc dst-iter-c-desc dnnl/dnnl_rnn_flags_undef attr)
+       bias-desc dst-desc dst-iter-desc dst-iter-c-desc dnnl/dnnl_rnn_flags_diff_weights_overwrite attr)
       lstm-desc)))
 
 (defn lstm-backward* [^dnnl_engine eng direction
@@ -630,7 +630,7 @@
          diff-weights-desc diff-weights-iter-desc
          diff-weights-peephole-desc diff-weights-projection-desc diff-bias-desc
          diff-dst-desc diff-dst-iter-desc diff-dst-iter-c-desc
-         dnnl/dnnl_rnn_flags_undef hint-fwd-pd attr)
+         dnnl/dnnl_rnn_flags_diff_weights_overwrite hint-fwd-pd attr)
         lstm-desc))))
 
 ;; ======================= GRU ============================================================
@@ -647,7 +647,7 @@
                                        src-desc src-iter-desc
                                        weights-desc weights-iter-desc bias-desc
                                        dst-desc dst-iter-desc
-                                       dnnl/dnnl_rnn_flags_undef attr)
+                                       dnnl/dnnl_rnn_flags_diff_weights_overwrite attr)
       gru-desc)))
 
 (defn gru-backward* [^dnnl_engine eng direction
@@ -669,5 +669,5 @@
                                                     diff-src-desc diff-src-iter-desc
                                                     diff-weights-desc diff-weights-iter-desc diff-bias-desc
                                                     diff-dst-desc diff-dst-iter-desc
-                                                    dnnl/dnnl_rnn_flags_undef hint-fwd-pd attr)
+                                                    dnnl/dnnl_rnn_flags_diff_weights_overwrite hint-fwd-pd attr)
       rnn-desc)))

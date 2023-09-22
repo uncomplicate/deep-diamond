@@ -52,6 +52,9 @@
     (input data-conn))
   (output [_]
     (output data-conn))
+  Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (data-conn)
@@ -95,6 +98,9 @@
     diff-dst-tz)
   (diff-output [_]
     (output diff-src-conn))
+  Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (src-conn)
@@ -191,6 +197,9 @@
     (data-type (train-desc this)))
   (layout [this]
     (layout (train-desc this)))
+  Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [this src-tz]
     (let-release [src-conn (connector src-tz (src-md softmax-infer-pd))
@@ -288,6 +297,11 @@
   ParametersSeq
   (parameters [_]
     [weights-tz bias-tz])
+  Initializable
+  (init [this init-fn]
+    (init-fn weights-tz)
+    (init-fn bias-tz)
+    this)
   IFn
   (invoke [_]
     (src-conn)
@@ -359,6 +373,11 @@
   DiffParameters
   (diff-weights [_]
     post-diff-weights-tz)
+  Initializable
+  (init [this init-fn]
+    (init-fn weights-tz)
+    (init-fn bias-tz)
+    this)
   IFn
   (invoke [this]
     (forward this)

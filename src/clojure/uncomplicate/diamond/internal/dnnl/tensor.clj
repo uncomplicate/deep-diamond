@@ -94,8 +94,7 @@
 
 (defmethod print-method MemoryDescImpl
   [d ^java.io.Writer w]
-  (let [d (extract d)]
-    (.write w (pr-str {:shape (dims d) :data-type (data-type d) :layout (strides d)}))))
+  (.write w (pr-str {:shape (dims d) :data-type (data-type d) :layout (strides d)})))
 
 ;; =================== Transformer ==============================================
 

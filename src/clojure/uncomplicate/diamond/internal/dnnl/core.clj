@@ -830,28 +830,24 @@
 (defn vanilla-rnn-fwd
   "TODO"
   ([eng prop-kind activation direction
-    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha beta]
+    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha]
    (vanilla-rnn-forward* (extract eng) (enc-keyword dnnl-forward-prop-kind prop-kind)
                          (enc-keyword dnnl-eltwise-alg-kind activation)
                          (enc-keyword dnnl-direction direction)
                          (extract src-desc) (extract src-iter-desc)
                          (extract weights-desc) (extract weights-iter-desc) (extract bias-desc)
-                         (extract dst-desc) (extract dst-iter-desc) alpha beta nil))
-  ([eng prop-kind activation direction
-    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha]
-   (vanilla-rnn-fwd eng prop-kind activation direction src-desc src-iter-desc
-                    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc alpha 0.0))
+                         (extract dst-desc) (extract dst-iter-desc) alpha nil))
   ([eng prop-kind activation direction
     src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc]
    (vanilla-rnn-fwd eng prop-kind activation direction src-desc src-iter-desc
-                    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc 0.0 0.0)))
+                    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc 0.0)))
 
 (defn vanilla-rnn-bwd
   "TODO"
   ([eng hint-fwd-pd activation direction
     src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
     diff-src-desc diff-src-iter-desc diff-weights-desc diff-weights-iter-desc diff-bias-desc
-    diff-dst-desc diff-dst-iter-desc alpha beta]
+    diff-dst-desc diff-dst-iter-desc alpha]
    (vanilla-rnn-backward* (extract eng) (enc-keyword dnnl-eltwise-alg-kind activation)
                           (enc-keyword dnnl-direction direction)
                           (extract src-desc) (extract src-iter-desc)
@@ -860,18 +856,8 @@
                           (extract diff-src-desc) (extract diff-src-iter-desc)
                           (extract diff-weights-desc) (extract diff-weights-iter-desc) (extract diff-bias-desc)
                           (extract diff-dst-desc) (extract diff-dst-iter-desc)
-                          [alpha beta]
-                          hint-fwd-pd nil))
-  ([eng hint-fwd-pd activation direction
-    src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
-    diff-src-desc diff-src-iter-desc diff-weights-desc diff-weights-iter-desc diff-bias-desc
-    diff-dst-desc diff-dst-iter-desc alpha]
-   (vanilla-rnn-bwd eng hint-fwd-pd activation direction src-desc src-iter-desc
-                    weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
-                    diff-src-desc diff-src-iter-desc
-                    diff-weights-desc diff-weights-iter-desc diff-bias-desc
-                    diff-dst-desc diff-dst-iter-desc
-                    alpha 0.0))
+                          alpha
+                          (extract hint-fwd-pd) nil))
   ([eng hint-fwd-pd activation direction
     src-desc src-iter-desc weights-desc weights-iter-desc bias-desc dst-desc dst-iter-desc
     diff-src-desc diff-src-iter-desc diff-weights-desc diff-weights-iter-desc diff-bias-desc
@@ -881,7 +867,7 @@
                     diff-src-desc diff-src-iter-desc
                     diff-weights-desc diff-weights-iter-desc diff-bias-desc
                     diff-dst-desc diff-dst-iter-desc
-                    0.0 0.0)))
+                    0.0)))
 
 ;; ======================= LSTM ============================================================
 
