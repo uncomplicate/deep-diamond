@@ -15,8 +15,8 @@
             [uncomplicate.clojure-cpp
              :refer [null? pointer int-pointer long-pointer long-ptr pointer-vec
                      get-entry put-entry! fill! PointerCreator pointer-pointer get-pointer
-                     capacity! memcpy! byte-pointer]]
-            [uncomplicate.diamond.internal.utils :refer [extend-dnnl-pointer]]
+                     capacity! memcpy! byte-pointer address]]
+            [uncomplicate.diamond.internal.utils :refer [extend-pointer]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
              [constants :refer :all]])
@@ -55,7 +55,7 @@
 
 ;; ===================== Engine ========================================================
 
-(extend-dnnl-pointer dnnl_engine dnnl/dnnl_engine_destroy dnnl-error)
+(extend-pointer dnnl_engine dnnl/dnnl_engine_destroy dnnl-error)
 
 (defn engine*
   ([^long id ^long runtime]
@@ -82,7 +82,7 @@
 
 ;; ===================== Stream ========================================================
 
-(extend-dnnl-pointer dnnl_stream dnnl/dnnl_stream_destroy dnnl-error)
+(extend-pointer dnnl_stream dnnl/dnnl_stream_destroy dnnl-error)
 
 (defn stream*
   ([^dnnl_engine eng]
@@ -98,7 +98,7 @@
 
 ;; ===================== Primitive descriptor ===========================================
 
-(extend-dnnl-pointer dnnl_primitive_desc dnnl/dnnl_primitive_desc_destroy dnnl-error)
+(extend-pointer dnnl_primitive_desc dnnl/dnnl_primitive_desc_destroy dnnl-error)
 
 (extend-type dnnl_primitive_desc
   Viewable
@@ -114,7 +114,7 @@
 
 ;; ===================== Primitive ======================================================
 
-(extend-dnnl-pointer dnnl_primitive dnnl/dnnl_primitive_destroy dnnl-error)
+(extend-pointer dnnl_primitive dnnl/dnnl_primitive_destroy dnnl-error)
 
 (defn primitive* [^dnnl_primitive_desc pd]
   (let-release [p (dnnl_primitive.)]
@@ -202,21 +202,26 @@
        (put-entry! (memcpy! (dims* parent-desc) dims (* Long/BYTES ndims)) 0 n)
        (submemory-desc* parent-desc dims strides)))))
 
-(declare ->MemoryDescImpl)
-
 (extend-type dnnl_memory_desc
   Releaseable
   (release [_]
     (dragan-says-ex "You should never directly release dnn_memory_desc. Please use MemoryDescImpl!"))
   Wrappable
   (wrap [this]
-    (->MemoryDescImpl this true)))
+    (MemoryDescImpl. this true)))
 
 (deftype MemoryDescImpl [^dnnl_memory_desc mem-desc master]
+  Object
+  (hashCode [this]
+    (hash mem-desc))
+  (equals [this other]
+    (and (instance? MemoryImpl otrhe) (= mem-desc (extract other))))
+  (toString [this]
+    (format "#MemoryDescImpl[0x%s, master: %s]" (address mem-desc) master))
   Releaseable
   (release [this]
     (locking mem-desc
-      (if (and master (not (null? mem-desc)))
+      (when (and master (not (null? mem-desc)))
         (with-check (dnnl/dnnl_memory_desc_destroy mem-desc)
           (do (.deallocate mem-desc)
               (.setNull mem-desc)))))
@@ -242,6 +247,13 @@
     (dragan-says-ex "You should never directly release dnn_memory. Please use MemoryImpl!")))
 
 (deftype MemoryImpl [^dnnl_memory mem mem-desc data master]
+  Object
+  (hashCode [this]
+    (hash mem))
+  (equals [this other]
+    (and (instance? MemoryImpl otrher) (= mem (extract other))))
+  (toString [this]
+    (format "#MemoryImpl[0x%s, master: %s]" (address mem) master)
   Releaseable
   (release [this]
     (locking mem
@@ -271,7 +283,7 @@
   (sizeof* [_]
     (sizeof* data))
   (size* [this]
-    (quot (bytesize this) (sizeof data) )))
+    (quot (bytesize this) (sizeof data))))
 
 (defn memory* [^dnnl_memory_desc desc ^dnnl_engine eng data master]
   (let-release [mem (dnnl_memory.)
@@ -538,6 +550,7 @@
        pd)))
   ([^dnnl_engine eng ^dnnl_memory_desc dst n concat-dimension ^PointerPointer srcs
     ^dnnl_primitive_attr attr]
+
    (with-release [pds (pointer-pointer 1)]
      (put-entry! pds 0 (dnnl_primitive_desc.))
      (with-check

@@ -8,29 +8,39 @@
 
 (ns uncomplicate.diamond.internal.cudnn.constants
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
-  (:import [jcuda.jcudnn cudnnTensorFormat cudnnDataType cudnnActivationMode
-            cudnnReduceTensorOp cudnnReduceTensorIndices cudnnNanPropagation
-            cudnnIndicesType cudnnSoftmaxAlgorithm cudnnSoftmaxMode
-            cudnnConvolutionMode cudnnMathType cudnnDeterminism cudnnConvolutionFwdAlgo #_cudnnConvolutionFwdPreference
-            cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgo
-            #_cudnnConvolutionBwdDataPreference cudnnConvolutionBwdFilterAlgo
-            #_cudnnConvolutionBwdFilterPreference cudnnPoolingMode cudnnBatchNormMode
-            cudnnErrQueryMode cudnnRNNAlgo cudnnRNNMode cudnnRNNBiasMode cudnnDirectionMode
-            cudnnRNNInputMode cudnnDropoutDescriptor cudnnRNNDataDescriptor cudnnRNNDataLayout
-            cudnnRNNClipMode cudnnForwardMode cudnnWgradMode]))
+  (:import org.bytedeco.cuda.global.cudnn))
+
+(def ^{:const true
+       :doc "CUDA Error messages as defined in cuDNN."}
+  cudnn-status-codes
+  {cudnn/CUDNN_STATUS_SUCCESS :success
+   cudnn/CUDNN_STATUS_NOT_INITIALIZED :not_initialized
+   cudnn/CUDNN_STATUS_ALLOC_FAILED :alloc-failed
+   cudnn/CUDNN_STATUS_BAD_PARAM :bad-param
+   cudnn/CUDNN_STATUS_INTERNAL_ERROR :internal-error
+   cudnn/CUDNN_STATUS_INVALID_VALUE :invalid-value
+   cudnn/CUDNN_STATUS_ARCH_MISMATCH :arch-mismatch
+   cudnn/CUDNN_STATUS_MAPPING_ERROR :mapping-error
+   cudnn/CUDNN_STATUS_EXECUTION_FAILED :execution-failed
+   cudnn/CUDNN_STATUS_NOT_SUPPORTED :not-supported
+   cudnn/CUDNN_STATUS_LICENSE_ERROR :license-error
+   cudnn/CUDNN_STATUS_RUNTIME_PREREQUISITE_MISSING :runtime-prerequisites-missing
+   cudnn/CUDNN_STATUS_RUNTIME_IN_PROGRESS :runtime-in-progress
+   cudnn/CUDNN_STATUS_RUNTIME_FP_OVERFLOW :fp-overflow
+   cudnn/CUDNN_STATUS_VERSION_MISMATCH :version-mismatch})
 
 (defn enc-nan-propagation ^long [nan]
   (if nan
-    cudnnNanPropagation/CUDNN_PROPAGATE_NAN
-    cudnnNanPropagation/CUDNN_NOT_PROPAGATE_NAN))
+    cudnn/CUDNN_PROPAGATE_NAN
+    cudnn/CUDNN_NOT_PROPAGATE_NAN))
 
 (defn dec-nan-propagation [^long nan]
-  (if (= cudnnNanPropagation/CUDNN_PROPAGATE_NAN nan) true false))
+  (if (= cudnn/CUDNN_PROPAGATE_NAN nan) true false))
 
 (def ^:const cudnn-format
-  {:nchw cudnnTensorFormat/CUDNN_TENSOR_NCHW
-   :nhwc cudnnTensorFormat/CUDNN_TENSOR_NHWC
-   :nchw-vect-c cudnnTensorFormat/CUDNN_TENSOR_NCHW_VECT_C})
+  {:nchw cudnn/CUDNN_TENSOR_NCHW
+   :nhwc cudnn/CUDNN_TENSOR_NHWC
+   :nchw-vect-c cudnn/CUDNN_TENSOR_NCHW_VECT_C})
 
 (defn dec-format [^long format]
   (case format
@@ -41,25 +51,25 @@
                     {:format format :available (keys cudnn-format)})))
 
 (def ^:const cudnn-data-type
-  {:float cudnnDataType/CUDNN_DATA_FLOAT
-   Float/TYPE cudnnDataType/CUDNN_DATA_FLOAT
-   Float cudnnDataType/CUDNN_DATA_FLOAT
-   :double cudnnDataType/CUDNN_DATA_DOUBLE
-   Double/TYPE cudnnDataType/CUDNN_DATA_DOUBLE
-   Double cudnnDataType/CUDNN_DATA_DOUBLE
-   :half cudnnDataType/CUDNN_DATA_HALF
-   :int8 cudnnDataType/CUDNN_DATA_INT8
-   :byte cudnnDataType/CUDNN_DATA_INT8
-   Byte/TYPE cudnnDataType/CUDNN_DATA_INT8
-   Byte cudnnDataType/CUDNN_DATA_INT8
-   :int cudnnDataType/CUDNN_DATA_INT32
-   Integer/TYPE cudnnDataType/CUDNN_DATA_INT32
-   Integer cudnnDataType/CUDNN_DATA_INT32
-   :int8x4 cudnnDataType/CUDNN_DATA_INT8x4
-   :uint8 cudnnDataType/CUDNN_DATA_UINT8
-   :u8 cudnnDataType/CUDNN_DATA_UINT8
-   :uint8x4 cudnnDataType/CUDNN_DATA_UINT8x4
-   :int8x32 cudnnDataType/CUDNN_DATA_INT8x32})
+  {:float cudnn/CUDNN_DATA_FLOAT
+   Float/TYPE cudnn/CUDNN_DATA_FLOAT
+   Float cudnn/CUDNN_DATA_FLOAT
+   :double cudnn/CUDNN_DATA_DOUBLE
+   Double/TYPE cudnn/CUDNN_DATA_DOUBLE
+   Double cudnn/CUDNN_DATA_DOUBLE
+   :half cudnn/CUDNN_DATA_HALF
+   :int8 cudnn/CUDNN_DATA_INT8
+   :byte cudnn/CUDNN_DATA_INT8
+   Byte/TYPE cudnn/CUDNN_DATA_INT8
+   Byte cudnn/CUDNN_DATA_INT8
+   :int cudnn/CUDNN_DATA_INT32
+   Integer/TYPE cudnn/CUDNN_DATA_INT32
+   Integer cudnn/CUDNN_DATA_INT32
+   :int8x4 cudnn/CUDNN_DATA_INT8x4
+   :uint8 cudnn/CUDNN_DATA_UINT8
+   :u8 cudnn/CUDNN_DATA_UINT8
+   :uint8x4 cudnn/CUDNN_DATA_UINT8x4
+   :int8x32 cudnn/CUDNN_DATA_INT8x32})
 
 (defn dec-data-type [^long data-type]
   (case data-type
@@ -100,14 +110,14 @@
                     {:data-type data-type :available (keys cudnn-data-type)})))
 
 (def ^:const cudnn-activation-mode
-  {:logistic cudnnActivationMode/CUDNN_ACTIVATION_SIGMOID
-   :sigmoid cudnnActivationMode/CUDNN_ACTIVATION_SIGMOID
-   :relu cudnnActivationMode/CUDNN_ACTIVATION_RELU
-   :tanh cudnnActivationMode/CUDNN_ACTIVATION_TANH
-   :clipped-relu cudnnActivationMode/CUDNN_ACTIVATION_CLIPPED_RELU
-   :elu cudnnActivationMode/CUDNN_ACTIVATION_ELU
-   :identity cudnnActivationMode/CUDNN_ACTIVATION_IDENTITY
-   :linear cudnnActivationMode/CUDNN_ACTIVATION_IDENTITY})
+  {:logistic cudnn/CUDNN_ACTIVATION_SIGMOID
+   :sigmoid cudnn/CUDNN_ACTIVATION_SIGMOID
+   :relu cudnn/CUDNN_ACTIVATION_RELU
+   :tanh cudnn/CUDNN_ACTIVATION_TANH
+   :clipped-relu cudnn/CUDNN_ACTIVATION_CLIPPED_RELU
+   :elu cudnn/CUDNN_ACTIVATION_ELU
+   :identity cudnn/CUDNN_ACTIVATION_IDENTITY
+   :linear cudnn/CUDNN_ACTIVATION_IDENTITY})
 
 (defn dec-activation-mode [^long mode]
   (case mode
@@ -121,43 +131,43 @@
                     {:mode mode :available (keys cudnn-activation-mode)})))
 
 (def ^:const cudnn-reduce-tensor-op
-  {:add cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_ADD
-   :amax cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_AMAX
-   :avg cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_AVG
-   :max cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MAX
-   :min cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MIN
-   :mul cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MUL
-   :mul-no-zeros cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MUL_NO_ZEROS
-   :norm1 cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_NORM1
-   :norm2 cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_NORM2})
+  {:add cudnn/CUDNN_REDUCE_TENSOR_ADD
+   :amax cudnn/CUDNN_REDUCE_TENSOR_AMAX
+   :avg cudnn/CUDNN_REDUCE_TENSOR_AVG
+   :max cudnn/CUDNN_REDUCE_TENSOR_MAX
+   :min cudnn/CUDNN_REDUCE_TENSOR_MIN
+   :mul cudnn/CUDNN_REDUCE_TENSOR_MUL
+   :mul-no-zeros cudnn/CUDNN_REDUCE_TENSOR_MUL_NO_ZEROS
+   :norm1 cudnn/CUDNN_REDUCE_TENSOR_NORM1
+   :norm2 cudnn/CUDNN_REDUCE_TENSOR_NORM2})
 
 (def ^:const cudnn-reduce-tensor-indices
-  {:flattened cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_FLATTENED_INDICES
-   :no-indices cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_NO_INDICES})
+  {:flattened cudnn/CUDNN_REDUCE_TENSOR_FLATTENED_INDICES
+   :no-indices cudnn/CUDNN_REDUCE_TENSOR_NO_INDICES})
 
 (def ^:const cudnn-softmax-algorithm
-  {:fast cudnnSoftmaxAlgorithm/CUDNN_SOFTMAX_FAST
-   :accurate cudnnSoftmaxAlgorithm/CUDNN_SOFTMAX_ACCURATE
-   :log cudnnSoftmaxAlgorithm/CUDNN_SOFTMAX_LOG})
+  {:fast cudnn/CUDNN_SOFTMAX_FAST
+   :accurate cudnn/CUDNN_SOFTMAX_ACCURATE
+   :log cudnn/CUDNN_SOFTMAX_LOG})
 
 (def ^:const cudnn-softmax-mode
-  {:instance cudnnSoftmaxMode/CUDNN_SOFTMAX_MODE_INSTANCE
-   :channel cudnnSoftmaxMode/CUDNN_SOFTMAX_MODE_CHANNEL})
+  {:instance cudnn/CUDNN_SOFTMAX_MODE_INSTANCE
+   :channel cudnn/CUDNN_SOFTMAX_MODE_CHANNEL})
 
 (def ^:const cudnn-convolution-mode
-  {:convolution cudnnConvolutionMode/CUDNN_CONVOLUTION
-   :cross-correleation cudnnConvolutionMode/CUDNN_CROSS_CORRELATION})
+  {:convolution cudnn/CUDNN_CONVOLUTION
+   :cross-correleation cudnn/CUDNN_CROSS_CORRELATION})
 
 (def ^:const cudnn-convolution-fwd-algo
-  {:count cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_COUNT
-   :direct cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_DIRECT
-   :fft cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_FFT
-   :fft-tiling cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING
-   :gemm cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_GEMM
-   :implicit-gemm cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM
-   :implicit-precomp-gemm cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM
-   :winograd cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD
-   :winograd-nonfused cudnnConvolutionFwdAlgo/CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED})
+  {:count cudnn/CUDNN_CONVOLUTION_FWD_ALGO_COUNT
+   :direct cudnn/CUDNN_CONVOLUTION_FWD_ALGO_DIRECT
+   :fft cudnn/CUDNN_CONVOLUTION_FWD_ALGO_FFT
+   :fft-tiling cudnn/CUDNN_CONVOLUTION_FWD_ALGO_FFT_TILING
+   :gemm cudnn/CUDNN_CONVOLUTION_FWD_ALGO_GEMM
+   :implicit-gemm cudnn/CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM
+   :implicit-precomp-gemm cudnn/CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_PRECOMP_GEMM
+   :winograd cudnn/CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD
+   :winograd-nonfused cudnn/CUDNN_CONVOLUTION_FWD_ALGO_WINOGRAD_NONFUSED})
 
 (defn dec-convolution-fwd-algo [^long algo]
   (case algo
@@ -173,19 +183,15 @@
     (dragan-says-ex "This algorithm is not supported by cuDNN."
                     {:algo algo :available (keys cudnn-convolution-fwd-algo)})))
 
-#_(def ^:const cudnn-convolution-fwd-preference
-  {:no-workspace cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_NO_WORKSPACE
-   :fastest cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_PREFER_FASTEST
-   :workspace-limit cudnnConvolutionFwdPreference/CUDNN_CONVOLUTION_FWD_SPECIFY_WORKSPACE_LIMIT})
 
 (def ^:const cudnn-convolution-bwd-data-algo
-  {:algo0 cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_0
-   :algo1 cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_1
-   :count cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT
-   :fft cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_FFT
-   :fft-tiling cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_FFT_TILING
-   :winograd cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD
-   :winograd-nonfused cudnnConvolutionBwdDataAlgo/CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD_NONFUSED})
+  {:algo0 cudnn/CUDNN_CONVOLUTION_BWD_DATA_ALGO_0
+   :algo1 cudnn/CUDNN_CONVOLUTION_BWD_DATA_ALGO_1
+   :count cudnn/CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT
+   :fft cudnn/CUDNN_CONVOLUTION_BWD_DATA_ALGO_FFT
+   :fft-tiling cudnn/CUDNN_CONVOLUTION_BWD_DATA_ALGO_FFT_TILING
+   :winograd cudnn/CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD
+   :winograd-nonfused cudnn/CUDNN_CONVOLUTION_BWD_DATA_ALGO_WINOGRAD_NONFUSED})
 
 (defn dec-convolution-bwd-data-algo [^long algo]
   (case algo
@@ -198,14 +204,14 @@
     6 :count))
 
 (def ^:const cudnn-convolution-bwd-filter-algo
-  {:algo0 cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0
-   :algo1 cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1
-   :algo3 cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_3
-   :count cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT
-   :fft cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_FFT
-   :fft-tiling cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_FFT_TILING
-   :winograd cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD
-   :winograd-nonfused cudnnConvolutionBwdFilterAlgo/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD_NONFUSED})
+  {:algo0 cudnn/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0
+   :algo1 cudnn/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_1
+   :algo3 cudnn/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_3
+   :count cudnn/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT
+   :fft cudnn/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_FFT
+   :fft-tiling cudnn/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_FFT_TILING
+   :winograd cudnn/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD
+   :winograd-nonfused cudnn/CUDNN_CONVOLUTION_BWD_FILTER_ALGO_WINOGRAD_NONFUSED})
 
 (defn dec-convolution-bwd-filter-algo [^long algo]
   (case algo
@@ -218,23 +224,13 @@
     6 :fft-tiling
     7 :count))
 
-#_(def ^:const cudnn-convolution-bwd-data-preference
-  {:no-workspace cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_NO_WORKSPACE
-   :fastest cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_PREFER_FASTEST
-   :workspace-limit cudnnConvolutionBwdDataPreference/CUDNN_CONVOLUTION_BWD_DATA_SPECIFY_WORKSPACE_LIMIT})
-
-#_(def ^:const cudnn-convolution-bwd-filter-preference
-  {:no-workspace cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_NO_WORKSPACE
-   :fastest cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_PREFER_FASTEST
-   :workspace-limit cudnnConvolutionBwdFilterPreference/CUDNN_CONVOLUTION_BWD_FILTER_SPECIFY_WORKSPACE_LIMIT})
-
 (def ^:const cudnn-pooling-mode
-  {:max cudnnPoolingMode/CUDNN_POOLING_MAX
-   :max-deterministic cudnnPoolingMode/CUDNN_POOLING_MAX_DETERMINISTIC
-   :avg cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
-   :avg-exclude-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
-   :avg-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING
-   :avg-include-padding cudnnPoolingMode/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING})
+  {:max cudnn/CUDNN_POOLING_MAX
+   :max-deterministic cudnn/CUDNN_POOLING_MAX_DETERMINISTIC
+   :avg cudnn/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
+   :avg-exclude-padding cudnn/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
+   :avg-padding cudnn/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING
+   :avg-include-padding cudnn/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING})
 
 (defn dec-math-type [^long math-type]
   (case math-type
@@ -244,29 +240,29 @@
     3 :fma))
 
 (def ^:const cudnn-math-type
-  {:default cudnnMathType/CUDNN_DEFAULT_MATH
-   :tensor-op cudnnMathType/CUDNN_TENSOR_OP_MATH
-   :tensor-op-allow-conversion cudnnMathType/CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
-   :fma cudnnMathType/CUDNN_FMA_MATH})
+  {:default cudnn/CUDNN_DEFAULT_MATH
+   :tensor-op cudnn/CUDNN_TENSOR_OP_MATH
+   :tensor-op-allow-conversion cudnn/CUDNN_TENSOR_OP_MATH_ALLOW_CONVERSION
+   :fma cudnn/CUDNN_FMA_MATH})
 
 (defn dec-determinism [^long determinism]
   (case determinism
-    0 cudnnDeterminism/CUDNN_NON_DETERMINISTIC
-    1 cudnnDeterminism/CUDNN_DETERMINISTIC))
+    0 cudnn/CUDNN_NON_DETERMINISTIC
+    1 cudnn/CUDNN_DETERMINISTIC))
 
 (def ^:const cudnn-determinism
-  {:non-deterministic cudnnDeterminism/CUDNN_NON_DETERMINISTIC
-   :deterministic cudnnDeterminism/CUDNN_DETERMINISTIC})
+  {:non-deterministic cudnn/CUDNN_NON_DETERMINISTIC
+   :deterministic cudnn/CUDNN_DETERMINISTIC})
 
 (def ^:const cudnn-batch-norm-mode
-  {:per-activation cudnnBatchNormMode/CUDNN_BATCHNORM_PER_ACTIVATION
-   :spatial cudnnBatchNormMode/CUDNN_BATCHNORM_SPATIAL
-   :spatial-persistent cudnnBatchNormMode/CUDNN_BATCHNORM_SPATIAL_PERSISTENT})
+  {:per-activation cudnn/CUDNN_BATCHNORM_PER_ACTIVATION
+   :spatial cudnn/CUDNN_BATCHNORM_SPATIAL
+   :spatial-persistent cudnn/CUDNN_BATCHNORM_SPATIAL_PERSISTENT})
 
 (def ^:const cudnn-err-query-mode
-  {:blocking cudnnErrQueryMode/CUDNN_ERRQUERY_BLOCKING
-   :non-blocking cudnnErrQueryMode/CUDNN_ERRQUERY_NONBLOCKING
-   :rawcode cudnnErrQueryMode/CUDNN_ERRQUERY_RAWCODE})
+  {:blocking cudnn/CUDNN_ERRQUERY_BLOCKING
+   :non-blocking cudnn/CUDNN_ERRQUERY_NONBLOCKING
+   :rawcode cudnn/CUDNN_ERRQUERY_RAWCODE})
 
 (defn ^:const dec-err-query-mode [^long mode]
   (case mode
@@ -276,10 +272,10 @@
     :unknown))
 
 (def ^:const cudnn-rnn-algo-mode
-  {:standard cudnnRNNAlgo/CUDNN_RNN_ALGO_STANDARD
-   :static cudnnRNNAlgo/CUDNN_RNN_ALGO_PERSIST_STATIC
-   :dynamic cudnnRNNAlgo/CUDNN_RNN_ALGO_PERSIST_DYNAMIC
-   :small cudnnRNNAlgo/CUDNN_RNN_ALGO_PERSIST_STATIC_SMALL_H})
+  {:standard cudnn/CUDNN_RNN_ALGO_STANDARD
+   :static cudnn/CUDNN_RNN_ALGO_PERSIST_STATIC
+   :dynamic cudnn/CUDNN_RNN_ALGO_PERSIST_DYNAMIC
+   :small cudnn/CUDNN_RNN_ALGO_PERSIST_STATIC_SMALL_H})
 
 (defn ^:const dec-rnn-algo-mode [^long mode]
   (case mode
@@ -290,10 +286,10 @@
     :unknown))
 
 (def ^:const cudnn-rnn-cell-mode
-  {:relu cudnnRNNMode/CUDNN_RNN_RELU
-   :tanh cudnnRNNMode/CUDNN_RNN_TANH
-   :lstm cudnnRNNMode/CUDNN_LSTM
-   :gru  cudnnRNNMode/CUDNN_GRU})
+  {:relu cudnn/CUDNN_RNN_RELU
+   :tanh cudnn/CUDNN_RNN_TANH
+   :lstm cudnn/CUDNN_LSTM
+   :gru  cudnn/CUDNN_GRU})
 
 (defn ^:const dec-rnn-cell-mode [^long mode]
   (case mode
@@ -304,11 +300,11 @@
     :unknown))
 
 (def ^:const cudnn-rnn-bias-mode
-  {:no-bias cudnnRNNBiasMode/CUDNN_RNN_NO_BIAS
-   :single cudnnRNNBiasMode/CUDNN_RNN_SINGLE_INP_BIAS
-   :single-inp cudnnRNNBiasMode/CUDNN_RNN_SINGLE_INP_BIAS
-   :double cudnnRNNBiasMode/CUDNN_RNN_DOUBLE_BIAS
-   :single-rec cudnnRNNBiasMode/CUDNN_RNN_SINGLE_REC_BIAS})
+  {:no-bias cudnn/CUDNN_RNN_NO_BIAS
+   :single cudnn/CUDNN_RNN_SINGLE_INP_BIAS
+   :single-inp cudnn/CUDNN_RNN_SINGLE_INP_BIAS
+   :double cudnn/CUDNN_RNN_DOUBLE_BIAS
+   :single-rec cudnn/CUDNN_RNN_SINGLE_REC_BIAS})
 
 (defn ^:const dec-rnn-bias-mode [^long mode]
   (case mode
@@ -318,10 +314,9 @@
     3 :single-rec
     :unknown))
 
-
 (def ^:const cudnn-direction-mode
-  {:unidirectional cudnnDirectionMode/CUDNN_UNIDIRECTIONAL
-   :bidirectional cudnnDirectionMode/CUDNN_BIDIRECTIONAL})
+  {:unidirectional cudnn/CUDNN_UNIDIRECTIONAL
+   :bidirectional cudnn/CUDNN_BIDIRECTIONAL})
 
 (defn ^:const dec-direction-mode [^long mode]
   (case mode
@@ -330,8 +325,8 @@
     :unknown))
 
 (def ^:const cudnn-rnn-input-mode
-  {:linear cudnnRNNInputMode/CUDNN_LINEAR_INPUT
-   :skip cudnnRNNInputMode/CUDNN_SKIP_INPUT})
+  {:linear cudnn/CUDNN_LINEAR_INPUT
+   :skip cudnn/CUDNN_SKIP_INPUT})
 
 (defn ^:const dec-rnn-input-mode [^long mode]
   (case mode
@@ -340,8 +335,8 @@
     :unknown))
 
 (def ^:const cudnn-rnn-aux-mode
-  {:padded-io-disabled 0
-   :padded-io-enabled 1})
+  {:padded-io-disabled cudnn/CUDNN_RNN_PADDED_IO_DISABLED
+   :padded-io-enabled cudnn/CUDNN_RNN_PADDED_IO_ENABLED})
 
 (defn ^:const dec-rnn-aux-mode [^long mode]
   (case mode
@@ -350,8 +345,8 @@
     :unknown))
 
 (def ^:const cudnn-forward-mode
-  {:inference cudnnForwardMode/CUDNN_FWD_MODE_INFERENCE
-   :training cudnnForwardMode/CUDNN_FWD_MODE_TRAINING})
+  {:inference cudnn/CUDNN_FWD_MODE_INFERENCE
+   :training cudnn/CUDNN_FWD_MODE_TRAINING})
 
 (def ^:const cudnn-rnn-data-layout
   {:seq-mayor-unpacked 0
@@ -359,5 +354,5 @@
    :batch-mayor 2})
 
 (def ^:const cudnn-grad-mode
-  {:add cudnnWgradMode/CUDNN_WGRAD_MODE_ADD
-   :set cudnnWgradMode/CUDNN_WGRAD_MODE_SET})
+  {:add cudnn/CUDNN_WGRAD_MODE_ADD
+   :set cudnn/CUDNN_WGRAD_MODE_SET})

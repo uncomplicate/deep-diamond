@@ -17,7 +17,7 @@
              :refer [weights bias weights-layer weights-iter bias-layer bias-iter]])
   (:import uncomplicate.neanderthal.internal.api.Block))
 
-(defmacro extend-dnnl-pointer [name release-method error]
+(defmacro extend-pointer [name release-method error]
   (let [name-str (str name)]
     `(extend-type ~name
        Releaseable

@@ -9,28 +9,25 @@
 (ns uncomplicate.diamond.internal.cudnn.impl
   (:require [uncomplicate.commons
              [core :refer [Releaseable release with-release let-release Info
-                           Wrapper Wrappable wrap extract info Viewable view]]
+                           Wrapper Wrappable wrap extract info Viewable view size
+                           Bytes]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.clojurecuda.internal
-             [protocols :refer [size]]
-             [impl :refer [native-pointer]]]
-            [uncomplicate.diamond.internal.utils :refer [deftype-wrapper]]
+            [uncomplicate.clojure-cpp
+             :refer [null? int-pointer size-t-pointer get-entry address pointer-seq ptr* Accessor]]
+            [uncomplicate.diamond.internal.utils :refer [extend-pointer]]
             [uncomplicate.diamond.internal.cudnn
              [constants :refer :all]
              [protocols :refer :all]])
-  (:import java.nio.ByteBuffer
-           jcuda.runtime.cudaStream_t
-           jcuda.driver.CUstream
-           [jcuda.jcudnn JCudnn cudnnHandle cudnnStatus cudnnTensorDescriptor
-            cudnnActivationDescriptor cudnnReduceTensorDescriptor cudnnIndicesType
-            cudnnReduceTensorIndices cudnnReduceTensorOp cudnnConvolutionDescriptor
-            cudnnFilterDescriptor cudnnConvolutionFwdAlgoPerf cudnnConvolutionBwdDataAlgoPerf
-            cudnnConvolutionBwdFilterAlgoPerf #_cudnnConvolutionFwdPreference
-            #_cudnnConvolutionBwdDataPreference #_cudnnConvolutionBwdFilterPreference
-            cudnnPoolingDescriptor cudnnDropoutDescriptor cudnnRNNDescriptor cudnnRNNDataDescriptor]))
+  (:import [org.bytedeco.javacpp Pointer IntPointer FloatPointer DoublePointer]
+           org.bytedeco.cuda.global.cudnn
+           org.bytedeco.cuda.cudart.CUstream_st
+           [org.bytedeco.cuda.cudnn cudnnContext cudnnTensorStruct cudnnActivationStruct
+            cudnnReduceTensorStruct cudnnFilterStruct cudnnConvolutionStruct cudnnConvolutionFwdAlgoPerf_t
+            cudnnConvolutionBwdDataAlgoPerf_t cudnnConvolutionBwdFilterAlgoPerf_t cudnnPoolingStruct
+            cudnnDropoutStruct cudnnRNNStruct cudnnRNNDataStruct]))
 
 (defn cudnn-error [^long err-code details]
-  (let [err (cudnnStatus/stringFor err-code)]
+  (let [err (get cudnn-status-codes err-code err-code)]
     (ex-info (format "cuDNN error: %s." err)
              {:name err :code err-code :type :cudnn-error :details details})))
 
@@ -44,712 +41,697 @@
 
 ;; =========================== cuDNN Handle =================================
 
-(deftype-wrapper CUDnnHandle JCudnn/cudnnDestroy cudnn-error)
+(extend-pointer cudnnContext cudnn/cudnnDestroy cudnn-error)
 
-(extend-type cudnnHandle
-  Wrappable
-  (wrap [hdl]
-    (->CUDnnHandle (volatile! hdl))))
-
-(defn cudnn-handle*
+(defn cudnn-context*
   "Creates a cuDNN context handle on the specific `hstream`."
-  [^CUstream hstream]
-  (let [hdl (cudnnHandle.)
-        cuda-stream (cudaStream_t. hstream)]
-    (with-check (JCudnn/cudnnCreate hdl)
-      (with-check  (JCudnn/cudnnSetStream hdl cuda-stream) hdl))))
+  [^CUstream_st hstream]
+  (let-release [handle (cudnnContext.)]
+    (with-check (cudnn/cudnnCreate handle)
+      (with-check (cudnn/cudnnSetStream handle hstream) handle))))
 
-(defn get-cudnn-stream* [hdl]
-  (let [res (cudaStream_t.)]
-    (with-check (JCudnn/cudnnGetStream hdl res) (CUstream. res))))
+(defn get-cudnn-stream* [handle]
+  (let-release [res (CUstream_st.)]
+    (with-check (cudnn/cudnnGetStream handle res) res)))
 
 ;; =========================== Tensor Descriptor ============================
+(defmacro extend-tensor-descriptor [t destructor]
+  `(extend-type ~t
+     Releaseable
+     (release [this#]
+       (let [td# (.-td this#)]
+         (locking td#
+           (when (and (.-master this#) (not (null? td#)))
+             (with-check
+               (. cudnn ~destructor td#)
+               (do (.deallocate (ptr* td#))
+                   (.setNull (ptr* td#)))))))
+       true)
+     Wrapper
+     (extract [this#]
+       (if-not (null? (.-td this#)) (.-td this#) nil))
+     DescProvider
+     (desc [this#]
+       this#)
+     Viewable
+     (view [this#]
+       (new ~t (.-td this#) (.-dims this#) (.-data-type this#) (.-layout this#) false))
+     Info
+     (info
+       ([this# info-type#]
+        (case info-type#
+          :class (class this#)
+          :device :cuda
+          :shape (.-dims this#)
+          :data-type (.-data-type this#)
+          :layout (.-layout this#)
+          nil))
+       ([this#]
+        {:class (class this#)
+         :device :cuda
+         :shape (.-dims this#)
+         :data-type (.-data-type this#)
+         :layout (.-layout this#)}))))
 
-(deftype CUTensorDescriptor [^cudnnTensorDescriptor td dims data-type strides master]
+(deftype CUTensorDescriptor [^cudnnTensorStruct td dims data-type layout master]
   Object
   (hashCode [this]
-    (hash (deref td)))
+    (hash td))
   (equals [this other]
-    (= @td (extract other)))
+    (and (instance? CUTensorDescriptor other)
+         (let [td2 ^CUTensorDescriptor other]
+           (or (= td (extract other))
+               (and (= (.dims this) (.dims td2)) (= (.data-type this) (.data-type td2))
+                    (= (.layout this) (.layout td2))))
+           false)))
   (toString [this]
-    (format "#CUTensorDescriptor[0x%s]" (Long/toHexString (native-pointer @td))))
-  Wrapper
-  (extract [this]
-    @td)
-  DescProvider
-  (desc [this]
-    this)
-  Viewable
-  (view [_]
-    (CUTensorDescriptor. td dims data-type strides false))
-  Info
-  (info [td info-type]
-    (case info-type
-      :class (class td)
-      :device :cuda
-      :shape (.dims td)
-      :data-type (.data-type td)
-      :layout (.strides td)
-      nil))
-  (info [td]
-    {:class (class td)
-     :device :cuda
-     :shape (.dims td)
-     :data-type (.data-type td)
-     :layout (.strides td)})
-  Releaseable
-  (release [this]
-    (when master
-      (locking td
-        (when-let [d @td]
-          (locking d
-            (with-check
-              (JCudnn/cudnnDestroyTensorDescriptor d)
-              (vreset! td nil))))))
-    true))
+    (format "#CUTensorDescriptor[0x%s, master: %s]" (address td) master))
+  Bytes
+  (bytesize* [_]
+    (if (null? td)
+      nil
+      (with-release [res (size-t-pointer 1)]
+        (with-check
+          (cudnn/cudnnGetTensorSizeInBytes td res) (get-entry res 0))))))
 
-(defn get-tensor-nd-descriptor* ^long [^cudnnTensorDescriptor td
-                                       ^ints data-type ^ints dims ^ints strides]
-  (let [nbdims (int-array 1)]
+(extend-tensor-descriptor CUTensorDescriptor cudnnDestroyTensorDescriptor)
+
+(defn get-tensor-nd-descriptor* ^long [^cudnnTensorStruct td
+                                       ^IntPointer data-type ^IntPointer dims ^IntPointer strides]
+  (with-release [nbdims (int-pointer 1)]
     (with-check
-      (JCudnn/cudnnGetTensorNdDescriptor td (alength dims) data-type nbdims dims strides)
-      (aget nbdims 0))))
+      (cudnn/cudnnGetTensorNdDescriptor td (size dims) data-type nbdims dims strides)
+      (get-entry nbdims 0))))
 
-(extend-type cudnnTensorDescriptor
+(extend-type cudnnTensorStruct
   Info
   (info [td]
-    (let [data-type (int-array 1)
-          dims (int-array JCudnn/CUDNN_DIM_MAX)
-          strides (int-array JCudnn/CUDNN_DIM_MAX)
-          nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
+    (with-release [data-type (int-pointer 1)
+                   dims (int-pointer cudnn/CUDNN_DIM_MAX)
+                   strides (int-pointer cudnn/CUDNN_DIM_MAX)
+                   nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
       {:class (class td)
        :device :cuda
-       :shape (vec (take nbdims dims))
-       :data-type (dec-data-type (aget data-type 0))
-       :layout (vec (take nbdims strides))}))
+       :shape (vec (take nbdims (pointer-seq dims)))
+       :data-type (dec-data-type (get-entry data-type 0))
+       :layout (vec (take nbdims (pointer-seq strides)))}))
   Wrappable
   (wrap [td]
-    (let [data-type (int-array 1)
-          dims (int-array JCudnn/CUDNN_DIM_MAX)
-          strides (int-array JCudnn/CUDNN_DIM_MAX)
-          nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
-      (->CUTensorDescriptor (volatile! td) (vec (take nbdims dims))
-                            (dec-data-type (aget data-type 0))
-                            (vec (take nbdims strides)) true))))
+    (with-release [data-type (int-pointer 1)
+                   dims (int-pointer cudnn/CUDNN_DIM_MAX)
+                   strides (int-pointer cudnn/CUDNN_DIM_MAX)
+                   nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
+      (->CUTensorDescriptor td (vec (take nbdims (pointer-seq dims)))
+                            (dec-data-type (get-entry data-type 0))
+                            (vec (take nbdims (pointer-seq strides))) true))))
 
 (defn tensor-descriptor* []
-  (let [res (cudnnTensorDescriptor.)]
+  (let [res (cudnnTensorStruct.)]
     (with-check
-      (JCudnn/cudnnCreateTensorDescriptor res)
+      (cudnn/cudnnCreateTensorDescriptor res)
       res)))
 
 (defn tensor-4d-descriptor*
-  ([^cudnnTensorDescriptor td ^long format ^long data-type shape]
+  ([^cudnnTensorStruct td ^long format ^long data-type shape]
    (with-check
-     (JCudnn/cudnnSetTensor4dDescriptor
+     (cudnn/cudnnSetTensor4dDescriptor
       td format data-type (get shape 0 0) (get shape 1 1) (get shape 2 1) (get shape 3 1))
      td)))
 
-(defn tensor-4d-descriptor-ex* [^cudnnTensorDescriptor td ^long data-type shape stride]
+(defn tensor-4d-descriptor-ex* [^cudnnTensorStruct td ^long data-type shape stride]
   (with-check
-    (JCudnn/cudnnSetTensor4dDescriptorEx
+    (cudnn/cudnnSetTensor4dDescriptorEx
      td data-type (get shape 0 0) (get shape 1 1) (get shape 2 1) (get shape 3 1)
      (get stride 0 0) (get stride 1 1) (get stride 2 1) (get stride 3 1))
     td))
 
 (defn tensor-nd-descriptor*
-  ([^cudnnTensorDescriptor td ^long data-type ^ints dims ^ints strides]
+  ([^cudnnTensorStruct td ^long data-type ^IntPointer dims ^IntPointer strides]
    (with-check
-     (JCudnn/cudnnSetTensorNdDescriptor td data-type (alength dims) dims strides)
+     (cudnn/cudnnSetTensorNdDescriptor td data-type (size dims) dims strides)
      td)))
 
 (defn tensor-nd-descriptor-ex*
-  ([^cudnnTensorDescriptor td ^long format ^long data-type ^ints dims]
+  ([^cudnnTensorStruct td ^long format ^long data-type ^IntPointer dims]
    (with-check
-     (JCudnn/cudnnSetTensorNdDescriptorEx td format data-type (alength dims) dims)
+     (cudnn/cudnnSetTensorNdDescriptorEx td format data-type (size dims) dims)
      td)))
 
-(defn size*
-  "Queries the tensor descriptor for its dimensions."
-  ^long [td]
-  (let [res (long-array 1)]
-    (with-check
-      (JCudnn/cudnnGetTensorSizeInBytes td res) (aget res 0))))
-
-(defn set-tensor* [cudnn-handle td buf value]
+(defn set-tensor* [cudnn-context td buf value]
   (with-check
-    (JCudnn/cudnnSetTensor cudnn-handle td buf value)
-    cudnn-handle))
+    (cudnn/cudnnSetTensor cudnn-context td buf value)
+    cudnn-context))
 
-(defn add-tensor* [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
+(defn add-tensor* [cudnn-context alpha desc-x buf-x beta desc-y buf-y]
   (with-check
-    (JCudnn/cudnnAddTensor cudnn-handle alpha desc-x buf-x beta desc-y buf-y)
-    cudnn-handle))
+    (cudnn/cudnnAddTensor cudnn-context alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-context))
 
-(defn transform-tensor* [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
+(defn transform-tensor* [cudnn-context alpha desc-x buf-x beta desc-y buf-y]
   (with-check
-    (JCudnn/cudnnTransformTensor cudnn-handle alpha desc-x buf-x beta desc-y buf-y)
-    cudnn-handle))
+    (cudnn/cudnnTransformTensor cudnn-context alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-context))
 
-(defn scale-tensor* [cudnn-handle td buf alpha]
+(defn scale-tensor* [cudnn-context td buf alpha]
   (with-check
-    (JCudnn/cudnnScaleTensor cudnn-handle td buf alpha)
-    cudnn-handle))
+    (cudnn/cudnnScaleTensor cudnn-context td buf alpha)
+    cudnn-context))
 
 ;; ======================= Activation ===================================
 
-(deftype-wrapper CUDnnActivationDescriptor
-  JCudnn/cudnnDestroyActivationDescriptor cudnn-error)
-
-(extend-type cudnnActivationDescriptor
-  Wrappable
-  (wrap [ad]
-    (->CUDnnActivationDescriptor (volatile! ad))))
+(extend-pointer cudnnActivationStruct cudnn/cudnnDestroyActivationDescriptor cudnn-error)
 
 (defn activation-descriptor*
   ([]
-   (let [res (cudnnActivationDescriptor.)]
+   (let [res (cudnnActivationStruct.)]
      (with-check
-       (JCudnn/cudnnCreateActivationDescriptor res)
+       (cudnn/cudnnCreateActivationDescriptor res)
        res)))
   ([ad ^long mode ^long relu-nan-opt ^double coef]
    (with-check
-     (JCudnn/cudnnSetActivationDescriptor ad mode relu-nan-opt coef)
+     (cudnn/cudnnSetActivationDescriptor ad mode relu-nan-opt coef)
      ad)))
 
-(defn get-activation-descriptor* [ad ^ints mode ^ints relu-nan-opt ^doubles coef]
+(defn get-activation-descriptor* [^cudnnActivationStruct ad
+                                  ^IntPointer mode ^IntPointer relu-nan-opt ^DoublePointer coef]
   (with-check
-    (JCudnn/cudnnGetActivationDescriptor ad mode relu-nan-opt coef)
+    (cudnn/cudnnGetActivationDescriptor ad mode relu-nan-opt coef)
     ad))
 
-(defn activation-forward* [cudnn-handle ad alpha desc-x buf-x beta desc-y buf-y]
+(defn activation-forward* [cudnn-context ad alpha desc-x buf-x beta desc-y buf-y]
   (with-check
-    (JCudnn/cudnnActivationForward cudnn-handle ad alpha desc-x buf-x beta desc-y buf-y)
-    cudnn-handle))
+    (cudnn/cudnnActivationForward cudnn-context ad alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-context))
 
-(defn activation-backward* [cudnn-handle ad
+(defn activation-backward* [cudnn-context ad
                             alpha desc-y buf-y desc-dy buf-dy
                             desc-x buf-x beta desc-dx buf-dx]
   (with-check
-    (JCudnn/cudnnActivationBackward cudnn-handle ad
-                                    alpha desc-y buf-y desc-dy buf-dy
-                                    desc-x buf-x beta desc-dx buf-dx)
-    cudnn-handle))
+    (cudnn/cudnnActivationBackward cudnn-context ad
+                                   alpha desc-y buf-y desc-dy buf-dy
+                                   desc-x buf-x beta desc-dx buf-dx)
+    cudnn-context))
 
 ;; ========================== Reduce ===================================
 
-(deftype-wrapper CUDnnReduceTensorDescriptor
-  JCudnn/cudnnDestroyReduceTensorDescriptor cudnn-error)
-
-(extend-type cudnnReduceTensorDescriptor
-  Wrappable
-  (wrap [rtd]
-    (->CUDnnReduceTensorDescriptor (volatile! rtd))))
+(extend-pointer cudnnReduceTensorStruct cudnn/cudnnDestroyReduceTensorDescriptor cudnn-error)
 
 (defn reduce-tensor-descriptor*
   ([]
-   (let [res (cudnnReduceTensorDescriptor.)]
+   (let-release [res (cudnnReduceTensorStruct.)]
      (with-check
-       (JCudnn/cudnnCreateReduceTensorDescriptor res)
+       (cudnn/cudnnCreateReduceTensorDescriptor res)
        res)))
   ([rtd ^long op ^long comp-type ^long nan-opt]
    (with-check
-     (JCudnn/cudnnSetReduceTensorDescriptor rtd op comp-type nan-opt
-                                            cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_NO_INDICES
-                                            cudnnIndicesType/CUDNN_32BIT_INDICES)
+     (cudnn/cudnnSetReduceTensorDescriptor rtd op comp-type nan-opt
+                                           cudnn/CUDNN_REDUCE_TENSOR_NO_INDICES
+                                           cudnn/CUDNN_32BIT_INDICES)
      rtd))
   ([rtd op comp-type nan-opt indices]
    (let [comp-type (int comp-type)]
      (with-check
-       (JCudnn/cudnnSetReduceTensorDescriptor
+       (cudnn/cudnnSetReduceTensorDescriptor
         rtd (int op) (int comp-type) (int nan-opt)
-        (if (or (= cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_AMAX comp-type)
-                (= cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MAX comp-type)
-                (= cudnnReduceTensorOp/CUDNN_REDUCE_TENSOR_MIN comp-type))
+        (if (or (= cudnn/CUDNN_REDUCE_TENSOR_AMAX comp-type)
+                (= cudnn/CUDNN_REDUCE_TENSOR_MAX comp-type)
+                (= cudnn/CUDNN_REDUCE_TENSOR_MIN comp-type))
           (int indices)
-          cudnnReduceTensorIndices/CUDNN_REDUCE_TENSOR_NO_INDICES)
-        cudnnIndicesType/CUDNN_32BIT_INDICES)
+          cudnn/CUDNN_REDUCE_TENSOR_NO_INDICES)
+        cudnn/CUDNN_32BIT_INDICES)
        rtd))))
 
-(defn reduce-tensor* [cudnn-handle rtd
+(defn reduce-tensor* [cudnn-context rtd
                       indices indices-size workspace workspace-size
                       alpha desc-x buf-x beta desc-y buf-y]
   (with-check
-    (JCudnn/cudnnReduceTensor cudnn-handle rtd
-                              indices indices-size workspace workspace-size
-                              alpha desc-x buf-x beta desc-y buf-y)
-    cudnn-handle))
+    (cudnn/cudnnReduceTensor cudnn-context rtd
+                             indices indices-size workspace workspace-size
+                             alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-context))
 
-(defn reduction-indices-size* ^long [cudnn-handle rtd desc-x desc-y]
-  (let [size-arr (long-array 1)]
+(defn reduction-indices-size* ^long [cudnn-context rtd desc-x desc-y]
+  (with-release [size (size-t-pointer 1)]
     (with-check
-      (JCudnn/cudnnGetReductionIndicesSize cudnn-handle rtd desc-x desc-y size-arr)
-      (aget size-arr 0))))
+      (cudnn/cudnnGetReductionIndicesSize cudnn-context rtd desc-x desc-y size)
+      (get-entry size 0))))
 
-(defn reduction-workspace-size* ^long [cudnn-handle rtd desc-x desc-y]
-  (let [size-arr (long-array 1)]
+(defn reduction-workspace-size* ^long [cudnn-context rtd desc-x desc-y]
+  (with-release [size (size-t-pointer 1)]
     (with-check
-      (JCudnn/cudnnGetReductionWorkspaceSize cudnn-handle rtd desc-x desc-y size-arr)
-      (aget size-arr 0))))
+      (cudnn/cudnnGetReductionWorkspaceSize cudnn-context rtd desc-x desc-y size)
+      (get-entry size 0))))
 
 ;; ======================= Softmax ===================================
 
-(defn softmax-forward* [cudnn-handle algo mode alpha desc-x buf-x beta desc-y buf-y]
+(defn softmax-forward* [cudnn-context algo mode alpha desc-x buf-x beta desc-y buf-y]
   (with-check
-    (JCudnn/cudnnSoftmaxForward cudnn-handle algo mode alpha desc-x buf-x beta desc-y buf-y)
-    cudnn-handle))
+    (cudnn/cudnnSoftmaxForward cudnn-context algo mode alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-context))
 
-(defn softmax-backward* [cudnn-handle algo mode
+(defn softmax-backward* [cudnn-context algo mode
                          alpha desc-y buf-y desc-dy buf-dy
                          beta desc-dx buf-dx]
   (with-check
-    (JCudnn/cudnnSoftmaxBackward cudnn-handle algo mode
-                                 alpha desc-y buf-y desc-dy buf-dy
-                                 beta desc-dx buf-dx)
-    cudnn-handle))
+    (cudnn/cudnnSoftmaxBackward cudnn-context algo mode
+                                alpha desc-y buf-y desc-dy buf-dy
+                                beta desc-dx buf-dx)
+    cudnn-context))
 
 ;; ======================== Filter ==============================
 
-(deftype CUFilterDescriptor [^cudnnFilterDescriptor fd
-                             dims data-type format master]
+(deftype CUFilterDescriptor [^cudnnFilterStruct td
+                             dims data-type layout master]
   Object
   (hashCode [this]
-    (hash (deref fd)))
+    (hash td))
   (equals [this other]
-    (= @fd (extract other)))
+    (and (instance? CUFilterDescriptor other)
+         (let [td2 ^CUFilterDescriptor other]
+           (or (= td (extract other))
+               (and (= (.dims this) (.dims td2)) (= (.data-type this) (.data-type td2))
+                    (= (.layout this) (.layout td2))))
+           false)))
   (toString [this]
-    (format "#CUFilterDescriptor[0x%s]" (Long/toHexString (native-pointer @fd))))
-  Wrapper
-  (extract [this]
-    @fd)
-  DescProvider
-  (desc [this]
-    this)
-  Viewable
-  (view [_]
-    (CUFilterDescriptor. fd dims data-type format false))
-  Info
-  (info [td info-type]
-    (case info-type
-      :class (class td)
-      :device :cuda
-      :shape (.dims td)
-      :data-type (.data-type td)
-      :format (.format td)
-      nil))
-  (info [td]
-    {:class (class td)
-     :device :cuda
-     :shape (.dims td)
-     :data-type (.data-type td)
-     :format (.format td)})
-  Releaseable
-  (release [this]
-    (when master
-      (locking fd
-        (when-let [d @fd]
-          (locking d
-            (with-check
-              (JCudnn/cudnnDestroyFilterDescriptor d)
-              (vreset! fd nil))))))
-    true))
+    (format "#CUFilterDescriptor[0x%s, master: %s]" (address td) master))
+  Bytes
+  (bytesize* [_]
+    (if (null? td)
+      nil
+      (with-release [res (size-t-pointer 1)]
+        (with-check
+          (cudnn/cudnnGetFilterSizeInBytes td res) (get-entry res 0))))))
 
-(defn get-filter-nd-descriptor* ^long [^cudnnFilterDescriptor fd
-                                       ^ints data-type ^ints format ^ints dims]
-  (let [nbdims (int-array 1)]
+(extend-tensor-descriptor CUFilterDescriptor cudnnDestroyFilterDescriptor)
+
+(defn get-filter-nd-descriptor* ^long [^cudnnFilterStruct fd
+                                       ^IntPointer data-type ^IntPointer format ^IntPointer dims]
+  (with-release [nbdims (int-pointer 1)]
     (with-check
-      (JCudnn/cudnnGetFilterNdDescriptor fd (alength dims) data-type format nbdims dims)
-      (aget nbdims 0))))
+      (cudnn/cudnnGetFilterNdDescriptor fd (size dims) data-type format nbdims dims)
+      (get-entry nbdims 0))))
 
-(extend-type cudnnFilterDescriptor
+(extend-type cudnnFilterStruct
   Info
   (info [fd]
-    (let [data-type (int-array 1)
-          format (int-array 1)
-          dims (int-array JCudnn/CUDNN_DIM_MAX)
-          nbdims (get-filter-nd-descriptor* fd data-type format dims)]
+    (with-release [data-type (int-pointer 1)
+                   format (int-pointer 1)
+                   dims (int-pointer cudnn/CUDNN_DIM_MAX)
+                   nbdims (get-filter-nd-descriptor* fd data-type format dims)]
       {:class (class fd)
        :device :cuda
-       :shape (vec (take nbdims dims))
-       :data-type (dec-data-type (aget data-type 0))
-       :format (dec-format (aget format 0))}))
+       :shape (vec (take nbdims (pointer-seq dims)))
+       :data-type (dec-data-type (get-entry data-type 0))
+       :format (dec-format (get-entry format 0))}))
   Wrappable
   (wrap [fd]
-    (let [data-type (int-array 1)
-          format (int-array 1)
-          dims (int-array JCudnn/CUDNN_DIM_MAX)
-          nbdims (get-filter-nd-descriptor* fd data-type format dims)]
-      (->CUFilterDescriptor (volatile! fd) (vec (take nbdims dims))
-                            (dec-data-type (aget data-type 0))
-                            (dec-format (aget format 0))
+    (with-release [data-type (int-pointer 1)
+                   format (int-pointer 1)
+                   dims (int-pointer cudnn/CUDNN_DIM_MAX)
+                   nbdims (get-filter-nd-descriptor* fd data-type format dims)]
+      (->CUFilterDescriptor fd (vec (take nbdims (pointer-seq dims)))
+                            (dec-data-type (get-entry data-type 0))
+                            (dec-format (get-entry format 0))
                             true))))
 
 (defn filter-descriptor* []
-  (let [res (cudnnFilterDescriptor.)]
+  (let-release [res (cudnnFilterStruct.)]
     (with-check
-      (JCudnn/cudnnCreateFilterDescriptor res)
+      (cudnn/cudnnCreateFilterDescriptor res)
       res)))
 
 (defn filter-4d-descriptor*
-  ([^cudnnFilterDescriptor fd ^long data-type ^long format shape]
+  ([^cudnnFilterStruct fd ^long data-type ^long format shape]
    (with-check
-     (JCudnn/cudnnSetFilter4dDescriptor
+     (cudnn/cudnnSetFilter4dDescriptor
       fd data-type format (get shape 0 0) (get shape 1 1) (get shape 2 1) (get shape 3 1))
      fd)))
 
 (defn filter-nd-descriptor*
-  ([^cudnnFilterDescriptor fd ^long data-type ^long format ^ints dims]
+  ([^cudnnFilterStruct fd ^long data-type ^long format ^IntPointer dims]
    (with-check
-     (JCudnn/cudnnSetFilterNdDescriptor fd data-type format (alength dims) dims)
+     (cudnn/cudnnSetFilterNdDescriptor fd data-type format (size dims) dims)
      fd)))
 
 ;; ======================== Convolution ==============================
 
-(deftype-wrapper CUDnnConvolutionDescriptor
-  JCudnn/cudnnDestroyConvolutionDescriptor cudnn-error)
+(extend-type cudnnConvolutionFwdAlgoPerf_t
+  Accessor
+  (get-entry
+    ([this#]
+     (.getPointer this# (.position this#)))
+    ([this# i#]
+     (.getPointer this# (long i#)))))
 
-(extend-type cudnnConvolutionDescriptor
-  Wrappable
-  (wrap [cd]
-    (->CUDnnConvolutionDescriptor (volatile! cd))))
+(extend-type cudnnConvolutionBwdDataAlgoPerf_t
+  Accessor
+  (get-entry
+    ([this#]
+     (.getPointer this# (.position this#)))
+    ([this# i#]
+     (.getPointer this# (long i#)))))
+
+(extend-type cudnnConvolutionBwdFilterAlgoPerf_t
+  Accessor
+  (get-entry
+    ([this#]
+     (.getPointer this# (.position this#)))
+    ([this# i#]
+     (.getPointer this# (long i#)))))
+
+(extend-pointer cudnnConvolutionStruct cudnn/cudnnDestroyConvolutionDescriptor cudnn-error)
 
 (defn convolution-descriptor* []
-  (let [res (cudnnConvolutionDescriptor.)]
+  (let-release [res (cudnnConvolutionStruct.)]
     (with-check
-      (JCudnn/cudnnCreateConvolutionDescriptor res)
+      (cudnn/cudnnCreateConvolutionDescriptor res)
       res)))
 
 (defn convolution-2d-descriptor* [cd pad stride dilation mode data-type]
   (with-check
-    (JCudnn/cudnnSetConvolution2dDescriptor
+    (cudnn/cudnnSetConvolution2dDescriptor
      cd (get pad 0 0) (get pad 1 0) (get stride 0 1) (get stride 1 1)
      (get dilation 0 1) (get dilation 1 1) mode data-type)
     cd))
 
-(defn convolution-nd-descriptor* [cd ^ints pad ^ints stride ^ints dilation mode data-type]
+(defn convolution-nd-descriptor* [^cudnnConvolutionStruct cd
+                                  ^IntPointer pad ^IntPointer stride ^IntPointer dilation mode data-type]
   (with-check
-    (JCudnn/cudnnSetConvolutionNdDescriptor cd (alength pad) pad stride dilation mode data-type)
+    (cudnn/cudnnSetConvolutionNdDescriptor cd (size pad) pad stride dilation (int mode) (int data-type))
     cd))
 
 (defn convolution-fwd-find-algo*
-  ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y algo-count]
-   (let [algo-perf (make-array cudnnConvolutionFwdAlgoPerf algo-count)
-         algo-perf-count (int-array 1)]
-     (with-check
-       (JCudnn/cudnnFindConvolutionForwardAlgorithm cudnn-handle desc-x desc-w cd desc-y
-                                                    algo-count algo-perf-count algo-perf)
-       (take (aget algo-perf-count 0) algo-perf))))
-  ([cudnn-handle cd desc-x ^cudnnFilterDescriptor desc-w desc-y]
-   (convolution-fwd-find-algo* cudnn-handle cd desc-x desc-w desc-y 1)))
+  ([^cudnnContext cudnn-context ^cudnnConvolutionStruct cd
+    ^cudnnTensorStruct desc-x ^cudnnFilterStruct desc-w ^cudnnTensorStruct desc-y algo-count]
+   (with-release [algo-perf-count (int-pointer 1)]
+     (let-release [algo-perf (cudnnConvolutionFwdAlgoPerf_t. (long algo-count))]
+       (with-check
+         (cudnn/cudnnFindConvolutionForwardAlgorithm cudnn-context desc-x desc-w cd desc-y
+                                                     (int algo-count) algo-perf-count algo-perf)
+         (take (get-entry algo-perf-count 0) (pointer-seq algo-perf))))))
+  ([cudnn-context cd desc-x ^cudnnFilterStruct desc-w desc-y]
+   (convolution-fwd-find-algo* cudnn-context cd desc-x desc-w desc-y 1)))
 
-(defn convolution-fwd-algo* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+(defn convolution-fwd-algo* ^long [^cudnnConvolutionFwdAlgoPerf_t algo-perf]
   (.algo algo-perf))
 
-(defn convolution-fwd-status* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+(defn convolution-fwd-status* ^long [^cudnnConvolutionFwdAlgoPerf_t algo-perf]
   (.status algo-perf))
 
-(defn convolution-fwd-memory* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+(defn convolution-fwd-memory* ^long [^cudnnConvolutionFwdAlgoPerf_t algo-perf]
   (.memory algo-perf))
 
-(defn convolution-fwd-time* ^double [^cudnnConvolutionFwdAlgoPerf algo-perf]
+(defn convolution-fwd-time* ^double [^cudnnConvolutionFwdAlgoPerf_t algo-perf]
   (.time algo-perf))
 
-(defn convolution-fwd-determinism* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+(defn convolution-fwd-determinism* ^long [^cudnnConvolutionFwdAlgoPerf_t algo-perf]
   (.determinism algo-perf))
 
-(defn convolution-fwd-math-type* ^long [^cudnnConvolutionFwdAlgoPerf algo-perf]
+(defn convolution-fwd-math-type* ^long [^cudnnConvolutionFwdAlgoPerf_t algo-perf]
   (.mathType algo-perf))
 
 (defn convolution-fwd*
-  ([cudnn-handle cd algo alpha desc-x buf-x ^cudnnFilterDescriptor desc-w buf-w
+  ([cudnn-context cd algo alpha desc-x buf-x ^cudnnFilterStruct desc-w buf-w
     beta desc-y buf-y workspace ws-size]
    (with-check
-     (JCudnn/cudnnConvolutionForward cudnn-handle alpha desc-x buf-x desc-w buf-w
-                                     cd algo workspace ws-size beta desc-y buf-y)
-     cudnn-handle))
-  ([cudnn-handle cd algo ad alpha1 desc-x buf-x ^cudnnFilterDescriptor desc-w buf-w
+     (cudnn/cudnnConvolutionForward cudnn-context alpha desc-x buf-x desc-w buf-w
+                                    cd algo workspace ws-size beta desc-y buf-y)
+     cudnn-context))
+  ([cudnn-context cd algo ad alpha1 desc-x buf-x ^cudnnFilterStruct desc-w buf-w
     alpha2 buf-z desc-bias buf-bias desc-y buf-y workspace ws-size]
    (with-check
-     (JCudnn/cudnnConvolutionBiasActivationForward
-      cudnn-handle alpha1 desc-x buf-x desc-w buf-w cd algo workspace ws-size
+     (cudnn/cudnnConvolutionBiasActivationForward
+      cudnn-context alpha1 desc-x buf-x desc-w buf-w cd algo workspace ws-size
       alpha2 desc-y buf-z desc-bias buf-bias ad desc-y buf-y)
-     cudnn-handle)))
+     cudnn-context)))
 
 (defn convolution-bwd-bias*
-  [cudnn-handle alpha desc-dy buf-dy beta desc-db buf-db]
+  [cudnn-context alpha desc-dy buf-dy beta desc-db buf-db]
   (with-check
-    (JCudnn/cudnnConvolutionBackwardBias cudnn-handle alpha desc-dy buf-dy
-                                         beta desc-db buf-db)
-    cudnn-handle))
+    (cudnn/cudnnConvolutionBackwardBias cudnn-context alpha desc-dy buf-dy
+                                        beta desc-db buf-db)
+    cudnn-context))
 
 (defn convolution-bwd-data-find-algo*
-  ([cudnn-handle cd ^cudnnFilterDescriptor desc-w desc-dy desc-dx algo-count]
-   (let [algo-perf (make-array cudnnConvolutionBwdDataAlgoPerf algo-count)
-         algo-perf-count (int-array 1)]
-     (with-check
-       (JCudnn/cudnnFindConvolutionBackwardDataAlgorithm cudnn-handle desc-w desc-dy cd desc-dx
-                                                         algo-count algo-perf-count algo-perf)
-       (take (aget algo-perf-count 0) algo-perf))))
-  ([cudnn-handle cd ^cudnnFilterDescriptor desc-w desc-dy desc-dx]
-   (convolution-bwd-data-find-algo* cudnn-handle cd desc-w desc-dy desc-dx 1)))
+  ([^cudnnContext cudnn-context ^cudnnConvolutionStruct cd
+    ^cudnnFilterStruct desc-w ^cudnnTensorStruct desc-dy ^cudnnTensorStruct desc-dx algo-count]
+   (with-release [algo-perf-count (int-pointer 1)]
+     (let-release [algo-perf (cudnnConvolutionBwdDataAlgoPerf_t. (long algo-count))]
+       (with-check
+         (cudnn/cudnnFindConvolutionBackwardDataAlgorithm cudnn-context desc-w desc-dy cd desc-dx
+                                                          (int algo-count) algo-perf-count algo-perf)
+         (take (get-entry algo-perf-count 0) (pointer-seq algo-perf))))))
+  ([cudnn-context cd ^cudnnFilterStruct desc-w desc-dy desc-dx]
+   (convolution-bwd-data-find-algo* cudnn-context cd desc-w desc-dy desc-dx 1)))
 
 (defn convolution-bwd-data*
-  [cudnn-handle cd algo alpha desc-w buf-w desc-dy buf-dy
+  [cudnn-context cd algo alpha desc-w buf-w desc-dy buf-dy
    beta desc-dx buf-dx workspace ws-size]
   (with-check
-    (JCudnn/cudnnConvolutionBackwardData cudnn-handle
-                                         alpha desc-w buf-w desc-dy buf-dy
-                                         cd algo workspace ws-size
-                                         beta desc-dx buf-dx)
-    cudnn-handle))
+    (cudnn/cudnnConvolutionBackwardData cudnn-context
+                                        alpha desc-w buf-w desc-dy buf-dy
+                                        cd algo workspace ws-size
+                                        beta desc-dx buf-dx)
+    cudnn-context))
 
 (defn convolution-bwd-filter-find-algo*
-  ([cudnn-handle cd desc-x desc-dy ^cudnnFilterDescriptor desc-dw preference algo-count]
-   (let [algo-perf (make-array cudnnConvolutionBwdFilterAlgoPerf algo-count)
-         algo-perf-count (int-array 1)]
-     (with-check
-       (JCudnn/cudnnFindConvolutionBackwardFilterAlgorithm cudnn-handle desc-x desc-dy cd desc-dw
-                                                           algo-count algo-perf-count algo-perf)
-       (take (aget algo-perf-count 0) algo-perf))))
-  ([cudnn-handle cd desc-x desc-dy ^cudnnFilterDescriptor desc-dw preference]
-   (convolution-bwd-filter-find-algo* cudnn-handle cd desc-x desc-dy desc-dw preference 1)))
+  ([^cudnnContext cudnn-context ^cudnnConvolutionStruct cd
+    ^cudnnTensorStruct desc-x ^cudnnTensorStruct desc-dy ^cudnnFilterStruct desc-dw preference algo-count]
+   (with-release [algo-perf-count (int-pointer 1)]
+     (let-release [algo-perf (cudnnConvolutionBwdFilterAlgoPerf_t. (long algo-count))]
+       (with-check
+         (cudnn/cudnnFindConvolutionBackwardFilterAlgorithm cudnn-context desc-x desc-dy cd desc-dw
+                                                            (int algo-count) algo-perf-count algo-perf)
+         (take (get-entry algo-perf-count 0) (pointer-seq algo-perf))))))
+  ([cudnn-context cd desc-x desc-dy ^cudnnFilterStruct desc-dw preference]
+   (convolution-bwd-filter-find-algo* cudnn-context cd desc-x desc-dy desc-dw preference 1)))
 
 (defn convolution-bwd-filter*
-  [cudnn-handle cd algo alpha desc-x buf-x desc-dy buf-dy
+  [cudnn-context cd algo alpha desc-x buf-x desc-dy buf-dy
    beta desc-dw buf-dw workspace ws-size]
   (with-check
-    (JCudnn/cudnnConvolutionBackwardFilter cudnn-handle
-                                           alpha desc-x buf-x desc-dy buf-dy
-                                           cd algo workspace ws-size
-                                           beta desc-dw buf-dw)
-    cudnn-handle))
+    (cudnn/cudnnConvolutionBackwardFilter cudnn-context
+                                          alpha desc-x buf-x desc-dy buf-dy
+                                          cd algo workspace ws-size
+                                          beta desc-dw buf-dw)
+    cudnn-context))
 
 (defn convolution-bwd-bias*
-  [cudnn-handle alpha desc-dy buf-dy beta desc-db buf-db]
+  [cudnn-context alpha desc-dy buf-dy beta desc-db buf-db]
   (with-check
-    (JCudnn/cudnnConvolutionBackwardBias cudnn-handle alpha desc-dy buf-dy beta desc-db buf-db)
-    cudnn-handle))
+    (cudnn/cudnnConvolutionBackwardBias cudnn-context alpha desc-dy buf-dy beta desc-db buf-db)
+    cudnn-context*))
 
 ;; ======================== Pooling ================================================================
 
-(deftype-wrapper CUDnnPoolingDescriptor
-  JCudnn/cudnnDestroyPoolingDescriptor cudnn-error)
-
-(extend-type cudnnPoolingDescriptor
-  Wrappable
-  (wrap [pd]
-    (->CUDnnPoolingDescriptor (volatile! pd))))
+(extend-pointer cudnnPoolingStruct cudnn/cudnnDestroyPoolingDescriptor cudnn-error)
 
 (defn pooling-descriptor* []
-  (let [res (cudnnPoolingDescriptor.)]
+  (let-release [res (cudnnPoolingStruct.)]
     (with-check
-      (JCudnn/cudnnCreatePoolingDescriptor res)
+      (cudnn/cudnnCreatePoolingDescriptor res)
       res)))
 
 (defn pooling-2d-descriptor* [pd mode nan-opt kernel strides padding]
   (with-check
-    (JCudnn/cudnnSetPooling2dDescriptor
+    (cudnn/cudnnSetPooling2dDescriptor
      pd mode nan-opt (get kernel 0 0) (get kernel 1 0) (get padding 0 1) (get padding 1 1)
      (get strides 0 1) (get strides 1 1))
     pd))
 
-(defn pooling-nd-descriptor* [pd mode nan-opt ^ints kernel ^ints stride ^ints padding]
+(defn pooling-nd-descriptor* [^cudnnPoolingStruct pd mode nan-opt
+                              ^IntPointer kernel ^IntPointer stride ^IntPointer padding]
   (with-check
-    (JCudnn/cudnnSetPoolingNdDescriptor pd mode nan-opt (alength kernel) kernel padding stride)
+    (cudnn/cudnnSetPoolingNdDescriptor pd (int mode) (int nan-opt) (size kernel) kernel padding stride)
     pd))
 
-(defn pooling-forward* [cudnn-handle pd alpha desc-x buf-x beta desc-y buf-y]
+(defn pooling-forward* [cudnn-context pd alpha desc-x buf-x beta desc-y buf-y]
   (with-check
-    (JCudnn/cudnnPoolingForward cudnn-handle pd alpha desc-x buf-x beta desc-y buf-y)
-    cudnn-handle))
+    (cudnn/cudnnPoolingForward cudnn-context pd alpha desc-x buf-x beta desc-y buf-y)
+    cudnn-context))
 
-(defn pooling-backward* [cudnn-handle pd
+(defn pooling-backward* [cudnn-context pd
                          alpha desc-y buf-y desc-dy buf-dy desc-x buf-x
                          beta desc-dx buf-dx]
   (with-check
-    (JCudnn/cudnnPoolingBackward cudnn-handle pd
-                                 alpha desc-y buf-y desc-dy buf-dy desc-x buf-x
-                                 beta desc-dx buf-dx)
-    cudnn-handle))
+    (cudnn/cudnnPoolingBackward cudnn-context pd
+                                alpha desc-y buf-y desc-dy buf-dy desc-x buf-x
+                                beta desc-dx buf-dx)
+    cudnn-context))
 
 ;; ====================== Batch Normalization ===========================================
 
 (defn batch-norm-param-descriptor* [desc-x mode]
-  (let [res (tensor-descriptor*)]
+  (let-release [res (tensor-descriptor*)]
     (with-check
-      (JCudnn/cudnnDeriveBNTensorDescriptor res desc-x mode)
+      (cudnn/cudnnDeriveBNTensorDescriptor res desc-x mode)
       res)))
 
-(defn batch-norm-fwd-inference* [cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+(defn batch-norm-fwd-inference* [cudnn-context mode alpha beta desc-x buf-x desc-y buf-y
                                  desc-param buf-scale buf-shift buf-mean buf-var epsilon]
   (with-check
-    (JCudnn/cudnnBatchNormalizationForwardInference
-     cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+    (cudnn/cudnnBatchNormalizationForwardInference
+     cudnn-context mode alpha beta desc-x buf-x desc-y buf-y
      desc-param buf-scale buf-shift buf-mean buf-var epsilon)
-    cudnn-handle))
+    cudnn-context))
 
-(defn batch-norm-fwd-training* [cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+(defn batch-norm-fwd-training* [cudnn-context mode alpha beta desc-x buf-x desc-y buf-y
                                 desc-param buf-scale buf-shift exp-avg
                                 buf-running-mean buf-running-var epsilon
                                 buf-save-mean buf-save-inv-var]
   (with-check
-    (JCudnn/cudnnBatchNormalizationForwardTraining
-     cudnn-handle mode alpha beta desc-x buf-x desc-y buf-y
+    (cudnn/cudnnBatchNormalizationForwardTraining
+     cudnn-context mode alpha beta desc-x buf-x desc-y buf-y
      desc-param buf-scale buf-shift exp-avg
      buf-running-mean buf-running-var epsilon buf-save-mean buf-save-inv-var)
-    cudnn-handle))
+    cudnn-context))
 
-(defn batch-norm-backward* [cudnn-handle mode alpha-data beta-data alpha-param beta-param
+(defn batch-norm-backward* [cudnn-context mode alpha-data beta-data alpha-param beta-param
                             desc-x buf-x desc-dy buf-dy desc-dx buf-dx desc-param
                             buf-scale buf-scale-diff buf-shift-diff epsilon buf-mean buf-inv-var]
   (with-check
-    (JCudnn/cudnnBatchNormalizationBackward
-     cudnn-handle mode alpha-data beta-data alpha-param beta-param
+    (cudnn/cudnnBatchNormalizationBackward
+     cudnn-context mode alpha-data beta-data alpha-param beta-param
      desc-x buf-x desc-dy buf-dy desc-dx buf-dx
      desc-param buf-scale buf-scale-diff buf-shift-diff epsilon buf-mean buf-inv-var)
-    cudnn-handle))
+    cudnn-context))
 
 ;; ====================== Dropout ======================================================
 
-(deftype-wrapper CUDnnDropoutDescriptor
-  JCudnn/cudnnDestroyDropoutDescriptor cudnn-error)
-
-(extend-type cudnnDropoutDescriptor
-  Wrappable
-  (wrap [dd]
-    (->CUDnnDropoutDescriptor (volatile! dd))))
+(extend-pointer cudnnDropoutStruct cudnn/cudnnDestroyDropoutDescriptor cudnn-error)
 
 (defn dropout-descriptor*
   ([]
-   (let [res (cudnnDropoutDescriptor.)]
+   (let-release [res (cudnnDropoutStruct.)]
      (with-check
-       (JCudnn/cudnnCreateDropoutDescriptor res)
+       (cudnn/cudnnCreateDropoutDescriptor res)
        res)))
-  ([cudnn-handle dd dropout states state-size seed]
+  ([cudnn-context dd dropout states state-size seed]
    (with-check
-     (JCudnn/cudnnSetDropoutDescriptor
-      dd cudnn-handle dropout states state-size seed)
+     (cudnn/cudnnSetDropoutDescriptor dd cudnn-context dropout states state-size seed)
      dd)))
 
-(defn dropout-states-size* [cudnn-handle]
-  (let [size-arr (long-array 1)]
+(defn dropout-states-size* [cudnn-context]
+  (with-release [size (size-t-pointer 1)]
     (with-check
-      (JCudnn/cudnnDropoutGetStatesSize cudnn-handle size-arr)
-      (aget size-arr 0))))
+      (cudnn/cudnnDropoutGetStatesSize cudnn-context size)
+      (get-entry size 0))))
 
-(defn dropout-reserve-space-size* [cudnn-handle]
-  (let [size-arr (long-array 1)]
+(defn dropout-reserve-space-size* [cudnn-context]
+  (with-release [size (size-t-pointer 1)]
     (with-check
-      (JCudnn/cudnnDropoutGetReserveSpaceSize cudnn-handle size-arr)
-      (aget size-arr 0))))
+      (cudnn/cudnnDropoutGetReserveSpaceSize cudnn-context size)
+      (get-entry size 0))))
 
 ;; ====================== RNN ===========================================================
 
-(deftype-wrapper CUDnnRNNDescriptor
-  JCudnn/cudnnDestroyRNNDescriptor cudnn-error)
-
-(extend-type cudnnRNNDescriptor
-  Wrappable
-  (wrap [rd]
-    (->CUDnnRNNDescriptor (volatile! rd))))
+(extend-pointer cudnnRNNStruct cudnn/cudnnDestroyRNNDescriptor cudnn-error)
 
 (defn rnn-descriptor*
   ([]
-   (let [res (cudnnRNNDescriptor.)]
+   (let-release [res (cudnnRNNStruct.)]
      (with-check
-       (JCudnn/cudnnCreateRNNDescriptor res)
+       (cudnn/cudnnCreateRNNDescriptor res)
        res)))
   ([rd algo cell-mode bias-mode dir-mode input-mode data-type math-prec
     math-type input-size hidden-size proj-size num-nayers dropout-desc aux-flags]
    (with-check
-     (JCudnn/cudnnSetRNNDescriptor_v8
+     (cudnn/cudnnSetRNNDescriptor_v8
       rd
       algo cell-mode bias-mode dir-mode input-mode data-type math-prec math-type
       input-size hidden-size proj-size num-nayers dropout-desc aux-flags)
      rd)))
 
-(defn get-rnn-descriptor* [rd algo cell-mode bias-mode dir-mode input-mode data-type math-prec
-                           math-type input-size hidden-size proj-size num-nayers dropout-desc
-                           aux-flags]
+(defn get-rnn-descriptor* [^cudnnRNNStruct rd
+                           ^IntPointer algo ^IntPointer cell-mode ^IntPointer bias-mode
+                           ^IntPointer dir-mode ^IntPointer  input-mode ^IntPointer  data-type
+                           ^IntPointer math-prec ^IntPointer math-type ^IntPointer input-size
+                           ^IntPointer hidden-size ^IntPointer proj-size ^IntPointer num-nayers
+                           ^cudnnDropoutStruct dropout-desc ^IntPointer aux-flags]
   (with-check
-    (JCudnn/cudnnGetRNNDescriptor_v8 rd algo cell-mode bias-mode dir-mode input-mode
-                                     data-type math-prec math-type input-size hidden-size proj-size
-                                     num-nayers dropout-desc aux-flags)
+    (cudnn/cudnnGetRNNDescriptor_v8 rd algo cell-mode bias-mode dir-mode input-mode
+                                    data-type math-prec math-type input-size hidden-size proj-size
+                                    num-nayers dropout-desc aux-flags)
     rd))
 
-(defn rnn-weight-params* [cudnn-handle rd pseudo-layer weight-space-size weight-space lin-layer-id
-                          w-desc w-addr b-desc b-addr]
+(defn rnn-weight-params* [^cudnnContext cudnn-context ^cudnnRNNStruct rd pseudo-layer
+                          weight-space-size ^Pointer weight-space lin-layer-id
+                          ^cudnnTensorStruct w-desc ^Pointer w-addr
+                          ^cudnnTensorStruct b-desc ^Pointer b-addr]
   (with-check
-    (JCudnn/cudnnGetRNNWeightParams cudnn-handle rd pseudo-layer weight-space-size
-                                    weight-space lin-layer-id w-desc w-addr b-desc b-addr)
+    (cudnn/cudnnGetRNNWeightParams cudnn-context rd (int pseudo-layer) (long weight-space-size)
+                                   weight-space (int lin-layer-id) w-desc w-addr b-desc b-addr)
     [w-desc w-addr b-desc b-addr]))
 
-(defn rnn-weight-space-size* [cudnn-handle rd]
-  (let [size-arr (long-array 1)]
+(defn rnn-weight-space-size* [cudnn-context rd]
+  (with-release [size (size-t-pointer 1)]
     (with-check
-      (JCudnn/cudnnGetRNNWeightSpaceSize cudnn-handle rd size-arr)
-      (aget size-arr 0))))
+      (cudnn/cudnnGetRNNWeightSpaceSize cudnn-context rd size)
+      (get-entry size 0))))
 
-(deftype-wrapper CUDnnRNNDataDescriptor
-  JCudnn/cudnnDestroyRNNDataDescriptor cudnn-error)
-
-(extend-type cudnnRNNDataDescriptor
-  Wrappable
-  (wrap [rd]
-    (->CUDnnRNNDataDescriptor (volatile! rd))))
+(extend-pointer cudnnRNNDataStruct cudnn/cudnnDestroyRNNDataDescriptor cudnn-error)
 
 (defn rnn-data-descriptor*
   ([]
-   (let [res (cudnnRNNDataDescriptor.)]
+   (let-release [res (cudnnRNNDataStruct.)]
      (with-check
-       (JCudnn/cudnnCreateRNNDataDescriptor res)
+       (cudnn/cudnnCreateRNNDataDescriptor res)
        res)))
-  ([rd data-type layout vector-size ^ints seq-lengths padding-fill]
+  ([^cudnnRNNDataStruct rd data-type layout vector-size ^IntPointer seq-lengths ^Pointer padding-fill]
    (with-check
-     (JCudnn/cudnnSetRNNDataDescriptor rd data-type layout (apply max 0 seq-lengths)
-                                       (alength seq-lengths) vector-size seq-lengths padding-fill)
+     (cudnn/cudnnSetRNNDataDescriptor rd (int data-type) (int layout)
+                                      (int (apply max 0 (pointer-seq seq-lengths)))
+                                      (size seq-lengths) (int vector-size) seq-lengths padding-fill)
      rd)))
 
-(defn rnn-temp-space-size* [cudnn-handle rd ^long forward-mode x-desc]
-  (let [workspace-size-arr (long-array 1)
-        reserve-size-arr (long-array 1)]
+(defn rnn-temp-space-size* [cudnn-context rd ^long forward-mode x-desc]
+  (with-release [workspace-size (size-t-pointer 1)
+                 reserve-size (size-t-pointer 1)]
     (with-check
-      (JCudnn/cudnnGetRNNTempSpaceSizes cudnn-handle rd forward-mode x-desc
-                                        workspace-size-arr reserve-size-arr)
-      [(aget workspace-size-arr 0) (aget reserve-size-arr 0)])))
+      (cudnn/cudnnGetRNNTempSpaceSizes cudnn-context rd forward-mode x-desc
+                                       workspace-size reserve-size)
+      [(get-entry workspace-size 0) (get-entry reserve-size 0)])))
 
-(defn rnn-fwd* [cudnn-handle rd forward-mode dev-seq-lengths
-                desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
-                weight-space-size weight-space work-space-size work-space reserve-size reserve-space]
+(defn rnn-fwd* [^cudnnContext cudnn-context ^cudnnRNNStruct rd forward-mode ^IntPointer dev-seq-lengths
+                ^cudnnRNNDataStruct desc-x ^Pointer buf-x ^cudnnRNNDataStruct desc-y ^Pointer buf-y
+                ^cudnnTensorStruct desc-h ^Pointer buf-hx ^Pointer buf-hy
+                ^cudnnTensorStruct desc-c ^Pointer buf-cx ^Pointer buf-cy
+                weight-space-size ^Pointer weight-space work-space-size ^Pointer work-space
+                reserve-size ^Pointer reserve-space]
   (with-check
-    (JCudnn/cudnnRNNForward
-     cudnn-handle rd forward-mode dev-seq-lengths
+    (cudnn/cudnnRNNForward
+     cudnn-context rd (int forward-mode) dev-seq-lengths
      desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
-     weight-space-size weight-space work-space-size work-space reserve-size reserve-space)
-    cudnn-handle))
+     (long weight-space-size) weight-space (long work-space-size) work-space
+     (long reserve-size) reserve-space)
+    cudnn-context))
 
-(defn rnn-bwd-data* [cudnn-handle rd dev-seq-lengths
-                     desc-y buf-y buf-dy desc-x buf-dx desc-h buf-hx buf-dhy buf-dhx
-                     desc-c buf-cx buf-dcy buf-dcx
-                     [weight-space-size weight-space work-space-size work-space
-                      reserve-size reserve-space]]
+(defn rnn-bwd-data* [^cudnnContext cudnn-context ^cudnnRNNStruct rd ^IntPointer dev-seq-lengths
+                     ^cudnnRNNDataStruct desc-y ^Pointer buf-y ^Pointer buf-dy
+                     ^cudnnRNNDataStruct desc-x ^Pointer buf-dx
+                     ^cudnnTensorStruct desc-h ^Pointer buf-hx ^Pointer buf-dhy ^Pointer buf-dhx
+                     ^cudnnTensorStruct desc-c ^Pointer buf-cx ^Pointer buf-dcy ^Pointer buf-dcx
+                     [weight-space-size ^Pointer weight-space work-space-size ^Pointer work-space
+                      reserve-size ^Pointer reserve-space]]
   (with-check
-    (JCudnn/cudnnRNNBackwardData_v8
-     cudnn-handle rd dev-seq-lengths
-     desc-y buf-y buf-dy desc-x buf-dx desc-h buf-hx buf-dhy buf-dhx
-     desc-c buf-cx buf-dcy buf-dcx
-     weight-space-size weight-space work-space-size work-space
-     reserve-size reserve-space)
-    cudnn-handle))
+    (cudnn/cudnnRNNBackwardData_v8 cudnn-context rd ^IntPointer dev-seq-lengths
+                                   desc-y buf-y buf-dy desc-x buf-dx desc-h buf-hx buf-dhy buf-dhx
+                                   desc-c buf-cx buf-dcy buf-dcx
+                                   (long weight-space-size) weight-space (long work-space-size) work-space
+                                   (long reserve-size) reserve-space)
+    cudnn-context))
 
-(defn rnn-bwd-weights* [cudnn-handle rd add-grad dev-seq-lengths
-                        desc-x buf-dx desc-h buf-hx desc-y buf-y
-                        weight-space-size weight-space work-space-size work-space
-                        reserve-size reserve-space]
+(defn rnn-bwd-weights* [^cudnnContext cudnn-context ^cudnnRNNStruct rd add-grad
+                        ^IntPointer dev-seq-lengths
+                        ^cudnnRNNDataStruct desc-x ^Pointer buf-dx
+                        ^cudnnTensorStruct desc-h ^Pointer buf-hx
+                        ^cudnnRNNDataStruct desc-y ^Pointer buf-y
+                        weight-space-size ^Pointer weight-space work-space-size ^Pointer work-space
+                        reserve-size ^Pointer reserve-space]
   (with-check
-    (JCudnn/cudnnRNNBackwardWeights_v8
-     cudnn-handle rd add-grad dev-seq-lengths
-     desc-x buf-dx desc-h buf-hx desc-y buf-y
-     weight-space-size weight-space work-space-size work-space
-     reserve-size reserve-space)
-    cudnn-handle))
+    (cudnn/cudnnRNNBackwardWeights_v8 cudnn-context rd (int add-grad) dev-seq-lengths
+                                      desc-x buf-dx desc-h buf-hx desc-y buf-y
+                                      (long weight-space-size) weight-space
+                                      (long work-space-size) work-space
+                                      (long reserve-size) reserve-space)
+    cudnn-context))
