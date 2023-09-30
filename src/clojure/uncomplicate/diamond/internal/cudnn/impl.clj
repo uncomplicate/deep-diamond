@@ -55,6 +55,7 @@
     (with-check (cudnn/cudnnGetStream handle res) res)))
 
 ;; =========================== Tensor Descriptor ============================
+
 (defmacro extend-tensor-descriptor [t destructor]
   `(extend-type ~t
      Releaseable
@@ -102,8 +103,7 @@
          (let [td2 ^CUTensorDescriptor other]
            (or (= td (extract other))
                (and (= (.dims this) (.dims td2)) (= (.data-type this) (.data-type td2))
-                    (= (.layout this) (.layout td2))))
-           false)))
+                    (= (.layout this) (.layout td2)))))))
   (toString [this]
     (format "#CUTensorDescriptor[0x%s, master: %s]" (address td) master))
   Bytes
@@ -310,8 +310,7 @@
          (let [td2 ^CUFilterDescriptor other]
            (or (= td (extract other))
                (and (= (.dims this) (.dims td2)) (= (.data-type this) (.data-type td2))
-                    (= (.layout this) (.layout td2))))
-           false)))
+                    (= (.layout this) (.layout td2)))))))
   (toString [this]
     (format "#CUFilterDescriptor[0x%s, master: %s]" (address td) master))
   Bytes

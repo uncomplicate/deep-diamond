@@ -13,8 +13,8 @@
             [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.neanderthal
              [core :refer [rk! mm! mv! trans axpy! axpby! view-vctr view-ge mrows
-                           ncols vctr zero dim transfer! raw]]
-             [real :refer [entry! nrm2 asum]]
+                           ncols vctr zero dim transfer! raw entry!]]
+             [real :refer [nrm2 asum]]
              [math :refer [sqr pow sqrt]]
              [vect-math :refer [linear-frac! linear-frac mul! log! log sqrt! sqr!]]
              [random :refer [rand-normal! rng-state]]
@@ -59,6 +59,9 @@
     diff)
   (diff-output [_]
     diff)
+  Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     data)

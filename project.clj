@@ -24,12 +24,12 @@
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
                    :dependencies [[midje "1.10.9"]
-                                  [org.clojure/data.csv "1.0.1"]]
+                                  [org.clojure/data.csv "1.0.1"]
+                                  [org.bytedeco/cuda-platform-redist "12.1-8.9-1.5.10-SNAPSHOT"]]
 
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}}
 
-  :repositories [["snapshots" {:url "https://oss.sonatype.org/content/repositories/snapshots/"
-                               :snapshots true :sign-releases false :checksum :warn :update :daily}]]
+  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 
   :codox {:metadata {:doc/format :markdown}
           :src-dir-uri "http://github.com/uncomplicate/deep-diamond/blob/master/"

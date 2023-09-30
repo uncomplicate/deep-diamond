@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.cudnn.core-test
   (:require [midje.sweet :refer [facts throws => roughly just truthy]]
-            [uncomplicate.commons.core :refer [with-release release info bytesize size]]
+            [uncomplicate.commons.core :refer [with-release release info bytesize size extract]]
             [uncomplicate.fluokitten.core :refer [fmap!]]
             [uncomplicate.clojure-cpp
              :refer [pointer int-pointer float-pointer pointer-seq get-entry null? fill!]]
@@ -18,6 +18,18 @@
             [uncomplicate.diamond.internal.cudnn
              [core :refer :all]
              [protocols :as api]]))
+
+(with-default
+  (with-release [cudnn-hdl (cudnn-context default-stream)
+                 desc-x (tensor-descriptor [2 3 4 5] :float :nchw)
+                 desc-y (tensor-descriptor [2 3 4 5] :float :nchw)
+                 desc-z (tensor-descriptor [2 3 4 5] :int :nchw)]
+
+    (facts "Tensor descriptor test."
+           (= desc-x desc-x) => true
+           (= desc-x desc-y) => true
+           (= desc-x desc-z) => false
+           (data-type desc-x) => :float)))
 
 (with-default
   (with-release [cudnn-hdl (cudnn-context default-stream)
@@ -216,7 +228,7 @@
            => cudnn-hdl
            (pointer-seq (memcpy-to-host! gpu-y (float-pointer 8))) => [20.5 0.0 0.0 0.0 104.5 59.5 0.0 0.0]
            (pointer-seq (memcpy-to-host! gpu-z (float-pointer 8))) => (repeat 8 1.0)
-           (mapv cuda-free! [gpu-x gpu-y gpu-z gpu-w]) => truthy)))
+           (mapv cuda-free! [gpu-x gpu-y gpu-z gpu-w convo-fwd-ws]) => truthy)))
 
 (with-default
   (with-release [cudnn-hdl (cudnn-context default-stream)
@@ -453,7 +465,7 @@
                    weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 0)
                    weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 1)
                    gpu-y (mem-alloc-runtime (bytesize desc-x))]
-      ;;(build-rnn-dynamic! cudnn-hdl rnn-desc N) ;;TODO it seems it's no longer supported, or JCuda didn't complain
+      ;;(build-rnn-dynamic! cudnn-hdl rnn-desc N) ;;TODO it seems it's no longer supported, or JCuda didn't complain before
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
       (memcpy-host! (int-pointer (repeat N T)) dev-seq-lengths)

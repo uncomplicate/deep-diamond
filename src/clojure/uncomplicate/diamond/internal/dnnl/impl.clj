@@ -202,20 +202,12 @@
        (put-entry! (memcpy! (dims* parent-desc) dims (* Long/BYTES ndims)) 0 n)
        (submemory-desc* parent-desc dims strides)))))
 
-(extend-type dnnl_memory_desc
-  Releaseable
-  (release [_]
-    (dragan-says-ex "You should never directly release dnn_memory_desc. Please use MemoryDescImpl!"))
-  Wrappable
-  (wrap [this]
-    (MemoryDescImpl. this true)))
-
 (deftype MemoryDescImpl [^dnnl_memory_desc mem-desc master]
   Object
   (hashCode [this]
     (hash mem-desc))
   (equals [this other]
-    (and (instance? MemoryImpl otrhe) (= mem-desc (extract other))))
+    (and (instance? MemoryDescImpl other) (= mem-desc (extract other))))
   (toString [this]
     (format "#MemoryDescImpl[0x%s, master: %s]" (address mem-desc) master))
   Releaseable
@@ -231,7 +223,7 @@
     (if-not (null? mem-desc) mem-desc nil))
   Viewable
   (view [this]
-    (->MemoryDescImpl mem-desc false))
+    (MemoryDescImpl. mem-desc false))
   DescProvider
   (desc [this]
     this)
@@ -240,6 +232,14 @@
     (if (null? mem-desc)
       nil
       (dnnl/dnnl_memory_desc_get_size mem-desc))))
+
+(extend-type dnnl_memory_desc
+  Releaseable
+  (release [_]
+    (dragan-says-ex "You should never directly release dnn_memory_desc. Please use MemoryDescImpl!"))
+  Wrappable
+  (wrap [this]
+    (->MemoryDescImpl this true)))
 
 (extend-type dnnl_memory
   Releaseable
@@ -251,9 +251,9 @@
   (hashCode [this]
     (hash mem))
   (equals [this other]
-    (and (instance? MemoryImpl otrher) (= mem (extract other))))
+    (and (instance? MemoryImpl other) (= mem (extract other))))
   (toString [this]
-    (format "#MemoryImpl[0x%s, master: %s]" (address mem) master)
+    (format "#MemoryImpl[0x%s, master: %s]" (address mem) master))
   Releaseable
   (release [this]
     (locking mem

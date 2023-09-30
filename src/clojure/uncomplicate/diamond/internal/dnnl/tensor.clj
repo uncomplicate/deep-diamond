@@ -51,7 +51,7 @@
 (extend-type java.util.Collection
   DescProvider
   (desc [this]
-    (memory-desc this :float :any)))
+    (memory-desc (shape this) :float :any)))
 
 (extend-type java.lang.Number
   DescProvider
@@ -77,7 +77,7 @@
   TensorDescriptor
   (shape [this]
     (dims this))
-  (tz/data-type [this]
+  (data-type [this]
     (data-type this))
   (layout [this]
     (strides this))
@@ -89,7 +89,7 @@
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
           (let [fact (diamond-factory out-tz)]
-            (let-release [in-tz (dnnl-tensor fact in-desc (batch-index out-tz))]
+            (let-release [in-tz (dnnl-tensor fact in-desc (batch-index out-tz))];;TODO should I use (view in-desc), like in cudnn?
               (dnnl-transformer (dnnl-engine fact) (flow fact) in-tz (view out-tz)))))))))
 
 (defmethod print-method MemoryDescImpl
@@ -254,7 +254,6 @@
     (dotimes [i mb-size]
       (batcher strm (rand-int batch-size) i))
     (output batcher))
-  IFn
   (invoke [this cols]
     (.invoke this strm cols))
   (invoke [_ strm2 cols]
@@ -386,20 +385,6 @@
                                      (data-type tz-mem) (repeat (ndims tz-mem) 1))]
         (let-release [res (dnnl-tensor diamond-fact md n-index)]
           (transfer! vs res)))))
-  Changeable
-  (setBoxed [x v]
-    (set-all eng v x)
-    x)
-  (setBoxed [x i val]
-    (dragan-says-ex "Tensors do not support editing of specific entries. Please use tensor's vector view."))
-  (alter [x f]
-    (check-contiguous x)
-    (alter (view-vctr x) f)
-    x)
-  (alter [x i f]
-    (check-contiguous x)
-    (alter (view-vctr x) i f)
-    x)
   VectorSpace
   (dim [_]
     (* n c))
@@ -412,6 +397,20 @@
     1)
   (isContiguous [_]
     (= (size tz-mem) (apply * (dims tz-mem)) ))
+  Changeable
+  (setBoxed [x v]
+    (set-all eng v x)
+    x)
+  (setBoxed [_ _ _]
+    (dragan-says-ex "Tensors do not support editing of specific entries. Please use tensor's vector view."))
+  (alter [x f]
+    (check-contiguous x)
+    (alter (view-vctr x) f)
+    x)
+  (alter [x i f]
+    (check-contiguous x)
+    (alter (view-vctr x) i f)
+    x)
   Revert
   (revert [this]
     this)
@@ -452,7 +451,7 @@
     n-index)
   Viewable
   (view [this]
-    (->DnnlTensor diamond-fact neand-fact eng false tz-mem n c n-index))
+    (->DnnlTensor diamond-fact neand-fact eng false tz-mem n c n-index));;TODO currently cuda takes view of cu-desc and each tensor manages its descriptor...
   DenseContainer
   (view-vctr [this]
     (if (<= (dim this) (size tz-mem))

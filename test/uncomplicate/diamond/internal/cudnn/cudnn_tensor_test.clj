@@ -59,3 +59,26 @@
     (test-batcher *diamond-factory*)
     (test-shuffler *diamond-factory*)
     (test-cudnn-transfer dnnl-fact *diamond-factory*)))
+
+(with-release [dnnl-fact (dnnl-factory)]
+  (with-diamond cudnn-factory []
+    ;; (test-tensor *diamond-factory*)
+    ;; (test-create *diamond-factory*)
+    ;; (test-cudnn-create *diamond-factory*)
+    ;; (test-equality *diamond-factory*)
+    ;; (test-release *diamond-factory*)
+    ;;(test-transfer *diamond-factory* dnnl-fact)
+
+    ;;(test-contiguous *diamond-factory*)
+    (test-subtensor1 *diamond-factory*)
+    ;;(test-transformer *diamond-factory*)
+
+    ;; (test-pull-different *diamond-factory*)
+    ;; (test-pull-same *diamond-factory*)
+    ;; (test-push-different *diamond-factory*)
+    ;; (test-push-same *diamond-factory*)
+
+    ;;(test-batcher *diamond-factory*)
+    ;; (test-shuffler *diamond-factory*)
+    ;; (test-cudnn-transfer dnnl-fact *diamond-factory*)
+    ))

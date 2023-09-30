@@ -33,8 +33,7 @@
 
 ;; ================================ Activation =============================================
 
-(deftype DnnlActivationInference [strm bluep data-conn
-                                  eltwise-fwd-prim eltwise-fwd-args]
+(deftype DnnlActivationInference [strm bluep data-conn eltwise-fwd-prim eltwise-fwd-args]
   Releaseable
   (release [_]
     (release data-conn)

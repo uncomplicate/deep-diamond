@@ -10,7 +10,7 @@
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.clojurecuda.core :refer [mem-alloc memset! memcpy-host!]]
+            [uncomplicate.clojurecuda.core :refer [cuda-malloc cuda-free! memset! memcpy-host!]]
             [uncomplicate.neanderthal
              [core :refer [axpby! transfer! scal! entry!]]
              [block :refer [buffer initialize]]
@@ -44,7 +44,7 @@
                             weights-mem work reserve]
   Releaseable
   (release [_]
-    (release dev-seq-lengths)
+    (cuda-free! dev-seq-lengths)
     (release src-conn)
     (release src-iter-tz)
     (release src-iter-c-tz)
@@ -55,9 +55,9 @@
     (release dst-iter-tz)
     (release dst-iter-c-tz)
     (release iter-desc)
-    (release weights-mem)
-    (release work)
-    (release reserve))
+    (cuda-free! weights-mem)
+    (cuda-free! work)
+    (cuda-free! reserve))
   Info
   (info [this]
     {:bias (info bias-tz)
@@ -132,7 +132,7 @@
                            weights-mem diff-weights-mem work reserve]
   Releaseable
   (release [_]
-    (release dev-seq-lengths)
+    (cuda-free! dev-seq-lengths)
     (release src-conn)
     (release src-iter-tz)
     (release src-iter-c-tz)
@@ -162,9 +162,10 @@
     (release fused-diff-bias-tz)
     (release diff-bias-tz)
     (release diff-bias-iter-tz)
-    (release weights-mem)
-    (release work)
-    (release reserve))
+    (cuda-free! weights-mem)
+    (cuda-free! diff-weights-mem)
+    (cuda-free! work)
+    (cuda-free! reserve))
   Info
   (info [this]
     {:bias (info bias-tz)
@@ -345,8 +346,8 @@
   (invoke [this src-tz]
     (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz src-desc)
-                    dev-seq-lengths (mem-alloc (* Float/BYTES (alength seq-lengths)))
-                    weights (mem-alloc weights-size)
+                    dev-seq-lengths (cuda-malloc (* Float/BYTES (alength seq-lengths)))
+                    weights (cuda-malloc weights-size)
                     weights-tz (cudnn-tensor fact false weights 0 (view weights-desc))
                     weights-iter-tz (cudnn-tensor fact false weights weights-offset (view weights-desc))
                     bias-tz (cudnn-tensor fact false weights bias-offset (view bias-desc))
@@ -354,8 +355,8 @@
                     dst-tz (cudnn-tensor fact (view dst-desc) 1);;TODO check whether cuda uses :tnc or :ntc => determined by rnn-src-desc!
                     dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
                     dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
-                    work (mem-alloc inf-work-size);;TODO here we can use global workspace
-                    reserve (mem-alloc inf-reserve-size)]
+                    work (cuda-malloc inf-work-size);;TODO here we can use global workspace
+                    reserve (cuda-malloc inf-reserve-size)]
         (memcpy-host! seq-lengths dev-seq-lengths)
         (memset! weights 0.0)
         (->CUDnnRnnInference fact cudnn-hdl this dev-seq-lengths
@@ -367,8 +368,8 @@
   (invoke [this src-tz diff-src-tz prop-diff? post-process-diff?];;TODO keep in mind that some of source tensors might have to be views!
     (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz src-desc)
-                    dev-seq-lengths (mem-alloc (* Float/BYTES (alength seq-lengths)))
-                    weights (mem-alloc weights-size)
+                    dev-seq-lengths (cuda-malloc (* Float/BYTES (alength seq-lengths)))
+                    weights (cuda-malloc weights-size)
                     fused-weights-tz (cudnn-tensor fact false weights 0 (view fused-weights-desc))
                     weights-tz (cudnn-tensor fact false weights 0 (view weights-desc))
                     weights-iter-tz (cudnn-tensor fact false weights weights-offset (view weights-desc))
@@ -378,8 +379,8 @@
                     dst-tz (cudnn-tensor fact (view dst-desc) 1)
                     dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
                     dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
-                    work (mem-alloc train-work-size);;TODO here we can use global workspace
-                    reserve (mem-alloc train-reserve-size)
+                    work (cuda-malloc train-work-size);;TODO here we can use global workspace
+                    reserve (cuda-malloc train-reserve-size)
                     diff-dst-tz (cudnn-tensor fact (view dst-desc) 1)
                     diff-dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
                     diff-dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
@@ -388,7 +389,7 @@
                                     (cudnn-tensor fact src-desc (batch-index diff-src-tz)))
                     diff-src-iter-tz (when src-iter-tz (view-tz src-iter-tz (view ldnc-iter-desc)))
                     diff-src-iter-c-tz (when src-iter-c-tz (view-tz src-iter-tz (view ldnc-iter-desc)))
-                    diff-weights (mem-alloc weights-size)
+                    diff-weights (cuda-malloc weights-size)
                     fused-diff-weights-tz (cudnn-tensor fact false diff-weights 0 (view fused-weights-desc))
                     post-diff-weights-tz (if post-process-diff?
                                            (cudnn-tensor fact (view fused-weights-desc))

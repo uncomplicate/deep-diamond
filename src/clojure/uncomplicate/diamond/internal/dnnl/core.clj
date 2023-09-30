@@ -119,7 +119,7 @@
                         (enc-keyword dnnl-format format)
                         (long-pointer (drop (- (count format) (size dims)) format)))]
 
-     (wrap (memory-desc* (extract fmt) (extract dims) (enc-keyword dnnl-data-type data-type)))))
+     (wrap (memory-desc* fmt (extract dims) (enc-keyword dnnl-data-type data-type)))))
   ([dims format]
    (memory-desc dims :float format))
   ([dims]
@@ -237,7 +237,7 @@
     (if (<= 0 n (capacity p))
       (with-check (dnnl/dnnl_memory_set_data_handle (extract mem) (byte-pointer (position! p n)))
         mem)
-      (dragan-says-ex "There is not enough capacity in the underlying buffer for this offset."
+      (dragan-says-ex "There isn't enough capacity in the underlying buffer for this offset."
                       {:n n :requested n :available (size p)}))))
 
 (defn offset

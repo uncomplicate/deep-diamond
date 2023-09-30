@@ -10,7 +10,7 @@
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons
              [core :refer [with-release release]]]
-            [uncomplicate.clojure-cpp :refer [position!]]
+            [uncomplicate.clojure-cpp :refer [position! pointer]]
             [uncomplicate.neanderthal
              [core :refer [asum view-vctr transfer! native entry entry! dim]]
              [block :refer [buffer contiguous?]]]
@@ -110,6 +110,26 @@
            (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))
 
+(defn test-subtensor1 [fact];;TODO delete
+  (with-release [tz-x (tensor fact [6 1 1 1] :float [1 1 1 1])
+                 sub-x (view-tz tz-x [2 1 1 1])
+                 sub-y (view-tz tz-x (desc [1 3 1 1] [3 1 1 1]))
+                 sub-z (view-tz tz-x 4)]
+    (facts "Test subtensors and offsets."
+           (transfer! (range) tz-x)
+           (seq (native tz-x)) => [0.0 1.0 2.0 3.0 4.0 5.0]
+           (seq (native sub-x)) => [0.0 1.0]
+           (seq (native sub-y)) => [0.0 1.0 2.0]
+           (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
+           (position! (buffer sub-y) )
+           (buffer sub-y) => :k
+           (seq (native sub-y)) => [3.0 4.0 5.0]
+           ;; (seq (native sub-x)) => [0.0 1.0]
+           ;; (position! (buffer sub-z) 1)
+           ;; (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
+           ;; (seq (native sub-x)) => [0.0 1.0]
+           )))
+
 ;; TODO implement and test fluokitten support.
 
 (defn test-transformer [fact]
@@ -137,8 +157,8 @@
                  connection (connector tz-x tz-y-desc)]
     (facts "Tensor pull connector with different destination"
            (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
-           (identical? (buffer (input connection)) (buffer tz-x)) => true
-           (identical? (buffer (input connection)) (buffer (output connection))) => false
+           (= (buffer (input connection)) (buffer tz-x)) => true
+           (= (buffer (input connection)) (buffer (output connection))) => false
            (entry (native (view-vctr (connection))) 119) => 119.0)))
 
 (defn test-pull-same [fact]
@@ -147,8 +167,8 @@
                  connection (connector tz-x tz-y-desc)]
     (facts "Tensor pull connector with the same destination"
            (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
-           (identical? (buffer (input connection)) (buffer tz-x)) => true
-           (identical? (buffer (input connection)) (buffer (output connection))) => true
+           (= (buffer (input connection)) (buffer tz-x)) => true
+           (= (buffer (input connection)) (buffer (output connection))) => true
            (entry (native (view-vctr (connection))) 119) => 119.0)))
 
 (defn test-push-different [fact]
@@ -157,8 +177,8 @@
                  connection (connector tz-x-desc tz-y)]
     (facts "Tensor push connector with different destination"
            (entry (native (transfer! (range) (view-vctr (input connection)))) 119) => 119.0
-           (identical? (buffer (output connection)) (buffer tz-y)) => true
-           (identical? (buffer (input connection)) (buffer (output connection))) => false
+           (= (buffer (output connection)) (buffer tz-y)) => true
+           (= (buffer (input connection)) (buffer (output connection))) => false
            (entry (native (view-vctr (connection))) 119) => 119.0)))
 
 (defn test-push-same [fact]
@@ -167,8 +187,8 @@
                  connection (connector tz-x-desc tz-y)]
     (facts "Tensor push connector with the same destination"
            (entry (native (transfer! (range) (view-vctr (input connection)))) 119) => 119.0
-           (identical? (buffer (output connection)) (buffer tz-y)) => true
-           (identical? (buffer (input connection)) (buffer (output connection))) => true
+           (= (buffer (output connection)) (buffer tz-y)) => true
+           (= (buffer (input connection)) (buffer (output connection))) => true
            (entry (native (view-vctr (connection))) 119) => 119.0)))
 
 (defn test-shuffler [fact]
