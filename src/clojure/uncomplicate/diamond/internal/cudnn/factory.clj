@@ -12,6 +12,7 @@
              [core :refer [Releaseable release let-release with-release view extract]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.core :refer [op]]
+            [uncomplicate.clojure-cpp :refer [byte-pointer]]
             [uncomplicate.clojurecuda
              [core :refer :all]
              [toolbox :refer [read-int]]]
@@ -160,10 +161,10 @@ Please contribute towards making it possible, or use on of the supported types."
     (tensor-equals modl hstream x y))
   Blas
   (copy [_ x y]
-    (transform-tensor cudnn-hdl (cast 1.0) x (buffer x) (cast 0.0) y (buffer y))
+    (transform-tensor cudnn-hdl (cast 1.0) x (byte-pointer (buffer x)) (cast 0.0) y (byte-pointer (buffer y)))
     y)
   (axpy [_ alpha x y]
-    (add-tensor cudnn-hdl (cast alpha) x (buffer x) (cast 1.0) y (buffer y))
+    (add-tensor cudnn-hdl (cast alpha) x (byte-pointer (buffer x)) (cast 1.0) y (byte-pointer (buffer y)))
     y)
   (swap [_ x y]
     (tensor-method swap x y)
@@ -185,7 +186,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (sum [_ x]
     (tensor-method sum x))
   (set-all [_ value x]
-    (set-tensor cudnn-hdl x (buffer x) (cast value))
+    (set-tensor cudnn-hdl x (byte-pointer (buffer x)) (cast value))
     x)
   (axpby [_ alpha x beta y]
     (add-tensor cudnn-hdl (cast alpha) x (buffer x) (cast beta) y (buffer y))

@@ -15,8 +15,7 @@
             [uncomplicate.clojurecuda.core :refer [memcpy-to-host! cuda-malloc]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim vctr copy! native]]
-             [block :refer [entry-width buffer data-accessor count-entries create-data-source
-                            offset cast-prim]]
+             [block :refer [entry-width buffer data-accessor count-entries create-data-source cast-prim]]
              [cuda :refer [factory-by-type]]]
             [uncomplicate.neanderthal.internal.api
              :refer [flow equals-block compatible? set-all MemoryContext
@@ -32,7 +31,7 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider create-tensor create-tensor-desc
                       diamond-factory neanderthal-factory tensor-engine native-diamond-factory
-                      Offset DiffTransfer diff-input diff-output BatchDescriptor
+                      Offset offset DiffTransfer diff-input diff-output BatchDescriptor
                       batch-index]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
@@ -234,11 +233,13 @@
     (let [src-n (long src-n)
           dst-n (long dst-n)]
       (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
-        (transform-tensor cudnn-hdl2
-                          (cast-prim (data-accessor src-sub) 1.0) src-sub
-                          (byte-pointer (pointer (buffer src-sub) (* src-stride-n src-n)))
-                          (cast-prim (data-accessor dst-sub) 0.0) dst-sub
-                          (byte-pointer (pointer (buffer dst-sub) (* dst-stride-n dst-n))))
+        (do (offset src-sub (* src-stride-n src-n))
+            (offset dst-sub (* dst-stride-n dst-n))
+            (transform-tensor cudnn-hdl2
+                             (cast-prim (data-accessor src-sub) 1.0) src-sub
+                             (byte-pointer (buffer src-sub))
+                             (cast-prim (data-accessor dst-sub) 0.0) dst-sub
+                             (byte-pointer (buffer dst-sub))))
         (dragan-says-ex "Requested subtensor is outside of bounds."
                         {:src-index src-n :src-cnt src-cnt :dst-index dst-n :dst-cnt dst-cnt
                          :mb-size mb-size})))
@@ -462,10 +463,11 @@
       (cudnn-tensor diamond-fact false (pointer (buffer vect-buf) 0) sub-desc n-index)))
   Offset
   (offset [this ofst]
-    (if (<= 0 (long ofst) (capacity (buffer vect-buf)))
+    #dbg (if (<= 0 (long ofst) (capacity (buffer vect-buf)))
       (position! (buffer vect-buf) ofst)
       (dragan-says-ex "There isn't enough capacity in the underlying buffer for this offset."
-                      {:requested ofst :available (capacity (buffer vect-buf))})))
+                      {:requested ofst :available (capacity (buffer vect-buf))}))
+    this)
   ConnectorCreator
   (connector [in-tz out-desc]
     (if (equal-desc? cu-desc out-desc)
@@ -516,7 +518,7 @@
                      dnnl-view (view-tz src (diamond/desc (cudnn-shape-padding (shape src))
                                                           (data-type src)
                                                           (cudnn-shape-padding (layout src))))]
-        (dnnl-core/offset! (buffer dnnl-view) (dnnl-core/offset (buffer src)))
+        ;;(dnnl-core/offset! (buffer dnnl-view) (dnnl-core/offset (buffer src))) TODO remove
         (transfer! dnnl-view dnnl-mid)
         (set-vector! (view-vctr dnnl-mid) (view-vctr dest))))
     (dragan-says-ex DOES_NOT_FIT_MSG
@@ -535,7 +537,7 @@
                      dnnl-view (view-tz dest (diamond/desc (cudnn-shape-padding (shape dest))
                                                            (data-type dest)
                                                            (cudnn-shape-padding (layout dest))))]
-        (dnnl-core/offset! (buffer dnnl-view) (dnnl-core/offset (buffer dest)))
+        ;; (dnnl-core/offset! (buffer dnnl-view) (dnnl-core/offset (buffer dest))) TODO remove
         (get-vector! (view-vctr src) (view-vctr dnnl-mid))
         (transfer! dnnl-mid dnnl-view)))
     (dragan-says-ex DOES_NOT_FIT_MSG

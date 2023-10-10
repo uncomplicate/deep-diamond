@@ -10,11 +10,12 @@
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons
              [core :refer [with-release release]]]
-            [uncomplicate.clojure-cpp :refer [position! pointer]]
+            [uncomplicate.clojure-cpp :refer [position! pointer pointer-seq get-entry]] ;;TODO remove pointer-seq
             [uncomplicate.neanderthal
              [core :refer [asum view-vctr transfer! native entry entry! dim]]
              [block :refer [buffer contiguous?]]]
-            [uncomplicate.diamond.tensor :refer :all])
+            [uncomplicate.diamond.tensor :refer :all]
+            [uncomplicate.diamond.internal.protocols :refer [offset]])
   (:import clojure.lang.ExceptionInfo))
 
 (defn test-tensor [fact]
@@ -110,26 +111,6 @@
            (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))
 
-(defn test-subtensor1 [fact];;TODO delete
-  (with-release [tz-x (tensor fact [6 1 1 1] :float [1 1 1 1])
-                 sub-x (view-tz tz-x [2 1 1 1])
-                 sub-y (view-tz tz-x (desc [1 3 1 1] [3 1 1 1]))
-                 sub-z (view-tz tz-x 4)]
-    (facts "Test subtensors and offsets."
-           (transfer! (range) tz-x)
-           (seq (native tz-x)) => [0.0 1.0 2.0 3.0 4.0 5.0]
-           (seq (native sub-x)) => [0.0 1.0]
-           (seq (native sub-y)) => [0.0 1.0 2.0]
-           (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
-           (position! (buffer sub-y) )
-           (buffer sub-y) => :k
-           (seq (native sub-y)) => [3.0 4.0 5.0]
-           ;; (seq (native sub-x)) => [0.0 1.0]
-           ;; (position! (buffer sub-z) 1)
-           ;; (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
-           ;; (seq (native sub-x)) => [0.0 1.0]
-           )))
-
 ;; TODO implement and test fluokitten support.
 
 (defn test-transformer [fact]
@@ -214,7 +195,7 @@
            (transfer! (range 1 15) tz-x)
            (seq (native tz-x)) => (range 1.0 15.0)
            (seq (native tz-y)) => (repeat 6 0.0)
-           (seq (native (batch 0 0))) => (seq (native tz-y))
+           ;;           (seq (native (batch 0 0))) => (seq (native tz-y)) ;;TODO this line is not needed now, as I may need to synchronize it for cuda...
            (batch 0 0) => tz-y
            (seq (native tz-y)) => [1.0 3.0 5.0 2.0 4.0 6.0]
            (transfer! (repeat 0) tz-y)

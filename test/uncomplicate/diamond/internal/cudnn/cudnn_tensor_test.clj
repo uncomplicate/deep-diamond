@@ -41,7 +41,7 @@
            (seq (native (transfer! sub-y sub-z))) => [2 3 4 5]
            (seq (native tz-z)) => [0 0 2 3 4 5 0  1 2 3 4 5])))
 
-(with-release [dnnl-fact (dnnl-factory)]
+(with-release [dnnl-fact (dnnl-factory)];;TODO uncomment
   (with-diamond cudnn-factory []
     (test-tensor *diamond-factory*)
     (test-create *diamond-factory*)
@@ -59,26 +59,3 @@
     (test-batcher *diamond-factory*)
     (test-shuffler *diamond-factory*)
     (test-cudnn-transfer dnnl-fact *diamond-factory*)))
-
-(with-release [dnnl-fact (dnnl-factory)]
-  (with-diamond cudnn-factory []
-    ;; (test-tensor *diamond-factory*)
-    ;; (test-create *diamond-factory*)
-    ;; (test-cudnn-create *diamond-factory*)
-    ;; (test-equality *diamond-factory*)
-    ;; (test-release *diamond-factory*)
-    ;;(test-transfer *diamond-factory* dnnl-fact)
-
-    ;;(test-contiguous *diamond-factory*)
-    (test-subtensor1 *diamond-factory*)
-    ;;(test-transformer *diamond-factory*)
-
-    ;; (test-pull-different *diamond-factory*)
-    ;; (test-pull-same *diamond-factory*)
-    ;; (test-push-different *diamond-factory*)
-    ;; (test-push-same *diamond-factory*)
-
-    ;;(test-batcher *diamond-factory*)
-    ;; (test-shuffler *diamond-factory*)
-    ;; (test-cudnn-transfer dnnl-fact *diamond-factory*)
-    ))
