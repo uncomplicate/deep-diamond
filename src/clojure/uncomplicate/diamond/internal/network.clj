@@ -3,14 +3,17 @@
              [core :refer [Releaseable release let-release Info info with-release view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.core :refer [fmap join]]
-            [uncomplicate.neanderthal.core :refer [transfer!]]
+            [uncomplicate.neanderthal
+             [core :refer [transfer!]]
+             [block :refer [data-accessor]]]
+            [uncomplicate.neanderthal.internal.api :refer [destruct]]
             [uncomplicate.diamond.tensor :refer [Transfer input output tensor TensorDescriptor
                                                  shape data-type layout]]
             [uncomplicate.diamond.internal.protocols
              :refer [Backprop forward backward DiamondFactoryProvider diamond-factory
                      native-diamond-factory DiffTransfer diff-input diff-output diff-z Workspace
                      inf-ws-size train-ws-size create-workspace *workspace* DescriptorProvider
-                     inf-desc train-desc diff-desc Initializable init]])
+                     inf-desc train-desc diff-desc Initializable init neanderthal-factory]])
   (:import [clojure.lang IFn AFn Seqable Indexed ILookup]))
 
 (extend-type java.lang.Object
@@ -33,9 +36,9 @@
 
 (deftype SequentialNetworkInference [x-tz forward-layers workspace]
   Releaseable
-  (release [_]
+  (release [this]
     (release x-tz)
-    (release workspace)
+    (destruct (data-accessor (neanderthal-factory (diamond-factory this) :byte)) workspace)
     (doseq [l forward-layers] (release l))
     true)
   Object
@@ -110,7 +113,7 @@
   Releaseable
   (release [_]
     (release x-mb-tz)
-    (release workspace)
+    (destruct (data-accessor (neanderthal-factory (diamond-factory last-layer) :byte)) workspace)
     (doseq [l forward-layers] (release l))
     true)
   Object

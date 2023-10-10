@@ -2,12 +2,12 @@
   (:require [uncomplicate.commons.core
              :refer [Releaseable release let-release with-release Info info view bytesize]]
             [uncomplicate.fluokitten.core :refer [fmap]]
+            [uncomplicate.clojure-cpp :refer [pointer]]
             [uncomplicate.neanderthal
              [core :refer [axpby! axpy! copy! transfer! raw view-vctr entry! scal!]]
              [block :refer [cast-prim data-accessor buffer offset]]]
             [uncomplicate.diamond
-             [tensor :as tz
-              :refer [Transfer input output connector revert shape layout TensorDescriptor]]]
+             [tensor :as tz :refer [Transfer input output connector revert shape layout TensorDescriptor]]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
@@ -54,6 +54,9 @@
     data-tz)
   (output [_]
     data-tz)
+  Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (when-not linear
@@ -93,6 +96,9 @@
     dst-tz)
   (diff-output [_]
     diff-src-tz)
+    Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [this]
     (forward this)
@@ -140,6 +146,9 @@
     diff-dst-tz)
   (diff-output [_]
     diff-src-tz)
+    Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (activation-forward cudnn-hdl activation-desc
@@ -267,6 +276,9 @@
     diff-dst-tz)
   (diff-output [_]
     diff-src-tz)
+  Initializable
+  (init [this _]
+    this)
   IFn
   (invoke [_]
     (softmax-forward cudnn-hdl :accurate :instance
@@ -473,6 +485,11 @@
   ParametersSeq
   (parameters [_]
     [weights-tz bias-tz])
+  Initializable
+  (init [this init-fn]
+    (init-fn weights-tz)
+    (init-fn bias-tz)
+    this)
   IFn
   (invoke [_]
     (src-conn)
@@ -533,6 +550,11 @@
   DiffParameters
   (diff-weights [_]
     diff-weights-tz)
+  Initializable
+  (init [this init-fn]
+    (init-fn weights-tz)
+    (init-fn bias-tz)
+    this)
   IFn
   (invoke [this]
     (forward this)
@@ -1413,7 +1435,7 @@
   (invoke [this prev-layer]
     (let [src-tz (output prev-layer)]
       (let-release [dst-tzs (fmap (partial cudnn-tensor fact) dst-descs)
-                    sub-tzs (mapv #(cudnn-tensor fact false (buffer src-tz) (+ (offset src-tz) (long %1)) %2) ;;TODO swithc with position!
+                    sub-tzs (mapv #(cudnn-tensor fact false (pointer (buffer src-tz) %1) %2)
                                   sub-offsets sub-descs)
                     fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) sub-tzs dst-tzs)]
         (->CUDnnBranchInference fact this true src-tz fwd-trans))))
@@ -1423,9 +1445,9 @@
           diff-src-sub-offsets (mapv (partial * (get (strides diff-src-tz) branch-dim))
                                      (concat-offsets branch-dim dst-dims))]
       (let-release [dst-tzs (fmap (partial cudnn-tensor fact) dst-descs)
-                    src-sub-tzs (mapv #(cudnn-tensor fact false (buffer src-tz) %1 %2)
+                    src-sub-tzs (mapv #(cudnn-tensor fact false (pointer (buffer src-tz) %1) %2)
                                       sub-offsets sub-descs)
-                    diff-src-sub-tzs (mapv #(cudnn-tensor fact false (buffer diff-src-tz) %1 %2)
+                    diff-src-sub-tzs (mapv #(cudnn-tensor fact false (pointer (buffer diff-src-tz) %1) %2)
                                            diff-src-sub-offsets sub-descs)
                     fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-sub-tzs dst-tzs)
                     bwd-trans (mapv (partial cudnn-transformer cudnn-hdl) dst-tzs diff-src-sub-tzs)]
@@ -1483,9 +1505,9 @@
     (layout dst-desc))
   IFn
   (invoke [this prev-layer]
-    (let-release [src-tzs (fmap (comp view output) prev-layer)
+    #dbg (let-release [src-tzs (fmap (comp view output) prev-layer)
                   dst-tz (cudnn-tensor fact dst-desc)
-                  sub-tzs (mapv #(cudnn-tensor fact false (buffer dst-tz) (+ (offset dst-tz) (long %1)) %2)
+                       sub-tzs (mapv #(cudnn-tensor fact false (pointer (buffer dst-tz) %1) %2)
                                 sub-offsets sub-descs)
                   fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-tzs sub-tzs)]
       (->CUDnnBranchInference fact this false dst-tz fwd-trans)))
@@ -1493,7 +1515,7 @@
     (let [src-tzs (fmap (comp view output) prev-layer)
           diff-src-tzs (fmap (comp view diff-input) prev-layer)]
       (let-release [dst-tz (cudnn-tensor fact dst-desc)
-                    sub-tzs (mapv #(cudnn-tensor fact false (buffer dst-tz) (+ (offset dst-tz) (long %1)) %2)
+                    sub-tzs (mapv #(cudnn-tensor fact false (pointer (buffer dst-tz) %1) %2)
                                   sub-offsets sub-descs)
                     fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-tzs sub-tzs)
                     bwd-trans (mapv (partial cudnn-transformer cudnn-hdl) sub-tzs diff-src-tzs)]

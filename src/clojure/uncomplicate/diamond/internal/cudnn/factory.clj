@@ -402,7 +402,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-workspace [_ byte-size]
     (in-context
      ctx
-     (mem-alloc-driver (max 1 (long byte-size)))))
+     (cuda-malloc (max 1 (long byte-size)))))
   RnnFactory
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
     (cudnn-rnn-op-blueprint this cudnn-hdl src-desc dst-desc weights-type

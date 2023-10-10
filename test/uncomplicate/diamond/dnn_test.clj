@@ -725,8 +725,7 @@
 (defn test-network-concat [fact]
   (with-release [input0-tz (tensor fact [1 1 1 1] :float :nchw)
                  input1-tz (tensor fact [1 2 1 1] :float :nchw)
-                 net-bp (network fact [input0-tz input1-tz]
-                                 [(conc 1)])
+                 net-bp (network fact [input0-tz input1-tz] [(conc 1)])
                  net-train (net-bp [input0-tz input1-tz] true :adam)]
     (let [parallel-layers 1]
       (transfer! [1] input0-tz)
