@@ -8,9 +8,10 @@
 
 (ns uncomplicate.diamond.internal.cudnn.rnn
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info view]]
+             [core :refer [Releaseable release let-release with-release Info info view bytesize]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.clojurecuda.core :refer [cuda-malloc cuda-free! memset! memcpy-host!]]
+            [uncomplicate.clojure-cpp :refer [int-pointer pointer]]
+            [uncomplicate.clojurecuda.core :refer [cuda-malloc cuda-free! memset! memcpy-to-device!]]
             [uncomplicate.neanderthal
              [core :refer [axpby! transfer! scal! entry!]]
              [block :refer [buffer initialize]]
@@ -95,8 +96,8 @@
     (dragan-says-ex "Fused weights not available in RNNInference. Please use weights-layer and weights-iter."))
   Initializable
   (init [this init-fn]
-    (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-tz) 2))) weights-tz)
-    (rand-normal! 0.0 (/ 1.0 (long (get (shape weights-iter-tz) 2))) weights-iter-tz)
+    (init-fn weights-tz)
+    (init-fn weights-iter-tz)
     (entry! bias-tz 0.0)
     (entry! bias-iter-tz 0.0)
     (when src-iter-tz
@@ -211,9 +212,9 @@
     post-diff-weights-tz)
   Initializable
   (init [this init-fn]
-    (rand-normal! 0.0 (/ 2.0 (long (get (shape fused-weights-tz) 2))) fused-weights-tz)
+    (init-fn fused-weights-tz)
     (entry! fused-bias-tz 0.0)
-    (memset! diff-weights-mem 0.0)
+    (memset! diff-weights-mem 0)
     (when src-iter-tz
       (initialize src-iter-tz (buffer src-iter-tz) 0.0))
     (when src-iter-c-tz
@@ -250,7 +251,7 @@
                   (when diff-dst-iter-c-tz (buffer diff-dst-iter-c-tz))
                   (when diff-src-iter-c-tz (buffer diff-src-iter-c-tz))
                   weights-mem work reserve)
-    (memset! diff-weights-mem 0.0)
+    (memset! diff-weights-mem 0)
     (rnn-bwd-weights cudnn-hdl rnn-desc :add dev-seq-lengths
                      rnn-src-desc (buffer (input src-conn))
                      iter-desc (when src-iter-tz (buffer src-iter-tz))
@@ -264,10 +265,10 @@
     (diff-src-conn)
     this))
 
-(deftype CUDnnRnnBlueprint [fact cudnn-hdl rnn-desc ^long weights-size
+(deftype CUDnnRnnBlueprint [fact cudnn-hdl rnn-desc weights-type ^long weights-size
                             ^long inf-work-size ^long inf-reserve-size
                             ^long train-work-size ^long train-reserve-size
-                            ^ints seq-lengths ^long weights-offset
+                            seq-lengths ^long weights-offset
                             ^long bias-offset ^long bias-iter-offset
                             rnn-src-desc rnn-dst-desc
                             src-desc fused-weights-desc weights-desc
@@ -284,7 +285,8 @@
     (release bias-desc)
     (release dst-desc)
     (release ldnc-iter-desc)
-    (release iter-desc))
+    (release iter-desc)
+    (release seq-lengths))
   Object
   (hashCode [_]
     (-> (hash :rnn) (hash-combine weights-desc) (hash-combine bias-desc)))
@@ -325,7 +327,7 @@
     fact)
   DescriptorProvider
   (inf-desc [_]
-    (view dst-desc))
+    (view dst-desc)) ;;TODO check whether I still need all these views, since DNNL does not.
   (train-desc [_]
     (view dst-desc))
   (diff-desc [_]
@@ -346,19 +348,21 @@
   (invoke [this src-tz]
     (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz src-desc)
-                    dev-seq-lengths (cuda-malloc (* Float/BYTES (alength seq-lengths)))
-                    weights (cuda-malloc weights-size)
-                    weights-tz (cudnn-tensor fact false weights 0 (view weights-desc))
-                    weights-iter-tz (cudnn-tensor fact false weights weights-offset (view weights-desc))
-                    bias-tz (cudnn-tensor fact false weights bias-offset (view bias-desc))
-                    bias-iter-tz (cudnn-tensor fact false weights bias-iter-offset (view bias-desc))
+                    dev-seq-lengths (cuda-malloc (bytesize seq-lengths) :int)
+                    weights (cuda-malloc weights-size weights-type)
+                    weights-tz (cudnn-tensor fact false weights (view weights-desc))
+                    weights-iter-tz (cudnn-tensor fact false (pointer weights weights-offset)
+                                                  (view weights-desc))
+                    bias-tz (cudnn-tensor fact false (pointer weights bias-offset) (view bias-desc))
+                    bias-iter-tz (cudnn-tensor fact false (pointer weights bias-iter-offset)
+                                               (view bias-desc))
                     dst-tz (cudnn-tensor fact (view dst-desc) 1);;TODO check whether cuda uses :tnc or :ntc => determined by rnn-src-desc!
                     dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
                     dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
                     work (cuda-malloc inf-work-size);;TODO here we can use global workspace
                     reserve (cuda-malloc inf-reserve-size)]
-        (memcpy-host! seq-lengths dev-seq-lengths)
-        (memset! weights 0.0)
+        (memcpy-to-device! seq-lengths dev-seq-lengths)
+        (memset! weights 0)
         (->CUDnnRnnInference fact cudnn-hdl this dev-seq-lengths
                              src-conn src-iter-tz src-iter-c-tz
                              bias-tz bias-iter-tz weights-tz weights-iter-tz
@@ -368,40 +372,49 @@
   (invoke [this src-tz diff-src-tz prop-diff? post-process-diff?];;TODO keep in mind that some of source tensors might have to be views!
     (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz src-desc)
-                    dev-seq-lengths (cuda-malloc (* Float/BYTES (alength seq-lengths)))
-                    weights (cuda-malloc weights-size)
-                    fused-weights-tz (cudnn-tensor fact false weights 0 (view fused-weights-desc))
-                    weights-tz (cudnn-tensor fact false weights 0 (view weights-desc))
-                    weights-iter-tz (cudnn-tensor fact false weights weights-offset (view weights-desc))
-                    fused-bias-tz (cudnn-tensor fact false weights bias-offset (view fused-bias-desc))
-                    bias-tz (cudnn-tensor fact false weights bias-offset (view bias-desc))
-                    bias-iter-tz (cudnn-tensor fact false weights bias-iter-offset (view bias-desc))
+                    dev-seq-lengths (cuda-malloc (bytesize seq-lengths) :int)
+                    weights (cuda-malloc weights-size weights-type)
+                    fused-weights-tz (cudnn-tensor fact false weights (view fused-weights-desc))
+                    weights-tz (cudnn-tensor fact false weights (view weights-desc))
+                    weights-iter-tz (cudnn-tensor fact false (pointer weights weights-offset)
+                                                  (view weights-desc))
+                    fused-bias-tz (cudnn-tensor fact false (pointer weights bias-offset)
+                                                (view fused-bias-desc))
+                    bias-tz (cudnn-tensor fact false (pointer weights bias-offset) (view bias-desc))
+                    bias-iter-tz (cudnn-tensor fact false (pointer weights bias-iter-offset)
+                                               (view bias-desc))
                     dst-tz (cudnn-tensor fact (view dst-desc) 1)
                     dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
-                    dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
+                    dst-iter-c-tz (when (and dst-iter? iter-c?)
+                                    (cudnn-tensor fact (view ldnc-iter-desc)))
                     work (cuda-malloc train-work-size);;TODO here we can use global workspace
                     reserve (cuda-malloc train-reserve-size)
                     diff-dst-tz (cudnn-tensor fact (view dst-desc) 1)
                     diff-dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
-                    diff-dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
+                    diff-dst-iter-c-tz (when (and dst-iter? iter-c?)
+                                         (cudnn-tensor fact (view ldnc-iter-desc)))
                     diff-src-conn (if prop-diff?
                                     (connector src-desc diff-src-tz)
                                     (cudnn-tensor fact src-desc (batch-index diff-src-tz)))
                     diff-src-iter-tz (when src-iter-tz (view-tz src-iter-tz (view ldnc-iter-desc)))
                     diff-src-iter-c-tz (when src-iter-c-tz (view-tz src-iter-tz (view ldnc-iter-desc)))
-                    diff-weights (cuda-malloc weights-size)
-                    fused-diff-weights-tz (cudnn-tensor fact false diff-weights 0 (view fused-weights-desc))
+                    diff-weights (cuda-malloc weights-size weights-type)
+                    fused-diff-weights-tz (cudnn-tensor fact false diff-weights (view fused-weights-desc))
                     post-diff-weights-tz (if post-process-diff?
                                            (cudnn-tensor fact (view fused-weights-desc))
                                            fused-diff-weights-tz)
-                    diff-weights-tz (cudnn-tensor fact false diff-weights 0 (view weights-desc))
-                    diff-weights-iter-tz (cudnn-tensor fact false diff-weights weights-offset (view weights-desc))
-                    fused-diff-bias-tz (cudnn-tensor fact false diff-weights bias-offset (view fused-bias-desc))
-                    diff-bias-tz (cudnn-tensor fact false diff-weights bias-offset (view bias-desc))
-                    diff-bias-iter-tz (cudnn-tensor fact false diff-weights bias-iter-offset (view bias-desc))]
-        (memcpy-host! seq-lengths dev-seq-lengths)
-        (memset! weights 0.0)
-        (memset! diff-weights 0.0)
+                    diff-weights-tz (cudnn-tensor fact false diff-weights (view weights-desc))
+                    diff-weights-iter-tz (cudnn-tensor fact false (pointer diff-weights weights-offset)
+                                                       (view weights-desc))
+                    fused-diff-bias-tz (cudnn-tensor fact false (pointer diff-weights bias-offset)
+                                                     (view fused-bias-desc))
+                    diff-bias-tz (cudnn-tensor fact false (pointer diff-weights bias-offset)
+                                               (view bias-desc))
+                    diff-bias-iter-tz (cudnn-tensor fact false (pointer diff-weights bias-iter-offset)
+                                                    (view bias-desc))]
+        (memcpy-to-device! seq-lengths dev-seq-lengths)
+        (memset! weights 0)
+        (memset! diff-weights 0)
         (->CUDnnRnnTraining fact cudnn-hdl this dev-seq-lengths
                             src-conn src-iter-tz src-iter-c-tz
                             fused-bias-tz bias-tz bias-iter-tz
@@ -434,13 +447,13 @@
               :lstm 4
               1)
         mode (case (long gts) 3 :gru 4 :lstm activ)
-        algo :standard ;; :standard is the fastest one for examples that I've tried. Needs more exploration.
+        algo :standard ;; TODO :standard is the fastest one for examples that I've tried. Needs more exploration.
         src-shape (shape src-desc)
         [T N src-ch] src-shape
         dst-shape (shape dst-desc)
         [_ _ dst-ch] dst-shape
         dirs (direction-count dir)
-        seq-lengths (int-array (repeat N T))
+        seq-lengths (repeat N T)
         ldnc-iter-shape [lrs dirs N dst-ch]
         iter-shape [(* (long lrs) dirs) N dst-ch]
         weights-shape [lrs dirs src-ch gts dst-ch]
@@ -461,10 +474,10 @@
                   weights-type (or weights-type dtype)
                   ldnc-iter-desc (cudnn-tensor-desc ldnc-iter-shape dtype :nchw)
                   iter-desc (cudnn-tensor-desc iter-shape dtype :nchw)
-                  fused-weights-desc (cudnn-tensor-desc fused-weights-shape dtype fused-weights-stride)
-                  weights-desc (cudnn-tensor-desc weights-shape dtype weights-stride)
-                  fused-bias-desc (cudnn-tensor-desc fused-bias-shape dtype fused-bias-stride)
-                  bias-desc (cudnn-tensor-desc bias-shape dtype bias-stride)
+                  fused-weights-desc (cudnn-tensor-desc fused-weights-shape weights-type fused-weights-stride)
+                  weights-desc (cudnn-tensor-desc weights-shape weights-type weights-stride)
+                  fused-bias-desc (cudnn-tensor-desc fused-bias-shape weights-type fused-bias-stride)
+                  bias-desc (cudnn-tensor-desc bias-shape weights-type bias-stride)
                   rnn-desc (rnn-descriptor algo mode :double :unidirectional :linear
                                            :float :float :default src-ch dst-ch dst-ch lrs
                                            nil :padded-io-enabled)
@@ -474,10 +487,10 @@
       (let [weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
             [inf-work-size inf-reserve-size] (rnn-temp-space-size cudnn-hdl rnn-desc rnn-src-desc :inference)
             [train-work-size train-reserve-size] (rnn-temp-space-size cudnn-hdl rnn-desc rnn-src-desc :training)]
-        (->CUDnnRnnBlueprint fact cudnn-hdl rnn-desc weights-size
+        (->CUDnnRnnBlueprint fact cudnn-hdl rnn-desc weights-type weights-size
                              (max 1 (long inf-work-size)) (max 1 (long inf-reserve-size))
                              (max 1 (long train-work-size)) (max 1 (long train-reserve-size))
-                             seq-lengths weights-offset (apply * fused-weights-shape)
+                             (int-pointer seq-lengths) weights-offset (apply * fused-weights-shape)
                              (+ (long (apply * fused-weights-shape)) bias-offset)
                              rnn-src-desc rnn-dst-desc
                              src-desc fused-weights-desc weights-desc

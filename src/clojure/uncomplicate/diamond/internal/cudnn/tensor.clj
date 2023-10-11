@@ -463,7 +463,7 @@
       (cudnn-tensor diamond-fact false (pointer (buffer vect-buf) 0) sub-desc n-index)))
   Offset
   (offset [this ofst]
-    #dbg (if (<= 0 (long ofst) (capacity (buffer vect-buf)))
+    (if (<= 0 (long ofst) (capacity (buffer vect-buf)))
       (position! (buffer vect-buf) ofst)
       (dragan-says-ex "There isn't enough capacity in the underlying buffer for this offset."
                       {:requested ofst :available (capacity (buffer vect-buf))}))

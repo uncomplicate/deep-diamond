@@ -11,7 +11,7 @@
              [core :refer [let-release with-release wrap extract size bytesize info]]
              [utils :refer [dragan-says-ex enc-keyword mask]]]
             [uncomplicate.clojure-cpp
-             :refer [pointer safe int-pointer long-pointer double-pointer get-entry ptr type-pointer]]
+             :refer [pointer safe int-pointer long-pointer double-pointer get-entry ptr ptr2 type-pointer]]
             [uncomplicate.clojurecuda.core :refer [cuda-malloc cuda-free!]]
             [uncomplicate.clojurecuda.internal.impl :refer [->CUDevicePtr]]
             [uncomplicate.diamond.internal.cudnn
@@ -601,9 +601,7 @@
 
 (defn rnn-data-descriptor
   ([data-type layout vector-size seq-lengths padding-fill]
-   (with-release [seq-lengths (if (sequential? seq-lengths)
-                                (int-pointer seq-lengths)
-                                (int-pointer [seq-lengths]))
+   (with-release [seq-lengths (int-pointer seq-lengths)
                   padding-fill ()]
      (let-release [rd (rnn-data-descriptor*)]
        (rnn-data-descriptor* (extract rd) (enc-keyword cudnn-data-type data-type)
@@ -619,8 +617,8 @@
   (rnn-fwd* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-forward-mode forward-mode)
             (ptr dev-seq-lengths)
             (extract desc-x) (ptr buf-x) (extract desc-y) (ptr buf-y)
-            (extract desc-h) (ptr buf-hx) (ptr buf-hy)
-            (extract desc-c) buf-cx buf-cy
+            (extract desc-h) (ptr2 buf-hx) (ptr2 buf-hy)
+            (extract desc-c) (ptr2 buf-cx) (ptr2 buf-cy)
             (bytesize weight-space) (ptr weight-space)
             (bytesize work-space) (ptr work-space)
             (bytesize reserve-space) (ptr reserve-space))
@@ -632,9 +630,9 @@
   (rnn-bwd-data* (extract cudnn-handle) (extract rd)
                  (extract dev-seq-lengths)
                  (extract desc-y) (ptr buf-y) (ptr buf-dy)
-                 (extract desc-x) (ptr buf-dx) (extract desc-h)
-                 (ptr buf-hx) (ptr buf-dhy) (ptr buf-dhx)
-                 (extract desc-c) buf-cx buf-dcy buf-dcx
+                 (extract desc-x) (ptr2 buf-dx)
+                 (extract desc-h) (ptr2 buf-hx) (ptr2 buf-dhy) (ptr2 buf-dhx)
+                 (extract desc-c) (ptr2 buf-cx) (ptr2 buf-dcy) (ptr2 buf-dcx)
                  [(bytesize weight-space) (ptr weight-space)
                   (bytesize work-space) (ptr work-space)
                   (bytesize reserve-space) (ptr reserve-space)])
@@ -646,7 +644,7 @@
   (rnn-bwd-weights* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-grad-mode add-grad)
                     (extract dev-seq-lengths)
                     (extract desc-x) (ptr buf-dx)
-                    (extract desc-h) (ptr buf-hx) (extract desc-y) (ptr buf-y)
+                    (extract desc-h) (ptr2 buf-hx) (extract desc-y) (ptr buf-y)
                     (bytesize weight-space) (ptr weight-space)
                     (bytesize work-space) (ptr work-space)
                     (bytesize reserve-space) (ptr reserve-space))

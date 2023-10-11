@@ -142,7 +142,7 @@
                  gpu-y (cuda-malloc (bytesize desc-x))]
 
     (memcpy-to-device! host-x gpu-x)
-    (memcpy-to-device! host-y gpu-y)
+    (memset! gpu-y 0)
 
     (facts "Reduce tensor."
            (reduce-tensor cudnn-hdl add-desc (float 3.0) desc-x gpu-x (float 2.0) desc-y gpu-y)
