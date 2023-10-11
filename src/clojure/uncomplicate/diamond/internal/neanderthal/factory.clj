@@ -12,7 +12,9 @@
              [utils :refer [dragan-says-ex direct-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer]]
             [uncomplicate.neanderthal.core :refer [entry!]]
-            [uncomplicate.neanderthal.native :refer [factory-by-type]]
+            [uncomplicate.neanderthal
+             [native :refer [factory-by-type]]
+             [block :refer [create-data-source]]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
             [uncomplicate.neanderthal.internal.cpp.mkl.factory
              :refer [->FloatVectorEngine ->IntVectorEngine ->ByteVectorEngine]]
@@ -109,7 +111,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (sum-blueprint [this src-descs]
     (dnnl-sum-blueprint this eng src-descs))
   (create-workspace [_ byte-size]
-    (byte-pointer (max 1 (long byte-size))))
+    (create-data-source (factory-by-type :byte) (max 1 (long byte-size))))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))

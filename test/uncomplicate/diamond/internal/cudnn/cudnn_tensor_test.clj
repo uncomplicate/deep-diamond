@@ -41,7 +41,7 @@
            (seq (native (transfer! sub-y sub-z))) => [2 3 4 5]
            (seq (native tz-z)) => [0 0 2 3 4 5 0  1 2 3 4 5])))
 
-(with-release [dnnl-fact (dnnl-factory)];;TODO uncomment
+(with-release [dnnl-fact (dnnl-factory)]
   (with-diamond cudnn-factory []
     (test-tensor *diamond-factory*)
     (test-create *diamond-factory*)

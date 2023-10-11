@@ -41,7 +41,9 @@
   (test-push-different diamond-factory)
   (test-push-same diamond-factory)
   (test-batcher diamond-factory)
-  (test-shuffler diamond-factory))
+  (test-shuffler diamond-factory)
+  #_(test-batcher-tnc *diamond-factory*) ;; TODO
+  )
 
 (with-release [eng (engine)
                strm (stream eng)]
@@ -61,4 +63,6 @@
     (test-push-different *diamond-factory*)
     (test-push-same *diamond-factory*)
     (test-batcher *diamond-factory*)
-    (test-shuffler *diamond-factory*)))
+    (test-shuffler *diamond-factory*)
+    #_(test-batcher-tnc *diamond-factory*);; TODO
+    ))

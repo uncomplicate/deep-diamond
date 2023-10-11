@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.dnn-test
   (:require [midje.sweet :refer [facts throws => roughly just]]
-            [uncomplicate.commons [core :refer [with-release release]]] ;;TODO remove release
+            [uncomplicate.commons [core :refer [with-release release]]]
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view-vctr vctr
                            cols view-ge nrm2 axpy!]]

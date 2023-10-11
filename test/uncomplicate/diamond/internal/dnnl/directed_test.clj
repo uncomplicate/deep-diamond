@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.dnnl.directed-test
   (:require [midje.sweet :refer [facts throws => roughly]]
-            [uncomplicate.commons [core :refer [with-release release]]];;TODO remove release
+            [uncomplicate.commons [core :refer [with-release release]]]
             [uncomplicate.neanderthal
              [core :refer [transfer! native view-vctr view-ge cols]]
              [real :refer [entry! entry]]

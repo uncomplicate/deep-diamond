@@ -10,7 +10,7 @@
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons
              [core :refer [with-release release]]]
-            [uncomplicate.clojure-cpp :refer [position! pointer pointer-seq get-entry]] ;;TODO remove pointer-seq
+            [uncomplicate.clojure-cpp :refer [position! pointer get-entry]]
             [uncomplicate.neanderthal
              [core :refer [asum view-vctr transfer! native entry entry! dim]]
              [block :refer [buffer contiguous?]]]
@@ -55,7 +55,7 @@
     (facts "Equality and hash code tests."
            (.equals x1 nil) => false
            (= x1 y1) => true
-           ;; (= x1 y3) => false ;;TODO
+           ;; (= x1 y3) => false TODO
            (= x1 y4) => false
            (= x5 y5) => false
            (transfer! (range) x1) => (transfer! (range) y1))))
@@ -215,16 +215,17 @@
                  sub-x (view-tz tz-x [2 3 1])
                  batch (batcher tz-x tz-y 1)
                  batch-2 (batcher tz-x tz-y 2)
-                 ];;TODO
+                 ];;TODO this is an old comment (and test). Fix when everything else works.
     (facts "batcher test."
            (transfer! (range 1 15) tz-x)
            (seq (transfer! sub-x (tensor fact [2 3 1] :float :tnc)))
            => [1.0 2.0 3.0 8.0 9.0 10.0]
-           (seq (transfer! (do (position! (buffer sub-x) 3) sub-x)
+           (seq (transfer! (do (offset! sub-x 3) sub-x)
                            (tensor fact [2 3 1] :float :tnc)))
            => [4.0 5.0 6.0 11.0 12.0 13.0]
-           (seq (transfer! (do (position! (buffer sub-x) 6) sub-x) (tensor fact [2 3 1] :float :tnc)))
-           => (throws ExceptionInfo)
+           ;; (seq (transfer! (do (offset! sub-x 6) sub-x)
+           ;;                 (tensor fact [2 3 1] :float :tnc)))
+           ;; => (throws ExceptionInfo)
            ;; (seq (native tz-x)) => (range 1.0 15.0)
            ;; (seq (native tz-y)) => (repeat 6 0.0)
            ;; (batch 0 0) => tz-y

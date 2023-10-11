@@ -465,7 +465,7 @@
                    weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 0)
                    weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 1)
                    gpu-y (mem-alloc-runtime (bytesize desc-x))]
-      ;;(build-rnn-dynamic! cudnn-hdl rnn-desc N) ;;TODO it seems it's no longer supported, or JCuda didn't complain before
+      ;;(build-rnn-dynamic! cudnn-hdl rnn-desc N) ;;TODO it seems it's no longer supported, or JCuda just didn't complain before
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
       (memcpy-host! (int-pointer (repeat N T)) dev-seq-lengths)
@@ -562,8 +562,7 @@
                (dissoc rd :dropout) => {:algo :standard :aux-flags 1 :bias :single :data-type :float
                                         :direction :unidirectional :hidden-size C :input :linear
                                         :input-size C :layers L :math-prec :float :math-type :default
-                                        :mode :relu :proj-size C}
-               (release (:dropout rd)));;TODO perhaps this will no longer be needed since I switched it to info...
+                                        :mode :relu :proj-size C})
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 80
              (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16777472 64]
              (map bytesize (take-nth 2 weight-params-0)) => [16 8]
