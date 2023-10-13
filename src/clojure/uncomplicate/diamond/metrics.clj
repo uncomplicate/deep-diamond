@@ -4,8 +4,8 @@
              [utils :refer [dragan-says-ex cond-into]]]
             [uncomplicate.neanderthal
              [core :refer [dim ge mrows amax raw col axpy axpy! copy
-                           vctr mv mv! copy! dia trans view-vctr]]
-             [real :as r :refer [entry entry! asum]]
+                           vctr mv mv! copy! dia trans view-vctr entry entry!]]
+             [real :as r :refer [asum]]
              [vect-math :refer [linear-frac]]]))
 
 (defn confusion-matrix
@@ -16,10 +16,10 @@
        (dotimes [k (dim real)]
          (let [i (entry pred k)
                j (entry real k)]
-           (entry! cm i j (inc (r/entry cm i j)))))
+           (entry! cm i j (inc (double (entry cm i j))))))
        cm)))
   ([real pred]
-   (confusion-matrix real pred (inc (r/amax real)))))
+   (confusion-matrix real pred (inc (double (amax real))))))
 
 (defn contingency-totals [cm]
   (let-release [totals (ge cm (mrows cm) 3)]

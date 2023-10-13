@@ -8,14 +8,14 @@
 
 (ns uncomplicate.diamond.internal.dnnl.file-channel
   (:require [uncomplicate.commons
-             [core :refer [let-release with-release]]
+             [core :refer [let-release with-release bytesize]]
              [utils :refer [dragan-says-ex mapped-buffer]]]
+            [uncomplicate.clojure-cpp :refer [byte-pointer]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
             [uncomplicate.diamond.internal
              [protocols :refer [diamond-factory native-diamond-factory parameters]]
              [network :refer []]]
             [uncomplicate.diamond.internal.dnnl
-             [core :refer [size]]
              [protocols :refer [desc]]
              [tensor :refer [dnnl-tensor*]]])
   (:import java.nio.channels.FileChannel
@@ -25,8 +25,8 @@
 (defn map-channel
   ([fact channel td flag offset-bytes n-index]
    (let [fact (diamond-factory fact)
-         size (size (desc td))]
-     (let-release [buf (mapped-buffer channel offset-bytes size flag)]
+         size (bytesize (desc td))]
+     (let-release [buf (byte-pointer (mapped-buffer channel offset-bytes size flag))]
        (dnnl-tensor* fact td buf n-index true))))
   ([fact channel td flag offset-bytes]
    (map-channel fact channel td flag offset-bytes 0))
@@ -44,7 +44,7 @@
                           :read-write (transfer! param mapped-param)
                           :read (transfer! mapped-param param)
                           (dragan-says-ex "You can only :read or :read-write a channel!"))
-                        (+ pos (size mapped-param))))
+                        (+ pos (bytesize mapped-param))))
                     pos (parameters layer)))
           0 net)
   channel)

@@ -14,7 +14,7 @@
             [uncomplicate.fluokitten
              [protocols :refer [Magma Monoid Applicative Functor]]
              [core :refer [fmap foldmap]]]
-            [uncomplicate.clojure-cpp :refer [pointer]]
+            [uncomplicate.clojure-cpp :refer [pointer get-entry]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
              [block :refer [entry-width data-accessor buffer count-entries contiguous?]]]
@@ -42,7 +42,7 @@
              [protocols :refer [DescProvider desc dnnl-engine]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn AFn]
-           [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable]
+           [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable Vector]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
            uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl))
 
@@ -388,6 +388,9 @@
   VectorSpace
   (dim [_]
     (* n c))
+  Vector
+  (boxedEntry [_ i]
+    (get-entry (pointer tz-mem) i))
   Block
   (buffer [_]
     (pointer tz-mem))
@@ -488,7 +491,7 @@
    (let [mem-desc (desc mem-desc)
          tz-mem (memory (dnnl-engine diamond-fact) mem-desc)
          shp (dims mem-desc)]
-     (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)) n-index)))
+     (uncomplicate.neanderthal.core/entry! (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)) n-index) 0)));;TODO decied what to do here.
   ([diamond-fact neand-fact eng mem-desc]
    (dnnl-tensor diamond-fact neand-fact eng mem-desc 0))
   ([diamond-fact mem-desc n-index]
