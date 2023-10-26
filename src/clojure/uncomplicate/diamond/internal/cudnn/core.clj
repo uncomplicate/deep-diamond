@@ -8,8 +8,9 @@
 
 (ns uncomplicate.diamond.internal.cudnn.core
   (:require [uncomplicate.commons
-             [core :refer [let-release with-release wrap extract size bytesize info]]
+             [core :refer [let-release with-release size bytesize info]]
              [utils :refer [dragan-says-ex enc-keyword mask]]]
+            [uncomplicate.fluokitten.protocols :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [pointer safe int-pointer long-pointer double-pointer get-entry ptr ptr2 type-pointer]]
             [uncomplicate.clojurecuda.core :refer [cuda-malloc cuda-free!]]
@@ -52,7 +53,7 @@
         dtype (enc-keyword cudnn-data-type data-type)]
     (let [td (tensor-descriptor*)]
       (try
-        (wrap
+        (wrap-tensor-struct
          (if (keyword? layout)
            (let [format (enc-keyword cudnn-format layout)]
              (if (< 4 d)
@@ -244,12 +245,12 @@
   (let [d (count shape)
         dtype (enc-keyword cudnn-data-type data-type)
         format (enc-keyword cudnn-format format)]
-    (let-release [fd (wrap (filter-descriptor*))]
-      (wrap
+    (wrap-filter-struct
+     (let-release [fd (filter-descriptor*)]
        (if (< 4 d)
          (with-release [shape (int-pointer shape)]
-           (filter-nd-descriptor* (extract fd) dtype format shape))
-         (filter-4d-descriptor* (extract fd) dtype format shape))))))
+           (filter-nd-descriptor* fd dtype format shape))
+         (filter-4d-descriptor* fd dtype format shape))))))
 
 ;; ============================ Convolution ========================================
 
@@ -457,7 +458,8 @@
 ;; ====================== Batch Normalization ===========================================
 
 (defn batch-norm-descriptor [desc-x mode]
-  (wrap (batch-norm-param-descriptor* (extract desc-x) (enc-keyword cudnn-batch-norm-mode mode))))
+  (wrap-tensor-struct (batch-norm-param-descriptor* (extract desc-x)
+                                                    (enc-keyword cudnn-batch-norm-mode mode))))
 
 (defn batch-norm-runtime-err? [cudnn-handle err-mode]
   (with-release [status (int-pointer 1)]
@@ -580,9 +582,9 @@
       :aux-flags (get-entry aux-flags 0)})))
 
 (defn rnn-weight-params [cudnn-handle rd pseudo-layer weight-space lin-layer-id]
-  (let-release [w-desc (wrap (tensor-descriptor*))
+  (let-release [w-desc (wrap-tensor-struct (tensor-descriptor*))
                 w-addr (long-pointer 1)
-                b-desc (wrap (tensor-descriptor*))
+                b-desc (wrap-tensor-struct (tensor-descriptor*))
                 b-addr (long-pointer 1)]
     (rnn-weight-params* (extract cudnn-handle) (extract rd) pseudo-layer
                         (bytesize weight-space) (ptr weight-space) lin-layer-id

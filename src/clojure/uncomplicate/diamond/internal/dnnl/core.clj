@@ -8,8 +8,9 @@
 
 (ns uncomplicate.diamond.internal.dnnl.core
   (:require [uncomplicate.commons
-             [core :refer [let-release with-release extract view Info bytesize size wrap]]
+             [core :refer [let-release with-release view Info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
+            [uncomplicate.fluokitten.protocols :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [int-pointer long-pointer float-pointer pointer-pointer get-entry
                      fill! pointer-vec safe byte-pointer position! get-pointer put-entry!
@@ -119,13 +120,13 @@
                         (enc-keyword dnnl-format format)
                         (long-pointer (drop (- (count format) (size dims)) format)))]
 
-     (wrap (memory-desc* fmt (extract dims) (enc-keyword dnnl-data-type data-type)))))
+     (->MemoryDescImpl (memory-desc* fmt (extract dims) (enc-keyword dnnl-data-type data-type)) true)))
   ([dims format]
    (memory-desc dims :float format))
   ([dims]
    (memory-desc dims :float :any))
   ([]
-   (wrap (dnnl_memory_desc.))))
+   (->MemoryDescImpl (dnnl_memory_desc.) true)))
 
 (defn submemory-desc
   "Creates a (sub)memory section of a memory object, using the specified
@@ -133,13 +134,15 @@
   ([parent-desc dims offsets]
    (with-release [dims (long-pointer dims)
                   offsets (long-pointer offsets)]
-     (wrap (submemory-desc* (extract (desc parent-desc)) (extract dims) (extract offsets)))))
+     (->MemoryDescImpl (submemory-desc* (extract (desc parent-desc)) (extract dims) (extract offsets)) true)))
   ([parent-desc dim]
-   (if (number? dim)
-     (wrap (submemory-desc* (extract (desc parent-desc)) dim))
-     (with-release [dims (long-pointer dim)
-                    offsets (fill! (long-pointer (size dims)) 0)]
-       (wrap (submemory-desc* (extract (desc parent-desc)) (extract dims) (extract offsets)))))))
+   (->MemoryDescImpl
+    (if (number? dim)
+      (submemory-desc* (extract (desc parent-desc)) dim)
+      (with-release [dims (long-pointer dim)
+                     offsets (fill! (long-pointer (size dims)) 0)]
+        (submemory-desc* (extract (desc parent-desc)) (extract dims) (extract offsets))))
+    true)))
 
 (defn equal-desc?
   "Compares two memory descriptors for logical equality.

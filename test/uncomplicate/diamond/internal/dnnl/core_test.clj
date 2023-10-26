@@ -8,7 +8,8 @@
 
 (ns uncomplicate.diamond.internal.dnnl.core-test
   (:require [midje.sweet :refer [facts throws => roughly truthy just]]
-            [uncomplicate.commons.core :refer [with-release bytesize size release extract]]
+            [uncomplicate.commons.core :refer [with-release bytesize size release]]
+            [uncomplicate.fluokitten.core :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [pointer put-float! get-float byte-pointer float-pointer put-entry! get-entry
                      position pointer-seq position! null?]]

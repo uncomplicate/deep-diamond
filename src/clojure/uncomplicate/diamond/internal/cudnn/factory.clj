@@ -9,9 +9,9 @@
 (ns uncomplicate.diamond.internal.cudnn.factory
   (:require [clojure.java.io :as io]
             [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release view extract]]
+             [core :refer [Releaseable release let-release with-release view]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.fluokitten.core :refer [op]]
+            [uncomplicate.fluokitten.core :refer [op extract]]
             [uncomplicate.clojure-cpp :refer [byte-pointer]]
             [uncomplicate.clojurecuda
              [core :refer :all]

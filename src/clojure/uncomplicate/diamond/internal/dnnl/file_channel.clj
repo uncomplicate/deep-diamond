@@ -10,8 +10,9 @@
   (:require [uncomplicate.commons
              [core :refer [let-release with-release bytesize]]
              [utils :refer [dragan-says-ex mapped-buffer]]]
-            [uncomplicate.clojure-cpp :refer [byte-pointer]]
+            [uncomplicate.clojure-cpp :refer [type-pointer]]
             [uncomplicate.neanderthal.core :refer [transfer!]]
+            [uncomplicate.diamond.tensor :refer [data-type]]
             [uncomplicate.diamond.internal
              [protocols :refer [diamond-factory native-diamond-factory parameters]]
              [network :refer []]]
@@ -26,7 +27,7 @@
   ([fact channel td flag offset-bytes n-index]
    (let [fact (diamond-factory fact)
          size (bytesize (desc td))]
-     (let-release [buf (byte-pointer (mapped-buffer channel offset-bytes size flag))]
+     (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))];;TODO check whether this is freed properly via pointer's destruction.
        (dnnl-tensor* fact td buf n-index true))))
   ([fact channel td flag offset-bytes]
    (map-channel fact channel td flag offset-bytes 0))

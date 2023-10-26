@@ -8,9 +8,9 @@
 
 (ns uncomplicate.diamond.internal.utils
   (:require [uncomplicate.commons
-             [core :refer [Wrapper Releaseable with-release extract]]
+             [core :refer [Releaseable with-release]]
              [utils :refer [dragan-says-ex with-check]]]
-            [uncomplicate.fluokitten.core :refer [foldmap]]
+            [uncomplicate.fluokitten.core :refer [foldmap extract]]
             [uncomplicate.clojure-cpp :refer [null?]]
             [uncomplicate.neanderthal.core :refer [transfer! axpy entry!]]
             [uncomplicate.diamond.internal.protocols

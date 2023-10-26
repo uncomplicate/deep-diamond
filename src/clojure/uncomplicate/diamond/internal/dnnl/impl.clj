@@ -8,10 +8,11 @@
 
 (ns uncomplicate.diamond.internal.dnnl.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info Wrapper Wrappable wrap
-                           extract info Viewable view Bytes bytesize Entries sizeof* bytesize*
+             [core :refer [Releaseable release let-release with-release Info
+                           info Viewable view Bytes bytesize Entries sizeof* bytesize*
                            sizeof size]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.protocols :refer [Comonad extract]]
             [uncomplicate.clojure-cpp
              :refer [null? pointer int-pointer long-pointer long-ptr pointer-vec
                      get-entry put-entry! fill! PointerCreator pointer-pointer get-pointer
@@ -218,7 +219,7 @@
           (do (.deallocate mem-desc)
               (.setNull mem-desc)))))
     true)
-  Wrapper
+  Comonad
   (extract [this]
     (if-not (null? mem-desc) mem-desc nil))
   Viewable
@@ -236,10 +237,7 @@
 (extend-type dnnl_memory_desc
   Releaseable
   (release [_]
-    (dragan-says-ex "You should never directly release dnn_memory_desc. Please use MemoryDescImpl!"))
-  Wrappable
-  (wrap [this]
-    (->MemoryDescImpl this true)))
+    (dragan-says-ex "You should never directly release dnn_memory_desc. Please use MemoryDescImpl!")))
 
 (extend-type dnnl_memory
   Releaseable
@@ -265,7 +263,7 @@
               (when master
                 (release data))))))
     true)
-  Wrapper
+  Comonad
   (extract [this]
     (if-not (null? mem) mem nil))
   DescProvider

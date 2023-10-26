@@ -1505,9 +1505,9 @@
     (layout dst-desc))
   IFn
   (invoke [this prev-layer]
-    #dbg (let-release [src-tzs (fmap (comp view output) prev-layer)
+    (let-release [src-tzs (fmap (comp view output) prev-layer)
                   dst-tz (cudnn-tensor fact dst-desc)
-                       sub-tzs (mapv #(cudnn-tensor fact false (pointer (buffer dst-tz) %1) %2)
+                  sub-tzs (mapv #(cudnn-tensor fact false (pointer (buffer dst-tz) %1) %2)
                                 sub-offsets sub-descs)
                   fwd-trans (mapv (partial cudnn-transformer cudnn-hdl) src-tzs sub-tzs)]
       (->CUDnnBranchInference fact this false dst-tz fwd-trans)))

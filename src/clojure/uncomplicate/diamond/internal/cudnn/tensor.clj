@@ -9,8 +9,9 @@
 (ns uncomplicate.diamond.internal.cudnn.tensor
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info Viewable view
-                           bytesize Wrapper extract]]
+                           bytesize]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.protocols :refer [Comonad extract]]
             [uncomplicate.clojure-cpp :refer [pointer byte-pointer capacity position!]]
             [uncomplicate.clojurecuda.core :refer [memcpy-to-host! cuda-malloc]]
             [uncomplicate.neanderthal
@@ -347,7 +348,7 @@
     (release vect-buf)
     (release cu-desc)
     true)
-  Wrapper
+  Comonad
   (extract [_]
     (extract vect-buf))
   EngineProvider

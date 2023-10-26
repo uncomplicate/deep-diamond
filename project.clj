@@ -17,23 +17,28 @@
                  [org.bytedeco/dnnl-platform "3.2.1-1.5.10-SNAPSHOT"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
-                             [lein-codox "0.10.7"]]
+                             [lein-codox "0.10.8"]]
                    :resource-paths ["data"]
                    :global-vars {*warn-on-reflection* true
                                  *assert* false
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
                    :dependencies [[midje "1.10.9"]
+                                  [codox-theme-rdash "0.1.2"]
+                                  [com.github.clj-kondo/lein-clj-kondo "0.2.5"]
                                   [org.clojure/data.csv "1.0.1"]
                                   [org.bytedeco/cuda-platform-redist "12.1-8.9-1.5.10-SNAPSHOT"]]
+                   :codox {:metadata {:doc/format :markdown}
+                           :source-uri "http://github.com/uncomplicate/deep-diamond/blob/master/{filepath}#L{line}"
+                           :themes [:rdash]
+                           :namespaces [uncomplicate.diamond.tensor
+                                        uncomplicate.diamond.dnn
+                                        uncomplicate.diamond.metrics
+                                        uncomplicate.diamond.native]
+                           :output-path "docs/codox"}
 
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
-
-  :codox {:metadata {:doc/format :markdown}
-          :src-dir-uri "http://github.com/uncomplicate/deep-diamond/blob/master/"
-          :src-linenum-anchor-prefix "L"
-          :output-path "docs/codox"}
 
   :source-paths ["src/clojure" "src/device"])

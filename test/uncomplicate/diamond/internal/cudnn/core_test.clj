@@ -8,8 +8,8 @@
 
 (ns uncomplicate.diamond.internal.cudnn.core-test
   (:require [midje.sweet :refer [facts throws => roughly just truthy]]
-            [uncomplicate.commons.core :refer [with-release release info bytesize size extract]]
-            [uncomplicate.fluokitten.core :refer [fmap!]]
+            [uncomplicate.commons.core :refer [with-release release info bytesize size]]
+            [uncomplicate.fluokitten.core :refer [fmap! extract]]
             [uncomplicate.clojure-cpp
              :refer [pointer int-pointer float-pointer pointer-seq get-entry null? fill!]]
             [uncomplicate.clojurecuda.core

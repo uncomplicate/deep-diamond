@@ -8,10 +8,10 @@
 
 (ns uncomplicate.diamond.internal.cudnn.impl
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release with-release let-release Info
-                           Wrapper Wrappable wrap extract info Viewable view size
+             [core :refer [Releaseable release with-release let-release Info info Viewable view size
                            Bytes]]
              [utils :refer [dragan-says-ex]]]
+            [uncomplicate.fluokitten.protocols :refer [Comonad extract]]
             [uncomplicate.clojure-cpp
              :refer [null? int-pointer size-t-pointer get-entry address pointer-seq ptr* Accessor]]
             [uncomplicate.diamond.internal.utils :refer [extend-pointer]]
@@ -68,7 +68,7 @@
                (do (.deallocate (ptr* td#))
                    (.setNull (ptr* td#)))))))
        true)
-     Wrapper
+     Comonad
      (extract [this#]
        (if-not (null? (.-td this#)) (.-td this#) nil))
      DescProvider
@@ -134,16 +134,16 @@
        :device :cuda
        :shape (vec (take nbdims (pointer-seq dims)))
        :data-type (dec-data-type (get-entry data-type 0))
-       :layout (vec (take nbdims (pointer-seq strides)))}))
-  Wrappable
-  (wrap [td]
-    (with-release [data-type (int-pointer 1)
-                   dims (int-pointer cudnn/CUDNN_DIM_MAX)
-                   strides (int-pointer cudnn/CUDNN_DIM_MAX)
-                   nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
-      (->CUTensorDescriptor td (vec (take nbdims (pointer-seq dims)))
-                            (dec-data-type (get-entry data-type 0))
-                            (vec (take nbdims (pointer-seq strides))) true))))
+       :layout (vec (take nbdims (pointer-seq strides)))})))
+
+(defn wrap-tensor-struct [^cudnnTensorStruct td]
+  (with-release [data-type (int-pointer 1)
+                 dims (int-pointer cudnn/CUDNN_DIM_MAX)
+                 strides (int-pointer cudnn/CUDNN_DIM_MAX)
+                 nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
+    (->CUTensorDescriptor td (vec (take nbdims (pointer-seq dims)))
+                          (dec-data-type (get-entry data-type 0))
+                          (vec (take nbdims (pointer-seq strides))) true)))
 
 (defn tensor-descriptor* []
   (let [res (cudnnTensorStruct.)]
@@ -341,17 +341,17 @@
        :device :cuda
        :shape (vec (take nbdims (pointer-seq dims)))
        :data-type (dec-data-type (get-entry data-type 0))
-       :format (dec-format (get-entry format 0))}))
-  Wrappable
-  (wrap [fd]
-    (with-release [data-type (int-pointer 1)
-                   format (int-pointer 1)
-                   dims (int-pointer cudnn/CUDNN_DIM_MAX)
-                   nbdims (get-filter-nd-descriptor* fd data-type format dims)]
-      (->CUFilterDescriptor fd (vec (take nbdims (pointer-seq dims)))
-                            (dec-data-type (get-entry data-type 0))
-                            (dec-format (get-entry format 0))
-                            true))))
+       :format (dec-format (get-entry format 0))})))
+
+(defn wrap-filter-struct [^cudnnFilterStruct fd]
+      (with-release [data-type (int-pointer 1)
+                     format (int-pointer 1)
+                     dims (int-pointer cudnn/CUDNN_DIM_MAX)
+                     nbdims (get-filter-nd-descriptor* fd data-type format dims)]
+        (->CUFilterDescriptor fd (vec (take nbdims (pointer-seq dims)))
+                              (dec-data-type (get-entry data-type 0))
+                              (dec-format (get-entry format 0))
+                              true)))
 
 (defn filter-descriptor* []
   (let-release [res (cudnnFilterStruct.)]

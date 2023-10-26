@@ -9,10 +9,10 @@
 (ns uncomplicate.diamond.internal.dnnl.tensor
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info info Viewable view
-                           bytesize Wrapper extract size]]
+                           bytesize size]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten
-             [protocols :refer [Magma Monoid Applicative Functor]]
+             [protocols :refer [Magma Monoid Applicative Functor Comonad extract]]
              [core :refer [fmap foldmap]]]
             [uncomplicate.clojure-cpp :refer [pointer get-entry]]
             [uncomplicate.neanderthal
@@ -312,7 +312,7 @@
     (if master
       (release tz-mem)
       true))
-  Wrapper
+  Comonad
   (extract [_]
     (extract tz-mem))
   EngineProvider
