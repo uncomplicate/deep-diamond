@@ -1,4 +1,55 @@
-(ns uncomplicate.diamond.tensor
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.tensor
+  "Contains type-agnostic general tensor functions. Does not contain functions related
+  to deep neural networks (DNN); see the [[dnn]] namespace for these.
+
+  ### How to use
+
+      (ns test
+        (:require [uncomplicate.diamond
+                   [tensor :refer :all]
+                   [native :refer :all]]))
+
+  ### Examples
+
+  The best and most accurate examples can be found in the
+  [comprehensive test suite](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond),
+  [full examples](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional),
+  [core tensor examples](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/tensor_test.clj)
+  [core DNN examples](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj)
+  [internal CPU engine tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/internal/dnnl),
+  [internal GPU engine tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/internal/cudnn),
+
+
+  There are quite a few tutorials [on my blog dragan.rocks](http://dragan.rocks).
+
+  For the comprehensive real-world examples, with detailed tutorials and guides, see the
+  [Interactive Programming for Artificial intelligence book series](aiprobook.com), and specifically
+  the [Deep Learning for Programmers](https://aiprobook.com/deep-learning-for-programmers) book.
+
+  ### Cheat Sheet
+
+  * Default engine (factory) binding: [[*diamond-factory*]], [[with-diamond]]. All functions can also receive
+    engine through arguments.
+
+  * Tensor descriptor: [[desc]], [[shape]], [[layout]], [[data-type]],
+
+  * Create : [[tensor]], [[transformer]], [[batcher]], [[shuffler]]
+
+  * Inspect, transform, and manage tensors: [[view-tz]], [[revert]], [[input]], [[output]],
+  [[connector]], [[batch-size]], [[offset!]].
+
+
+  Tensors support typical core Fluokitten functions.
+  "
   (:require [uncomplicate.commons
              [core :refer [release let-release Info]]
              [utils :refer [dragan-says-ex cond-into]]]
@@ -7,11 +58,25 @@
              [protocols :as api]
              [utils :refer [default-strides]]]))
 
-(def ^:dynamic *diamond-factory* nil)
+(def ^:dynamic *diamond-factory*
+  "The default factory binding. Most polymorphic functions that accept Deep Diamond backend factory
+  as a parameter, have a version that uses this binding. The default is `nil`, though, and the
+  user has to require a namespace that initializes and binds the default engine. The most common
+  way is to require [[uncomplicate.diamond.native]], which binds the DNNL based CPU engine as the default,
+  but you are free to provide another implementation of your own, either by this root binding,
+  or through Clojure's dynamic binding through [[with-diamond]].
+
+  Please see [[dnnl-tensor-test]](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/internal/dnnl/dnnl_tensor_test.clj)
+  for examples.
+  "
+  nil)
 
 (defmacro with-diamond
   "Dynamically binds a factory created by `factory-fn` with provided parameters
-  `params`, and evaluates `body` in the context of that factory."
+  `params`, and evaluates `body` in the context of that factory.
+
+  See [[*diamond-factory]].
+  "
   [factory-fn params & body]
   `(binding [*diamond-factory* (~factory-fn ~@params)]
      (try ~@body
@@ -20,7 +85,10 @@
 ;; ====================== Public protocols =====================================
 
 (defprotocol TensorDescriptor
-  "Generic tensor descriptor."
+  "Generic tensor descriptor. Most Clojure and Java data types and structures (such as numbers,
+  collections, persistent structures, etc. can be used as tensor descriptors). Technology-specific
+  engines often provide their own implementation internally. Please see Deep Diamond tests, examples,
+  and the [Deep Learning for Programmers](https://aiprobook.com/deep-learning-for-programmers) book."
   (shape [tz] "Tensor shape, as a vector ([2 3 4]).")
   (layout [tz] "Tensor layout, as a keyword (:nchw).")
   (data-type [tz] "Data type of tensor entries (:float)."))
@@ -77,7 +145,7 @@
 (defprotocol ConnectorCreator
   "An object that can create a connection and provide its state in another shape,
   or gets its state from an object with another shape."
-  (connector [in out]))
+  (connector [in out] "Creates a connector between `in` and `out` descriptor or tensor."))
 
 ;; =============================================================================
 
@@ -122,14 +190,14 @@
   The required parameter `shape` is a vector of tensor dimensions.
   Optionally, `type` and `layout` can be provided as keywords, that
   are later transformed to appropriate internal implementations
-  supported by specific backend. Alternatively, `layout` might be
+  supported by specific backends. Alternatively, `layout` might be
   provided as a vector of offsets.
 
   Examples:
 
-  (desc [2 3 2]) => {:shape [2 3 2], :data-type nil, :layout nil}
-  (desc [2 3] :nc) => {:shape [2 3], :data-type nil, :layout :nc}
-  (desc [2 3 2 4] :nhwc) => {:shape [2 3 2 4], :data-type nil, :layout :nhwc}
+      (desc [2 3 2]) => {:shape [2 3 2], :data-type nil, :layout nil}
+      (desc [2 3] :nc) => {:shape [2 3], :data-type nil, :layout :nc}
+      (desc [2 3 2 4] :nhwc) => {:shape [2 3 2 4], :data-type nil, :layout :nhwc}
   "
   ([shape type layout]
    (if (and (vector? shape)
@@ -167,20 +235,20 @@
 
   Examples:
 
-  (tensor {:shape [2 3] :data-type :float :layout :nc})
-  =>
-  {:shape [2 3], :data-type :float, :layout [3 1]}
-  [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
+      (tensor {:shape [2 3] :data-type :float :layout :nc})
+      =>
+      {:shape [2 3], :data-type :float, :layout [3 1]}
+      [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
 
-  (tensor (desc [2 3] :float :nc))
-  =>
-  {:shape [2 3], :data-type :float, :layout [3 1]}
-  [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
+      (tensor (desc [2 3] :float :nc))
+      =>
+      {:shape [2 3], :data-type :float, :layout [3 1]}
+      [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
 
-  (tensor [2 3] :float :nc)
-  =>
-  {:shape [2 3], :data-type :float, :layout [3 1]}
-  [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
+      (tensor [2 3] :float :nc)
+      =>
+      {:shape [2 3], :data-type :float, :layout [3 1]}
+      [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
   "
   ([tz-factory shape type layout batch-index]
    (if (and (sequential? shape) (<= 0 (long batch-index)));;TODO error messages
@@ -201,7 +269,9 @@
   ([desc]
    (tensor *diamond-factory* desc)))
 
-(defn offset! [tz ^long n]
+(defn offset!
+  "Destructively moves tensor's beginning to a different place in the underlying memory."
+  [tz ^long n]
   (api/offset tz n))
 
 (defn transformer
@@ -210,30 +280,34 @@
 
   Example:
 
-  (def t1 (tensor [2 3] :float :nc))
-  (transfer! (range) t1)
-  (def t2 (tensor [3 2] :float :cn))
-  (def tr-1-2 (transformer t1 t2))
+      (def t1 (tensor [2 3] :float :nc))
+      (transfer! (range) t1)
+      (def t2 (tensor [3 2] :float :cn))
+      (def tr-1-2 (transformer t1 t2))
 
-  (tr-1-2)
-  =>
-  {:shape [2 3], :data-type :float, :layout [1 2]}
-  [   0.00    3.00    1.00    ⋯      2.00    5.00 ]
+      (tr-1-2)
+      =>
+      {:shape [2 3], :data-type :float, :layout [1 2]}
+      [   0.00    3.00    1.00    ⋯      2.00    5.00 ]
 
-  t2
-  =>
-  {:shape [2 3], :data-type :float, :layout [1 2]}
-  [   0.00    3.00    1.00    ⋯      2.00    5.00 ]
+      t2
+      =>
+      {:shape [2 3], :data-type :float, :layout [1 2]}
+      [   0.00    3.00    1.00    ⋯      2.00    5.00 ]
   "
   [x y]
   (api/create-transformer (api/diamond-factory x) x y))
 
-(defn batch-size ^long [x]
+(defn batch-size
+  "Determines batch size from tensor or descriptor's shape, depending on the context.
+  Usually batch size is the first shape entry, but in some cases (RNN for example) it
+  may be the second entry, or even something else.
+  "
+  ^long [x]
   ((shape x) (api/batch-index x)))
 
 (defn batcher
-  "Creates a function that can transfer mini-batches of tensor `x`
-  to tensor `y`.
+  "Creates a function that can transfer mini-batches of tensor `x` to tensor `y`.
 
   Useful for, but not limited to, cycling through mini-batches
   during stochastic gradient descent. Assumes that the input data has
@@ -241,20 +315,20 @@
 
   Example:
 
-  (def t1 (tensor [2 3] :float :nc))
-  (def t2 (tensor [1 3] :float :cn))
-  (transfer! (range) t1)
-  (def bat (batcher t1 t2))
+      (def t1 (tensor [2 3] :float :nc))
+      (def t2 (tensor [1 3] :float :cn))
+      (transfer! (range) t1)
+      (def bat (batcher t1 t2))
 
-  (bat)
-  =>
-  {:shape [1 3], :data-type :float, :layout [1 1]}
-  [   0.00    1.00    2.00 ]
+      (bat)
+      =>
+      {:shape [1 3], :data-type :float, :layout [1 1]}
+      [   0.00    1.00    2.00 ]
 
-  (bat 1)
-  =>
-  {:shape [1 3], :data-type :float, :layout [1 1]}
-  [   3.00    4.00    5.00 ]
+      (bat 1)
+      =>
+      {:shape [1 3], :data-type :float, :layout [1 1]}
+      [   3.00    4.00    5.00 ]
   "
   ([x y]
    (batcher x y (min (long ((shape x) (api/batch-index x))) (long ((shape y) (api/batch-index y))))))
@@ -265,27 +339,27 @@
   "Creates a function that can transfer randomly selected columns
   of tensor `x` to tensor `y` in mini-batches.
 
-  Useful for, but not limited to, cycling  through mini-batches during
+  Useful for, but not limited to, cycling through mini-batches during
   stochastic gradient descent. The difference from batcher is that it
   randomly selects the grouping of columns. Shuffler is generally
-  slower than plain batcher.
+  slower than plain batcher; it may or may not make a difference in speed.
 
   Example:
 
-  (def t1 (tensor [2 3] :float :nc))
-  (def t2 (tensor [1 3] :float :cn))
-  (transfer! (range) t1)
-  (def bat (batcher t1 t2))
+      (def t1 (tensor [2 3] :float :nc))
+      (def t2 (tensor [1 3] :float :cn))
+      (transfer! (range) t1)
+      (def bat (batcher t1 t2))
 
-  (bat)
-  =>
-  {:shape [1 3], :data-type :float, :layout [1 1]}
-  [   0.00    1.00    2.00 ]
+      (bat)
+      =>
+      {:shape [1 3], :data-type :float, :layout [1 1]}
+      [   0.00    1.00    2.00 ]
 
-  (bat 1)
-  =>
-  {:shape [1 3], :data-type :float, :layout [1 1]}
-  [   3.00    4.00    5.00 ]
+      (bat 1)
+      =>
+      {:shape [1 3], :data-type :float, :layout [1 1]}
+      [   3.00    4.00    5.00 ]
   "
   [x y]
   (api/create-shuffler (api/diamond-factory x) x y))

@@ -16,7 +16,7 @@
             [uncomplicate.clojurecuda.core :refer [memcpy-to-host! cuda-malloc]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim vctr copy! native]]
-             [block :refer [entry-width buffer data-accessor count-entries create-data-source cast-prim]]
+             [block :refer [entry-width buffer data-accessor create-data-source cast-prim]]
              [cuda :refer [factory-by-type]]]
             [uncomplicate.neanderthal.internal.api
              :refer [flow equals-block compatible? set-all MemoryContext
@@ -37,7 +37,8 @@
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :as dnnl]
-             [core :as dnnl-core :refer [memory-desc]]]
+             [core :as dnnl-core :refer [memory-desc]]
+             [tensor :refer []]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer [tensor-descriptor equal-desc? dims strides transform-tensor]]
              [protocols :refer [DescProvider desc handle]]

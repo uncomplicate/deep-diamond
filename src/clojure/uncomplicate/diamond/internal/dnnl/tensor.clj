@@ -17,7 +17,7 @@
             [uncomplicate.clojure-cpp :refer [pointer get-entry]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
-             [block :refer [entry-width data-accessor buffer count-entries contiguous?]]]
+             [block :refer [entry-width data-accessor buffer contiguous?]]]
             [uncomplicate.neanderthal.internal.api
              :refer [flow FactoryProvider EngineProvider DataAccessorProvider
                      Container raw copy MemoryContext set-all compatible? factory native-factory
@@ -491,7 +491,7 @@
    (let [mem-desc (desc mem-desc)
          tz-mem (memory (dnnl-engine diamond-fact) mem-desc)
          shp (dims mem-desc)]
-     (uncomplicate.neanderthal.core/entry! (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)) n-index) 0)));;TODO decied what to do here.
+     (uncomplicate.neanderthal.core/entry! (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)) n-index) 0)));;TODO decied what to do here. Some dnnl-tensors stay garbled if I don't initialize it here.
   ([diamond-fact neand-fact eng mem-desc]
    (dnnl-tensor diamond-fact neand-fact eng mem-desc 0))
   ([diamond-fact mem-desc n-index]
