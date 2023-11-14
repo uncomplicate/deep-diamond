@@ -228,9 +228,9 @@
   {:max cudnn/CUDNN_POOLING_MAX
    :max-deterministic cudnn/CUDNN_POOLING_MAX_DETERMINISTIC
    :avg cudnn/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
-   :avg-exclude-padding cudnn/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING
    :avg-padding cudnn/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING
-   :avg-include-padding cudnn/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING})
+   :avg-include-padding cudnn/CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING
+   :avg-exclude-padding cudnn/CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING})
 
 (defn dec-math-type [^long math-type]
   (case math-type

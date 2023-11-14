@@ -38,7 +38,7 @@
   ### Cheat Sheet
 
   * Default engine (factory) binding: [[*diamond-factory*]], [[with-diamond]]. All functions can also receive
-    engine through arguments.
+    engine through parameters.
 
   * Tensor descriptor: [[desc]], [[shape]], [[layout]], [[data-type]],
 
@@ -59,7 +59,7 @@
              [utils :refer [default-strides]]]))
 
 (def ^:dynamic *diamond-factory*
-  "The default factory binding. Most polymorphic functions that accept Deep Diamond backend factory
+  "The default factory binding. Most polymorphic functions that have factory
   as a parameter, have a version that uses this binding. The default is `nil`, though, and the
   user has to require a namespace that initializes and binds the default engine. The most common
   way is to require [[uncomplicate.diamond.native]], which binds the DNNL based CPU engine as the default,
@@ -72,7 +72,7 @@
   nil)
 
 (defmacro with-diamond
-  "Dynamically binds a factory created by `factory-fn` with provided parameters
+  "Dynamically binds a factory created by `factory-fn` with parameters
   `params`, and evaluates `body` in the context of that factory.
 
   See [[*diamond-factory]].

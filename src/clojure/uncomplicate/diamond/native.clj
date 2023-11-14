@@ -26,7 +26,8 @@
   "Creates a new tensor that controls memory block mapped to `file`.
 
   Arguments:
-  - `shape`, `type`, and `format` are standard argument used by Deep Diamonds constructors from the `tensor` namespace.
+
+  - `shape`, `type`, and `format` are standard parameters used by Deep Diamonds constructors from the `tensor` namespace.
   - `flag`s - one of `:read-write`, `:read` (or `:read-only`), `:private` (or `:copy-on-write`).
   - `offset-bytes` - offset in the file where tensor's memory block begins.
 
