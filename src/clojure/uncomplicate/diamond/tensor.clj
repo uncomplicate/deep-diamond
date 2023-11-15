@@ -35,7 +35,7 @@
   [Interactive Programming for Artificial intelligence book series](aiprobook.com), and specifically
   the [Deep Learning for Programmers](https://aiprobook.com/deep-learning-for-programmers) book.
 
-  ### Cheat Sheet
+    ### Cheat Sheet
 
   * Default engine (factory) binding: [[*diamond-factory*]], [[with-diamond]]. All functions can also receive
     engine through parameters.

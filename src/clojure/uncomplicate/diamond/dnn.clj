@@ -10,12 +10,32 @@
     uncomplicate.diamond.dnn
   "Contains type-agnostic deep neural networks (DNN) functions.
 
-  [[activation]], [[inner-product]], [[coerce-fc-dst]], [[fully-connected]],
-  [[dense]], [[coerce-conv-shapes]], [[convolution]], [[convo]], [[coerce-pooling-dst]], [[pooling]]
-  [[dropout-mask]], [[dropout]], [[batch-norm]], [[concatenate]], [[conc]], [[coerce-branch-dst]],
-  [[branch]], [[split]], [[sum]], [[cost]], [[network]], [[init!]], [[linear-decay]],
-  [[train]], [[train-shuffle]], [[infer]], [[coerce-rnn-dst]], [[rnn-op]], [[rnn]],
-  [[abbreviate]],
+  ### Examples
+
+  The [Deep Learning for Programmers](https://aiprobook.com/deep-learning-for-programmers) book
+  contains very detailed examples and explanations. Please check it out.
+
+  The most up-to-date examples can be found in the
+  [comprehensive test suite](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond),
+  [full examples](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional),
+  [core tensor examples](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/tensor_test.clj)
+  [core DNN examples](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj)
+  [internal CPU engine tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/internal/dnnl),
+  [internal GPU engine tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/internal/cudnn),
+
+  ### Cheat Sheet
+
+  * Basic dense layers: [[activation]], [[inner-product]], [[fully-connected]], [[dense]].
+
+  * Convolutional layers: [[convolution]], [[convo]].
+
+  * Recurrent layers [[rnn-op]], [[rnn]], [[abbreviate]].
+
+  * Training optimizations: [[pooling]], [[dropout-mask]], [[dropout]], [[batch-norm]].
+
+  * [[concatenate]], [[conc]], [[branch]], [[split]], [[sum]].
+
+  * Training and using the network: [[cost]], [[network]], [[init!]], [[train]], [[train-shuffle]], [[infer]].
   "
   (:require [uncomplicate.commons
              [core :refer [with-release let-release release view]]
@@ -41,7 +61,8 @@
   Arguments:
 
   - `fact`: technology-specific engine factory.
-  - `src-desc`: tensor descriptor (or even just a relevant part of its shape) of the activation input and output.
+  - `src-desc`: tensor descriptor (or even just a relevant part of its shape) of the activation
+  input and output.
   - `activ`: keyword that determines the activation function (:relu, :elu, etc.).
   See activation functions supported by DNNL ([[uncomplicate.diamond.internal.dnnl.constants/dnnl-eltwise-alg-kind]]),
   and cuDNN ([[uncomplicate.diamond.internal.cudnn.constants/cudnn-activation-mode]]).
@@ -104,7 +125,7 @@
 
 (defn fully-connected
   "Creates a dense aka fully connected neural network layer blueprint, which is also a function that
-  can create the actual layer either when directly called or used in the neural network description.
+  can create the actual layer either when directly called or when used in the neural network description.
 
   Arguments:
 
@@ -178,7 +199,8 @@
 
 (defn convolution
   "Creates a convolution neural network layer blueprint, which is also a function that
-  can create the actual layer either when directly called or used in the neural network description.
+  can create the actual layer either when directly called or when used in the neural network
+  description.
 
   Arguments:
 
@@ -254,7 +276,7 @@
 
 (defn pooling
   "Creates a pooling neural network layer blueprint, which is also a function that can create
-  the actual pooling layer either when directly called or used in the neural network description.
+  the actual pooling layer either when directly called or when used in the neural network description.
 
   Arguments:
 
@@ -304,7 +326,7 @@
 
 (defn dropout
   "Creates a dropout neural network layer blueprint, which is also a function that can create
-  the actual dropout layer either when directly called or used in the neural network description.
+  the actual dropout layer either when directly called or when used in the neural network description.
 
   Arguments:
 
@@ -330,8 +352,9 @@
    (dropout 1.0)))
 
 (defn batch-norm
-  "Creates a batch normalization neural network layer blueprint, which is also a function that can create
-  the actual batch normalization layer either when directly called or used in the neural network description.
+  "Creates a batch normalization neural network layer blueprint, which is also a function that can
+  create the actual batch normalization layer either when directly called or when used in the neural
+  network description.
 
   Arguments:
 
@@ -363,7 +386,19 @@
    (batch-norm :linear nil)))
 
 (defn concatenate
-  "
+  "Creates a concatenation blueprint, which is also a function that can create the actual
+  concatenation layer either when directly called or when used in the neural network description.
+  Concatenation stitches multiple input tensors into one output tensor. Also see [[branch]] and [[split]].
+
+  Arguments:
+
+  - `fact`: technology-specific engine factory.
+  - `conc-dim`: the dimension where concatenation is going to expand the output.
+  - `src-descs`: tensor descriptors (or even just a relevant parts of their shape) of layer inputs.
+  - `dst-type`: output type.
+
+  Most of these arguments can be automatically inferred when this blueprint is used
+  in a DNN DSL in the context of a network.
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
@@ -385,13 +420,18 @@
    (concatenate 0 nil)))
 
 (defn conc
-  "
+  "A simpler version of [[concatenate]]. You'll usually use this function in the network description.
+  Concatenation stitches multiple input tensors into one output tensor. Also see [[branch]] and [[split]].
+
+  Arguments:
+
+  - `conc-dim`: the dimension where concatenation is going to expand the output.
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
   "
-  ([^long concat-dimension]
-   (concatenate concat-dimension))
+  ([^long conc-dim]
+   (concatenate conc-dim))
   ([]
    (concatenate 0)))
 
@@ -412,7 +452,22 @@
           dst-descs)))
 
 (defn branch
-  "
+  "Creates a branch blueprint, which is also a function that can create the actual
+  branching layer either when directly called or when used in the neural network description.
+  Branching divides the input tensor into multiple output tensors. Also see [[concatenate]] and [[split]].
+
+  Arguments:
+
+  - `fact`: technology-specific engine factory.
+  - `src-desc`: tensor descriptor (or even just a relevant part of its shape) of the layer input.
+  - `branch-dim`: the dimension where branching is going to divide the input.
+  - `dst-descs`: tensor descriptors (or even just a relevant parts of their shape) of layer outputs.
+
+  Most of these arguments can be automatically inferred when this blueprint is used
+  in a DNN DSL in the context of a network.
+
+  As an example, branch divides tensor shape  `[1 2 1 1]` by `branch-dim = 1`
+  into `[1 1 1 1]` and `[1 1 1 1]`.
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
@@ -430,7 +485,19 @@
    (branch 0 dst-descs)))
 
 (defn split
-  "
+  "Creates a split blueprint, which is also a function that can create the actual
+  split layer either when directly called or when used in the neural network description.
+  Splitting clones the input tensor into multiple output tensors. Also see [[concatenate]] and [[branch]].
+
+  Arguments:
+
+  - `fact`: technology-specific engine factory.
+  - `src-desc`: tensor descriptor (or even just a relevant part of its shape) of the layer input.
+  - `n`: number of output clones.
+
+  As an example, split clones tensor shape `[1 2 1 1]` `n = 3` times into three tensors
+  shaped `[1 2 1 1]`, `[1 2 1 1]`, and `[1 2 1 1]`.
+
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
@@ -445,7 +512,14 @@
       (split *diamond-factory* src-desc n)))))
 
 (defn sum
-  "
+  "Creates a sum blueprint, which is also a function that can create the actual summing layer either
+  when directly called or when used in the neural network description. The summing layer will
+  sum all respective entries from input tensors into one output tensor of the same shape.
+
+  Arguments:
+
+  - `fact`: technology-specific engine factory.
+  - `src-descs`: tensor descriptors (or even just a relevant parts of their shape) of layer inputs.
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
@@ -460,7 +534,14 @@
       (sum *diamond-factory* src-desc)))))
 
 (defn cost
-  "
+  "Creates cost that goes at the output of the network and drives the minimization
+  of the cost function in respect to the `train-tz` tensor. Currently supported `cost-kw` 's are:
+  `:quadratic`, `:mean-absolute`, and `:crossentropy`.
+
+  Arguments:
+
+  - `layer`: the last layer in the network, which provides the estimated ('predicted') output.
+  - `train-tz`: the target training tensor.
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
@@ -479,7 +560,12 @@
    (cost layer :quadratic)))
 
 (defn network
-  "
+  "Creates a neural network blueprint from the specific input (`src-desc`), and blueprints provided by `layers`.
+  This function is very flexible and tries to accommodate to diverse `layers` data. Please see the test
+  folder for detailed examples.
+
+  The [Deep Learning for Programmers](https://aiprobook.com/deep-learning-for-programmers) book
+  contains very detailed examples and explanations. Please check it out.
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
@@ -496,7 +582,17 @@
       (network *diamond-factory* src-descs layers)))))
 
 (defn init!
-  "TODO"
+  "Destructively initializes the parameters (weights, biases, etc.) of the network using [Xavier initialization](),
+  which is a good default. You are, of course, free to provide different `init-fn`, which is an
+  one-argument function that receives every tensor that needs initialization in each layer.
+  This is an automatic default for the 99% of cases that need standard stuff. If you need even more
+  liberal initialization, you are free to implement a function that access the parameters using
+  the internal API, and do whatever you want.
+
+  The [Deep Learning for Programmers](https://aiprobook.com/deep-learning-for-programmers) book
+  contains a detailed discussion about different trade-offs that should be considered when initializing
+  the network.
+  "
   ([net!]
    (with-release [rng (rng-state (view-vctr (input net!)))]
      (api/init net! (fn [x] (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape x))))) x))))
@@ -555,10 +651,32 @@
         options)))
 
 (defn train
-  "
+  "This is the magic function that trains your network `net` using `cost!`, trough
+  a number of `epochs`, using hyperparameters `hyperparam`. It is rather flexible
+  and will automatically figure out how to do mini-batches needed.
 
-  See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
-  and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
+  Arguments:
+
+  - `net`: the network that needs to be trained.
+  - `cost!`: the cost function. See [[cost]].
+  - `epochs`: the number training cycles that process all training data points.
+  - `hyperparam`: a vector of hyperparameters relevant in the context of the chosen training algorithm
+  that was provided at the moment of creation of the network from its blueprint (`:sgd`, `adam`, etc.).
+  Typically contains learning rate (`eta`), decay, etc. Please see the [DLFP](https://aiprobook.com/deep-learning-for-programmers)
+  book or some other resource for the explanation of many possible parameters connected with various learning algorithms.
+  - `options`: multiple `epochs` and `hyperparam` pairs can be provided in `options` sequence.
+  - `in`: the input of the network. Typically a tensor or a connector, but really anything that can
+  accept [[uncomplicate.diamond.tensor/output]]. If it's bigger than the network's input shape,
+  the training will be done in mini-batches.
+  - `out`: the output of the network. Typically a tensor or a connector, but really anything that can
+  accept [[uncomplicate.diamond.tensor/input]]. If it's bigger than the network's output shape,
+  the training will be done in mini-batches.
+
+  If you need stochastic re-shuffling of the mini-batches, please consider [[train-shullfle]].
+
+  Explaining all that this function can do would require a whole essay, so it's best
+  to study the examples from many examples provided by Deep Diamond's [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional). Even better resource is the [Deep Learning for Programmers](https://aiprobook.com/deep-learning-for-programmers) book
+  book. Please check it out.
   "
   ([net cost! epochs hyperparam]
    (if (keyword? cost!)
@@ -597,7 +715,24 @@
   (shuffle (range mb-size)))
 
 (defn train-shuffle
-  "
+  "Similar to [[train]], but does stochastic reshuffling of the mini-batches.
+
+  Arguments:
+
+  - `net`: the network that needs to be trained.
+  - `cost!`: the cost function. See [[cost]].
+  - `epochs`: the number training cycles that process all training data points.
+  - `hyperparam`: a vector of hyperparameters relevant in the context of the chosen training algorithm
+  that was provided at the moment of creation of the network from its blueprint (`:sgd`, `adam`, etc.).
+  Typically contains learning rate (`eta`), decay, etc. Please see the [DLFP](https://aiprobook.com/deep-learning-for-programmers)
+  book or some other resource for the explanation of many possible parameters connected with various learning algorithms.
+  - `options`: multiple `epochs` and `hyperparam` pairs can be provided in `options` sequence.
+  - `in`: the input of the network. Typically a tensor or a connector, but really anything that can
+  accept [[uncomplicate.diamond.tensor/output]]. If it's bigger than the network's input shape,
+  the training will be done in mini-batches.
+  - `out`: the output of the network. Typically a tensor or a connector, but really anything that can
+  accept [[uncomplicate.diamond.tensor/input]]. If it's bigger than the network's output shape,
+  the training will be done in mini-batches.
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
@@ -641,7 +776,11 @@
     (output out-batcher)))
 
 (defn infer
-  "
+  "Estimates output `out` for the provided input `in`. Works with tensors, connectors, and anything
+  that can provide Does [[uncomplicate.diamond.tensor/input]] and Does [[uncomplicate.diamond.tensor/output]].
+  If `in` and `out` are bigger than the network shapes, automatically does the inference in mini-batches.
+
+  Please also see [[train]].
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
@@ -680,6 +819,7 @@
       dst-desc)))
 
 (defn rnn-op
+  "The RNN operation blueprint. You are probably looking for the [[rnn]] function instead."
   ([fact src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
    (api/rnn-op-blueprint (api/diamond-factory fact) src-desc (coerce-rnn-dst src-desc dst-desc)
                          weights-type activ dir lrs src-iter? dst-iter?))
@@ -695,7 +835,23 @@
    (rnn-op *diamond-factory* src-desc dst-desc lrs)))
 
 (defn rnn
-  "
+  "Creates a recurrent neural network (RNN) layer blueprint, which is also a function that
+  can create the actual RNN layer either when directly called or when used in the neural network
+  description.
+
+  Arguments:
+
+  - `fact`: technology-specific engine factory.
+  - `src-desc`: tensor descriptor (or even just a relevant part of its shape) of the layer input.
+  - `dst-desc`: tensor descriptor (or even just a relevant part of its shape) of the layer output.
+  - `lrs`: the number of recurrent layers.
+  - `activ`: keyword that determines the activation function (:relu, :elu, etc.) for vanilla RNN,
+  or the specialized RNN algorithm (`:lstm`, `:gru` etc.) supported by DNNL ([[uncomplicate.diamond.internal.dnnl.constants/dnnl-rnn-alg-kind]]), and cuDNN ([[uncomplicate.diamond.internal.cudnn.constants/cudnn-cell-mode]]). Also see [[activation]].
+  - `args`: a map of additional arguments such as `:weights-type`, `:src-iter`, `:dst-iter`,
+  or some of the technology specific options supported by the underlying engine.
+
+  Most of these arguments can be automatically inferred when this blueprint is used
+  in a DNN DSL in the context of a network.
 
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/rnn_test.clj),
   and [MasterCard functional test](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional/mastercard).
@@ -727,6 +883,7 @@
    (rnn [] 1 :gru nil)))
 
 (defn abbreviate
+  "Extract the relevant part of RNN output sequence."
   ([fact src-desc dst-type]
    (api/abbreviate-blueprint fact src-desc (or dst-type (data-type src-desc))))
   ([dst-type]
