@@ -6,7 +6,9 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.metrics
+(ns  ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.metrics
+  "Classification evaluation functions."
   (:require [uncomplicate.commons
              [core :refer [with-release let-release]]
              [utils :refer [dragan-says-ex cond-into]]]
@@ -17,7 +19,25 @@
              [vect-math :refer [linear-frac]]]))
 
 (defn confusion-matrix
-  ([real pred n]
+  "Returns the confusion matrix between vectors, matrices, or tensors with
+  `real` and `pred` (predicted) categories. For example, a typical confusion matrix
+  with two categories, shows the number of true positives (TP), true negatives (TN),
+  false positives (FP), and false negatives (FN). This function generalizes this
+  to `n` categories, where there are `n-1` different ways to be wrong, that is,
+  when the predicted category is not the same as the real category, we can treat
+  these mistakes per each category, instead in bulk.
+  The categories are natural numbers in theory, and this function can process
+  both positive integers and floats. If the data in `real` or `prod` floats, their
+  whole value part will be consider to be the category index (for example, both
+  `4.0` and `4.889` fall into category `4`).
+
+  Arguments:
+
+  - `real`: values as they are supposed to be.
+  - `pred`: values predicted by an algorithm.
+  - `n`: number of categories in `real` and `pred`.
+  "
+  ([real pred ^long n]
    (let [real (view-vctr real)
          pred (view-vctr pred)]
      (let-release [cm (ge real n n)]
@@ -29,7 +49,14 @@
   ([real pred]
    (confusion-matrix real pred (inc (double (amax real))))))
 
-(defn contingency-totals [cm]
+(defn contingency-totals
+  "Calculates true positives, false positives, and false negatives from the confusion matrix `cm`.
+  Returns a `3 x n` matrix, where columns are categories, and rows are TP, FP, and FN.
+  Since multi-category confusion matrix is per-category, there is no point in making distinction
+  between true positive and true negative; both are 'true this', whatever 'this' may be (this category
+  is 'positive', and all other categories are 'negative').
+  "
+  [cm]
   (let-release [totals (ge cm (mrows cm) 3)]
     (with-release [ones (entry! (vctr cm (mrows cm)) 1.0)]
       (let [tp (col totals 0)
@@ -41,6 +68,23 @@
     totals))
 
 (defn classification-metrics
+  "Computes most common classification metrics from confusion matrix `cm`
+  (which can be provided, or computed internally from `real` and `prod`).
+  The result is a Clojure map, with keys `:metrics` and `:macro`.
+  `:metrics` are returned as a map of neanderthal vectors: `:accuracy`,
+  `:f1`, `sensitivity`, `:specificity`, etc. The `:macro` key contains
+  rates from `cm` (true positive rate, true negative rate, etc.).
+
+  Arguments:
+
+  - `cm`: pre-computed confusion matrix.
+  - `real`: values as they are supposed to be.
+  - `pred`: values predicted by an algorithm.
+  - `n`: number of categories in `real` and `pred`.
+
+  Please see relevant [Wikipedia article](https://en.wikipedia.org/wiki/Evaluation_of_binary_classifiers)
+  for the quick reference.
+  "
   ([cm]
    (let [eps 1e-9]
      (with-release [tp (copy (dia cm))
