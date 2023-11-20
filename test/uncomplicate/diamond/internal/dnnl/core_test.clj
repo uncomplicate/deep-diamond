@@ -785,6 +785,7 @@
                       bnrm (primitive bnrm-pd)
                       bnrm-args (batch-norm-fwd-args src-mem dst-mem scale-mem shift-mem
                                                      mean-mem variance-mem)
+                      ;; :shift is no longer supported by DNNL, which is a pity. (September 2023)
                       bnrm-bwd-pd (batch-norm-bwd eng bnrm-pd :backward data-desc data-desc :scale)
                       diff-dst-vec (fv [-5 10 0.3 0.2 -0.5 0.6 0.9 -3])
                       diff-dst-mem (memory eng (diff-dst-md bnrm-bwd-pd) (buffer diff-dst-vec))

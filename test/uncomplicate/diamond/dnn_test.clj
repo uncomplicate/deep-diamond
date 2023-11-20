@@ -635,7 +635,7 @@
      (backward bnorm-train) => bnorm-train
      (backward bnorm-train [nil 1 0 1 false]) => bnorm-train
      (seq (native (weights bnorm-train))) => (just [(roughly -2.1385) (roughly 4.7199)])
-     (seq (native (bias bnorm-train))) => [-4.5 3.0]
+     ;; (seq (native (bias bnorm-train))) => [-4.5 3.0] :shift is no longer supported by DNNL (September 2023). They say it's not useful, so...
      (nrm2 (native (view-vctr (diff-output bnorm-train)))) => (roughly 5.954477))))
 
 (defn test-concatenate [fact]

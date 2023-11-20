@@ -19,7 +19,7 @@
               :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
                       DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
                       DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
-                      inf-desc train-desc diff-desc Initializable init batch-index]]
+                      inf-desc train-desc diff-desc Initializable init batch-index create-tensor]]
              [utils :refer [transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
@@ -1223,11 +1223,10 @@
                   dst-tz (dnnl-tensor fact (dst-md train-pd) (batch-index src-tz))
                   gamma-tz (dnnl-tensor fact scaleshift-desc)
                   beta-tz (dnnl-tensor fact scaleshift-desc)
-                  diff-gamma-tz (dnnl-tensor fact scaleshift-desc)
                   mean-tz (dnnl-tensor fact scaleshift-desc)
                   var-tz (dnnl-tensor fact scaleshift-desc)
-                  diff-gamma-tz (dnnl-tensor fact scaleshift-desc)
-                  post-diff-gamma-tz (if post-process-diff? (dnnl-tensor fact scaleshift-desc)
+                  diff-gamma-tz (create-tensor fact scaleshift-desc true)
+                  post-diff-gamma-tz (if post-process-diff? (create-tensor fact scaleshift-desc true)
                                          diff-gamma-tz)
                   diff-src-conn (if prop-diff?
                                   (connector data-desc diff-src-tz)

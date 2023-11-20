@@ -491,7 +491,7 @@
    (let [mem-desc (desc mem-desc)
          tz-mem (memory (dnnl-engine diamond-fact) mem-desc)
          shp (dims mem-desc)]
-     (uncomplicate.neanderthal.core/entry! (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)) n-index) 0)));;TODO decied what to do here. Some dnnl-tensors stay garbled if I don't initialize it here.
+     (->DnnlTensor diamond-fact neand-fact eng true tz-mem (first shp) (apply * (rest shp)) n-index)))
   ([diamond-fact neand-fact eng mem-desc]
    (dnnl-tensor diamond-fact neand-fact eng mem-desc 0))
   ([diamond-fact mem-desc n-index]
