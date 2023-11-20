@@ -34,7 +34,8 @@
                            :namespaces [uncomplicate.diamond.tensor
                                         uncomplicate.diamond.dnn
                                         uncomplicate.diamond.metrics
-                                        uncomplicate.diamond.native]
+                                        uncomplicate.diamond.native
+                                        uncomplicate.diamond.internal.protocols]
                            :output-path "docs/codox"}
 
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}}
