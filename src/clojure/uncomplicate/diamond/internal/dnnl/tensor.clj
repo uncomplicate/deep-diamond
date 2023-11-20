@@ -284,6 +284,7 @@
   (equals [x y]
     (or (identical? x y)
         (and (instance? DnnlTensor y) (equal-desc? tz-mem (desc y))
+             (= (strides tz-mem) (layout y))
              (.isContiguous x) (.isContiguous ^DnnlTensor y)
              (= (view-vctr x) (view-vctr y)))))
   (toString [this]

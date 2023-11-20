@@ -53,7 +53,11 @@
          (strides (memory-desc [2 3] :float :nc)) => [3 1]))
 
 (facts "Memory descriptor by tag."
-       (with-release [md (memory-desc [2 3 4 5] :float :nchw)]
+       (with-release [md (memory-desc [2 3 4 5] :float :nchw)
+                      md1 (memory-desc [2 1 2 3] :float :nchw)
+                      md2 (memory-desc [2 1 2 3] :float :nhwc)]
+         (= md md1) => false
+         (equal-desc? md1 md2) => true ;; surprisingly! but DNNL's dnnl_memory_desc_equal say s so by returning 1...
          (data-type md) => :float
          (ndims md) => 4
          (dims md) => [2 3 4 5]

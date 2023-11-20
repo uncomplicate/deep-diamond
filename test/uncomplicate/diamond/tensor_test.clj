@@ -55,7 +55,7 @@
     (facts "Equality and hash code tests."
            (.equals x1 nil) => false
            (= x1 y1) => true
-           ;; (= x1 y3) => false TODO
+           (= x1 y3) => false
            (= x1 y4) => false
            (= x5 y5) => false
            (transfer! (range) x1) => (transfer! (range) y1))))
