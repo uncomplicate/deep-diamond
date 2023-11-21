@@ -57,5 +57,6 @@
     (test-push-different *diamond-factory*)
     (test-push-same *diamond-factory*)
     (test-batcher *diamond-factory*)
+    (test-batcher-tnc *diamond-factory*)
     (test-shuffler *diamond-factory*)
     (test-cudnn-transfer dnnl-fact *diamond-factory*)))

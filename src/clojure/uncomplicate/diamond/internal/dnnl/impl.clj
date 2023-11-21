@@ -237,12 +237,12 @@
 (extend-type dnnl_memory_desc
   Releaseable
   (release [_]
-    (dragan-says-ex "You should never directly release dnn_memory_desc. Please use MemoryDescImpl!")))
+    (dragan-says-ex "You should never directly release dnnl_memory_desc. Please use MemoryDescImpl!")))
 
 (extend-type dnnl_memory
   Releaseable
   (release [_]
-    (dragan-says-ex "You should never directly release dnn_memory. Please use MemoryImpl!")))
+    (dragan-says-ex "You should never directly release dnnl_memory. Please use MemoryImpl!")))
 
 (deftype MemoryImpl [^dnnl_memory mem mem-desc data master]
   Object

@@ -23,12 +23,15 @@
   (with-release [cudnn-hdl (cudnn-context default-stream)
                  desc-x (tensor-descriptor [2 3 4 5] :float :nchw)
                  desc-y (tensor-descriptor [2 3 4 5] :float :nchw)
-                 desc-z (tensor-descriptor [2 3 4 5] :int :nchw)]
+                 desc-z (tensor-descriptor [2 3 4 5] :int :nchw)
+                 desc-tnc (tensor-descriptor [2 3 4] :float [12 4 1])]
 
     (facts "Tensor descriptor test."
            (= desc-x desc-x) => true
            (= desc-x desc-y) => true
            (= desc-x desc-z) => false
+           (dims desc-tnc) => [2 3 4 1]
+           (strides desc-tnc) => [12 4 1 1]
            (data-type desc-x) => :float)))
 
 (with-default

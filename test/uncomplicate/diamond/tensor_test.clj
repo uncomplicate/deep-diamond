@@ -213,14 +213,14 @@
   (with-release [tz-x-ntc (tensor fact [2 7 1] :float :ntc)
                  tz-x (tensor fact [2 7 1] :float :tnc)
                  tz-y (tensor fact [2 3 1] :float :tnc)
-                 sub-x (view-tz tz-x [2 3 1])
+                 sub-x (view-tz tz-x 3)
                  batch (batcher tz-x tz-y 3)
-                 batch-2 (batcher tz-x tz-y 2)];;TODO this is an old comment (and test). Fix when everything else works.
+                 batch-2 (batcher tz-x tz-y 2)]
     (facts "batcher test."
            (transfer! (range 1 15) tz-x)
-           (seq (transfer! sub-x (tensor fact [2 3 1] :float :tnc))) => [1.0 2.0 3.0 8.0 9.0 10.0]
-           (seq (transfer! (doto sub-x (offset! 3))
-                           (tensor fact [2 3 1] :float :tnc))) => [4.0 5.0 6.0 11.0 12.0 13.0]
+           (seq (native (transfer! sub-x (tensor fact [2 3 1] :float :tnc)))) => [1.0 2.0 3.0 8.0 9.0 10.0]
+           (seq (native (transfer! (doto sub-x (offset! 3))
+                                   (tensor fact [2 3 1] :float :tnc)))) => [4.0 5.0 6.0 11.0 12.0 13.0]
            (transfer! (range 1 15) tz-x-ntc)
            (transfer! tz-x-ntc tz-x)
            (seq (native tz-x)) => [1.0 3.0 5.0 7.0 9.0 11.0 13.0 2.0 4.0 6.0 8.0 10.0 12.0 14.0]

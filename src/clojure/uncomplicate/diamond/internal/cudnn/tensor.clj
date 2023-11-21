@@ -114,7 +114,8 @@
 
 (defn cudnn-tensor-desc [shape dtype format]
   (let [format (or format (default-strides shape))]
-    (if (or (cudnn-format format) (and (sequential? format) (<= 4 (count format))))
+    (if (or (cudnn-format format)
+            (and (sequential? format) (<= 4 (count format)) (= (count format) (count shape))))
       (tensor-descriptor shape dtype format)
       (with-release [md (memory-desc shape dtype format)]
         (let [padding-4 (repeat (- 4 (count shape)) 1)]
