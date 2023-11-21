@@ -18,7 +18,7 @@
             [uncomplicate.diamond.internal.cudnn
              [constants :refer :all]
              [protocols :refer :all]])
-  (:import [org.bytedeco.javacpp Pointer IntPointer FloatPointer DoublePointer]
+  (:import [org.bytedeco.javacpp Pointer IntPointer FloatPointer DoublePointer PointerPointer]
            org.bytedeco.cuda.global.cudnn
            org.bytedeco.cuda.cudart.CUstream_st
            [org.bytedeco.cuda.cudnn cudnnContext cudnnTensorStruct cudnnActivationStruct
@@ -655,8 +655,8 @@
 
 (defn rnn-weight-params* [^cudnnContext cudnn-context ^cudnnRNNStruct rd pseudo-layer
                           weight-space-size ^Pointer weight-space lin-layer-id
-                          ^cudnnTensorStruct w-desc ^Pointer w-addr
-                          ^cudnnTensorStruct b-desc ^Pointer b-addr]
+                          ^cudnnTensorStruct w-desc ^PointerPointer w-addr
+                          ^cudnnTensorStruct b-desc ^PointerPointer b-addr]
   (with-check
     (cudnn/cudnnGetRNNWeightParams cudnn-context rd (int pseudo-layer) (long weight-space-size)
                                    weight-space (int lin-layer-id) w-desc w-addr b-desc b-addr)

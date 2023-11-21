@@ -491,8 +491,8 @@
              => (map float [0.1 0.3 0.2 0.4 100.0 300.0 200.0 400.0 ;; weights and weights-iter layer 0
                             0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 ;; weights and weights-iter layer 1
                             0.3 0.7 1 2]) ;; bias layer 0 and 1
-             ;;TODO
-             ;;(pointer-seq (memcpy-host! (weight-params-0 1) (float-pointer 5))) => (map float [0.1 0.3 0.2 0.4 0.0])
+             ;; TODO This causes segfault, but I can't find out why. I've tried many things, but to no avail. In JCuda it worked...
+             ;; (pointer-seq (memcpy-host! (weight-params-0 1) (float-pointer 5))) => (map float [0.1 0.3 0.2 0.4 0.0])
              ;; (pointer-seq (memcpy-host! (weight-params-0 3) (float-pointer 3))) => (map float [0.3 0.7 0.0])
              ;; (pointer-seq (memcpy-host! (weight-iter-params-0 1) (float-pointer 5))) => (map float [100.0 300.0 200.0 400.0 0.0])
              ;; (pointer-seq (memcpy-host! (weight-iter-params-0 3) (float-pointer 5))) => (map float [0.0 0.0 0.0 0.0 0.0])

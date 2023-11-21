@@ -12,7 +12,8 @@
              [utils :refer [dragan-says-ex enc-keyword mask]]]
             [uncomplicate.fluokitten.protocols :refer [extract]]
             [uncomplicate.clojure-cpp
-             :refer [pointer safe int-pointer long-pointer double-pointer get-entry ptr ptr2 type-pointer]]
+             :refer [pointer safe int-pointer long-pointer double-pointer get-entry ptr ptr2
+                     type-pointer pointer-pointer]]
             [uncomplicate.clojurecuda.core :refer [cuda-malloc cuda-free!]]
             [uncomplicate.clojurecuda.internal.impl :refer [->CUDevicePtr]]
             [uncomplicate.diamond.internal.cudnn
@@ -583,15 +584,17 @@
 
 (defn rnn-weight-params [cudnn-handle rd pseudo-layer weight-space lin-layer-id]
   (let-release [w-desc (wrap-tensor-struct (tensor-descriptor*))
-                w-addr (long-pointer 1)
-                b-desc (wrap-tensor-struct (tensor-descriptor*))
-                b-addr (long-pointer 1)]
-    (rnn-weight-params* (extract cudnn-handle) (extract rd) pseudo-layer
-                        (bytesize weight-space) (ptr weight-space) lin-layer-id
-                        (extract w-desc) w-addr (extract b-desc) b-addr)
-    (let-release [w-buf (->CUDevicePtr w-addr (bytesize w-desc) false)
-                  b-buf (->CUDevicePtr b-addr (bytesize b-desc) false)]
-      [w-desc w-buf b-desc b-buf])))
+                b-desc (wrap-tensor-struct (tensor-descriptor*))]
+    (with-release [w-addr (pointer-pointer 1)
+                   b-addr (pointer-pointer 1)]
+      (rnn-weight-params* (extract cudnn-handle) (extract rd) pseudo-layer
+                          (bytesize weight-space) (ptr weight-space) lin-layer-id
+                          (extract w-desc) w-addr (extract b-desc) b-addr)
+      (let-release [w-addr (long-pointer (get-entry w-addr 0))
+                    b-addr (long-pointer (get-entry b-addr 0))
+                    w-buf (->CUDevicePtr w-addr (bytesize w-desc) false)
+                    b-buf (->CUDevicePtr b-addr (bytesize b-desc) false)]
+        [w-desc w-buf b-desc b-buf]))))
 
 (defn rnn-weights-space-size ^long [cudnn-handle rd]
   (rnn-weight-space-size* (extract cudnn-handle) (extract rd)))
