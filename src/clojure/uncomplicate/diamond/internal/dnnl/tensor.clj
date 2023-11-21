@@ -217,11 +217,8 @@
                   dst-sub (view-tz dst-tz mb-size)]
       (with-release [reorder-pd (reorder eng src-sub dst-sub)]
         (let-release [reorder-prim (primitive reorder-pd)]
-          (->DnnlBatcher eng strm reorder-prim
-                         (fwd-args src-sub dst-sub)
-                         src-sub dst-sub
-                         src-tz dst-tz
-                         mb-size
+          (->DnnlBatcher eng strm reorder-prim (fwd-args src-sub dst-sub)
+                         src-sub dst-sub src-tz dst-tz mb-size
                          ((dims src-tz) (batch-index src-tz)) ((strides src-sub) (batch-index src-tz))
                          ((dims dst-tz) (batch-index dst-tz)) ((strides dst-sub) (batch-index dst-tz))))))))
 

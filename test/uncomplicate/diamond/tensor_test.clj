@@ -210,34 +210,30 @@
            (batch -1) => (throws ExceptionInfo))))
 
 (defn test-batcher-tnc [fact]
-  (with-release [tz-x (tensor fact [2 7 1] :float :tnc)
+  (with-release [tz-x-ntc (tensor fact [2 7 1] :float :ntc)
+                 tz-x (tensor fact [2 7 1] :float :tnc)
                  tz-y (tensor fact [2 3 1] :float :tnc)
                  sub-x (view-tz tz-x [2 3 1])
-                 batch (batcher tz-x tz-y 1)
-                 batch-2 (batcher tz-x tz-y 2)
-                 ];;TODO this is an old comment (and test). Fix when everything else works.
+                 batch (batcher tz-x tz-y 3)
+                 batch-2 (batcher tz-x tz-y 2)];;TODO this is an old comment (and test). Fix when everything else works.
     (facts "batcher test."
            (transfer! (range 1 15) tz-x)
-           (seq (transfer! sub-x (tensor fact [2 3 1] :float :tnc)))
-           => [1.0 2.0 3.0 8.0 9.0 10.0]
-           (seq (transfer! (do (offset! sub-x 3) sub-x)
-                           (tensor fact [2 3 1] :float :tnc)))
-           => [4.0 5.0 6.0 11.0 12.0 13.0]
-           ;; (seq (transfer! (do (offset! sub-x 6) sub-x)
-           ;;                 (tensor fact [2 3 1] :float :tnc)))
-           ;; => (throws ExceptionInfo)
-           ;; (seq (native tz-x)) => (range 1.0 15.0)
-           ;; (seq (native tz-y)) => (repeat 6 0.0)
-           ;; (batch 0 0) => tz-y
-           ;; (seq (native tz-y)) => [1.0 3.0 5.0 2.0 4.0 6.0]
-           ;; (transfer! (repeat 0) tz-y)
-           ;; (batch 1 0) => tz-y
-           ;; (seq (native tz-y)) => [3.0 5.0 7.0 4.0 6.0 8.0]
-           ;; (transfer! (repeat 0) tz-y)
-           ;; (batch-2 1 1) => tz-y
-           ;; (seq (native tz-y)) => [0.0 3.0 5.0 0.0 4.0 6.0]
-           ;; (batch 8) => (throws ExceptionInfo)
-           ;; (batch 0 -1) => (throws ExceptionInfo)
-           ;; (batch 7 -1) => (throws ExceptionInfo)
-           ;; (batch -1) => (throws ExceptionInfo)
-           )))
+           (seq (transfer! sub-x (tensor fact [2 3 1] :float :tnc))) => [1.0 2.0 3.0 8.0 9.0 10.0]
+           (seq (transfer! (doto sub-x (offset! 3))
+                           (tensor fact [2 3 1] :float :tnc))) => [4.0 5.0 6.0 11.0 12.0 13.0]
+           (transfer! (range 1 15) tz-x-ntc)
+           (transfer! tz-x-ntc tz-x)
+           (seq (native tz-x)) => [1.0 3.0 5.0 7.0 9.0 11.0 13.0 2.0 4.0 6.0 8.0 10.0 12.0 14.0]
+           (seq (native tz-y)) => (repeat 6 0.0)
+           (batch 0 0) => tz-y
+           (seq (native tz-y)) => [1.0 3.0 5.0 2.0 4.0 6.0]
+           (transfer! (repeat 0) tz-y)
+           (batch 1 0) => tz-y
+           (seq (native tz-y)) => [3.0 5.0 7.0 4.0 6.0 8.0]
+           (transfer! (repeat 0) tz-y)
+           (batch-2 1 1) => tz-y
+           (seq (native tz-y)) => [0.0 3.0 5.0 0.0 4.0 6.0]
+           (batch 8) => (throws ExceptionInfo)
+           (batch 0 -1) => (throws ExceptionInfo)
+           (batch 7 -1) => (throws ExceptionInfo)
+           (batch -1) => (throws ExceptionInfo))))
