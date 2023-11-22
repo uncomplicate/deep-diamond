@@ -246,7 +246,7 @@
                               2 (memory-desc (shape train-src-desc) (data-type train-src-desc) :ab)
                               4 (memory-desc (shape train-src-desc) (data-type train-src-desc) :acdb)
                               (view (desc train-src-desc)))]
-    (let-release [softmax-infer-pd (softmax-fwd eng :inference :accurate inf-desc 1);;TODO currently DNNL is optimized for 1
+    (let-release [softmax-infer-pd (softmax-fwd eng :inference :accurate inf-desc 1) ;;TODO currently DNNL is optimized for 1
                   softmax-train-pd (softmax-fwd eng :training :accurate train-desc 1)
                   softmax-bwd-pd (softmax-bwd eng softmax-train-pd :accurate train-desc train-desc 1)]
       (->DnnlSoftmaxBlueprint fact softmax-infer-pd softmax-train-pd softmax-bwd-pd))))
@@ -1468,7 +1468,7 @@
         src-desc (desc src-desc)]
     (let-release [concat-pd (apply concatenate eng src-desc branch-dim dst-descs)
                   src-desc (dst-md concat-pd)]
-      (with-release [src-subs (mapv (partial submemory-desc src-desc);;TODO I can either forward diff-desc, or, better just move diff related creatin stuff to (.invoke)
+      (with-release [src-subs (mapv (partial submemory-desc src-desc) ;;TODO I can either forward diff-desc, or, better just move diff related creatin stuff to (.invoke)
                                     dst-dims
                                     (concat-strides branch-dim dst-dims))]
         (let-release [branch-pds (mapv (partial reorder eng) src-subs dst-descs)]

@@ -533,7 +533,7 @@
                                             dst-desc dst-iter-desc alpha)
                     weights-desc-export (dnnl-contiguous-desc (weights-md train-pd))
                     weights-iter-desc-export (dnnl-contiguous-desc (arg-md train-pd :weights-iter))
-                    fused-weights-desc (memory-desc fused-weights-shape weights-type :ldigo)];;TODO ldgoi is not exactly true unless I do weights/weihgts-iter striding! Improve this as part of cudnn/dnnl unification. Did I fix this then?
+                    fused-weights-desc (memory-desc fused-weights-shape weights-type :ldigo)] ;;TODO ldgoi is not exactly true unless I do weights/weihgts-iter striding! Improve this as part of cudnn/dnnl unification. Did I fix this then?
         (->DnnlRnnBlueprint fact fused-weights-desc weights-desc-export weights-iter-desc-export bias-desc
                             infer-pd train-pd bwd-pd)))))
 

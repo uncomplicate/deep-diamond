@@ -69,10 +69,7 @@ Please contribute towards making it possible, or use on of the supported types."
           [ny cy] (strides y)]
       (memset! eq-flag-buf 0)
       (launch! equals-kernel (grid-2d n c) hstream
-               (parameters n c
-                           (extract x) (int (offset x)) (int nx) (int cx) ;;TODO perhaps remove int casts. Neanderthal does not need them any more.
-                           (extract y) (int (offset y)) (int ny) (int cy)
-                           eq-flag-buf))
+               (parameters n c (extract x) (offset x) nx cx (extract y) (offset y) ny cy eq-flag-buf))
       (= 0 (read-int hstream eq-flag-buf)))))
 
 (defn ^:private tensor-3d-equals [modl hstream x y]
@@ -83,9 +80,9 @@ Please contribute towards making it possible, or use on of the supported types."
           [ny cy hy] (strides y)]
       (memset! eq-flag-buf 0)
       (launch! equals-kernel (grid-2d n c h) hstream
-               (parameters (int n) (int c) (int h)
-                           (extract x) (int (offset x)) (int nx) (int cx) (int hx)
-                           (extract y) (int (offset y)) (int ny) (int cy) (int hy)
+               (parameters n c h
+                           (extract x) (offset x) nx cx hx
+                           (extract y) (offset y) ny cy hy
                            eq-flag-buf))
       (= 0 (read-int hstream eq-flag-buf)))))
 
@@ -97,9 +94,9 @@ Please contribute towards making it possible, or use on of the supported types."
           [ny cy hy wy] (strides y)]
       (memset! eq-flag-buf 0)
       (launch! equals-kernel (grid-3d n c h) hstream
-               (parameters (int n) (int c) (int h) (int w)
-                           (extract x) (int (offset x)) (int nx) (int cx) (int hx) (int wx)
-                           (extract y) (int (offset y)) (int ny) (int cy) (int hy) (int wy)
+               (parameters n c h w
+                           (extract x) (offset x) nx cx hx wx
+                           (extract y) (offset y) ny cy hy  wy
                            eq-flag-buf))
       (= 0 (read-int hstream eq-flag-buf)))))
 

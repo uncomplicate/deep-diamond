@@ -156,9 +156,8 @@
       (if (= (layout in-desc) (layout in-out))
         (do (release in-desc)
             (view (output out)))
-        (let-release [in-tz (api/create-tensor fact in-desc (api/batch-index (output out)) false)];;TODO should I use (view in-desc), like in cudnn?
+        (let-release [in-tz (api/create-tensor fact in-desc (api/batch-index (output out)) false)]
           (api/create-transformer fact in-tz (view (output out))))))))
-
 
 ;; =============================================================================
 

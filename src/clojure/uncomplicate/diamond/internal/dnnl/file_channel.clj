@@ -27,7 +27,7 @@
   ([fact channel td flag offset-bytes n-index]
    (let [fact (diamond-factory fact)
          size (bytesize (desc td))]
-     (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))];;TODO check whether this is freed properly via pointer's destruction.
+     (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))] ;;TODO check whether this is freed properly via pointer's destruction.
        (dnnl-tensor* fact td buf n-index true))))
   ([fact channel td flag offset-bytes]
    (map-channel fact channel td flag offset-bytes 0))

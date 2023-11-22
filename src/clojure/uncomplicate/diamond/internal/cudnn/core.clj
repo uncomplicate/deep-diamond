@@ -97,31 +97,42 @@
   (.layout ^CUTensorDescriptor (desc td)))
 
 (defn set-tensor
-  "TODO: attention: primitive numbers need explicit casting to double, float etc."
+  "Sets all elements of tensor `x` to scalar `value`. Attention: `value` needs
+  explicit casting to the proper primitive type (`double`, `float`, etc.) "
   [cudnn-handle desc-x x value]
   (with-release [value (pointer value)]
     (set-tensor* (extract cudnn-handle) (extract (desc desc-x)) (ptr x) value))
   cudnn-handle)
 
 (defn scale-tensor
-  "TODO: attention: primitive numbers need explicit casting to double, float etc."
-  [cudnn-handle alpha desc-x buf-x]
+  "Scales all elements of tensor `x` by scalar `alpha`. Attention: `alpha` needs
+  explicit casting to the proper primitive type (`double`, `float`, etc.)
+  "
+  [cudnn-handle alpha desc-x x]
   (with-release [alpha (pointer alpha)]
-    (scale-tensor* (extract cudnn-handle) (extract (desc desc-x)) (ptr buf-x) alpha))
+    (scale-tensor* (extract cudnn-handle) (extract (desc desc-x)) (ptr x) alpha))
   cudnn-handle)
 
 (defn add-tensor
-  "TODO: attention: primitive numbers need explicit casting to double, float etc."
-  [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
+  "Adds elements of tensor `x`, scaled by scalar `alpha`, to tensor `y`.
+  Attention: `alpha` needs explicit casting to the proper primitive type (`double`,
+  `float`, etc.). Layouts must match
+  "
+  [cudnn-handle alpha desc-x x beta desc-y y]
   (with-release [alpha (pointer alpha)
                  beta (pointer beta)]
     (add-tensor* (extract cudnn-handle)
-                 alpha (extract (desc desc-x)) (ptr buf-x)
-                 beta (extract (desc desc-y)) (ptr buf-y)))
+                 alpha (extract (desc desc-x)) (ptr x)
+                 beta (extract (desc desc-y)) (ptr y)))
   cudnn-handle)
 
 (defn transform-tensor
-  "TODO: attention: primitive numbers need explicit casting to double, float etc."
+  "Adds elements of tensor `x`, scaled by scalar `alpha`, to tensor `y` with a different
+  layout. Attention: `alpha` needs explicit casting to the proper primitive type (`double`,
+  `float`, etc.). Both tensor must have the same shape, but not necessarily the same strides.
+  Only support 4D and 5D tensors. Supports broadcasting when a dimension is 1.
+  Can be used to convert a tensor with an unsupported format to a supported one.
+  "
   [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
   (with-release [alpha (pointer alpha)
                  beta (pointer beta)]
@@ -300,9 +311,9 @@
    (first (convolution-fwd-find-algo cudnn-handle cd desc-x desc-w desc-y 1))))
 
 (defn convolution-fwd
-  "TODO
-  The :convolution algorithm uses flipped kernels as real convolution from the books.
-  To match DNNL (more practical), use :cross-correlation."
+  "The forward convolution operation.
+  cuDNN `:convolution` algorithm uses flipped kernels as real convolution from the books.
+  To match DNNL (more practical), use `:cross-correlation.`"
   ([cudnn-handle cd algo alpha desc-x buf-x desc-w buf-w beta desc-y buf-y workspace]
    (with-release [alpha (pointer alpha)
                   beta (pointer beta)]

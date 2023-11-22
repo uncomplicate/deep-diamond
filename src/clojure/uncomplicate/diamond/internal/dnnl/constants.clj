@@ -389,51 +389,6 @@
    :bidirectional-concat dnnl/dnnl_bidirectional_concat
    :bidirectional-sum dnnl/dnnl_bidirectional_sum})
 
-#_(def ^:const dnnl-query TODO remove this (replaced by DNNL 3.1)
-  {:batch-normalization dnnl/dnnl_query_batch_normalization_d
-   :convolution dnnl/dnnl_query_convolution_d
-   :deconvolution dnnl/dnnl_query_deconvolution_d
-   :diff-dst-md dnnl/dnnl_query_diff_dst_md
-   :diff-src-md dnnl/dnnl_query_diff_src_md
-   :diff-weights-md dnnl/dnnl_query_diff_weights_md
-   :dst-md dnnl/dnnl_query_dst_md
-   :eltwise dnnl/dnnl_query_eltwise_d
-   :engine dnnl/dnnl_query_engine
-   :exec-arg-md dnnl/dnnl_query_exec_arg_md
-   :gemm dnnl/dnnl_query_gemm_d
-   :impl-info dnnl/dnnl_query_impl_info_str
-   :inner-product dnnl/dnnl_query_inner_product_d
-   :layer-normalization dnnl/dnnl_query_layer_normalization_d
-   :logsoftmax dnnl/dnnl_query_logsoftmax_d
-   :lrn dnnl/dnnl_query_lrn_d
-   :matmul dnnl/dnnl_query_matmul_d
-   :max dnnl/dnnl_query_max
-   :memory-consumption-s64 dnnl/dnnl_query_memory_consumption_s64
-   :num-of-inputs-s32 dnnl/dnnl_query_num_of_inputs_s32
-   :num-of-outputs-s32 dnnl/dnnl_query_num_of_outputs_s32
-   :op dnnl/dnnl_query_op_d
-   :pooling dnnl/dnnl_query_pooling_d
-   :pooling-v2 dnnl/dnnl_query_pooling_v2_d
-   :prelu dnnl/dnnl_query_prelu_d
-   :primitive-kind dnnl/dnnl_query_primitive_kind
-   :prop-kind dnnl/dnnl_query_prop_kind
-   :reduction dnnl/dnnl_query_reduction_d
-   :reorder-dst-engine dnnl/dnnl_query_reorder_dst_engine
-   :reorder-src-engine dnnl/dnnl_query_reorder_src_engine
-   :resampling dnnl/dnnl_query_resampling_d
-   :rnn dnnl/dnnl_query_rnn_d
-   :scratchpad-engine dnnl/dnnl_query_scratchpad_engine
-   :scratchpad-md dnnl/dnnl_query_scratchpad_md
-   :shuffle dnnl/dnnl_query_shuffle_d
-   :softmax dnnl/dnnl_query_softmax_d
-   :some dnnl/dnnl_query_some_d
-   :some-md dnnl/dnnl_query_some_md
-   :src-md dnnl/dnnl_query_src_md
-   :time-estimate-f64 dnnl/dnnl_query_time_estimate_f64
-   :undef dnnl/dnnl_query_undef
-   :weights-md dnnl/dnnl_query_weights_md
-   :workspace-md dnnl/dnnl_query_workspace_md})
-
 (def ^:const dnnl-query
   {:undef                  dnnl/dnnl_query_undef
    :engine                 dnnl/dnnl_query_engine

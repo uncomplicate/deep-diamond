@@ -216,9 +216,9 @@
     (entry! fused-bias-tz 0.0)
     (memset! diff-weights-mem 0)
     (when src-iter-tz
-      (initialize src-iter-tz (buffer src-iter-tz) 0.0))
+      (entry! src-iter-tz 0.0))
     (when src-iter-c-tz
-      (initialize src-iter-c-tz (buffer src-iter-c-tz) 0.0))
+      (entry! src-iter-c-tz 0.0))
     this)
   IFn
   (invoke [this]
@@ -356,7 +356,7 @@
                     bias-tz (cudnn-tensor fact false (pointer weights bias-offset) (view bias-desc))
                     bias-iter-tz (cudnn-tensor fact false (pointer weights bias-iter-offset)
                                                (view bias-desc))
-                    dst-tz (cudnn-tensor fact (view dst-desc) 1);;TODO check whether cuda uses :tnc or :ntc => determined by rnn-src-desc!
+                    dst-tz (cudnn-tensor fact (view dst-desc) 1) ;;TODO check whether cuda uses :tnc or :ntc => determined by rnn-src-desc!
                     dst-iter-tz (when dst-iter? (cudnn-tensor fact (view ldnc-iter-desc)))
                     dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
                     work (cuda-malloc inf-work-size);;TODO here we can use global workspace

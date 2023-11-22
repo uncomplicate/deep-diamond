@@ -438,8 +438,7 @@
 ;; ======================= Binary op ============================================================
 
 (defn binary
-  "TODO
-  NOTE: much slower than Neanderthal add or mul. Use only when can't avoid it."
+  "DNNL binary operation. NOTE: much slower than Neanderthal add or mul. Use only when can't avoid it."
   ([eng alg-kind src0-desc src1-desc dst-desc]
    (binary* (extract eng) (enc-keyword dnnl-binary-alg-kind alg-kind)
             (extract src0-desc) (extract src1-desc) (extract dst-desc) nil))
@@ -596,8 +595,7 @@
                      (extract diff-desc) (extract src-desc) axis (extract hint-fwd-pd) nil))
 
 (defn softmax-bwd-args
-  "Creates DNNL's data structure that holds arguments as required by
-  softmax operations."
+  "Creates DNNL's data structure that holds arguments as required by softmax fwd and bwd operations."
   ([dst diff-dst diff-src]
    (let-release [args (dnnl_exec_arg_t. 3)]
      (args* args 0 dnnl/DNNL_ARG_DST (extract dst))

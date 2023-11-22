@@ -521,7 +521,6 @@
                      dnnl-view (view-tz src (diamond/desc (cudnn-shape-padding (shape src))
                                                           (data-type src)
                                                           (cudnn-shape-padding (layout src))))]
-        ;;(dnnl-core/offset! (buffer dnnl-view) (dnnl-core/offset (buffer src))) TODO remove
         (transfer! dnnl-view dnnl-mid)
         (set-vector! (view-vctr dnnl-mid) (view-vctr dest))))
     (dragan-says-ex DOES_NOT_FIT_MSG
@@ -540,7 +539,6 @@
                      dnnl-view (view-tz dest (diamond/desc (cudnn-shape-padding (shape dest))
                                                            (data-type dest)
                                                            (cudnn-shape-padding (layout dest))))]
-        ;; (dnnl-core/offset! (buffer dnnl-view) (dnnl-core/offset (buffer dest))) TODO remove
         (get-vector! (view-vctr src) (view-vctr dnnl-mid))
         (transfer! dnnl-mid dnnl-view)))
     (dragan-says-ex DOES_NOT_FIT_MSG

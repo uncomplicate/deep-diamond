@@ -195,7 +195,6 @@
            (transfer! (range 1 15) tz-x)
            (seq (native tz-x)) => (range 1.0 15.0)
            (seq (native tz-y)) => (repeat 6 0.0)
-           ;;           (seq (native (batch 0 0))) => (seq (native tz-y)) ;;TODO this line is not needed now, as I may need to synchronize it for cuda...
            (batch 0 0) => tz-y
            (seq (native tz-y)) => [1.0 3.0 5.0 2.0 4.0 6.0]
            (transfer! (repeat 0) tz-y)
