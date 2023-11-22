@@ -51,7 +51,7 @@
   Tensors support typical core Fluokitten functions.
   "
   (:require [uncomplicate.commons
-             [core :refer [release let-release Info]]
+             [core :refer [release let-release Info view]]
              [utils :refer [dragan-says-ex cond-into]]]
             [uncomplicate.fluokitten.protocols :refer [Magma Monoid Applicative Functor pure]]
             [uncomplicate.diamond.internal
@@ -146,6 +146,19 @@
   "An object that can create a connection and provide its state in another shape,
   or gets its state from an object with another shape."
   (connector [in out] "Creates a connector between `in` and `out` descriptor or tensor."))
+
+(extend-type clojure.lang.Keyword
+  ConnectorCreator
+  (connector [in-format out]
+    (let [in-out (input out)
+          fact (api/diamond-factory in-out)
+          in-desc (api/create-tensor-desc fact (shape (input in-out)) (data-type (input in-out)) in-format)]
+      (if (= (layout in-desc) (layout in-out))
+        (do (release in-desc)
+            (view (output out)))
+        (let-release [in-tz (api/create-tensor fact in-desc (api/batch-index (output out)) false)];;TODO should I use (view in-desc), like in cudnn?
+          (api/create-transformer fact in-tz (view (output out))))))))
+
 
 ;; =============================================================================
 

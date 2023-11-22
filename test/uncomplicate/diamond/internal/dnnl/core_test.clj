@@ -49,7 +49,7 @@
          (memory-desc [1 1] :f64 [1 1]) => (throws ExceptionInfo)
          (data-type (memory-desc [1 1])) => :float
          (dims (memory-desc [2 3])) => [2 3]
-         (strides (memory-desc [2 3])) => [0 0] ;; TODO now this requires a workaround because there are no strides for :any vector. See whether this is needed, or an empty vector is sufficient.
+         (strides (memory-desc [2 3])) => [0 0]
          (strides (memory-desc [2 3] :float :nc)) => [3 1]))
 
 (facts "Memory descriptor by tag."

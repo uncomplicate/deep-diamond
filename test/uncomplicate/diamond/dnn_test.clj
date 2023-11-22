@@ -917,7 +917,7 @@
                  output-weights (revert input-weights)
                  output-weights-iter (connector (weights-iter rnn-no-iter)
                                                 (desc [2 1 2 1 2] :float :ldigo))
-                 input-bias (connector (desc [2 1 1 2] :float :ldgo) (bias-layer rnn-no-iter))
+                 input-bias (connector :ldgo (bias-layer rnn-no-iter))
                  output-bias (revert input-bias)]
     (facts "Vanilla RNN training operation without iter."
            (init! rnn-no-iter)
@@ -973,7 +973,7 @@
                  rnn-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :relu nil)
                  rnn-no-iter (rnn-bluep-no-iter input-tz nil :sgd)
                  input-weights (connector (desc [2 1 2 1 2] :float :ldigo) (weights-layer (.op rnn-no-iter)))
-                 input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter (.op rnn-no-iter)))
+                 input-weights-iter (connector :ldigo (weights-iter (.op rnn-no-iter)))
                  input-bias (connector (desc [2 1 1 2] :float :ldgo) (bias-layer rnn-no-iter))]
     (facts "Vanilla RNN layer training without iter."
            (init! rnn-no-iter)
@@ -996,8 +996,7 @@
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  lstm-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :lstm nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :sgd)
-                 input-weights (connector (desc [2 1 2 4 2] :float :ldigo) ;;TODO support just :ldigo as desc.
-                                          (weights-layer (.op lstm-no-iter)))
+                 input-weights (connector  :ldigo (weights-layer (.op lstm-no-iter)))
                  input-weights-iter (connector (desc [2 1 2 4 2] :float :ldigo) (weights-iter (.op lstm-no-iter)))
                  input-bias (connector (desc [2 1 4 2] :float :ldgo) (bias-layer lstm-no-iter))]
     (facts "LSTM layer training SGD."
@@ -1027,8 +1026,7 @@
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  lstm-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :lstm nil)
                  lstm-no-iter (lstm-bluep-no-iter input-tz nil :adam)
-                 input-weights (connector (desc [2 1 2 4 2] :float :ldigo) ;;TODO support just :ldigo as desc.
-                                          (weights-layer (.op lstm-no-iter)))
+                 input-weights (connector :ldigo (weights-layer (.op lstm-no-iter)))
                  input-weights-iter (connector (desc [2 1 2 4 2] :float :ldigo) (weights-iter (.op lstm-no-iter)))
                  input-bias (connector (desc [2 1 4 2] :float :ldgo) (bias-layer lstm-no-iter))]
     (facts "LSTM layer training Adam."
@@ -1058,9 +1056,8 @@
   (with-release [input-tz (tensor fact [2 1 2] :float :tnc)
                  gru-bluep-no-iter (rnn fact input-tz [2 1 2] 2 :gru nil)
                  gru-no-iter (gru-bluep-no-iter input-tz nil :adam)
-                 input-weights (connector (desc [2 1 2 3 2] :float :ldigo) ;;TODO support just :ldigo as desc.
-                                          (weights-layer (.op gru-no-iter)))
-                 input-weights-iter (connector (desc [2 1 2 3 2] :float :ldigo) (weights-iter (.op gru-no-iter)))
+                 input-weights (connector :ldigo (weights-layer (.op gru-no-iter)))
+                 input-weights-iter (connector :ldigo (weights-iter (.op gru-no-iter)))
                  input-bias (connector (desc [2 1 3 2] :float :ldgo) (bias-layer gru-no-iter))]
     (facts "GRU layer training Adam."
            (init! gru-no-iter)
