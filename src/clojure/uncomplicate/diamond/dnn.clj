@@ -238,7 +238,8 @@
        (api/convolution-blueprint (api/diamond-factory fact)
                                   src-desc weights-desc dst-desc activ
                                   strides padding dilation alpha beta)
-       (dragan-says-ex "TODO message."))))
+       (dragan-says-ex "The inferred src, weights, and desc shapes are not compatible."
+                       {:src (shape src-desc) :weights weights-shape :dst dst-shape}))))
   ([fact src-desc weights-desc dst-desc activ]
    (convolution fact src-desc weights-desc dst-desc activ nil))
   ([dst-desc kernel-desc activ args]

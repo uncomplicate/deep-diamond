@@ -41,7 +41,12 @@ Please use a copy or create a transformer."
   ([^Block x ^Block y ^Block z]
    (check-contiguous x)
    (check-contiguous y)
-   (check-contiguous z)))
+   (check-contiguous z))
+  ([^Block x ^Block y ^Block z ^Block w]
+   (check-contiguous x)
+   (check-contiguous y)
+   (check-contiguous z)
+   (check-contiguous w)))
 
 (defn default-strides [shape]
   (let [cnt (count shape)]

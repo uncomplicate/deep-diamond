@@ -12,8 +12,8 @@
                            bytesize size]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten
-             [protocols :refer [Magma Monoid Applicative Functor Comonad extract]]
-             [core :refer [fmap foldmap]]]
+             [protocols :refer [Magma Monoid Applicative Functor PseudoFunctor Foldable Comonad
+                                extract fmap fmap! fold foldmap]]]
             [uncomplicate.clojure-cpp :refer [pointer get-entry]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
@@ -366,10 +366,78 @@
                                    (repeat (ndims tz-mem) 0))]
       (dnnl-tensor diamond-fact md n-index)))
   Functor
-  (fmap [x f]
-    (f x))
-  (fmap [x f xs]
-    (apply f x xs))
+  (fmap [this f]
+    (check-contiguous this)
+    (let-release [res (raw this)]
+      (fmap! (view-vctr res) f)
+      res))
+  (fmap [this f xs]
+    (check-contiguous this)
+    (doseq [x xs] (check-contiguous x))
+    (let-release [res (raw this)]
+      (fmap! (view-vctr res) f (map view-vctr xs))
+      res))
+  PseudoFunctor
+  (fmap! [this f]
+    (check-contiguous this)
+    (fmap! (view-vctr this) f)
+    this)
+  (fmap! [this f y]
+    (check-contiguous this y)
+    (fmap! (view-vctr this) f (view-vctr y))
+    this)
+  (fmap! [this f y z]
+    (check-contiguous this y z)
+    (fmap! (view-vctr this) f (view-vctr y) (view-vctr z))
+    this)
+  (fmap! [this f y z v]
+    (check-contiguous this y z v)
+    (fmap! (view-vctr this) f (view-vctr y) (view-vctr z) (view-vctr v))
+    this)
+  (fmap! [this f y z v ws]
+    (check-contiguous this y z v)
+    (doseq [w ws] (check-contiguous w))
+    (fmap! (view-vctr this) f (view-vctr y) (view-vctr z) (view-vctr v) (map view-vctr ws))
+    this)
+  Foldable
+  (fold [this]
+    (check-contiguous this)
+    (fold (view-vctr this)))
+  (fold [this f init]
+    (check-contiguous this)
+    (fold (view-vctr this) f init))
+  (fold [this f init y]
+    (check-contiguous this y)
+    (fold (view-vctr this) f init (view-vctr y)))
+  (fold [this f init y z]
+    (check-contiguous this y z)
+    (fold (view-vctr this) f init (view-vctr y) (view-vctr z)))
+  (fold [this f init y z v]
+    (check-contiguous this y z v)
+    (fold (view-vctr this) f init (view-vctr y) (view-vctr z) (view-vctr v)))
+  (fold [this f init y z v ws]
+    (check-contiguous this y z v)
+    (doseq [w ws] (check-contiguous w))
+    (fold (view-vctr this) f (view-vctr y) (view-vctr z) (view-vctr v) (map view-vctr ws)))
+  (foldmap [this g]
+    (check-contiguous this)
+    (foldmap (view-vctr this) g))
+  (foldmap [this g f init]
+    (check-contiguous this)
+    (foldmap (view-vctr this) g f init))
+  (foldmap [this g f init y]
+    (check-contiguous this y)
+    (foldmap (view-vctr this) f init (view-vctr y)))
+  (foldmap [this g f init y z]
+    (check-contiguous this y z)
+    (foldmap (view-vctr this) g f init (view-vctr y) (view-vctr z)))
+  (foldmap [this g f init y z v]
+    (check-contiguous this y z v)
+    (foldmap (view-vctr this) g f init (view-vctr y) (view-vctr z) (view-vctr v)))
+  (foldmap [this g f init y z v ws]
+    (check-contiguous this y z v)
+    (doseq [w ws] (check-contiguous w))
+    (foldmap (view-vctr this) g f (view-vctr y) (view-vctr z) (view-vctr v) (map view-vctr ws)))
   Applicative
   (pure [x v]
     (with-release [md (memory-desc (repeat (ndims tz-mem) 1)
