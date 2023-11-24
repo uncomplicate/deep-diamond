@@ -8,8 +8,8 @@
 
 (ns uncomplicate.diamond.tensor-test
   (:require [midje.sweet :refer [facts throws =>]]
-            [uncomplicate.commons
-             [core :refer [with-release release]]]
+            [uncomplicate.commons.core :refer [with-release release]]
+            [uncomplicate.fluokitten.core :refer [fmap! fmap fold]]
             [uncomplicate.clojure-cpp :refer [position! pointer get-entry]]
             [uncomplicate.neanderthal
              [core :refer [asum view-vctr transfer! native entry entry! dim]]
@@ -112,6 +112,66 @@
            (seq (native sub-x)) => [0.0 1.0])))
 
 ;; TODO implement and test fluokitten support.
+
+(defn test-tensor-functor [fact]
+  (with-release [fx (fn [] (transfer! [1 2 3 4 5 6] (tensor fact [2 3 1 1] :float :nchw)))
+                 fy (fn [] (transfer! [10 20 30 40 50 60] (tensor fact [2 3 1 1] :float :nchw)))
+                 x (fx)
+                 f (fn
+                     (^double [^double x] (+ x 1.0))
+                     (^double [^double x ^double y] (+ x y))
+                     (^double [^double x ^double y ^double z] (+ x y z))
+                     (^double [^double x ^double y ^double z ^double w] (+ x y z w)))]
+
+    (facts "Functor implementation for real tensors."
+
+           (seq (native (fmap! f (fx)))) => [2.0 3.0 4.0 5.0 6.0 7.0]
+           (fmap! f x) => x
+
+           (seq (native (fmap! f (fx) (fy)))) => [11.0 22.0 33.0 44.0 55.0 66.0]
+           (fmap! f x (fy)) => x
+
+           (seq (native (fmap! f (fx) (fy) (fy)))) => [21.0 42.0 63.0 84.0 105.0 126.0]
+           (fmap! f x (fy) (fy)) => x
+
+           (seq (native (fmap! f (fx) (fy) (fy) (fy)))) => [31.0 62.0 93.0 124.0 155.0 186.0]
+           (fmap! f x (fy) (fy) (fy)) => x
+
+           (fmap! + x (fy) (fy) (fy)) => x
+           (fmap! + (fx) (fy) (fy) (fy) [(fy)]) => (throws ClassCastException))))
+
+(defn test-tensor-fold [fact]
+  (with-release [x (transfer! [1 2 3 4 5 6] (tensor fact [2 3 1 1] :float :nchw))
+                 *' (fn ^double [^double x ^double y]
+                      (* x y))
+                 +' (fn ^double [^double x ^double y]
+                      (+ x y))]
+    (facts "Fold implementation for tensors."
+
+           (fold x) => 21.0
+           (fold *' 1.0 x) => 720.0
+           (fold +' 0.0 x) => (fold x))))
+
+(defn test-tensor-reducible [fact]
+  (with-release [y (transfer! [1 2 3 4 5 6] (tensor fact [2 3 1 1] :float :nchw))
+                 x (transfer! [10 20 30 40 50 60] (tensor fact [2 3 1 1] :float :nchw))
+                 pf1 (fn ^double [^double res ^double x] (+ x res))
+                 pf1o (fn [res ^double x] (conj res x))]
+    (facts "Reducible implementation for tensors."
+
+           (fold pf1 1.0 x) => 211.0
+           (fold pf1o [] x) => [10.0 20.0 30.0 40.0 50.0 60.0]
+
+           (fold pf1 1.0 x y) => 232.0
+           (fold pf1o [] x y) => [11.0 22.0 33.0 44.0 55.0 66.0]
+
+           (fold pf1 1.0 x y y) => 253.0
+           (fold pf1o [] x y y) => [12.0 24.0 36.0 48.0 60.0 72.0]
+
+           (fold pf1 1.0 x y y y) => 274.0
+           (fold pf1o [] x y y y) => [13.0 26.0 39.0 52.0 65.0 78.0]
+
+           (fold + 1.0 x y y y) => 274.0)))
 
 (defn test-transformer [fact]
   (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)
