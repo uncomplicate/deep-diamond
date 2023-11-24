@@ -263,10 +263,14 @@
       [   0.00    0.00    0.00    ⋯      0.00    0.00 ]
   "
   ([tz-factory shape type layout batch-index]
-   (if (and (sequential? shape) (<= 0 (long batch-index)));;TODO error messages
+   (if (and (sequential? shape) (<= 0 (long batch-index) (dec (count shape))))
      (let [fact (api/diamond-factory tz-factory)]
        (api/create-tensor fact (api/create-tensor-desc fact shape type layout) batch-index true))
-     (dragan-says-ex "Tensor shape has to be sequential." {:shape (class shape)})))
+     (dragan-says-ex "Incompatible tensor constructor arguments."
+                     {:shape (class shape) :batch-index batch-index :errors
+                      (cond-into []
+                                 (not (sequential? shape)) "shape is not sequential"
+                                 (<= 0 (long batch-index) (dec (count shape))) "batch-index is not within bounds of shape dimension")})))
   ([tz-factory shape type layout]
    (tensor tz-factory shape type layout
            (if (and (keyword? layout) (clojure.string/includes? (name layout) "t")) 1 0)))

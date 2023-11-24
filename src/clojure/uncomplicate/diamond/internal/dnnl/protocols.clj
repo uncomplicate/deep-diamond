@@ -14,8 +14,5 @@
 (defprotocol DescProvider
   (desc [this]))
 
-(defprotocol PrimitiveKind ;;TODO see whether this is supported by DNNL 3.2.1
-  (primitive-kind* [this]))
-
 (defprotocol DnnlEngineProvider
   (dnnl-engine [_]))

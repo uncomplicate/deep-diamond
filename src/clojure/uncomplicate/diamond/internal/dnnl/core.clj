@@ -259,17 +259,6 @@
       (view (desc md))
       (memory-desc s :float (default-strides s)))))
 
-;; ===================== Desc =================================================
-
-(defn primitive-kind
-  "Queries `desc` for the kind of primitive that it describes, returned as
-  keyword.
-
-  Result is one of the keywords defined in [[constants/dec-primitive-kind]],
-  typically `:inner-product`, `:convolution`, `:elementwise`, etc."
-  [desc]
-  (dec-primitive-kind (primitive-kind* desc)))
-
 ;; ===================== Primitive ============================================
 
 (defn primitive

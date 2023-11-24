@@ -111,8 +111,6 @@
            (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))
 
-;; TODO implement and test fluokitten support.
-
 (defn test-tensor-functor [fact]
   (with-release [fx (fn [] (transfer! [1 2 3 4 5 6] (tensor fact [2 3 1 1] :float :nchw)))
                  fy (fn [] (transfer! [10 20 30 40 50 60] (tensor fact [2 3 1 1] :float :nchw)))
