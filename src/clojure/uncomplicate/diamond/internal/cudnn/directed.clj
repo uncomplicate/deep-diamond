@@ -1,4 +1,13 @@
-(ns uncomplicate.diamond.internal.cudnn.directed
+;;   Copyright (c) Dragan Djuric. All rights reserved.
+;;   The use and distribution terms for this software are covered by the
+;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
+;;   which can be found in the file LICENSE at the root of this distribution.
+;;   By using this software in any fashion, you are agreeing to be bound by
+;;   the terms of this license.
+;;   You must not remove this notice, or any other, from this software.
+
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.cudnn.directed
   (:require [uncomplicate.commons.core
              :refer [Releaseable release let-release with-release Info info view bytesize]]
             [uncomplicate.fluokitten.core :refer [fmap]]
@@ -902,7 +911,7 @@
   (train-desc [_]
     (view dst-desc))
   (diff-desc [_]
-    "TODO")
+    (view dst-desc))
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -1674,8 +1683,8 @@
     (train-desc this))
   (train-desc [_]
     (vec (repeat n src-desc)))
-  (diff-desc [_]
-    "TODO")
+  (diff-desc [this]
+    (train-desc this))
   TensorDescriptor
   (shape [_]
     (vec (repeat n (shape src-desc))))
@@ -1800,7 +1809,7 @@
   (train-desc [_]
     (get src-descs 0))
   (diff-desc [_]
-    "TODO")
+    (get src-descs 0))
   TensorDescriptor
   (shape [_]
     (shape (get src-descs 0)))

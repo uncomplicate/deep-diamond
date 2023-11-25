@@ -43,7 +43,6 @@
   (test-batcher diamond-factory)
   (test-shuffler diamond-factory)
   (test-batcher-tnc diamond-factory)
-  (test-tensor-functor diamond-factory)
   (test-tensor-fold diamond-factory)
   (test-tensor-reducible diamond-factory))
 
@@ -67,6 +66,5 @@
     (test-batcher *diamond-factory*)
     (test-shuffler *diamond-factory*)
     (test-batcher-tnc *diamond-factory*)
-    (test-tensor-functor *diamond-factory*)
     (test-tensor-fold *diamond-factory*)
     (test-tensor-reducible *diamond-factory*)))

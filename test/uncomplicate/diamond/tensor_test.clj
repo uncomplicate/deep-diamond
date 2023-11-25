@@ -111,33 +111,6 @@
            (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0])))
 
-(defn test-tensor-functor [fact]
-  (with-release [fx (fn [] (transfer! [1 2 3 4 5 6] (tensor fact [2 3 1 1] :float :nchw)))
-                 fy (fn [] (transfer! [10 20 30 40 50 60] (tensor fact [2 3 1 1] :float :nchw)))
-                 x (fx)
-                 f (fn
-                     (^double [^double x] (+ x 1.0))
-                     (^double [^double x ^double y] (+ x y))
-                     (^double [^double x ^double y ^double z] (+ x y z))
-                     (^double [^double x ^double y ^double z ^double w] (+ x y z w)))]
-
-    (facts "Functor implementation for real tensors."
-
-           (seq (native (fmap! f (fx)))) => [2.0 3.0 4.0 5.0 6.0 7.0]
-           (fmap! f x) => x
-
-           (seq (native (fmap! f (fx) (fy)))) => [11.0 22.0 33.0 44.0 55.0 66.0]
-           (fmap! f x (fy)) => x
-
-           (seq (native (fmap! f (fx) (fy) (fy)))) => [21.0 42.0 63.0 84.0 105.0 126.0]
-           (fmap! f x (fy) (fy)) => x
-
-           (seq (native (fmap! f (fx) (fy) (fy) (fy)))) => [31.0 62.0 93.0 124.0 155.0 186.0]
-           (fmap! f x (fy) (fy) (fy)) => x
-
-           (fmap! + x (fy) (fy) (fy)) => x
-           (fmap! + (fx) (fy) (fy) (fy) [(fy)]) => (throws ClassCastException))))
-
 (defn test-tensor-fold [fact]
   (with-release [x (transfer! [1 2 3 4 5 6] (tensor fact [2 3 1 1] :float :nchw))
                  *' (fn ^double [^double x ^double y]

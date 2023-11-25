@@ -6,7 +6,9 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.cudnn.factory
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.cudnn.factory
+  (:refer-clojure :exclude [abs])
   (:require [clojure.java.io :as io]
             [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release view]]

@@ -11,9 +11,8 @@
              [core :refer [Releaseable release let-release with-release Info info Viewable view
                            bytesize size]]
              [utils :refer [dragan-says-ex]]]
-            [uncomplicate.fluokitten
-             [protocols :refer [Magma Monoid Applicative Functor PseudoFunctor Foldable Comonad
-                                extract fmap fmap! fold foldmap]]]
+            [uncomplicate.fluokitten.protocols
+             :refer [Magma Monoid Applicative Functor Foldable Comonad extract fold foldmap]]
             [uncomplicate.clojure-cpp :refer [pointer get-entry]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim copy!]]
@@ -366,39 +365,10 @@
                                    (repeat (ndims tz-mem) 0))]
       (dnnl-tensor diamond-fact md n-index)))
   Functor
-  (fmap [this f]
-    (check-contiguous this)
-    (let-release [res (raw this)]
-      (fmap! (view-vctr res) f)
-      res))
-  (fmap [this f xs]
-    (check-contiguous this)
-    (doseq [x xs] (check-contiguous x))
-    (let-release [res (raw this)]
-      (fmap! (view-vctr res) f (map view-vctr xs))
-      res))
-  PseudoFunctor
-  (fmap! [this f]
-    (check-contiguous this)
-    (fmap! (view-vctr this) f)
-    this)
-  (fmap! [this f y]
-    (check-contiguous this y)
-    (fmap! (view-vctr this) f (view-vctr y))
-    this)
-  (fmap! [this f y z]
-    (check-contiguous this y z)
-    (fmap! (view-vctr this) f (view-vctr y) (view-vctr z))
-    this)
-  (fmap! [this f y z v]
-    (check-contiguous this y z v)
-    (fmap! (view-vctr this) f (view-vctr y) (view-vctr z) (view-vctr v))
-    this)
-  (fmap! [this f y z v ws]
-    (check-contiguous this y z v)
-    (doseq [w ws] (check-contiguous w))
-    (fmap! (view-vctr this) f (view-vctr y) (view-vctr z) (view-vctr v) (map view-vctr ws))
-    this)
+  (fmap [x f]
+    (f x))
+  (fmap [x f xs]
+    (apply f x xs))
   Foldable
   (fold [this]
     (check-contiguous this)
