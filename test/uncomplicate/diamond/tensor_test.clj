@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.tensor-test
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.tensor-test
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons.core :refer [with-release release]]
             [uncomplicate.fluokitten.core :refer [fmap! fmap fold]]

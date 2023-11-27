@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.cudnn.directed-test
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.cudnn.directed-test
   (:require [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.diamond.dnn-test :refer :all]
             [uncomplicate.diamond.internal.protocols :refer [create-workspace *workspace*]]

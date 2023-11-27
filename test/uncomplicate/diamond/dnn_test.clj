@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.dnn-test
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.dnn-test
   (:require [midje.sweet :refer [facts throws => roughly just]]
             [uncomplicate.commons [core :refer [with-release release]]]
             [uncomplicate.neanderthal
