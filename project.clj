@@ -27,7 +27,7 @@
                                   [codox-theme-rdash "0.1.2"]
                                   [org.clojure/data.csv "1.0.1"]
                                   [org.bytedeco/mkl "2023.1-1.5.10-SNAPSHOT" :classifier linux-x86_64-redist]
-                                  [org.bytedeco/cuda "12.1-8.9-1.5.10-SNAPSHOT"  :classifier linux-x86_64-redist]]
+                                  [org.bytedeco/cuda "12.3-8.9-1.5.10-SNAPSHOT"  :classifier linux-x86_64-redist]]
                    :codox {:metadata {:doc/format :markdown}
                            :source-uri "http://github.com/uncomplicate/deep-diamond/blob/master/{filepath}#L{line}"
                            :themes [:rdash]
