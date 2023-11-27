@@ -195,11 +195,11 @@
     fact)
   DescriptorProvider
   (inf-desc [_]
-    (view inf-desc))
+    inf-desc)
   (train-desc [_]
-    (view train-desc))
+    train-desc)
   (diff-desc [_]
-    (view diff-desc))
+    diff-desc)
   TensorDescriptor
   (shape [_]
     (shape train-desc))
@@ -324,11 +324,11 @@
     fact)
   DescriptorProvider
   (inf-desc [_]
-    (view inf-desc))
+    inf-desc)
   (train-desc [_]
-    (view train-desc))
+    train-desc)
   (diff-desc [_]
-    (view diff-desc))
+    diff-desc)
   TensorDescriptor
   (shape [_]
     (shape train-desc))
@@ -654,11 +654,11 @@
     fact)
   DescriptorProvider
   (inf-desc [_]
-    (view dst-desc))
+    dst-desc)
   (train-desc [_]
-    (view dst-desc))
+    dst-desc)
   (diff-desc [_]
-    (view dst-desc))
+    dst-desc)
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
@@ -907,11 +907,11 @@
     fact)
   DescriptorProvider
   (inf-desc [_]
-    (view dst-desc))
+    dst-desc)
   (train-desc [_]
-    (view dst-desc))
+    dst-desc)
   (diff-desc [_]
-    (view dst-desc))
+    dst-desc)
   TensorDescriptor
   (shape [_]
     (shape dst-desc))
