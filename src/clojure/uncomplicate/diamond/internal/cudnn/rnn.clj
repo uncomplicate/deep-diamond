@@ -328,11 +328,11 @@
     fact)
   DescriptorProvider
   (inf-desc [_]
-    (view dst-desc)) ;;TODO check whether I still need all these views, since DNNL does not.
+    dst-desc)
   (train-desc [_]
-    (view dst-desc))
+    dst-desc)
   (diff-desc [_]
-    (view dst-desc))
+    dst-desc)
   TensorDescriptor
   (shape [this]
     (shape (train-desc this)))
