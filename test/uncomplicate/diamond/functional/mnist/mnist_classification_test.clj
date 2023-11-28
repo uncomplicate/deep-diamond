@@ -12,7 +12,7 @@
              [tensor :refer [tensor transformer connector transformer
                              desc revert shape input output view-tz batcher with-diamond]]
              [native :refer [map-tensor]]
-             [dnn :refer [fully-connected network init! train cost infer]]
+             [dnn :refer [fully-connected network init! train! cost infer!]]
              [metrics :refer [confusion-matrix contingency-totals classification-metrics]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
@@ -63,9 +63,9 @@
                y-test (transfer! y-test (tensor y-test))
                y-test-bat (batcher (output net-infer) y-test)]
   (facts "DNNL MNIST classification tests."
-         (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.02 0.1)
+         (time (train! net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.02 0.1)
          (transfer! net net-infer)
-         (with-release [inf (infer net-infer test-images)
+         (with-release [inf (infer! net-infer test-images)
                         pred (dec-categories inf)
                         metrics (:metrics (classification-metrics test-labels-float pred))]
            (:accuracy metrics) => (roughly 0.97 0.005)
@@ -92,9 +92,9 @@
                  y-test (transfer! y-test (tensor y-test))
                  y-test-bat (batcher (output net-infer) y-test)]
     (facts "cuDNN MNIST classification tests."
-           (time (train net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.02 0.1)
+           (time (train! net x-train-bat y-train-bat crossentropy-cost 2 [])) => (roughly 0.02 0.1)
            (transfer! net net-infer)
-           (with-release [inf (infer net-infer test-images)
+           (with-release [inf (infer! net-infer test-images)
                           native-inf (native inf)
                           pred (dec-categories native-inf)
                           metrics (:metrics (classification-metrics test-labels-float pred))]
@@ -115,7 +115,7 @@
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
-           (time (train net train-images y-train crossentropy-cost 2 [])) => (roughly 0.25 0.1)
+           (time (train! net train-images y-train crossentropy-cost 2 [])) => (roughly 0.25 0.1)
            (transfer! net net-infer)
            (transfer! (view-tz test-images 512) (input net-infer))
            (take 8 (dec-categories (net-infer))) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
@@ -130,7 +130,7 @@
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
-           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.1)
+           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.1)
            (transfer! net net-infer)
            (transfer! (view-tz test-images 512) (input net-infer))
            (take 8 (dec-categories (net-infer))) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
@@ -145,9 +145,9 @@
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
-           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.1)
+           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.1)
            (transfer! net net-infer)
-           (take 8 (dec-categories (infer net-infer test-images)))
+           (take 8 (dec-categories (infer! net-infer test-images)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 (defn test-mnist-classification-softmax [fact]
@@ -160,9 +160,9 @@
                  train-images (transfer! train-images (tensor fact [60000 1 28 28] :uint8 :nchw))
                  y-train (enc-categories train-labels-float)]
     (facts "MNIST classification tests."
-           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.15)
+           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.25 0.15)
            (transfer! net net-infer)
-           (take 8 (dec-categories (infer net-infer test-images)))
+           (take 8 (dec-categories (infer! net-infer test-images)))
            => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0))))
 
 (with-release [fact (dnnl-factory)]

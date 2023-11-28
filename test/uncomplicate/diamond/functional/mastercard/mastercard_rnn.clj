@@ -10,8 +10,8 @@
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor offset! connector transformer
                              desc revert shape input output view-tz batcher]]
-             [dnn :refer [rnn infer sum activation inner-product dense
-                          network init! train cost train train-shuffle abbreviate]]]
+             [dnn :refer [rnn infer! sum activation inner-product dense
+                          network init! train! cost train-shuffle! abbreviate]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
@@ -60,11 +60,11 @@
                    net (init! (net-bp :adam))
                    net-infer (net-bp)]
 
-      (facts "Adam gradient descent - learning MasterCard stock prices with RNN."
+      (facts (format "Adam gradient descent - learning MasterCard stock prices with RNN and %s." (str activ))
 
-             (time (train-shuffle net x-train y-train :quadratic 50 [0.001])) => (roughly 0.0 0.005)
+             (time (train-shuffle! net x-train y-train :quadratic 50 [0.001])) => (roughly 0.0 0.005)
              (transfer! net net-infer)
-             (nrm2 (axpby! 1 y-test -1.0 (infer net-infer x-test))) => (roughly 0.0 1.0)))))
+             (nrm2 (axpby! 1 y-test -1.0 (infer! net-infer x-test))) => (roughly 0.0 1.0)))))
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :gru))
@@ -81,3 +81,7 @@
 ;; "Elapsed time: 21057.697005 msecs" (:standard)
 ;; "Elapsed time: 57792.445161 msecs" (:static)
 ;; "Elapsed time: 40416.253165 msecs" (:dynamic)
+
+
+;; (with-release [fact (dnnl-factory)]
+;;   (test-timeseries fact :lstm))

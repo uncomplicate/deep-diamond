@@ -14,8 +14,7 @@
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
-             [dnn :refer [sum activation inner-product fully-connected
-                          network init! train cost train]]]
+             [dnn :refer [sum activation inner-product fully-connected network init! train! cost]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
@@ -74,7 +73,7 @@
     (facts "Adam gradient descent - Boston Housing Prices."
            (transfer! x-train (view-vctr x-tz))
            (transfer! y-train (view-vctr y-tz))
-           (time (train net x-batcher y-batcher quad-cost 80 [])) => (roughly 6.0 5)
+           (time (train! net x-batcher y-batcher quad-cost 80 [])) => (roughly 6.0 5)
            (transfer! net net-infer)
            (net-infer)
            (mean-abs-cost) => (roughly 3 2))))

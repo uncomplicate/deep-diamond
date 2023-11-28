@@ -17,10 +17,9 @@
              [random :refer [rand-uniform!]]
              [math :as math]]
             [uncomplicate.diamond
-             [tensor :refer [*diamond-factory* tensor connector transformer
-                             desc shape input output view-tz batcher]]
-             [dnn :refer [sum activation inner-product fully-connected
-                          network init! train cost train]]
+             [tensor :refer [*diamond-factory* tensor connector transformer desc shape input output
+                             view-tz batcher]]
+             [dnn :refer [sum activation inner-product fully-connected network init! train! cost]]
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
              :refer [diff-weights forward backward weights bias]]

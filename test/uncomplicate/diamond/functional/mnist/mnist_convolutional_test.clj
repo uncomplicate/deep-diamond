@@ -8,7 +8,7 @@
             [uncomplicate.diamond
              [tensor :refer [tensor desc with-diamond]]
              [native :refer [map-tensor]]
-             [dnn :refer [dense convo pooling dropout network init! train infer batch-norm]]
+             [dnn :refer [dense convo pooling dropout network init! train! infer! batch-norm]]
              [metrics :refer [classification-metrics]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
@@ -42,9 +42,9 @@
                  net (init! (net-bp :adam))
                  net-infer (net-bp)]
     (facts "MNIST classification tests."
-           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.0 0.03)
+           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.0 0.03)
            (transfer! net net-infer)
-           (with-release [inf (infer net-infer test-images)
+           (with-release [inf (infer! net-infer test-images)
                           pred (mnist/dec-categories inf)
                           metrics (:metrics (classification-metrics test-labels-float pred))]
              (:accuracy metrics) => (roughly 0.985 0.005)
@@ -71,9 +71,9 @@
                  test-images (transfer! test-images (tensor [10000 1 28 28] :float :nchw))
                  y-test (transfer! y-test (tensor [10000 10] :float :nchw))]
     (facts "cuDNN MNIST classification tests."
-           (time (train net train-images y-train :crossentropy 2 [])) => (roughly 0.0 0.03)
+           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.0 0.03)
            (transfer! net net-infer)
-           (with-release [inf (infer net-infer test-images)
+           (with-release [inf (infer! net-infer test-images)
                           native-inf (native inf)
                           pred (mnist/dec-categories native-inf)
                           metrics (:metrics (classification-metrics test-labels-float pred))]

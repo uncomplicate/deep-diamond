@@ -14,7 +14,7 @@
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
-             [dnn :refer [fully-connected dropout network init! train cost]]]
+             [dnn :refer [fully-connected dropout network init! train! cost]]]
             [uncomplicate.diamond.internal.cost :refer [binary-accuracy!]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
@@ -96,7 +96,7 @@
     (transfer! x-train (view-vctr x-tz))
     (transfer! y-train (view-vctr y-tz))
     (facts "Adam gradient descent - IMDB sentiment classification."
-           (time (train net x-batcher y-batcher crossentropy-cost 5 [])) => (roughly 0.3 0.2)
+           (time (train! net x-batcher y-batcher crossentropy-cost 5 [])) => (roughly 0.3 0.2)
            (transfer! net net-infer)
            (binary-accuracy! y-mb-tz (net-infer)) => (roughly 1 0.2))))
 

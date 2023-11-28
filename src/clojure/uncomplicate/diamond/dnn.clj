@@ -651,7 +651,7 @@
           (train* selector net in-batcher out-batcher cost! epochs hyperparam))
         options)))
 
-(defn train
+(defn train!
   "This is the magic function that trains your network `net` using `cost!`, trough
   a number of `epochs`, using hyperparameters `hyperparam`. It is rather flexible
   and will automatically figure out how to do mini-batches needed.
@@ -692,10 +692,10 @@
   ([net in out cost! epochs hyperparam]
    (cond (keyword? cost!)
          (with-release [cost! (cost net cost!)]
-           (train net in out cost! epochs hyperparam))
+           (train! net in out cost! epochs hyperparam))
          (satisfies? TensorContainer in)
          (with-release [in-batcher (batcher in (input net))]
-           (train net in-batcher out cost! epochs hyperparam))
+           (train! net in-batcher out cost! epochs hyperparam))
          (satisfies? TensorContainer out)
          (with-release [out-batcher (batcher out (api/diff-input cost!))]
            (train* * net in out-batcher cost! epochs hyperparam))
@@ -703,10 +703,10 @@
   ([net in out cost! options]
    (cond (keyword? cost!)
          (with-release [cost! (cost net cost!)]
-           (doall (train net in out cost! options)))
+           (doall (train! net in out cost! options)))
          (satisfies? TensorContainer in)
          (with-release [in-batcher (batcher in (input net))]
-           (doall (train net in-batcher out cost! options)))
+           (doall (train! net in-batcher out cost! options)))
          (satisfies? TensorContainer out)
          (with-release [out-batcher (batcher out (api/diff-input cost!))]
            (doall (train* * net in out-batcher cost! options)))
@@ -715,7 +715,7 @@
 (defn ^:private random-cols [_ mb-size]
   (shuffle (range mb-size)))
 
-(defn train-shuffle
+(defn train-shuffle!
   "Similar to [[train]], but does stochastic reshuffling of the mini-batches.
 
   Arguments:
@@ -741,10 +741,10 @@
   ([net in out cost! epochs hyperparam]
    (cond (keyword? cost!)
          (with-release [cost! (cost net cost!)]
-           (train net in out cost! epochs hyperparam))
+           (train! net in out cost! epochs hyperparam))
          (satisfies? TensorContainer in)
          (with-release [in-shuffler (shuffler in (input net))]
-           (train net in-shuffler out cost! epochs hyperparam))
+           (train! net in-shuffler out cost! epochs hyperparam))
          (satisfies? TensorContainer out)
          (with-release [out-shuffler (shuffler out (api/diff-input cost!))]
            (train* random-cols net in out-shuffler cost! epochs hyperparam))
@@ -752,10 +752,10 @@
   ([net in out cost! options]
    (cond (keyword? cost!)
          (with-release [cost! (cost net cost!)]
-           (doall (train net in out cost! options)))
+           (doall (train! net in out cost! options)))
          (satisfies? TensorContainer in)
          (with-release [in-shuffler (shuffler in (input net))]
-           (doall (train net in-shuffler out cost! options)))
+           (doall (train! net in-shuffler out cost! options)))
          (satisfies? TensorContainer out)
          (with-release [out-shuffler (shuffler out (api/diff-input cost!))]
            (doall (train* random-cols net in out-shuffler cost! options)))
@@ -776,7 +776,7 @@
       (out-batcher 0 (- b-size mb-size)))
     (output out-batcher)))
 
-(defn infer
+(defn infer!
   "Estimates output `out` for the provided input `in`. Works with tensors, connectors, and anything
   that can provide Does [[uncomplicate.diamond.tensor/input]] and Does [[uncomplicate.diamond.tensor/output]].
   If `in` and `out` are bigger than the network shapes, automatically does the inference in mini-batches.
@@ -789,7 +789,7 @@
   ([net in out]
    (cond (satisfies? TensorContainer in)
          (with-release [in-batcher (batcher in (input net))]
-           (infer net in-batcher out))
+           (infer! net in-batcher out))
          (satisfies? TensorContainer out)
          (with-release [out-batcher (batcher (output net) out)]
            (infer* net in out-batcher))
@@ -800,9 +800,7 @@
      (let-release [out (tensor net (assoc shape-out (api/batch-index net-out)
                                           (get (shape (input in)) (api/batch-index (input in))))
                                (data-type net-out) (layout net-out))]
-       (infer net in out)))))
-
-;;TODO train should be renamed to train! and infer! (perhaps)
+       (infer! net in out)))))
 
 ;; ========================== Recurrent networks =========================================
 
