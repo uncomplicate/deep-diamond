@@ -88,7 +88,7 @@
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
           (let [fact (diamond-factory out-tz)]
-            (let-release [in-tz (dnnl-tensor fact in-desc (batch-index out-tz))];;TODO should I use (view in-desc), like in cudnn?
+            (let-release [in-tz (dnnl-tensor fact in-desc (batch-index out-tz))]
               (dnnl-transformer (dnnl-engine fact) (flow fact) in-tz (view out-tz)))))))))
 
 (defmethod print-method MemoryDescImpl
@@ -490,7 +490,7 @@
     n-index)
   Viewable
   (view [this]
-    (->DnnlTensor diamond-fact neand-fact eng false tz-mem n c n-index));;TODO currently cuda takes view of cu-desc and each tensor manages its descriptor...
+    (->DnnlTensor diamond-fact neand-fact eng false tz-mem n c n-index))
   DenseContainer
   (view-vctr [this]
     (if (<= (dim this) (size tz-mem))

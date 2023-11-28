@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.dnnl.file-channel
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.dnnl.file-channel
   (:require [uncomplicate.commons
              [core :refer [let-release with-release bytesize]]
              [utils :refer [dragan-says-ex mapped-buffer]]]
@@ -24,10 +25,13 @@
             SequentialNetworkTraining]))
 
 (defn map-channel
+  "Maps a new tensor to a channel via `commons/utils/mapped-buffer`. Please note that the mapping
+  remains active and uses resources until the tensor is released *and all references to it removed*,
+  because the mapping is only managed by Java's GC, and there is no way of directly affecting that mapping."
   ([fact channel td flag offset-bytes n-index]
    (let [fact (diamond-factory fact)
          size (bytesize (desc td))]
-     (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))] ;;TODO check whether this is freed properly via pointer's destruction.
+     (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))]
        (dnnl-tensor* fact td buf n-index true))))
   ([fact channel td flag offset-bytes]
    (map-channel fact channel td flag offset-bytes 0))
