@@ -25,7 +25,7 @@
             [uncomplicate.diamond.tensor :refer [shape data-type layout output]]
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
-                                CostFactory DnnFactory RnnFactory]]
+                                CostFactory DnnFactory RnnFactory batch-index]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
@@ -417,8 +417,7 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-universal-cost prev-layer train-tz mean-absolute-cost!))
   (crossentropy-cost [_ prev-layer train-tz]
     (cudnn-custom-cost prev-layer train-tz
-                       (partial crossentropy-cost!
-                                ((dims (output prev-layer)) 0)))))
+                       (partial crossentropy-cost! ((dims train-tz) (batch-index train-tz))))))
 
 (defn ^:private create-module [src dtype]
   (with-release [prog (compile! (program src) [(str "-DTYPE=" dtype) "-default-device"])]

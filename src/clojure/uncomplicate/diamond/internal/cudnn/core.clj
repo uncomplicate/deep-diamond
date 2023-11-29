@@ -117,7 +117,8 @@
 (defn add-tensor
   "Adds elements of tensor `x`, scaled by scalar `alpha`, to tensor `y`.
   Attention: `alpha` needs explicit casting to the proper primitive type (`double`,
-  `float`, etc.). Layouts must match
+  `float`, etc.). Shapes in `desc-x` and `desc-y` must match, or at least be
+  `1` in `desc-y`. This is intended for adding bias. Supports broadcasting when a dimension is `1`.
   "
   [cudnn-handle alpha desc-x x beta desc-y y]
   (with-release [alpha (pointer alpha)
@@ -130,9 +131,9 @@
 (defn transform-tensor
   "Adds elements of tensor `x`, scaled by scalar `alpha`, to tensor `y` with a different
   layout. Attention: `alpha` needs explicit casting to the proper primitive type (`double`,
-  `float`, etc.). Both tensor must have the same shape, but not necessarily the same strides.
-  Only support 4D and 5D tensors. Supports broadcasting when a dimension is 1.
-  Can be used to convert a tensor with an unsupported format to a supported one.
+  `float`, etc.). Only supports 4D and 5D tensors. Does not support broadcasting.
+  Tensor memory must not overlap. Can be used to convert a tensor with an unsupported format
+  to a supported one.
   "
   [cudnn-handle alpha desc-x buf-x beta desc-y buf-y]
   (with-release [alpha (pointer alpha)

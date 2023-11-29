@@ -37,7 +37,7 @@
   (test-convolution-training fact)
   (test-pooling-max fact)
   (test-pooling-avg fact)
-  (test-sequential-network-convolution-adam fact)
+  (test-sequential-network-convolution-adam fact) ;; TODO this passes the first time and then returns #NaN. Actually, the whole network is filled with #NaNs regardless of the cost function (it only affects crossentropy). In dnnl it's not like that. Investigate why.
   (test-gaussian-dropout fact)
   (test-batch-normalization-inference fact)
   (test-batch-normalization-training fact)

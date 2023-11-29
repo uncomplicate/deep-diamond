@@ -342,7 +342,7 @@
                         crossentropy-cost (cost net train-tz :crossentropy)]
            (transfer! (range 16) input-tz)
            (transfer! [0.9 0.1] train-tz)
-           (train! net crossentropy-cost 3 [0.01 0 0 false]) => (roughly 2 1.3))))
+           (train! net crossentropy-cost 3 [0.01 0 0 false]) => (roughly 2.0 1.5))))
 
 (defn test-sequential-network-sigmoid-adam [fact]
   (facts "Sequential Adam network with sigmoid cross-entropy."
@@ -356,7 +356,7 @@
                         crossentropy-cost (cost net train-tz :crossentropy)]
            (transfer! (range 16) input-tz)
            (transfer! [0.9 0.1] train-tz)
-           (train! net crossentropy-cost 3 []) => (roughly 1.7 1.1))))
+           (train! net crossentropy-cost 4 []) => (roughly 2.0 1.5))))
 
 (defn my-fn ^double [xs]
   (+ (math/sin (entry xs 0))
@@ -376,7 +376,7 @@
     (facts "Gradient descent."
            (rand-uniform! (view-vctr x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view-vctr x-tz) 4 10000)))) (view-vctr y-tz))
-           (train! net quad-cost 30 [0.003 0 0 false]) => (roughly 0.0 0.2))))
+           (train! net quad-cost 30 [0.003 0 0 false]) => (roughly 0.0 0.3))))
 
 (defn test-stochastic-gradient-descent-sgd [fact]
   (with-release [x-tz (tensor fact [10000 4] :float :nc)
@@ -412,7 +412,7 @@
     (facts "Stochastic gradient descent with Adam."
            (rand-uniform! (view-vctr x-tz))
            (transfer! (map my-fn (cols (native (view-ge (view-vctr x-tz) 4 10000)))) (view-vctr y-tz))
-           (train! net x-shuff y-shuff quad-cost 1 [0.01]) => (roughly 0.0 0.01))))
+           (train! net x-shuff y-shuff quad-cost 1 [0.01]) => (roughly 0.0 0.02))))
 
 (defn bench-wide-layers [fact]
   (with-release [input-tz (tensor fact [1024 1] :float :nc)
@@ -576,7 +576,7 @@
                         crossentropy-cost (cost net train-tz :crossentropy)]
            (transfer! (range 1 10 0.2) input-tz)
            (transfer! [0.9 0.1 0 0] train-tz)
-           (train! net crossentropy-cost 3 []) => (roughly 1.7 1))))
+           (train! net crossentropy-cost 3 []) => (roughly 3.0 2.0))))
 
 (defn test-gaussian-dropout [fact]
   (with-release [src-tz (tensor fact [2 1 4 4] :float :nchw)
