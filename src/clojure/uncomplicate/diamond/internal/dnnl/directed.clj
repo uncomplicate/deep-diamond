@@ -495,7 +495,7 @@
                                              diff-bias-tz)]
       (if prop-diff?
         (let-release [diff-dst-data-conn (connector diff-dst-conn (diff-dst-md bwd-data-pd))
-                      weights-data-conn (connector weights-tz (weights-md bwd-data-pd)) ;; TODO perhaps I have to use weights-weights-conn too? between forward and backward? Yes, according to the documentation!
+                      weights-data-conn (connector weights-tz (weights-md bwd-data-pd))
                       diff-src-conn (connector (diff-src-md bwd-data-pd) diff-src-tz)
                       bwd-data-prim (primitive bwd-data-pd)
                       bwd-data-args (bwd-args (output diff-dst-data-conn)
@@ -1468,7 +1468,7 @@
         src-desc (desc src-desc)]
     (let-release [concat-pd (apply concatenate eng src-desc branch-dim dst-descs)
                   src-desc (dst-md concat-pd)]
-      (with-release [src-subs (mapv (partial submemory-desc src-desc) ;;TODO I can either forward diff-desc, or, better just move diff related creatin stuff to (.invoke)
+      (with-release [src-subs (mapv (partial submemory-desc src-desc)
                                     dst-dims
                                     (concat-strides branch-dim dst-dims))]
         (let-release [branch-pds (mapv (partial reorder eng) src-subs dst-descs)]
