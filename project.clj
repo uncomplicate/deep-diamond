@@ -6,14 +6,14 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.27.0"
+(defproject uncomplicate/deep-diamond "0.28.0"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.11.1"]
-                 [uncomplicate/neanderthal "0.48.0"]
+  :dependencies [[org.clojure/clojure "1.11.3"]
+                 [uncomplicate/neanderthal "0.49.0"]
                  [org.bytedeco/dnnl-platform "3.3.4-1.5.10"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
@@ -40,4 +40,5 @@
 
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}}
 
+  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/device"])
