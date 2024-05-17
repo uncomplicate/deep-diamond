@@ -505,7 +505,7 @@
   (.write w (str x))
   (.write w "\n")
   (with-release [native-x (native (view-vctr x))]
-    (print-method (doall (take *print-length* (seq native-x))) w)))
+    (print-method (doall (take (or *print-length* 16) (seq native-x))) w)))
 
 (defmethod transfer! [CUDnnTensor CUDnnTensor]
   [source destination]

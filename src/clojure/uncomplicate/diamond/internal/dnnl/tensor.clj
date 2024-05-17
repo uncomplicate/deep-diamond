@@ -553,7 +553,7 @@
   (.write w (str x))
   (.write w " ")
   (if (contiguous? x)
-    (print-method (doall (take *print-length* (seq x))) w)
+    (print-method (doall (take (or *print-length* 16) (seq x))) w)
     (.write w "(... non-printable ...)")))
 
 (defmethod transfer! [DnnlTensor DnnlTensor]
