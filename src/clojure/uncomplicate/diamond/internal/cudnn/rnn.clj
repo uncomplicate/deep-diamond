@@ -38,7 +38,7 @@
 
 ;; ================================ RNN ====================================================
 
-(deftype CUDnnRnnInference [fact cudnn-hdl bluep dev-seq-lengths
+(deftype CUDnnRnnInference [fact cudnn-hdl bluep
                             src-conn src-iter-tz src-iter-c-tz
                             bias-tz bias-iter-tz weights-tz weights-iter-tz
                             dst-tz dst-iter-tz dst-iter-c-tz
@@ -46,7 +46,6 @@
                             weights-mem work reserve]
   Releaseable
   (release [_]
-    (cuda-free! dev-seq-lengths)
     (release src-conn)
     (release src-iter-tz)
     (release src-iter-c-tz)
@@ -109,7 +108,7 @@
   IFn
   (invoke [_]
     (src-conn)
-    (rnn-fwd cudnn-hdl rnn-desc :inference dev-seq-lengths
+    (rnn-fwd cudnn-hdl rnn-desc :inference
              rnn-src-desc (buffer (output src-conn)) rnn-dst-desc (buffer dst-tz)
              iter-desc (when src-iter-tz (buffer src-iter-tz))
              (when dst-iter-tz (buffer dst-iter-tz))
@@ -120,7 +119,7 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype CUDnnRnnTraining [fact cudnn-hdl bluep dev-seq-lengths
+(deftype CUDnnRnnTraining [fact cudnn-hdl bluep
                            src-conn src-iter-tz src-iter-c-tz
                            fused-bias-tz bias-tz bias-iter-tz
                            fused-weights-tz weights-tz weights-iter-tz
@@ -134,7 +133,6 @@
                            weights-mem diff-weights-mem work reserve]
   Releaseable
   (release [_]
-    (cuda-free! dev-seq-lengths)
     (release src-conn)
     (release src-iter-tz)
     (release src-iter-c-tz)
@@ -230,7 +228,7 @@
   Backprop
   (forward [this]
     (src-conn)
-    (rnn-fwd cudnn-hdl rnn-desc :training dev-seq-lengths
+    (rnn-fwd cudnn-hdl rnn-desc :training
              rnn-src-desc (buffer (output src-conn)) rnn-dst-desc (buffer dst-tz)
              iter-desc (when src-iter-tz (buffer src-iter-tz))
              (when dst-iter-tz (buffer dst-iter-tz))
@@ -242,7 +240,7 @@
     (backward-diff this 1.0 0.0 1.0 0.0))
   LinearBackprop
   (backward-diff [this scal-diff-w scal-g scal-diff-b scal-b]
-    (rnn-bwd-data cudnn-hdl rnn-desc dev-seq-lengths
+    (rnn-bwd-data cudnn-hdl rnn-desc
                   rnn-dst-desc (buffer dst-tz) (buffer diff-dst-tz)
                   rnn-src-desc (buffer (input diff-src-conn))
                   iter-desc (when src-iter-tz (buffer src-iter-tz))
@@ -253,7 +251,7 @@
                   (when diff-src-iter-c-tz (buffer diff-src-iter-c-tz))
                   weights-mem work reserve)
     (memset! diff-weights-mem 0)
-    (rnn-bwd-weights cudnn-hdl rnn-desc :add dev-seq-lengths
+    (rnn-bwd-weights cudnn-hdl rnn-desc :add
                      rnn-src-desc (buffer (input src-conn))
                      iter-desc (when src-iter-tz (buffer src-iter-tz))
                      rnn-dst-desc (buffer dst-tz)
@@ -349,7 +347,6 @@
   (invoke [this src-tz]
     (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz src-desc)
-                    dev-seq-lengths (cuda-malloc (bytesize seq-lengths) :int)
                     weights (cuda-malloc weights-size weights-type)
                     weights-tz (cudnn-tensor fact false weights (view weights-desc))
                     weights-iter-tz (cudnn-tensor fact false (pointer weights weights-offset)
@@ -362,9 +359,8 @@
                     dst-iter-c-tz (when (and dst-iter? iter-c?) (cudnn-tensor fact (view ldnc-iter-desc)))
                     work (cuda-malloc inf-work-size);;TODO here we can use global workspace
                     reserve (cuda-malloc inf-reserve-size)]
-        (memcpy-to-device! seq-lengths dev-seq-lengths)
         (memset! weights 0)
-        (->CUDnnRnnInference fact cudnn-hdl this dev-seq-lengths
+        (->CUDnnRnnInference fact cudnn-hdl this
                              src-conn src-iter-tz src-iter-c-tz
                              bias-tz bias-iter-tz weights-tz weights-iter-tz
                              dst-tz dst-iter-tz dst-iter-c-tz
@@ -373,7 +369,6 @@
   (invoke [this src-tz diff-src-tz prop-diff? post-process-diff?];;TODO keep in mind that some of source tensors might have to be views!
     (let [[src-iter-tz src-iter-c-tz] [nil nil]]
       (let-release [src-conn (connector src-tz src-desc)
-                    dev-seq-lengths (cuda-malloc (bytesize seq-lengths) :int)
                     weights (cuda-malloc weights-size weights-type)
                     fused-weights-tz (cudnn-tensor fact false weights (view fused-weights-desc))
                     weights-tz (cudnn-tensor fact false weights (view weights-desc))
@@ -413,10 +408,9 @@
                                                (view bias-desc))
                     diff-bias-iter-tz (cudnn-tensor fact false (pointer diff-weights bias-iter-offset)
                                                     (view bias-desc))]
-        (memcpy-to-device! seq-lengths dev-seq-lengths)
         (memset! weights 0)
         (memset! diff-weights 0)
-        (->CUDnnRnnTraining fact cudnn-hdl this dev-seq-lengths
+        (->CUDnnRnnTraining fact cudnn-hdl this
                             src-conn src-iter-tz src-iter-c-tz
                             fused-bias-tz bias-tz bias-iter-tz
                             fused-weights-tz weights-tz weights-iter-tz
@@ -440,7 +434,7 @@
   (transfer-rnn-weights-bias! source destination))
 
 ;; ================================ Vanilla RNN =================================================
-
+;;TODO remove seqlenghts. no longer needed in 8.9,1
 (defn cudnn-rnn-op-blueprint [fact cudnn-hdl src-desc dst-desc weights-type
                               activ dir lrs src-iter? dst-iter?]
   (let [gts (case activ

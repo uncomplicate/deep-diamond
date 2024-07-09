@@ -460,7 +460,6 @@
                    host-w (float-pointer [0.1 0.3 0.2 0.4 100 300 200 400
                                           0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
                    rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-unpacked C (repeat N T) 0.0)
-                   dev-seq-lengths (mem-alloc-runtime (* Integer/BYTES N) :int)
                    temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference)
                    work (mem-alloc-runtime (first temp))
                    reserve (mem-alloc-runtime (+ 2048 (long (second temp))))
@@ -472,7 +471,6 @@
       ;;(build-rnn-dynamic! cudnn-hdl rnn-desc N) ;;TODO it seems it's no longer supported, or JCuda just didn't complain before
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
-      (memcpy-host! (int-pointer (repeat N T)) dev-seq-lengths)
 
       (facts "CUDA RNN basic functionality."
              (let [rd (rnn-descriptor rnn-desc)]
@@ -502,12 +500,85 @@
              ;; (pointer-seq (memcpy-host! (weight-iter-params-1 1) (float-pointer 5))) => (map float [0.01 0.03 0.02 0.04 0.0])
              ;; (pointer-seq (memcpy-host! (weight-iter-params-1 3) (float-pointer 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
 
-             (rnn-fwd cudnn-hdl rnn-desc :inference (pointer dev-seq-lengths) rnn-tn-desc (pointer gpu-x)
+             (rnn-fwd cudnn-hdl rnn-desc :inference rnn-tn-desc (pointer gpu-x)
                       rnn-tn-desc (pointer gpu-y) desc-h1 (pointer gpu-hx) (pointer gpu-hy) desc-h1 nil nil
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
 
              (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])))))
+
+(with-default
+  (let [T 2
+        N 1
+        SC 4
+        DC 2
+        G 1
+        L 2
+        D 1
+        src-dim [T N SC]
+        dst-dim [T N DC]
+        bias-dim [L D G DC]]
+    (with-release [cudnn-hdl (cudnn-context default-stream)
+
+                   desc-x (tensor-descriptor src-dim :float :nchw)
+                   gpu-x (mem-alloc-runtime (bytesize desc-x))
+                   host-x (float-pointer [2 3 0.2 0.3])
+
+                   ;;desc-h (tensor-descriptor src-iter-dim :float :nchw)
+                   desc-h1 (tensor-descriptor [L N DC] :float [(* N DC) DC 1])
+                   gpu-hx (mem-alloc-runtime (bytesize desc-h1))
+                   ;;host-hx (float-pointer (apply * src-iter-dim))
+                   gpu-hy (mem-alloc-runtime (bytesize desc-h1))
+
+                   gpu-cx (mem-alloc-runtime (bytesize desc-h1))
+                   gpu-cy (mem-alloc-runtime (bytesize desc-h1))
+
+                   rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
+                                            :float :float :default SC DC DC L nil :padded-io-disabled)
+                   weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
+                   gpu-w (mem-alloc-runtime weights-size)
+                   ;; desc-w (tensor-descriptor weights-dim :float weights-strides)
+                   host-w (float-pointer [0.1 0.3 0.2 0.4 100 300 200 400
+                                          0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
+                   rnn-tn-desc-x (rnn-data-descriptor :float :seq-mayor-unpacked SC (repeat N T) 0.0)
+                   rnn-tn-desc-y (rnn-data-descriptor :float :seq-mayor-unpacked DC (repeat N T) 0.0)
+                   temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc-x :inference)
+                   work (mem-alloc-runtime (first temp))
+                   reserve (mem-alloc-runtime (+ 2048 (long (second temp))))
+                   weight-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 (pointer gpu-w) 0)
+                   weight-iter-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 (pointer gpu-w) 1)
+                   weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 0)
+                   weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 1)
+                   desc-y (tensor-descriptor dst-dim :float :nchw)
+                   gpu-y (mem-alloc-runtime (bytesize desc-y))]
+      (build-rnn-dynamic! cudnn-hdl rnn-desc N)
+      (memcpy-host! host-x gpu-x)
+      (memcpy-host! host-w gpu-w)
+
+      (facts "CUDA RNN basic functionality - different SC and DC."
+             (let [rd (rnn-descriptor rnn-desc)]
+               (dissoc rd :dropout) => {:algo :standard :aux-flags 0 :bias :single :data-type :float
+                                        :direction :unidirectional :hidden-size DC :input :linear
+                                        :input-size SC :layers L :math-prec :float :math-type :default
+                                        :mode :relu :proj-size DC}
+               (release (:dropout rd)))
+             (rnn-weights-space-size cudnn-hdl rnn-desc) => 96
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc-x :inference) => [16777328 0]
+             (map bytesize (take-nth 2 weight-params-0)) => [32 8]
+             (map bytesize (take-nth 2 weight-iter-params-0)) => [16 0]
+             (map bytesize (take-nth 2 weight-params-1)) => [16 8]
+             (map bytesize (take-nth 2 weight-iter-params-1)) => [16 0]
+             (pointer-seq (memcpy-host! gpu-x (fill! (float-pointer 5) 0))) => (map float [2.0 3.0 0.2 0.3 0.0])
+             (pointer-seq (memcpy-host! gpu-w (float-pointer 20)))
+             => (map float [0.1 0.3 0.2 0.4 100.0 300.0 200.0 400.0 ;; weights and weights-iter layer 0
+                            0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 ;; weights and weights-iter layer 1
+                            0.3 0.7 1 2]) ;; bias layer 0 and 1
+             (rnn-fwd cudnn-hdl rnn-desc :inference rnn-tn-desc-x (pointer gpu-x)
+                      rnn-tn-desc-y (pointer gpu-y) desc-h1 (pointer gpu-hx) (pointer gpu-hy) desc-h1 nil nil
+                      (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
+
+             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             => (map float [37.8126 50.425198 75.64032 181.53072 0.0])))))
 
 (with-default
   (let [T 2
@@ -540,7 +611,6 @@
                    host-w (float-pointer [0.1 0.3 0.2 0.4 100 300 200 400
                                           0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
                    rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-unpacked C (repeat N T) 0.0)
-                   dev-seq-lengths (mem-alloc-runtime (* Integer/BYTES N) :int)
                    temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training)
                    work (mem-alloc-runtime (first temp))
                    reserve (mem-alloc-runtime (long (second temp)))
@@ -559,7 +629,6 @@
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
       ;;(memcpy-host! host-hx gpu-hx)
-      (memcpy-host! (int-pointer (repeat N T)) dev-seq-lengths)
 
       (facts "CUDA Vanilla RNN training."
              (let [rd (rnn-descriptor rnn-desc)]
@@ -588,7 +657,7 @@
              ;; (pointer-seq (memcpy-host! (weight-iter-params-1 1) (float-pointer 5))) => (map float [0.01 0.03 0.02 0.04 0.0])
              ;; (pointer-seq (memcpy-host! (weight-iter-params-1 3) (float-pointer 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
 
-             (rnn-fwd cudnn-hdl rnn-desc :training (pointer dev-seq-lengths) rnn-tn-desc (pointer gpu-x)
+             (rnn-fwd cudnn-hdl rnn-desc :training rnn-tn-desc (pointer gpu-x)
                       rnn-tn-desc (pointer gpu-y) desc-h1 (pointer gpu-hx) (pointer gpu-hy) desc-h1 nil nil
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
              (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
@@ -599,8 +668,7 @@
              (memcpy-host! host-dy gpu-dy)
              (memcpy-host! host-dhy gpu-dhy)
 
-             (rnn-bwd-data cudnn-hdl rnn-desc (pointer dev-seq-lengths)
-                           rnn-tn-desc (pointer gpu-y) (pointer gpu-dy)
+             (rnn-bwd-data cudnn-hdl rnn-desc rnn-tn-desc (pointer gpu-y) (pointer gpu-dy)
                            rnn-tn-desc (pointer gpu-dx)
                            desc-h1 (pointer gpu-hx) (pointer gpu-dhy) (pointer gpu-dhx)
                            desc-h1 nil nil nil
@@ -614,7 +682,7 @@
              (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
 
-             (rnn-bwd-weights cudnn-hdl rnn-desc :add (pointer dev-seq-lengths)
+             (rnn-bwd-weights cudnn-hdl rnn-desc :add
                               rnn-tn-desc (pointer gpu-x) desc-h1 (pointer gpu-hx) rnn-tn-desc (pointer gpu-y)
                               (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
 
@@ -626,8 +694,7 @@
                             3.8797843 -169.20824 5.442 -4.882 0.0])
 
              (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
-             => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
-             ))))
+             => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])))))
 
 (with-default
   (let [T 2
@@ -664,7 +731,6 @@
                                         0.3 0.7 0.3 0.7 0.3 0.7
                                         1 2 1 2 1 2])
                    rnn-tn-desc (rnn-data-descriptor :float :seq-mayor-unpacked C (repeat N T) 0.0)
-                   dev-seq-lengths (mem-alloc-runtime (* Integer/BYTES N) :int)
                    temp (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training)
                    work (mem-alloc-runtime (first temp))
                    reserve (mem-alloc-runtime (long (second temp)))
@@ -687,7 +753,6 @@
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
       (memcpy-host! host-hx gpu-hx)
-      (memcpy-host! (int-pointer (repeat N T)) dev-seq-lengths)
 
       (facts "CUDA GRU training."
              (let [rd (rnn-descriptor rnn-desc)]
@@ -724,7 +789,7 @@
              ;; (pointer-seq (memcpy-host! (weight-iter-params-10 1) (float-pointer 5))) => (map float [0.01 0.03 0.02 0.04 0.0])
              ;; (pointer-seq (memcpy-host! (weight-iter-params-10 3) (float-pointer 5))) => (map float [0.0 0.0 0.0 0.0 0.0])
 
-             (rnn-fwd cudnn-hdl rnn-desc :training (pointer dev-seq-lengths) rnn-tn-desc (pointer gpu-x)
+             (rnn-fwd cudnn-hdl rnn-desc :training rnn-tn-desc (pointer gpu-x)
                       rnn-tn-desc (pointer gpu-y) desc-h1 (pointer gpu-hx) (pointer gpu-hy) desc-h1 nil nil
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
              (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
@@ -735,7 +800,7 @@
              (memcpy-host! host-dy gpu-dy)
              (memcpy-host! host-dhy gpu-dhy)
 
-             (rnn-bwd-data cudnn-hdl rnn-desc (pointer dev-seq-lengths)
+             (rnn-bwd-data cudnn-hdl rnn-desc
                            rnn-tn-desc (pointer gpu-y) (pointer gpu-dy)
                            rnn-tn-desc (pointer gpu-dx)
                            desc-h1 (pointer gpu-hx) (pointer gpu-dhy) (pointer gpu-dhx)
@@ -750,7 +815,7 @@
              (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
              => (map float [0.20008478 0.10380766 0.349865 0.19589604 0.0])
 
-             (rnn-bwd-weights cudnn-hdl rnn-desc :add (pointer dev-seq-lengths)
+             (rnn-bwd-weights cudnn-hdl rnn-desc :add
                               rnn-tn-desc (pointer gpu-x) desc-h1 (pointer gpu-hx)
                               rnn-tn-desc (pointer gpu-y)
                               (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl

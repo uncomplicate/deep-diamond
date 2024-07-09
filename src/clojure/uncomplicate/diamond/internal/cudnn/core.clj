@@ -629,11 +629,10 @@
   ([vector-size seq-lengths]
    (rnn-data-descriptor :float :seq-mayor-unpacked vector-size seq-lengths 0)))
 
-(defn rnn-fwd [cudnn-handle rd forward-mode dev-seq-lengths
+(defn rnn-fwd [cudnn-handle rd forward-mode
                desc-x buf-x desc-y buf-y desc-h buf-hx buf-hy desc-c buf-cx buf-cy
                weight-space work-space reserve-space]
-  (rnn-fwd* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-forward-mode forward-mode)
-            (ptr dev-seq-lengths)
+  (rnn-fwd* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-forward-mode forward-mode) nil
             (extract desc-x) (ptr buf-x) (extract desc-y) (ptr buf-y)
             (extract desc-h) (ptr2 buf-hx) (ptr2 buf-hy)
             (extract desc-c) (ptr2 buf-cx) (ptr2 buf-cy)
@@ -642,11 +641,10 @@
             (bytesize reserve-space) (ptr reserve-space))
   cudnn-handle)
 
-(defn rnn-bwd-data [cudnn-handle rd dev-seq-lengths
+(defn rnn-bwd-data [cudnn-handle rd
                     desc-y buf-y buf-dy desc-x buf-dx desc-h buf-hx buf-dhy buf-dhx
                     desc-c buf-cx buf-dcy buf-dcx weight-space work-space reserve-space]
-  (rnn-bwd-data* (extract cudnn-handle) (extract rd)
-                 (extract dev-seq-lengths)
+  (rnn-bwd-data* (extract cudnn-handle) (extract rd) nil
                  (extract desc-y) (ptr buf-y) (ptr buf-dy)
                  (extract desc-x) (ptr2 buf-dx)
                  (extract desc-h) (ptr2 buf-hx) (ptr2 buf-dhy) (ptr2 buf-dhx)
@@ -656,11 +654,10 @@
                   (bytesize reserve-space) (ptr reserve-space)])
   cudnn-handle)
 
-(defn rnn-bwd-weights [cudnn-handle rd add-grad dev-seq-lengths
+(defn rnn-bwd-weights [cudnn-handle rd add-grad
                        desc-x buf-dx desc-h buf-hx desc-y buf-y
                        weight-space work-space reserve-space]
-  (rnn-bwd-weights* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-grad-mode add-grad)
-                    (extract dev-seq-lengths)
+  (rnn-bwd-weights* (extract cudnn-handle) (extract rd) (enc-keyword cudnn-grad-mode add-grad) nil
                     (extract desc-x) (ptr buf-dx)
                     (extract desc-h) (ptr2 buf-hx) (extract desc-y) (ptr buf-y)
                     (bytesize weight-space) (ptr weight-space)
