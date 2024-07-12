@@ -13,7 +13,7 @@
             [uncomplicate.fluokitten.core :refer [fmap! fmap fold]]
             [uncomplicate.clojure-cpp :refer [position! pointer get-entry]]
             [uncomplicate.neanderthal
-             [core :refer [asum view-vctr transfer! native entry entry! dim]]
+             [core :refer [asum view-vctr transfer! native entry entry! dim zero]]
              [block :refer [buffer contiguous?]]]
             [uncomplicate.diamond.tensor :refer :all]
             [uncomplicate.diamond.internal.protocols :refer [offset]])
@@ -26,12 +26,12 @@
            (asum (entry! tz 1)) => 120.0
            (shape tz) => [2 3 4 5])))
 
-(defn test-tensor1 [fact]
-  (with-release [tz (tensor fact [2 3 4 5] :float :nchw)]
-    (
-     (asum tz)
-     (asum (entry! tz 1))
-     (shape tz))))
+(defn test-zero [fact]
+  (with-release [tz (tensor fact [2 3 4 5] :float :nchw)
+                 tz-zero (zero tz)]
+    (asum tz) => 0.0
+    (asum (entry! tz 1)) => 120.0
+    (asum tz-zero) => 0.0))
 
 (defn test-create [fact]
   (with-release [t1 (tensor fact [1 1 1 1] :float :nchw)

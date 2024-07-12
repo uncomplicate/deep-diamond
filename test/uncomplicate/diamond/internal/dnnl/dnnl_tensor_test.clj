@@ -37,6 +37,7 @@
                diamond-factory1 (dnnl-factory eng1 strm1)]
 
   (test-tensor diamond-factory)
+  (test-zero diamond-factory)
   (test-create diamond-factory)
   (test-dnnl-create diamond-factory)
   (test-equality diamond-factory)
@@ -60,6 +61,7 @@
   (with-diamond dnnl-factory [eng strm]
 
     (test-tensor *diamond-factory*)
+    (test-zero *diamond-factory*)
     (test-create *diamond-factory*)
     (test-dnnl-create *diamond-factory*)
     (test-equality *diamond-factory*)

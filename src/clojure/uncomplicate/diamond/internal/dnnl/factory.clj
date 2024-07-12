@@ -15,9 +15,7 @@
              [native :refer [factory-by-type]]
              [block :refer [create-data-source]]
              [core :refer [entry!]]]
-            [uncomplicate.neanderthal.internal.api :as neand
-             :refer [FlowProvider Blas BlasPlus sum view-vctr factory amax RandomNumberGenerator
-                     VectorMath rand-uniform rand-normal swap copy set-all]]
+            [uncomplicate.neanderthal.internal.api :refer [FlowProvider]]
             [uncomplicate.neanderthal.internal.cpp.lapack :refer [with-lapack-check]]
             [uncomplicate.neanderthal.internal.cpp.mkl.factory
              :refer [->FloatVectorEngine ->IntVectorEngine ->ByteVectorEngine]]

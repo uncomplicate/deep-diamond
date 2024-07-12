@@ -335,8 +335,9 @@
       (create-tensor df
                      (create-tensor-desc df (dims tz-mem) (data-type tz-mem) (strides tz-mem))
                      n-index false)))
-  (zero [x]
-    (dnnl-tensor diamond-fact tz-mem n-index))
+  (zero [_]
+    (let-release [res (dnnl-tensor diamond-fact tz-mem n-index)]
+      (set-all eng 0 res)))
   (zero [_ fact]
     (let [df (diamond-factory fact)]
       (create-tensor df
@@ -408,13 +409,13 @@
     (doseq [w ws] (check-contiguous w))
     (foldmap (view-vctr this) g f (view-vctr y) (view-vctr z) (view-vctr v) (map view-vctr ws)))
   Applicative
-  (pure [x v]
+  (pure [_ v]
     (with-release [md (memory-desc (repeat (ndims tz-mem) 1)
                                    (data-type tz-mem)
                                    (repeat (ndims tz-mem) 1))]
       (let-release [res (dnnl-tensor diamond-fact md n-index)]
-        (set-all eng v x))))
-  (pure [x v vs]
+        (set-all eng 0 res))))
+  (pure [_ v vs]
     (let [vs (cons v vs)]
       (with-release [md (memory-desc (cons (count vs) (repeat (dec (ndims tz-mem)) 1))
                                      (data-type tz-mem) (repeat (ndims tz-mem) 1))]
