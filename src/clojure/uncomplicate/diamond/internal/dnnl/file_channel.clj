@@ -49,7 +49,7 @@
                           :read-write (transfer! param mapped-param)
                           :read (transfer! mapped-param param)
                           (dragan-says-ex "You can only :read or :read-write a channel!"))
-                        (+ pos (bytesize mapped-param))))
+                        (+ pos (bytesize (desc mapped-param)))))
                     pos (parameters layer)))
           0 net)
   channel)

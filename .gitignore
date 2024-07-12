@@ -18,3 +18,5 @@ hs_*.log
 */nrepl-port
 */target
 data
+/network.trained
+/td1.tz
