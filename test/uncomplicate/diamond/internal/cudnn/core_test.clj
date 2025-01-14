@@ -12,7 +12,7 @@
             [uncomplicate.commons.core :refer [with-release release info bytesize size]]
             [uncomplicate.fluokitten.core :refer [fmap! extract]]
             [uncomplicate.clojure-cpp
-             :refer [pointer int-pointer float-pointer pointer-seq get-entry null? fill!]]
+             :refer [pointer int-pointer float-pointer pointer-seq get-entry null? fill! zero!]]
             [uncomplicate.clojurecuda.core
              :refer [with-default default-stream mem-alloc-runtime memcpy-host! synchronize! memset!
                      cuda-malloc cuda-free! memcpy-to-host! memcpy-to-device!]]
@@ -504,7 +504,7 @@
                       rnn-tn-desc (pointer gpu-y) desc-h1 (pointer gpu-hx) (pointer gpu-hy) desc-h1 nil nil
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
 
-             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])))))
 
 (with-default
@@ -577,7 +577,7 @@
                       rnn-tn-desc-y (pointer gpu-y) desc-h1 (pointer gpu-hx) (pointer gpu-hy) desc-h1 nil nil
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
 
-             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [37.8126 50.425198 75.64032 181.53072 0.0])))))
 
 (with-default
@@ -660,7 +660,7 @@
              (rnn-fwd cudnn-hdl rnn-desc :training rnn-tn-desc (pointer gpu-x)
                       rnn-tn-desc (pointer gpu-y) desc-h1 (pointer gpu-hx) (pointer gpu-hy) desc-h1 nil nil
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
-             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
              (pointer-seq (memcpy-host! gpu-hy (float-pointer 5)))
              => (map float [830.41 1200.86 850.6969 1054.8889 0.0])
@@ -686,7 +686,7 @@
                               rnn-tn-desc (pointer gpu-x) desc-h1 (pointer gpu-hx) rnn-tn-desc (pointer gpu-y)
                               (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
 
-             (pointer-seq (memcpy-host! gpu-w (float-pointer 21)))
+             (pointer-seq (memcpy-host! gpu-w (zero! (float-pointer 21))))
              => (map float [10.535569 15.953354 -341.30847 -511.8627
                             97.4520034790039 295.8139953613281 201.3159942626953 402.1619873046875
                             2825.152587890625 4085.8203125 -3822.6806640625 -5528.6044921875
@@ -772,6 +772,9 @@
                             0.01 0.03 0.02 0.04 0.01 0.03 0.02 0.04 0.01 0.03 0.02 0.04
                             0.3 0.7 0.3 0.7 0.3 0.7
                             1 2 1 2 1 2 0])
+             ;; TODO continue here. Since I've sorted out the offset bugs in cuda pointers and neanderhal, investigate why this
+             ;; still crashes. It's possible that I used addresses inappropriately in rnn-weight-params.
+             ;; I hoped that it's a matter of with-release, but it's not... Even with let, the process crashes
              ;; (pointer-seq (memcpy-host! (weight-params-00 1) (float-pointer 5))) => (map float [0.111 0.211 0.112 0.212 0.0])
              ;; (pointer-seq (memcpy-host! (weight-params-01 1) (float-pointer 5))) => (map float [0.121 0.221 0.122 0.222 0.0])
              ;; (pointer-seq (memcpy-host! (weight-params-02 1) (float-pointer 5))) => (map float [0.131 0.231 0.132 0.232 0.0])
@@ -792,7 +795,7 @@
              (rnn-fwd cudnn-hdl rnn-desc :training rnn-tn-desc (pointer gpu-x)
                       rnn-tn-desc (pointer gpu-y) desc-h1 (pointer gpu-hx) (pointer gpu-hy) desc-h1 nil nil
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
-             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [0.1986464262008667 0.10329369455575943 0.3485546410083771 0.19498808681964874 0.0])
              (pointer-seq (memcpy-host! gpu-hy (float-pointer 5)))
              => (map float [0.20356373488903046 0.161529079079628 0.3485546410083771 0.19498808681964874 0.0])
@@ -820,7 +823,7 @@
                               rnn-tn-desc (pointer gpu-y)
                               (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
 
-             (pointer-seq (memcpy-host! gpu-w (float-pointer 61))) ;;TODO doesn't match DNNL, probably due to different layouts
+             (pointer-seq (memcpy-host! gpu-w (zero! (float-pointer 61))))
              => (map float [0.111 0.211 0.112 0.212 0.36748418 0.59072626 -0.45590958 -0.6448644 0.026169404 0.07375412 0.23240864 0.38261294 100.0 300.0 200.0 400.0 100.0 300.0 200.0 400.0 100.0 300.0 200.0 400.0 0.31105167 0.41104087 0.31199607 0.41199687 0.13757727 0.27592492 0.51014656 0.57081133 0.4461669 0.5220893 0.3196769 0.42225328 0.0100523345 0.030027272 0.019996008 0.03999792 -0.06637962 -0.009802721 0.094934866 0.07904983 0.05212988 0.051954597 0.015350954 0.0375773 0.3 0.7 0.4232421 0.4110452 0.24758472 0.7502043 1.0002637 1.9999799 0.06381178 2.9602985 1.587811 1.937103 0.0])
 
              (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
