@@ -12,7 +12,9 @@
              [utils :refer [dragan-says-ex with-check]]]
             [uncomplicate.fluokitten.core :refer [foldmap extract]]
             [uncomplicate.clojure-cpp :refer [null?]]
-            [uncomplicate.neanderthal.core :refer [transfer! axpy entry!]]
+            [uncomplicate.neanderthal
+             [core :refer [transfer! axpy]]
+             [block :refer [buffer initialize!]]]
             [uncomplicate.diamond.internal.protocols
              :refer [weights bias weights-layer weights-iter bias-layer bias-iter]])
   (:import uncomplicate.neanderthal.internal.api.Block))
@@ -61,6 +63,7 @@ Please use a copy or create a transformer."
                 (recur res  (dec i)))
             (vec res)))))))
 
+
 (defn transfer-weights-bias! [source destination]
   (transfer! (bias source) (bias destination))
   (transfer! (weights source) (weights destination))
@@ -75,7 +78,7 @@ Please use a copy or create a transformer."
         (transfer! bias-sum (bias-layer destination))))
     (do (transfer! (bias-layer source) (bias-layer destination))
         (when (bias-iter destination)
-          (entry! (bias-iter destination) 0.0))))
+          (initialize! (bias-iter destination) (buffer (bias-iter destination))))))
   (transfer! (weights-layer source) (weights-layer destination))
   (transfer! (weights-iter source) (weights-iter destination))
   destination)

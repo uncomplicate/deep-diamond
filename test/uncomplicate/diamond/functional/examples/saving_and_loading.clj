@@ -15,7 +15,7 @@
             [uncomplicate.diamond
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
-             [dnn :refer [sum activation inner-product fully-connected network init! train! cost]]
+             [dnn :refer [sum activation inner-product fully-connected network init! train! cost rnn abbreviate]]
              [native :refer [map-tensor]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]))
 
@@ -46,3 +46,22 @@
          (transfer! net1 nfc1) => nfc1
          (transfer! nfc1 net2)
          net1 => net2))
+
+(with-release [network-blueprint (network (desc [4 2 1] :float :tnc)
+                                          [(rnn [4] :gru)
+                                           (rnn 2)
+                                           (abbreviate)
+                                           (fully-connected [2] :relu)
+                                           (fully-connected [1] :linear)])
+               net1 (init! (network-blueprint :adam))
+               net2 (init! (network-blueprint :adam) :zero)
+               nfc1 (channel (random-access "network.trained.2"))]
+  (facts "Saving and loading an RNN network by transferring it to/from a Java NIO file channel."
+         net1 =not=> net2
+         (transfer! (range 2 20) (input net1))
+         (net1)
+         (transfer! net1 nfc1) => nfc1
+         (transfer! nfc1 net2) => net1
+         (transfer! (input net1) (input net2))
+         (net2) => (output net1)
+         net2 => net1))

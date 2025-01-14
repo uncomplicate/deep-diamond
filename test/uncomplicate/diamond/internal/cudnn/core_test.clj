@@ -480,7 +480,7 @@
                                         :mode :relu :proj-size C}
                (release (:dropout rd)))
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 80
-             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference) => [16777312 0]
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :inference) => [16777600 0]
              (map bytesize (take-nth 2 weight-params-0)) => [16 8]
              (map bytesize (take-nth 2 weight-iter-params-0)) => [16 0]
              (map bytesize (take-nth 2 weight-params-1)) => [16 8]
@@ -563,7 +563,7 @@
                                         :mode :relu :proj-size DC}
                (release (:dropout rd)))
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 96
-             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc-x :inference) => [16777328 0]
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc-x :inference) => [16777632 0]
              (map bytesize (take-nth 2 weight-params-0)) => [32 8]
              (map bytesize (take-nth 2 weight-iter-params-0)) => [16 0]
              (map bytesize (take-nth 2 weight-params-1)) => [16 8]
@@ -637,7 +637,7 @@
                                         :input-size C :layers L :math-prec :float :math-type :default
                                         :mode :relu :proj-size C})
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 80
-             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16777472 64]
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16777920 320]
              (map bytesize (take-nth 2 weight-params-0)) => [16 8]
              (map bytesize (take-nth 2 weight-iter-params-0)) => [16 0]
              (map bytesize (take-nth 2 weight-params-1)) => [16 8]
@@ -762,7 +762,7 @@
                                         :mode :gru :proj-size C}
                (release (:dropout rd)))
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 240
-             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16777600 224]
+             (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16778048 480]
 
              (pointer-seq (memcpy-host! gpu-x (fill! (float-pointer 5) 0))) => (map float [2.0 3.0 0.2 0.3 0.0])
              (pointer-seq (memcpy-host! gpu-w (fill! (float-pointer 61) 0)))

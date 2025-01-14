@@ -54,6 +54,8 @@
     (test-contiguous *diamond-factory*)
     (test-subtensor *diamond-factory*)
     (test-transformer *diamond-factory*)
+    (test-transformer-any *diamond-factory*)
+    (test-transfer-any *diamond-factory*)
     (test-pull-different *diamond-factory*)
     (test-pull-same *diamond-factory*)
     (test-push-different *diamond-factory*)

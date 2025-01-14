@@ -14,7 +14,7 @@
             [uncomplicate.clojure-cpp :refer [position! pointer get-entry]]
             [uncomplicate.neanderthal
              [core :refer [asum view-vctr transfer! native entry entry! dim zero]]
-             [block :refer [buffer contiguous?]]]
+             [block :refer [buffer contiguous? initialize!]]]
             [uncomplicate.diamond.tensor :refer :all]
             [uncomplicate.diamond.internal.protocols :refer [offset]])
   (:import clojure.lang.ExceptionInfo))
@@ -110,7 +110,10 @@
            (seq (native sub-x)) => [0.0 1.0]
            (position! (buffer sub-z) 1)
            (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
-           (seq (native sub-x)) => [0.0 1.0])))
+           (seq (native sub-x)) => [0.0 1.0]
+           (seq (native tz-x)) => [0.0 1.0 2.0 3.0 4.0 5.0]
+           (initialize! sub-y (buffer sub-y))
+           (seq (native tz-x)) => [0.0 1.0 2.0 0.0 0.0 0.0])))
 
 (defn test-tensor-fold [fact]
   (with-release [x (transfer! [1 2 3 4 5 6] (tensor fact [2 3 1 1] :float :nchw))
@@ -163,6 +166,31 @@
            (transfer! (range 0 1000 10) tz-x)
            (sub-transform) => tz-sub-y
            (entry (view-vctr (native tz-y)) 34) => 310.0)))
+
+(defn test-transformer-any [fact]
+  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 8 2 2])
+                 in-x (connector (desc [2 3 2 1] :float :nchw) tz-x)
+                 tz-y (tensor fact [2 3 2 1] :float [48 8 2 2])
+                 out-y (connector tz-y (desc [2 3 2 1] :float :nchw))
+                 transform (transformer tz-x tz-y)]
+    (facts "Tensor transformer for arbitrary strides"
+           (transfer! (range) (input in-x))
+           (in-x)
+           (transform)
+           (out-y)
+           (asum (output out-y)) => (double (reduce + (range 12))))))
+
+(defn test-transfer-any [fact]
+  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 8 2 2])
+                 in-x (connector (desc [2 3 2 1] :float :nchw) tz-x)
+                 tz-y (tensor fact [2 3 2 1] :float [48 8 2 2])
+                 out-y (connector tz-y (desc [2 3 2 1] :float :nchw))]
+    (facts "Tensor transformer for arbitrary strides"
+           (transfer! (range) (input in-x))
+           (in-x)
+           (transfer! tz-x tz-y)
+           (out-y)
+           (asum (output out-y)) => (double (reduce + (range 12))))))
 
 (defn test-pull-different [fact]
   (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)

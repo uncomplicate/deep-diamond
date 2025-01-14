@@ -39,10 +39,8 @@
   (math-type [this]))
 
 (defn cudnn-context [stream]
-  (let [status (remove zero? [(cudnn/cudnnOpsInferVersionCheck)
-                              (cudnn/cudnnOpsTrainVersionCheck)
-                              (cudnn/cudnnCnnInferVersionCheck)
-                              (cudnn/cudnnCnnTrainVersionCheck)])]
+  (let [status (remove zero? [(cudnn/cudnnOpsVersionCheck)
+                              (cudnn/cudnnCnnVersionCheck)])]
     (if (empty? status)
       (cudnn-context* (extract stream))
       (throw (cudnn-error (first status) "cuDNN version mismatch.")))))

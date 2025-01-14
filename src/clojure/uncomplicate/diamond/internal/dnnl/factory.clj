@@ -13,8 +13,7 @@
             [uncomplicate.clojure-cpp :refer [byte-pointer]]
             [uncomplicate.neanderthal
              [native :refer [factory-by-type]]
-             [block :refer [create-data-source]]
-             [core :refer [entry!]]]
+             [block :refer [create-data-source buffer initialize!]]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider]]
             [uncomplicate.neanderthal.internal.cpp.lapack :refer [with-lapack-check]]
             [uncomplicate.neanderthal.internal.cpp.mkl.factory
@@ -77,12 +76,12 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor [this tensor-desc init]
     (let-release [res (dnnl-tensor this tensor-desc)]
       (when init
-        (entry! res 0))
+        (initialize! res (buffer res)))
       res))
   (create-tensor [this tensor-desc batch-index init]
     (let-release [res (dnnl-tensor this tensor-desc batch-index)]
       (when init
-        (entry! res 0))
+        (initialize! res (buffer res)))
       res))
   (create-transformer [_ in-tz out-tz]
     (dnnl-transformer eng strm (view in-tz) (view out-tz)))

@@ -379,7 +379,7 @@
        (with-release [eng (engine)
                       s (stream eng)
                       src-desc (memory-desc [1 1 3 3] :float :nchw)
-                      weights-desc (memory-desc [2 1 3 3] :float :any)
+                      weights-desc (memory-desc [2 1 3 3] :float :iohw)
                       bias-desc (memory-desc [2] :float :x)
                       dst-desc (memory-desc [1 2] :float :nc)
                       ip-pd (inner-product-fwd eng :inference src-desc weights-desc bias-desc dst-desc)

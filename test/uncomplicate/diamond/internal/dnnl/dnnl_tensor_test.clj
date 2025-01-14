@@ -10,7 +10,7 @@
     uncomplicate.diamond.internal.dnnl.dnnl-tensor-test
   (:require [midje.sweet :refer [facts throws => truthy]]
             [uncomplicate.commons.core :refer [with-release]]
-            [uncomplicate.neanderthal.core :refer [dim]]
+            [uncomplicate.neanderthal.core :refer [dim view-vctr]]
             [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [engine stream]]
@@ -22,9 +22,11 @@
   (facts
    "Test DNNL specific constraints."
    (with-release [t0 (tensor fact [0 1 1 1] :float :nchw)
-                  tnc (tensor fact [2 3] :float :nc)]
+                  tnc (tensor fact [2 3] :float :nc)
+                  non-contiguous-tensor (tensor fact [2 3 2 1] :float [48 8 2 2])]
      (dim t0) => 0
      (dim tnc) => 6
+     (view-vctr non-contiguous-tensor) => (throws ExceptionInfo)
      (tensor fact [2 3] :double :nc) => (throws ExceptionInfo)
      (tensor fact [2 3] :int :nc) => truthy
      (tensor fact [2 3] :long :nc) => (throws ExceptionInfo))))
@@ -46,6 +48,8 @@
   (test-contiguous diamond-factory)
   (test-subtensor diamond-factory)
   (test-transformer diamond-factory)
+  (test-transformer-any diamond-factory)
+  (test-transfer-any diamond-factory)
   (test-pull-different diamond-factory)
   (test-pull-same diamond-factory)
   (test-push-different diamond-factory)
@@ -70,6 +74,8 @@
     (test-contiguous *diamond-factory*)
     (test-subtensor *diamond-factory*)
     (test-transformer *diamond-factory*)
+    (test-transformer-any *diamond-factory*)
+    (test-transfer-any *diamond-factory*)
     (test-pull-different *diamond-factory*)
     (test-pull-same *diamond-factory*)
     (test-push-different *diamond-factory*)

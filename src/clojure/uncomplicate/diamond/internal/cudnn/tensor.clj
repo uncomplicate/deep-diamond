@@ -17,7 +17,7 @@
             [uncomplicate.clojurecuda.core :refer [memcpy-to-host! cuda-malloc]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim vctr copy! native]]
-             [block :refer [entry-width buffer data-accessor create-data-source cast-prim]]
+             [block :refer [entry-width buffer data-accessor create-data-source cast-prim contiguous?]]
              [cuda :refer [factory-by-type]]]
             [uncomplicate.neanderthal.internal.api
              :refer [flow equals-block compatible? set-all MemoryContext
@@ -254,7 +254,7 @@
   (connector [this dst-desc]
     (if (equal-desc? dst-tz dst-desc)
       this
-      (connector src-tz dst-desc))))
+      (connector dst-tz dst-desc)))) ;;TODO this was src-tz? maybe a bug, so I changed it to dst-tz on 6.1.2025. Check later.
 
 (defn cudnn-batcher [cudnn-hdl src-tz dst-tz mb-size]
   (let [mb-size (max 1 (long mb-size))]
@@ -315,7 +315,7 @@
 
 ;; ================================ Tensor ======================================
 
-(deftype CUDnnTensor [diamond-fact eng vect-buf ^CUTensorDescriptor cu-desc ^long n-index]
+(deftype CUDnnTensor [diamond-fact eng vect-buf ^CUTensorDescriptor cu-desc ^long nc ^long n-index]
   Object
   (hashCode [x]
     (-> (hash :CUDnnTensor) (hash-combine (hash cu-desc))))
@@ -396,16 +396,16 @@
     :cuda)
   VectorSpace
   (dim [_]
-    (apply * (.dims cu-desc)))
+    nc)
   Block
   (buffer [_]
     (buffer vect-buf))
   (offset [_]
     0)
   (stride [_]
-    (dragan-says-ex "Tensors do not have a single stride. You're doing something wrong."))
+    (dragan-says-ex "cuDNN tensors do not have a single stride. You're doing something wrong."))
   (isContiguous [_]
-    (= (dim vect-buf) (apply * (.dims cu-desc))))
+    (= nc (dim vect-buf)))
   Changeable
   (setBoxed [x v]
     (set-all eng v x)
@@ -449,7 +449,7 @@
     n-index)
   Viewable
   (view [_]
-    (->CUDnnTensor diamond-fact eng (view vect-buf) (view cu-desc) n-index))
+    (->CUDnnTensor diamond-fact eng (view vect-buf) (view cu-desc) nc n-index))
   DenseContainer
   (view-vctr [_]
     vect-buf)
@@ -483,12 +483,12 @@
   ([diamond-fact master buf tdesc n-index]
    (let [tdesc (desc tdesc)
          neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
-         tz-cnt (apply * (dims tdesc))]
+         nc (apply * (dims tdesc))]
      (if (<= 0 (bytesize tdesc) (bytesize buf))
-       (let-release [vect-buf (cu-block-vector neand-fact master buf tz-cnt 1)]
+       (let-release [vect-buf (cu-block-vector neand-fact master buf nc 1)]
          (->CUDnnTensor diamond-fact
                         (tensor-engine diamond-fact (data-type tdesc))
-                        vect-buf tdesc n-index))
+                        vect-buf tdesc nc n-index))
        (throw (ex-info "Insufficient buffer size."
                        {:desc-size (bytesize tdesc) :buffer-size (bytesize buf)})))))
   ([diamond-fact master buf tdesc]
@@ -513,9 +513,9 @@
 
 (defmethod transfer! [DnnlTensor CUDnnTensor]
   [src dest]
-  (check-contiguous src dest)
   (if (fits? dest src)
-    (if (and (= (data-type src) (data-type dest))
+    (if (and (contiguous? src) (contiguous? dest)
+             (= (data-type src) (data-type dest))
              (= (cudnn-shape-padding (layout src)) (strides dest)))
       (set-vector! (view-vctr src) (view-vctr dest))
       (with-release [dnnl-mid (raw dest src)
@@ -531,9 +531,9 @@
 
 (defmethod transfer! [CUDnnTensor DnnlTensor]
   [src dest]
-  (check-contiguous src dest)
   (if (fits? src dest)
-    (if (and (= (data-type src) (data-type dest))
+    (if (and (contiguous? src) (contiguous? dest)
+             (= (data-type src) (data-type dest))
              (= (strides src) (cudnn-shape-padding (layout dest))))
       (get-vector! (view-vctr src) (view-vctr dest))
       (with-release [dnnl-mid (raw src dest)
@@ -553,12 +553,10 @@
     (transfer! src destination)))
 
 (defmethod transfer! [Object CUDnnTensor]
-  [source cuda]
-  (check-contiguous cuda)
-  (with-release [dest (raw cuda (native-diamond-factory cuda))]
-    (transfer! source dest)
-    (set-vector! (view-vctr dest) (view-vctr cuda))
-    cuda))
+  [source destination]
+  (with-release [mid (raw destination (native-diamond-factory destination))]
+    (transfer! (transfer! source mid) destination)
+    destination))
 
 (defmethod transfer! [Object CUDnnTransformer]
   [source destination]

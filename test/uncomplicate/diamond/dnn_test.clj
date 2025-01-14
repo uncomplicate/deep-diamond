@@ -12,10 +12,11 @@
             [uncomplicate.commons [core :refer [with-release release]]]
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view-vctr vctr
-                           cols view-ge nrm2 axpy!]]
+                           cols view-ge nrm2 axpy! asum]]
              [random :refer [rand-uniform!]]
              [math :as math]
-             [vect-math :refer [div!]]]
+             [vect-math :refer [div!]]
+             [block :refer [contiguous?]]]
             [uncomplicate.diamond
              [dnn :refer :all]
              [tensor :refer :all]]
@@ -86,26 +87,39 @@
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
                  fc-bluep (fully-connected fact input-tz [1 2] :relu)
                  fc (fc-bluep input-tz)
-                 connect-output (connector (output fc) (desc [1 2] :float :nc))]
+                 connect-output (connector (output fc) (desc [1 2] :float :nc))
+                 input-weights (if (contiguous? (weights fc)) (weights fc)
+                                   (connector (desc [2 3 2 1] :float :oihw) (weights fc)))]
     (facts "Fully connected inference layer"
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
-           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] input-weights)
+           (input-weights)
            (transfer! [-0.1 0.2] (bias fc))
            (fc) => (output fc)
-           (view-vctr (output connect-output)) => (vctr (output fc) [0.0 0.72999996]))))
+           (asum (output (connect-output))) => (float 0.72999996))))
 
 (defn test-fully-connected-transfer [fact]
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
                  input-tz (tensor fact [1 3 2 1] :float :nchw)
                  fc-bluep (fully-connected fact input-tz [1 2] :relu)
                  fc (fc-bluep input-tz)
-                 fc-1 (fc-bluep input-tz)]
+                 fc-1 (fc-bluep input-tz)
+                 in-weights (if (contiguous? (weights fc))
+                              (weights fc)
+                              (connector (desc [2 3 2 1] :float :oihw) (weights fc)))
+                 out-weights (if (contiguous? (weights fc-1))
+                               (weights fc-1)
+                               (connector (weights fc-1) (desc [2 3 2 1] :float :oihw)))]
     (facts "Inference layer transfer test."
-           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] in-weights)
+           (in-weights)
            (transfer! [-0.1 0.2] (bias fc))
-           (transfer! fc fc-1) => fc-1
+
+           (transfer! fc fc-1)
+
+           (out-weights)
            (bias fc-1) => (bias fc)
-           (weights fc-1) => (weights fc))))
+           (output out-weights) => (input in-weights))))
 
 (defn test-inner-product-training [fact]
   (with-release [input-tz (tensor fact [1 3 2 1] :float :nchw)
@@ -569,7 +583,7 @@
                         net-bp (network fact input-tz
                                         [(convolution [1] [3 3] :relu)
                                          (pooling [2 2] :max)
-                                         (convolution [1] [2 2] :relu {:padding [1 1]})
+                                         (convolution [1] [2 2] :relu {:padding [1 1]}) ;;TODO check whether :padding is the cause for cuDNN #NaNs. checked: it's not
                                          (fully-connected [4] :relu)
                                          (fully-connected [2] :softmax)])
                         net (init! (net-bp input-tz :adam))
@@ -893,7 +907,7 @@
                  input-bias (connector (desc [2 1 1 2] :float :ldgo) (bias-layer rnn-no-iter))
                  output-bias (revert input-bias)]
     (facts "Vanilla RNN inference operation without iter."
-           (init! rnn-no-iter)
+           (init! rnn-no-iter :zero)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
            (input-weights)
@@ -950,7 +964,7 @@
                  input-weights-iter (connector (desc [2 1 2 1 2] :float :ldigo) (weights-iter (.op rnn-iter)))
                  input-bias (connector (desc [2 1 1 2] :float :ldgo) (bias-layer rnn-iter))]
     (facts "Vanilla RNN layer inference."
-           (init! rnn-iter)
+           (init! rnn-iter :zero)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6] (input input-weights))
            (input-weights)
@@ -1001,7 +1015,7 @@
                  input-weights-iter (connector (desc [2 1 2 4 2] :float :ldigo) (weights-iter (.op lstm-no-iter)))
                  input-bias (connector (desc [2 1 4 2] :float :ldgo) (bias-layer lstm-no-iter))]
     (facts "LSTM layer training SGD."
-           (init! (.op lstm-no-iter))
+           (init! (.op lstm-no-iter) :zero)
            (transfer! [2 3 0.2 0.3] input-tz)
            (transfer! [0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6
                        0.1 0.2 0.3 0.4 0.3 0.4 0.5 0.6

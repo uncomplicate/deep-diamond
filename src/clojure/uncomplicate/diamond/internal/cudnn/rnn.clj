@@ -15,7 +15,7 @@
             [uncomplicate.clojurecuda.core :refer [cuda-malloc cuda-free! memset! memcpy-to-device!]]
             [uncomplicate.neanderthal
              [core :refer [axpby! transfer! scal! entry!]]
-             [block :refer [buffer initialize]]
+             [block :refer [buffer]]
              [random :refer [rand-normal!]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
@@ -101,9 +101,9 @@
     (entry! bias-tz 0.0)
     (entry! bias-iter-tz 0.0)
     (when src-iter-tz
-      (initialize src-iter-tz (buffer src-iter-tz) 0.0))
+      (entry! src-iter-tz 0.0))
     (when src-iter-c-tz
-      (initialize src-iter-c-tz (buffer src-iter-c-tz) 0.0))
+      (entry! src-iter-c-tz 0.0))
     this)
   IFn
   (invoke [_]

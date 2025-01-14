@@ -52,6 +52,7 @@
              (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))))
 
 ;; "Elapsed time: 52966.299469 msecs"
+;; "Elapsed time: 33227.93959 msecs" with new DNNL 2025...
 
 (with-diamond cudnn-factory []
   (with-release [x-mb-tz (tensor [128 1 28 28] :float :nchw)
@@ -82,3 +83,4 @@
              (take 8 pred) => (list 7.0 2.0 1.0 0.0 4.0 1.0 4.0 9.0)))))
 
 ;; "Elapsed time: 3487.728516 msecs"
+;; "Elapsed time: 2341.201096 msecs" with new cuDNN 2025...

@@ -58,7 +58,7 @@
                                     (dense [128] :relu)
                                     (dense [1] :linear)])
                    net (init! (net-bp :adam))
-                   net-infer (net-bp)]
+                   net-infer (init! (net-bp) :zero)]
 
       (facts (format "Adam gradient descent - learning MasterCard stock prices with RNN and %s." (str activ))
 
@@ -68,20 +68,16 @@
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :gru))
-;; "Elapsed time: 56580.76743 msecs"
+;; "Elapsed time: 56580.76743 msecs" (50 epochs)
 
-(with-release [fact (dnnl-factory)]
+#_(with-release [fact (dnnl-factory)]
   (test-timeseries fact :lstm))
 
-(with-release [fact (dnnl-factory)]
+#_(with-release [fact (dnnl-factory)]
   (test-timeseries fact :relu))
 
 (with-release [fact (cudnn-factory)]
-  (test-timeseries fact :gru))
+  (test-timeseries fact :gru)) ;; (50 epochs)
 ;; "Elapsed time: 21057.697005 msecs" (:standard)
 ;; "Elapsed time: 57792.445161 msecs" (:static)
 ;; "Elapsed time: 40416.253165 msecs" (:dynamic)
-
-
-;; (with-release [fact (dnnl-factory)]
-;;   (test-timeseries fact :lstm))

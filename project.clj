@@ -6,15 +6,15 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.29.5"
+(defproject uncomplicate/deep-diamond "0.31.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.11.3"]
-                 [uncomplicate/neanderthal "0.49.2"]
-                 [org.bytedeco/dnnl-platform "3.3.4-1.5.10"]]
+  :dependencies [[org.clojure/clojure "1.12.0"]
+                 [uncomplicate/neanderthal "0.51.0-SNAPSHOT"]
+                 [org.bytedeco/dnnl-platform "3.6.1-1.5.11"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
                              [lein-codox "0.10.8"]]
@@ -25,9 +25,9 @@
                                  *print-length* 128}
                    :dependencies [[midje "1.10.10"]
                                   [codox-theme-rdash "0.1.2"]
-                                  [org.clojure/data.csv "1.0.1"]
-                                  [org.bytedeco/mkl "2024.0-1.5.10" :classifier linux-x86_64-redist]
-                                  [org.bytedeco/cuda "12.3-8.9-1.5.10"  :classifier linux-x86_64-redist]]
+                                  [org.clojure/data.csv "1.1.0"]
+                                  [org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]
+                                  [org.bytedeco/cuda "12.6-9.5-1.5.11"  :classifier linux-x86_64-redist]]
                    :codox {:metadata {:doc/format :markdown}
                            :source-uri "http://github.com/uncomplicate/deep-diamond/blob/master/{filepath}#L{line}"
                            :themes [:rdash]
@@ -38,7 +38,7 @@
                                         uncomplicate.diamond.internal.protocols]
                            :output-path "docs/codox"}
 
-                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}}
+                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/device"])

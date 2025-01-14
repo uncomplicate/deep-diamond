@@ -11,9 +11,9 @@
              [core :refer [Releaseable release let-release with-release Info info view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
-             [core :refer [axpby! transfer! scal! entry!]]
+             [core :refer [axpby! transfer! scal!]]
              [random :refer [rand-normal!]]
-             [block :refer [buffer initialize]]]
+             [block :refer [buffer initialize!]]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
             [uncomplicate.diamond.tensor :as tz
              :refer [Transfer input output connector TensorDescriptor shape layout view-tz]]
@@ -91,13 +91,13 @@
   (init [this init-fn]
     (init-fn weights-tz)
     (init-fn weights-iter-tz)
-    (entry! bias-tz 0.0)
+    (initialize! bias-tz (buffer bias-tz))
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
-        (initialize src-iter-tz (buffer src-iter-tz) 0.0)))
+        (initialize! src-iter-tz (buffer src-iter-tz))))
     (when src-iter-c-conn
       (let [src-iter-c-tz (input src-iter-c-conn)]
-        (initialize src-iter-c-tz (buffer src-iter-c-tz) 0.0)))
+        (initialize! src-iter-c-tz (buffer src-iter-c-tz))))
     this)
   IFn
   (invoke [_]
@@ -210,13 +210,13 @@
   Initializable
   (init [this init-fn]
     (init-fn fused-weights-tz)
-    (entry! bias-tz 0.0)
+    (initialize! bias-tz (buffer bias-tz))
     (when src-iter-conn
       (let [src-iter-tz (input src-iter-conn)]
-        (initialize src-iter-tz (buffer src-iter-tz) 0.0)))
+        (initialize! src-iter-tz (buffer src-iter-tz))))
     (when src-iter-c-conn
       (let [src-iter-c-tz (input src-iter-c-conn)]
-        (initialize src-iter-c-tz (buffer src-iter-c-tz) 0.0)))
+        (initialize! src-iter-c-tz (buffer src-iter-c-tz))))
     this)
   IFn
   (invoke [this]
@@ -642,10 +642,8 @@
   (equals [_ other]
     (and (instance? DnnlAbbreviate other)
          (let [other ^DnnlAbbreviate other]
-           (= transform-forward (.transform-forward other))
-           (= transform-diff (.transform-diff other))
-           (= dst-tz (.dst-tz other))
-           (= diff-sub (.diff-sub other)))))
+           (equal-desc? dst-tz (.dst-tz other))
+           (equal-desc? diff-sub (.diff-sub other)))))
   (toString [this]
     (str bluep))
   Info
@@ -687,7 +685,7 @@
   (backward [this]
     this)
   (backward [this _]
-    (when diff-sub (entry! diff-sub 0.0))
+    (when diff-sub (initialize! diff-sub (buffer diff-sub)))
     (transform-diff)
     this)
   IFn

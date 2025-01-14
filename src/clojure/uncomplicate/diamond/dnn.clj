@@ -43,7 +43,8 @@
             [uncomplicate.fluokitten.core :refer [fmap foldmap]]
             [uncomplicate.neanderthal
              [core :refer [ncols transfer! view-vctr]]
-             [random :refer [rand-normal! rng-state]]]
+             [random :refer [rand-normal! rng-state]]
+             [block :refer [buffer initialize!]]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* shape input output batcher shuffler TensorContainer
                      tensor data-type layout desc batch-size]]
@@ -582,6 +583,9 @@
      ([src-descs]
       (network *diamond-factory* src-descs layers)))))
 
+(defn xavier! [rng]
+  (fn [x] (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape x))))) x)))
+
 (defn init!
   "Destructively initializes the parameters (weights, biases, etc.) of the network using [Xavier initialization](),
   which is a good default. You are, of course, free to provide different `init-fn`, which is an
@@ -595,11 +599,15 @@
   the network.
   "
   ([net!]
-   (with-release [rng (rng-state (view-vctr (input net!)))]
-     (api/init net! (fn [x] (rand-normal! rng 0.0 (/ 1.0 (double (apply * (rest (shape x))))) x))))
+   (with-release [rng (rng-state (input net!))]
+     (api/init net! (xavier! rng)))
    net!)
   ([net! init-fn]
-   (api/init net! init-fn)
+   (with-release [rng (rng-state (input net!))]
+     (api/init net! (case init-fn
+                      :xavier (xavier! rng)
+                      :zero (fn [tz] (initialize! tz (buffer tz)))
+                      init-fn)))
    net!))
 
 (defn ^:private linear-decay

@@ -134,41 +134,59 @@
 
 ;; ===================== Memory =========================================================
 
-(extend-type java.lang.Long
-  BlockedDesc
-  (memory-desc* [tag dims data-type]
-    (let-release [res (dnnl_memory_desc.)]
-      (with-check
-        (dnnl/dnnl_memory_desc_create_with_tag res (size dims) (long-ptr dims)
-                                               (int data-type) tag)
-        res
-        {:tag (dec-format tag)
-         :dims (pointer-vec dims)
-         :data-type (dec-data-type data-type)}))))
+(defn destroy-mem-desc* [mem-desc]
+  (when-not (null? mem-desc)
+    (with-check (dnnl/dnnl_memory_desc_destroy mem-desc)
+      (do (.deallocate mem-desc)
+          (.setNull mem-desc)))))
 
-(extend-type java.lang.Integer
+(extend-type Long
   BlockedDesc
   (memory-desc* [tag dims data-type]
-    (let-release [res (dnnl_memory_desc.)]
-      (with-check
-        (dnnl/dnnl_memory_desc_create_with_tag res (size dims) (long-ptr dims)
-                                               (int data-type) tag)
-        res
-        {:tag (dec-format tag)
-         :dims (pointer-vec dims)
-         :data-type (dec-data-type data-type)}))))
+    (let [res (dnnl_memory_desc.)]
+      (try
+        (with-check
+          (dnnl/dnnl_memory_desc_create_with_tag res (size dims) (long-ptr dims)
+                                                 (int data-type) tag)
+          res
+          {:tag (dec-format tag)
+           :dims (pointer-vec dims)
+           :data-type (dec-data-type data-type)})
+        (catch Exception e
+          (destroy-mem-desc* res)
+          (throw e))))))
+
+(extend-type Integer
+  BlockedDesc
+  (memory-desc* [tag dims data-type]
+    (let [res (dnnl_memory_desc.)]
+      (try
+        (with-check
+          (dnnl/dnnl_memory_desc_create_with_tag res (size dims) (long-ptr dims)
+                                                 (int data-type) tag)
+          res
+          {:tag (dec-format tag)
+           :dims (pointer-vec dims)
+           :data-type (dec-data-type data-type)})
+        (catch Exception e
+          (destroy-mem-desc* res)
+          (throw e))))))
 
 (extend-type LongPointer
   BlockedDesc
   (memory-desc* [strides dims data-type]
-    (let-release [res (dnnl_memory_desc.)]
-      (with-check
-        (dnnl/dnnl_memory_desc_create_with_strides res (size dims) (long-ptr dims)
-                                                   (int data-type) strides)
-        res
-        {:strides (pointer-vec strides)
-         :dims (pointer-vec dims)
-         :data-type (dec-data-type data-type)}))))
+    (let [res (dnnl_memory_desc.)]
+      (try
+        (with-check
+          (dnnl/dnnl_memory_desc_create_with_strides res (size dims) (long-ptr dims)
+                                                     (int data-type) strides)
+          res
+          {:strides (pointer-vec strides)
+           :dims (pointer-vec dims)
+           :data-type (dec-data-type data-type)})
+        (catch Exception e
+          (destroy-mem-desc* res)
+          (throw e))))))
 
 (defn data-type* ^long [^dnnl_memory_desc mem-desc]
   (with-release [res (int-pointer 1)]
@@ -192,10 +210,14 @@
 
 (defn submemory-desc*
   ([^dnnl_memory_desc parent-desc ^LongPointer dims ^LongPointer offsets]
-   (let-release [res (dnnl_memory_desc.)]
-     (with-check
-       (dnnl/dnnl_memory_desc_create_submemory res parent-desc dims offsets)
-       res)))
+   (let [res (dnnl_memory_desc.)]
+     (try
+       (with-check
+         (dnnl/dnnl_memory_desc_create_submemory res parent-desc dims offsets)
+         res)
+       (catch Exception e
+         (destroy-mem-desc* res)
+         (throw e)))))
   ([^dnnl_memory_desc parent-desc ^long n]
    (let [ndims (ndims* parent-desc)]
      (with-release [dims (long-pointer ndims)
@@ -214,10 +236,7 @@
   Releaseable
   (release [this]
     (locking mem-desc
-      (when (and master (not (null? mem-desc)))
-        (with-check (dnnl/dnnl_memory_desc_destroy mem-desc)
-          (do (.deallocate mem-desc)
-              (.setNull mem-desc)))))
+      (when master (destroy-mem-desc* mem-desc)))
     true)
   Comonad
   (extract [this]
@@ -285,11 +304,15 @@
 
 (defn memory* [^dnnl_memory_desc desc ^dnnl_engine eng data master]
   (let-release [mem (dnnl_memory.)
-                data-pointer (pointer data 0)
-                md (dnnl_memory_desc.)]
-    (with-check (dnnl/dnnl_memory_create mem desc eng (byte-pointer data-pointer))
-      (with-check (dnnl/dnnl_memory_get_memory_desc mem md)
-        (->MemoryImpl mem (->MemoryDescImpl md false) data-pointer master)))))
+                data-pointer (pointer data 0)]
+    (let [md (dnnl_memory_desc.)]
+      (try
+        (with-check (dnnl/dnnl_memory_create mem desc eng (byte-pointer data-pointer))
+          (with-check (dnnl/dnnl_memory_get_memory_desc mem md)
+            (->MemoryImpl mem (->MemoryDescImpl md false) data-pointer master)))
+        (catch Exception e
+          (destroy-mem-desc* md)
+          (throw e))))))
 
 (defn get-engine* [^dnnl_memory mem]
   (let-release [res (dnnl_engine.)]
