@@ -642,8 +642,8 @@
              (map bytesize (take-nth 2 weight-iter-params-0)) => [16 0]
              (map bytesize (take-nth 2 weight-params-1)) => [16 8]
              (map bytesize (take-nth 2 weight-iter-params-1)) => [16 0]
-             (pointer-seq (memcpy-host! gpu-x (fill! (float-pointer 5) 0))) => (map float [2.0 3.0 0.2 0.3 0.0])
-             (pointer-seq (memcpy-host! gpu-w (float-pointer 20)))
+             (pointer-seq (memcpy-host! gpu-x (zero! (float-pointer 5)))) => (map float [2.0 3.0 0.2 0.3 0.0])
+             (pointer-seq (memcpy-host! gpu-w (zero! (float-pointer 20))))
              => (map float [0.1 0.3 0.2 0.4 100.0 300.0 200.0 400.0 ;; weights and weights-iter layer 0
                             0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 ;; weights and weights-iter layer 1
                             0.3 0.7 1 2]) ;; bias layer 0 and 1
@@ -662,7 +662,7 @@
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
              (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
-             (pointer-seq (memcpy-host! gpu-hy (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-hy (zero! (float-pointer 5))))
              => (map float [830.41 1200.86 850.6969 1054.8889 0.0])
 
              (memcpy-host! host-dy gpu-dy)
@@ -674,12 +674,12 @@
                            desc-h1 nil nil nil
                            (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
 
-             (pointer-seq (memcpy-host! gpu-dx (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-dx (zero! (float-pointer 5))))
              => (map float [-33.62967 -66.71936 0.0059999824 -0.17000008 0.0])
-             (pointer-seq (memcpy-host! gpu-dhx (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-dhx (zero! (float-pointer 5))))
              => (map float [-33629.67 -66719.36 -0.035219997 -0.060019996 0.0])
 
-             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])
 
              (rnn-bwd-weights cudnn-hdl rnn-desc :add
@@ -693,7 +693,7 @@
                             8.748000144958496 13.425999641418457 -11.802001 -18.083999633789062
                             3.8797843 -169.20824 5.442 -4.882 0.0])
 
-             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [2.5700002 3.9400000 850.6969 1054.8889 0.0])))))
 
 (with-default
@@ -764,8 +764,8 @@
              (rnn-weights-space-size cudnn-hdl rnn-desc) => 240
              (rnn-temp-space-size cudnn-hdl rnn-desc rnn-tn-desc :training) => [16778048 480]
 
-             (pointer-seq (memcpy-host! gpu-x (fill! (float-pointer 5) 0))) => (map float [2.0 3.0 0.2 0.3 0.0])
-             (pointer-seq (memcpy-host! gpu-w (fill! (float-pointer 61) 0)))
+             (pointer-seq (memcpy-host! gpu-x (zero! (float-pointer 5)))) => (map float [2.0 3.0 0.2 0.3 0.0])
+             (pointer-seq (memcpy-host! gpu-w (zero! (float-pointer 61))))
              => (map float [0.111 0.211 0.112 0.212 0.121 0.221 0.122 0.222 0.131 0.231 0.132 0.232
                             100 300 200 400 100 300 200 400 100 300 200 400
                             0.311 0.411 0.312 0.412 0.321 0.421 0.322 0.422 0.331 0.431 0.332 0.432
@@ -797,7 +797,7 @@
                       (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
              (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [0.1986464262008667 0.10329369455575943 0.3485546410083771 0.19498808681964874 0.0])
-             (pointer-seq (memcpy-host! gpu-hy (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-hy (zero! (float-pointer 5))))
              => (map float [0.20356373488903046 0.161529079079628 0.3485546410083771 0.19498808681964874 0.0])
 
              (memcpy-host! host-dy gpu-dy)
@@ -810,12 +810,12 @@
                            desc-h1 nil nil nil
                            (pointer gpu-w) (pointer work) (pointer reserve)) => cudnn-hdl
 
-             (pointer-seq (memcpy-host! gpu-dx (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-dx (zero! (float-pointer 5))))
              => (map float [-0.019561385735869408 -0.036919500678777695 0.0 0.0 0.0])
-             (pointer-seq (memcpy-host! gpu-dhx (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-dhx (zero! (float-pointer 5))))
              => (map float [-43.723384857177734 -75.57097625732422 2.7878310680389404 -5.621692180633545 0.0])
 
-             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [0.20008478 0.10380766 0.349865 0.19589604 0.0])
 
              (rnn-bwd-weights cudnn-hdl rnn-desc :add
@@ -826,5 +826,5 @@
              (pointer-seq (memcpy-host! gpu-w (zero! (float-pointer 61))))
              => (map float [0.111 0.211 0.112 0.212 0.36748418 0.59072626 -0.45590958 -0.6448644 0.026169404 0.07375412 0.23240864 0.38261294 100.0 300.0 200.0 400.0 100.0 300.0 200.0 400.0 100.0 300.0 200.0 400.0 0.31105167 0.41104087 0.31199607 0.41199687 0.13757727 0.27592492 0.51014656 0.57081133 0.4461669 0.5220893 0.3196769 0.42225328 0.0100523345 0.030027272 0.019996008 0.03999792 -0.06637962 -0.009802721 0.094934866 0.07904983 0.05212988 0.051954597 0.015350954 0.0375773 0.3 0.7 0.4232421 0.4110452 0.24758472 0.7502043 1.0002637 1.9999799 0.06381178 2.9602985 1.587811 1.937103 0.0])
 
-             (pointer-seq (memcpy-host! gpu-y (float-pointer 5)))
+             (pointer-seq (memcpy-host! gpu-y (zero! (float-pointer 5))))
              => (map float [0.20008478 0.10380766 0.349865 0.19589604 0.0])))))

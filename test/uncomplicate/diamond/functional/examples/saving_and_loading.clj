@@ -55,7 +55,7 @@
                                            (fully-connected [1] :linear)])
                net1 (init! (network-blueprint :adam))
                net2 (init! (network-blueprint :adam) :zero)
-               nfc1 (channel (random-access "network.trained.2"))]
+               nfc1 (channel (random-access "network2.trained"))]
   (facts "Saving and loading an RNN network by transferring it to/from a Java NIO file channel."
          net1 =not=> net2
          (transfer! (range 2 20) (input net1))
