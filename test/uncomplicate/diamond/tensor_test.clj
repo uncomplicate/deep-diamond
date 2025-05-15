@@ -178,7 +178,7 @@
            (in-x)
            (transform)
            (out-y)
-           (seq (output out-y)) => (seq (input in-x)))))
+           (output out-y) => (input in-x))))
 
 (defn test-transfer-any [fact]
   (with-release [tz-x (tensor fact [2 3 2 1] :float [48 8 2 2])
