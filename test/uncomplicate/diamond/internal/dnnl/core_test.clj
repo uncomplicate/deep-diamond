@@ -13,9 +13,9 @@
             [uncomplicate.fluokitten.core :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [pointer put-float! get-float byte-pointer float-pointer put-entry! get-entry
-                     position pointer-seq position! null?]]
+                     position pointer-seq position! null? fill!]]
             [uncomplicate.neanderthal
-             [core :refer [zero nrm2 entry! entry transfer!]]
+             [core :refer [zero raw nrm2 entry! entry transfer!]]
              [native :refer [fv]]
              [block :refer [buffer]]
              [math :refer [sqr sqrt]]]
@@ -289,6 +289,47 @@
            (execute! s reorder-a-b reorder-a-b-args) => s
            (= a-vec b-vec) => true)))
 
+(facts "Reordering memory with strides."
+       (let [dims [2 2 3 2]]
+         (with-release [eng (engine)
+                        s (stream eng)
+                        a-desc (memory-desc dims :float :nchw)
+                        b-desc (memory-desc dims :float [48 100 8 3])
+                        c-desc (memory-desc dims :float :nhwc)
+                        reorder-a-b-pd (reorder eng a-desc b-desc)
+                        reorder-b-b1-pd (reorder eng b-desc b-desc)
+                        reorder-b-c-pd (reorder eng b-desc c-desc)
+                        reorder-c-a-pd (reorder eng c-desc a-desc)
+                        reorder-b1-d1-pd (reorder eng b-desc a-desc)
+                        a-vec (fv (range (apply * dims)))
+                        c-vec (zero a-vec)
+                        d-vec (zero a-vec)
+                        d1-vec (zero a-vec)
+                        a-mem (memory eng a-desc (buffer a-vec))
+                        b-mem (memory eng b-desc)
+                        b1-mem (memory eng b-desc)
+                        c-mem (memory eng a-desc (buffer c-vec))
+                        d-mem (memory eng a-desc (buffer d-vec))
+                        d1-mem (memory eng a-desc (buffer d1-vec))
+                        reorder-a-b (primitive reorder-a-b-pd)
+                        reorder-b-b1 (primitive reorder-b-b1-pd)
+                        reorder-b-c (primitive reorder-b-c-pd)
+                        reorder-c-d (primitive reorder-c-a-pd)
+                        reorder-b1-d1 (primitive reorder-b1-d1-pd)
+                        reorder-a-b-args (fwd-args a-mem b-mem)
+                        reorder-b-c-args (fwd-args b-mem c-mem)
+                        reorder-b-b1-args (fwd-args b-mem b1-mem)
+                        reorder-b1-d1-args (fwd-args b1-mem d1-mem)
+                        reorder-c-d-args (fwd-args c-mem d-mem)]
+           (execute! s reorder-a-b reorder-a-b-args) => s
+           (execute! s reorder-b-c reorder-b-c-args) => s
+           (execute! s reorder-b-b1 reorder-b-b1-args) => s
+           (execute! s reorder-b1-d1 reorder-b1-d1-args) => s
+           (execute! s reorder-c-d reorder-c-d-args) => s
+           d-vec => a-vec
+           (seq d1-vec) => (seq a-vec)
+           (nrm2 c-vec) => (nrm2 a-vec))))
+
 (facts "Reordering memory with offsets."
        (let [dims [2 2 3 2]]
          (with-release [eng (engine)
@@ -340,6 +381,7 @@
                       diff-dst-mem (memory eng (diff-dst-md relu-bwd-pd) (buffer diff-dst-vec))
                       relu-bwd (primitive relu-bwd-pd)
                       relu-bwd-args (eltwise-bwd-args mem diff-dst-mem diff-dst-mem)]
+         (fill! buf 0)
          (put-float! buf 0 -100)
          (put-float! buf 1 20)
          (execute! s relu relu-args) => s
@@ -611,7 +653,7 @@
          diff-src-vec => (fv 32)
          (execute! s conv-bwd-data conv-bwd-data-args) => s
          (seq diff-src-vec)
-         => (map float [-0.4 -0.6 0.2 0.3 -1.6 -1.8 1.1 1.0 -0.2 0.09999999403953552
+         => (map float [-0.4 -0.6 0.2 0.3 -1.6 -1.8 1.1 1.0 -0.2 0.09999996403953552
                         0.3999999761581421 0.0 -0.8 -2.6 -2.0 0.0 -2.0 -2.0 1.0 1.0
                         -2.0 -1.0 2.0 1.0 -1.0 -2.0 -1.0 0.0 -1.0 -3.0 -2.0 0.0])
          (execute! s conv-bwd-weights conv-bwd-weights-args) => s
@@ -691,7 +733,7 @@
          diff-src-vec => (fv 32)
          (execute! s conv-bwd-data conv-bwd-data-args) => s
          (seq diff-src-vec)
-         => (map float [-0.4 -0.6 0.2 0.3 -1.6 -1.8 1.1 1.0 -0.2 0.09999999403953552
+         => (map float [-0.4 -0.6 0.2 0.3 -1.6 -1.8 1.1 1.0 -0.2 0.09999996403953552
                         0.3999999761581421 0.0 -0.8 -2.6 -2.0 0.0 -2.0 -2.0 1.0 1.0
                         -2.0 -1.0 2.0 1.0 -1.0 -2.0 -1.0 0.0 -1.0 -3.0 -2.0 0.0])
          (execute! s conv-bwd-weights conv-bwd-weights-args) => s

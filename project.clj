@@ -13,8 +13,10 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.0"]
-                 [uncomplicate/neanderthal "0.52.0"]
-                 [org.bytedeco/dnnl-platform "3.6.1-1.5.11"]]
+                 [org.uncomplicate/neanderthal-base "0.54.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-cuda "0.54.0-SNAPSHOT"]
+                 [org.bytedeco/dnnl-platform "3.7.3-1.5.12-SNAPSHOT"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]
                              [lein-codox "0.10.8"]]
@@ -27,7 +29,7 @@
                                   [codox-theme-rdash "0.1.2"]
                                   [org.clojure/data.csv "1.1.0"]
                                   [org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]
-                                  [org.bytedeco/cuda "12.6-9.5-1.5.11"  :classifier linux-x86_64-redist]]
+                                  [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT"  :classifier linux-x86_64-redist]]
                    :codox {:metadata {:doc/format :markdown}
                            :source-uri "http://github.com/uncomplicate/deep-diamond/blob/master/{filepath}#L{line}"
                            :themes [:rdash]
@@ -39,6 +41,8 @@
                            :output-path "docs/codox"}
 
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}}
+
+  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/device"])
