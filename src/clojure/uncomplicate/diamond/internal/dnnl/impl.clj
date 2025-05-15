@@ -134,7 +134,7 @@
 
 ;; ===================== Memory =========================================================
 
-(defn destroy-mem-desc* [mem-desc]
+(defn destroy-mem-desc* [^dnnl_memory_desc mem-desc]
   (when-not (null? mem-desc)
     (with-check (dnnl/dnnl_memory_desc_destroy mem-desc)
       (do (.deallocate mem-desc)

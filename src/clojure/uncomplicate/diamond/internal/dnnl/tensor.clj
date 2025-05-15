@@ -507,7 +507,7 @@
                                            (or (layout sub) (strides tz-mem))))]
       (let-release [sub-mem (memory (dnnl-engine diamond-fact) sub-desc (pointer tz-mem 0) false)
                     shp (dims sub-mem)
-                    nc (* (first shp) (apply * (rest shp)))
+                    nc (* (long (first shp)) (long (apply * (rest shp))))
                     sub-vector-view (if (= (size sub-mem) (apply * (dims sub-mem)))
                                       (create-vector* neand-fact false (pointer sub-mem) nc 1)
                                       nil)]
@@ -528,7 +528,7 @@
   ([diamond-fact neand-fact eng mem-desc n-index]
    (let [mem-desc (desc mem-desc)
          shp (dims mem-desc)
-         nc (* (first shp) (apply * (rest shp)))]
+         nc (* (long (first shp)) (long (apply * (rest shp))))]
      (let-release [tz-mem (memory (dnnl-engine diamond-fact) mem-desc)
                    vector-view (if (= (size tz-mem) (apply * (dims tz-mem)))
                                  (create-vector* neand-fact false (pointer tz-mem) nc 1)
@@ -547,7 +547,7 @@
   (let [mem-desc (desc mem-desc)
         shp (dims mem-desc)
         dtype (tz/data-type mem-desc)
-        nc (* (first shp) (apply * (rest shp)))]
+        nc (* (long (first shp)) (long (apply * (rest shp))))]
     (let-release [tz-mem (memory (dnnl-engine diamond-fact) mem-desc buf master)
                   vector-view (if (= (size tz-mem) (apply * (dims tz-mem)))
                                 (create-vector* (neanderthal-factory diamond-fact dtype)
