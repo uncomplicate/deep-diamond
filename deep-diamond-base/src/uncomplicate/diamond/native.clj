@@ -1,5 +1,4 @@
-;;   Copyright (c) Dragan Djuric. All rights reserved.
-;;   The use and distribution terms for this software are covered by the
+;;   Copyright (c) Dragan Djuric. All rights reserved. use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
 ;;   which can be found in the file LICENSE at the root of this distribution.
 ;;   By using this software in any fashion, you are agreeing to be bound by
@@ -12,23 +11,60 @@
   By evaluating this namespace, you're altering [[uncomplicate.diamond.tensor/*diamond-factory*]]
   var root to the engine produced by [[uncomplicate.diamond.internal.dnnl.factory/dnnl-factory]].
   "
-  (:require [uncomplicate.commons.utils :refer [channel]]
-            [uncomplicate.diamond.internal.protocols :refer [create-tensor-desc]]
-            )
+  (:require [clojure.tools.logging :refer [warn error info]]
+            [uncomplicate.commons.utils :refer [dragan-says-ex channel]]
+            [uncomplicate.diamond.internal.protocols :refer [map-channel create-tensor-desc]])
   (:import java.nio.channels.FileChannel))
+
+(defn load-class [^String classname]
+  (try (.loadClass (clojure.lang.DynamicClassLoader.) classname)
+       (catch Exception e
+         (info (format "Class %s is not available." classname))
+         nil)))
+
+(defmacro load-dnnl []
+  `(do (require 'uncomplicate.diamond.internal.dnnl.factory)
+       (alter-var-root #'uncomplicate.diamond.tensor/*diamond-factory*
+                       (constantly (uncomplicate.diamond.internal.dnnl.factory/dnnl-factory)))
+       (info "DNNL (Intel oneDNN) native backend loaded.")))
+
+(defmacro load-bnns []
+  `(do (require 'uncomplicate.diamond.internal.bnns.factory)
+       (alter-var-root #'uncomplicate.diamond.tensor/*diamond-factory*
+                       (constantly (uncomplicate.diamond.internal.bnns.factory/dnnl-factory)))
+       (info "BNNS (Apple Accelerate BNNS) native backend loaded.")))
 
 (defn find-default-backend []
   (cond
     (and (clojure.string/includes? (clojure.string/lower-case (System/getProperty "os.name")) "mac")
-         (load-class "uncomplicate.javacpp.accelerate.global.blas_new"))
+         (load-class "uncomplicate.javacpp.accelerate.global.bnns"))
     :accelerate
     (and (#{"amd64" "x86_64" "x86-64" "x64"} (System/getProperty "os.arch"))
          (load-class "org.bytedeco.dnnl.global.dnnl"))
     :dnnl
     :default nil))
 
-(alter-var-root #'uncomplicate.diamond.tensor/*diamond-factory*
-                (constantly (dnnl-factory)))
+(defmacro load-backend
+  ([]
+   `(load-backend ~(find-default-backend)))
+  ([backend]
+   (let [backend# backend]
+     (case backend#
+       :accelerate (if (load-class "uncomplicate.javacpp.accelerate.global.bnns")
+                     `(load-accelerate)
+                     (do (error "Accelerate is not available in your classpath!")
+                         (info "If you want to use Accelerate, please ensure deep-diamond-accelerate is in your project dependencies.")
+                         (dragan-says-ex "Accelerate cannot be loaded!  Please check yor project's dependencies.")))
+       :dnnl (if (load-class "org.bytedeco.dnnl.global.dnnl")
+              `(load-mkl)
+              (do (error "DNNL is not available in your classpath!")
+                  (info "If you want to use DNNL, please ensure deep-diamond-dnnl and org.bytedeco/dnnl are in your project dependencies.")
+                  (dragan-says-ex "DNNL be loaded! Please check yor project's dependencies.")))
+       nil (error "This project has no native engine available, so nothing was loaded!")
+       (dragan-says-ex "Unknown native backend. Please use one of: :dnnl :bnns."
+                       {:requested backend# :expected [:dnnl :bnns nil]})))))
+
+(load-backend)
 
 (defn map-tensor
   "Creates a new tensor that controls memory block mapped to `file`.
@@ -51,7 +87,7 @@
   ([file desc flag offset-bytes]
    (map-channel uncomplicate.diamond.tensor/*diamond-factory*
                 (if (instance? FileChannel file) file (channel file))
-                desc flag offset-bytes))
+                desc flag offset-bytes 0))
   ([file desc flag]
    (map-tensor file desc flag 0))
   ([file shape type format flag]

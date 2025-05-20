@@ -51,7 +51,7 @@
 (defprotocol MappedTensorFactory
   "A backend factory for memory-mapped tensor-related structures, such as the mapped tensors themselves.
   "
-  (create-mapped-tensor [this channel desc flag offset-bytes n-index]
+  (map-channel [this channel desc flag offset-bytes n-index]
     "Create a mapped tensor from the provided `FileChannel`, descriptor `desc`, mapping `flags`."))
 
 (defprotocol Offset
