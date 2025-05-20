@@ -6,41 +6,35 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.32.0-SNAPSHOT"
+(defproject org.uncomplicate/deep-diamond-cuda "0.33.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.0"]
-                 [org.uncomplicate/neanderthal-base "0.54.0-SNAPSHOT"]
-                 [org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
-                 [org.uncomplicate/neanderthal-cuda "0.54.0-SNAPSHOT"]
-                 [org.bytedeco/dnnl-platform "3.7.3-1.5.12-SNAPSHOT"]]
+                 [org.uncomplicate/deep-diamond-base "0.33.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-cuda  "0.54.0-SNAPSHOT"]]
 
-  :profiles {:dev {:plugins [[lein-midje "3.2.1"]
-                             [lein-codox "0.10.8"]]
-                   :resource-paths ["data"]
-                   :global-vars {*warn-on-reflection* true
-                                 *assert* false
-                                 *unchecked-math* :warn-on-boxed
-                                 *print-length* 128}
-                   :dependencies [[midje "1.10.10"]
-                                  [codox-theme-rdash "0.1.2"]
-                                  [org.clojure/data.csv "1.1.0"]
-                                  [org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]
-                                  [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT"  :classifier linux-x86_64-redist]]
-                   :codox {:metadata {:doc/format :markdown}
-                           :source-uri "http://github.com/uncomplicate/deep-diamond/blob/master/{filepath}#L{line}"
-                           :themes [:rdash]
-                           :namespaces [uncomplicate.diamond.tensor
-                                        uncomplicate.diamond.dnn
-                                        uncomplicate.diamond.metrics
-                                        uncomplicate.diamond.native
-                                        uncomplicate.diamond.internal.protocols]
-                           :output-path "docs/codox"}
-
-                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}}
+  :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
+             :dev/all {:plugins [[lein-midje "3.2.1"]
+                                 [lein-codox "0.10.8"]]
+                       :resource-paths ["data"]
+                       :global-vars {*warn-on-reflection* true
+                                     *assert* false
+                                     *unchecked-math* :warn-on-boxed
+                                     *print-length* 128}
+                       :dependencies [[midje "1.10.10"]
+                                      [codox-theme-rdash "0.1.2"]
+                                      [org.clojure/data.csv "1.1.0"]]
+                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]
+                       :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
+                                              [org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]
+                                              [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT"  :classifier linux-x86_64-redist]]}
+                       :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
+                                                [org.bytedeco/mkl "2025.0-1.5.11" :classifier windows-x86_64-redist]
+                                                [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT"  :classifier linux-x86_64-redist]]}
+                       :macosx {}}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

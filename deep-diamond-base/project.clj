@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.33.0-SNAPSHOT"
+(defproject org.uncomplicate/deep-diamond-base "0.33.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -33,7 +33,7 @@
                                         uncomplicate.diamond.metrics
                                         uncomplicate.diamond.native
                                         uncomplicate.diamond.internal.protocols]
-                           :output-path "docs/codox"}
+                           :output-path "../docs/codox"}
 
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}}
 

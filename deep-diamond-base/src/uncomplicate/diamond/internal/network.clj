@@ -583,3 +583,37 @@
   [source destination]
   (doall (map transfer! source destination))
   destination)
+
+(defn ^:private transfer-network! [net channel option]
+  (reduce (fn [pos layer]
+            (reduce (fn [^long pos param]
+                      (with-release [mapped-param (map-channel (native-diamond-factory param)
+                                                               channel param option pos)]
+                        (case option
+                          :read-write (transfer! param mapped-param)
+                          :read (transfer! mapped-param param)
+                          (dragan-says-ex "You can only :read or :read-write a channel!"))
+                        (+ pos (bytesize mapped-param))));;TODO tensor will now have to support bytesize!
+                    pos (parameters layer)))
+          0 net)
+  channel)
+
+(defmethod transfer! [SequentialNetworkInference FileChannel]
+  [net channel]
+  (transfer-network! net channel :read-write)
+  channel)
+
+(defmethod transfer! [SequentialNetworkTraining FileChannel]
+  [net channel]
+  (transfer-network! net channel :read-write)
+  channel)
+
+(defmethod transfer! [FileChannel SequentialNetworkInference]
+  [channel net]
+  (transfer-network! net channel :read)
+  net)
+
+(defmethod transfer! [FileChannel SequentialNetworkTraining]
+  [channel net]
+  (transfer-network! net channel :read)
+  net)
