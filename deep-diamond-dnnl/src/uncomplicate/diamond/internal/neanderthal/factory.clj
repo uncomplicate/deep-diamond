@@ -8,9 +8,9 @@
 
 (ns uncomplicate.diamond.internal.neanderthal.factory
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release view]]
-             [utils :refer [dragan-says-ex direct-buffer]]]
-            [uncomplicate.clojure-cpp :refer [byte-pointer]]
+             [core :refer [Releaseable release let-release view bytesize]]
+             [utils :refer [dragan-says-ex direct-buffer mapped-buffer]]]
+            [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal.core :refer [entry!]]
             [uncomplicate.neanderthal
              [native :refer [factory-by-type]]
@@ -18,11 +18,11 @@
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
             [uncomplicate.neanderthal.internal.cpp.mkl.factory
              :refer [->FloatVectorEngine ->IntVectorEngine ->ByteVectorEngine]]
-            [uncomplicate.diamond.tensor :refer [*diamond-factory*  output]]
+            [uncomplicate.diamond.tensor :refer [*diamond-factory* output data-type]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory
-                      NeanderthalFactoryProvider]]
+              :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider
+                      CostFactory DnnFactory NeanderthalFactoryProvider]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.neanderthal.directed
              :refer [neanderthal-fc-blueprint neanderthal-gaussian-dropout-blueprint]]

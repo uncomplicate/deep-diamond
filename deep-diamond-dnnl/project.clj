@@ -25,13 +25,13 @@
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
                                       [codox-theme-rdash "0.1.2"]
-                                      [org.clojure/data.csv "1.1.0"]]
-                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]
-                       :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
-                                              [org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]]}
-                       :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
-                                                [org.bytedeco/mkl "2025.0-1.5.11" :classifier windows-x86_64-redist]]}
-                       :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.54.0-SNAPSHOT"]]}}}
+                                      [org.uncomplicate/deep-diamond-test "0.33.0-SNAPSHOT"]]
+                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
+                                    [org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]]}
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
+                                      [org.bytedeco/mkl "2025.0-1.5.11" :classifier windows-x86_64-redist]]}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.54.0-SNAPSHOT"]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

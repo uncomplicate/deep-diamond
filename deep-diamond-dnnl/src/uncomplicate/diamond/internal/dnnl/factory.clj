@@ -8,9 +8,9 @@
 
 (ns uncomplicate.diamond.internal.dnnl.factory
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release view]]
-             [utils :refer [dragan-says-ex]]]
-            [uncomplicate.clojure-cpp :refer [byte-pointer]]
+             [core :refer [Releaseable release let-release view bytesize]]
+             [utils :refer [dragan-says-ex mapped-buffer]]]
+            [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal
              [native :refer [factory-by-type]]
              [block :refer [create-data-source buffer initialize!]]]
@@ -22,15 +22,14 @@
              :refer [*diamond-factory* output shape data-type layout]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [TensorFactory DiamondFactoryProvider CostFactory DnnFactory RnnFactory
-                      NeanderthalFactoryProvider diamond-factory]]
+              :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider CostFactory
+                      DnnFactory RnnFactory NeanderthalFactoryProvider diamond-factory]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims primitive-cache-capacity!]]
              [tensor :refer [dnnl-tensor dnnl-tensor* dnnl-transformer dnnl-batcher dnnl-shuffler]]
-             [file-channel :as file-channel]
              [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-inner-product-blueprint
                                dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
                                dnnl-split-blueprint dnnl-concat-blueprint dnnl-fc-blueprint

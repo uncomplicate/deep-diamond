@@ -1,7 +1,7 @@
 (ns uncomplicate.diamond.internal.network
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release Info info with-release view]]
-             [utils :refer [dragan-says-ex]]]
+             [core :refer [Releaseable release let-release Info info with-release view bytesize]]
+             [utils :refer [dragan-says-ex channel]]]
             [uncomplicate.fluokitten.core :refer [fmap join]]
             [uncomplicate.neanderthal
              [core :refer [transfer!]]
@@ -13,8 +13,10 @@
              :refer [Backprop forward backward DiamondFactoryProvider diamond-factory
                      native-diamond-factory DiffTransfer diff-input diff-output diff-z Workspace
                      inf-ws-size train-ws-size create-workspace *workspace* DescriptorProvider
-                     inf-desc train-desc diff-desc Initializable init neanderthal-factory]])
-  (:import [clojure.lang IFn AFn Seqable Indexed ILookup]))
+                     inf-desc train-desc diff-desc Initializable init neanderthal-factory
+                     parameters map-channel]])
+  (:import java.nio.channels.FileChannel
+           [clojure.lang IFn AFn Seqable Indexed ILookup]))
 
 (extend-type java.lang.Object
   Workspace
@@ -584,11 +586,12 @@
   (doall (map transfer! source destination))
   destination)
 
-(defn ^:private transfer-network! [net channel option]
+(defn ^:private transfer-network! [net file option]
   (reduce (fn [pos layer]
             (reduce (fn [^long pos param]
                       (with-release [mapped-param (map-channel (native-diamond-factory param)
-                                                               channel param option pos)]
+                                                               (if (instance? FileChannel file) file (channel file))
+                                                               param option pos 0)]
                         (case option
                           :read-write (transfer! param mapped-param)
                           :read (transfer! mapped-param param)
