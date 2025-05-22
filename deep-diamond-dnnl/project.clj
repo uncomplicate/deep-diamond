@@ -26,7 +26,7 @@
                        :dependencies [[midje "1.10.10"]
                                       [codox-theme-rdash "0.1.2"]
                                       [org.uncomplicate/deep-diamond-test "0.33.0-SNAPSHOT"]]
-                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}
+                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
                                     [org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]

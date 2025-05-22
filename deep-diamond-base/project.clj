@@ -32,7 +32,7 @@
                                         uncomplicate.diamond.internal.protocols]
                            :output-path "../docs/codox"}
 
-                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}}
+                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 
