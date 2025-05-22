@@ -27,9 +27,6 @@
             cudnnConvolutionBwdDataAlgoPerf_t cudnnConvolutionBwdFilterAlgoPerf_t]
            [uncomplicate.diamond.internal.cudnn.impl CUTensorDescriptor CUFilterDescriptor]))
 
-(defn safe-ptr [x]
-  (safe (pointer x)))
-
 (defprotocol AlgoPerf
   (algo [this])
   (workspace-size [this])
