@@ -13,6 +13,8 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.0"]
+                 [org.uncomplicate/neanderthal-base "0.54.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-openblas "0.54.0-SNAPSHOT"]
                  [org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
                  [org.uncomplicate/neanderthal-cuda "0.54.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-base "0.33.0-SNAPSHOT"]
@@ -22,6 +24,7 @@
   :aot [uncomplicate.neanderthal.internal.cpp.structures
         uncomplicate.neanderthal.internal.cpp.factory
         uncomplicate.neanderthal.internal.cpp.mkl.factory
+        uncomplicate.neanderthal.internal.cpp.openblas.factory
         uncomplicate.neanderthal.internal.cpp.cuda.structures
         uncomplicate.neanderthal.internal.cpp.cuda.factory
         uncomplicate.diamond.internal.dnnl.constants
@@ -40,6 +43,7 @@
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]
                                  [lein-codox "0.10.8"]]
+                       :resource-paths ["data"]
                        :global-vars {*warn-on-reflection* true
                                      *assert* false
                                      *unchecked-math* :warn-on-boxed
@@ -47,12 +51,11 @@
                        :dependencies [[midje "1.10.10"]
                                       [codox-theme-rdash "0.1.2"]
                                       [org.clojure/data.csv "1.1.0"]]
-                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]
-                       :linux {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]
-                                              [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT" :classifier linux-x86_64-redist]]}
-                       :windows {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier windows-x86_64-redist]
-                                                [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT" :classifier windows-x86_64-redist]]}
-                       :macosx {}}}
+                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}
+             :linux {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]
+                                    [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT" :classifier linux-x86_64-redist]]}
+             :windows {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier windows-x86_64-redist]
+                                      [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT" :classifier windows-x86_64-redist]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

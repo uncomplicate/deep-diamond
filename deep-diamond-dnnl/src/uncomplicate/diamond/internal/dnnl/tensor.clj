@@ -8,7 +8,8 @@
 
 (ns uncomplicate.diamond.internal.dnnl.tensor
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info Viewable view size]]
+             [core :refer [Releaseable release let-release with-release Info info
+                           Viewable view size Bytes bytesize*]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.protocols
              :refer [Magma Monoid Applicative Functor Foldable Comonad extract fold foldmap]]
@@ -308,6 +309,9 @@
     (if master
       (release tz-mem)
       true))
+  Bytes
+  (bytesize* [_]
+    (bytesize* tz-mem))
   Comonad
   (extract [_]
     (extract tz-mem))

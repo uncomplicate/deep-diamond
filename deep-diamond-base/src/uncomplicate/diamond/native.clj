@@ -51,12 +51,12 @@
    (let [backend# backend]
      (case backend#
        :accelerate (if (load-class "uncomplicate.javacpp.accelerate.global.bnns")
-                     `(load-accelerate)
+                     `(load-bnns)
                      (do (error "Accelerate is not available in your classpath!")
                          (info "If you want to use Accelerate, please ensure deep-diamond-accelerate is in your project dependencies.")
                          (dragan-says-ex "Accelerate cannot be loaded!  Please check yor project's dependencies.")))
        :dnnl (if (load-class "org.bytedeco.dnnl.global.dnnl")
-              `(load-mkl)
+               `(load-dnnl)
               (do (error "DNNL is not available in your classpath!")
                   (info "If you want to use DNNL, please ensure deep-diamond-dnnl and org.bytedeco/dnnl are in your project dependencies.")
                   (dragan-says-ex "DNNL be loaded! Please check yor project's dependencies.")))
