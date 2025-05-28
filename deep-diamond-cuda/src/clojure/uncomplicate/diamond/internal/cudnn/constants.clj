@@ -41,7 +41,15 @@
 (def ^:const cudnn-format
   {:nchw cudnn/CUDNN_TENSOR_NCHW
    :nhwc cudnn/CUDNN_TENSOR_NHWC
-   :nchw-vect-c cudnn/CUDNN_TENSOR_NCHW_VECT_C})
+   :nchw-vect-c cudnn/CUDNN_TENSOR_NCHW_VECT_C
+   :abcd cudnn/CUDNN_TENSOR_NCHW
+   :oihw cudnn/CUDNN_TENSOR_NCHW
+   :goiw cudnn/CUDNN_TENSOR_NCHW
+   :ldnc cudnn/CUDNN_TENSOR_NCHW
+   :ldio cudnn/CUDNN_TENSOR_NCHW
+   :ldgo cudnn/CUDNN_TENSOR_NCHW
+   :ohwi cudnn/CUDNN_TENSOR_NHWC
+   :acdb cudnn/CUDNN_TENSOR_NHWC})
 
 (defn dec-format [^long format]
   (case format

@@ -63,7 +63,6 @@ Please use a copy or create a transformer."
                 (recur res  (dec i)))
             (vec res)))))))
 
-
 (defn transfer-weights-bias! [source destination]
   (transfer! (bias source) (bias destination))
   (transfer! (weights source) (weights destination))

@@ -235,6 +235,15 @@
   ([tdesc]
    (desc (shape tdesc) (data-type tdesc) (layout tdesc))))
 
+(defn default-desc
+  "Creates a general, technology-agnostic, tensor descriptor
+  with default contiguous stride appropritate for input descriptors' shape.
+  "
+  ([shape type]
+   (desc shape type (default-strides shape)))
+  ([tdesc]
+   (default-desc (shape tdesc) (data-type tdesc))))
+
 (defn tensor
   "Creates a technology-specific tensor.
 

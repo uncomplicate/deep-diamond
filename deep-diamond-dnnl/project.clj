@@ -14,7 +14,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.0"]
                  [org.uncomplicate/deep-diamond-base "0.34.0-SNAPSHOT"]
-                 [org.bytedeco/dnnl-platform "3.7.3-1.5.12-SNAPSHOT"]]
+                 [org.bytedeco/dnnl-platform "3.8.1-1.5.12-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]

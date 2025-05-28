@@ -88,12 +88,11 @@
                  fc-bluep (fully-connected fact input-tz [1 2] :relu)
                  fc (fc-bluep input-tz)
                  connect-output (connector (output fc) (desc [1 2] :float :nc))
-                 input-weights (if (contiguous? (weights fc)) (weights fc)
-                                   (connector (desc [2 3 2 1] :float :oihw) (weights fc)))]
+                 in-weights (connector (default-desc (weights fc)) (weights fc))]
     (facts "Fully connected inference layer"
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
-           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] input-weights)
-           (input-weights)
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] in-weights)
+           (in-weights)
            (transfer! [-0.1 0.2] (bias fc))
            (fc) => (output fc)
            (asum (output (connect-output))) => (float 0.72999996))))
@@ -114,9 +113,7 @@
            (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] in-weights)
            (in-weights)
            (transfer! [-0.1 0.2] (bias fc))
-
            (transfer! fc fc-1)
-
            (out-weights)
            (bias fc-1) => (bias fc)
            (output out-weights) => (input in-weights))))
@@ -148,10 +145,13 @@
                  fc-bluep (fully-connected fact input-tz [1 2] :linear)
                  fc (fc-bluep input-tz false)
                  train-tz (tensor fact [1 2] :float :nc)
-                 fc-output (cost fc train-tz :quadratic)]
+                 fc-output (cost fc train-tz :quadratic)
+                 in-weights  (connector (default-desc (weights fc)) (weights fc))
+                 out-weights (revert in-weights)]
     (facts "Fully connected training layer"
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
-           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] in-weights)
+           (in-weights)
            (transfer! [-0.1 0.2] (bias fc))
            (forward fc [nil 1 0 0 false]) => fc
            (nrm2 (axpy! -1 (view-vctr (output fc))
@@ -162,7 +162,7 @@
            (backward fc) => fc
            (backward fc [nil 1 0 0 false]) => fc
            (view-vctr input-tz) => (vctr train-tz -0.5 0 0.2 1.0 0.3 -0.69999999)
-           (nrm2 (axpy! -1 (view-vctr (weights fc))
+           (nrm2 (axpy! -1 (view-vctr (out-weights))
                         (vctr train-tz -0.15000000596046448 0.10000000149011612 0.2200000137090683
                               -0.5999999642372131 -0.06999999284744263 0.0299999862909317
                               0.6150000095367432 -0.699999988079071 -0.26600000262260437
@@ -176,10 +176,13 @@
                  fc-bluep (fully-connected fact input-tz [1 2] :linear)
                  fc (fc-bluep input-tz false :adam)
                  train-tz (tensor fact [1 2] :float :nc)
-                 fc-output (cost fc train-tz :quadratic)]
+                 fc-output (cost fc train-tz :quadratic)
+                 in-weights  (connector (default-desc (weights fc)) (weights fc))
+                 out-weights (revert in-weights)]
     (facts "Fully connected training layer - adam"
            (transfer! [-0.5 0 0.2 1 0.3 -0.7] input-tz)
-           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] (weights fc))
+           (transfer! [-0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7 -0.1 0.1 0.2 -0.7] in-weights)
+           (in-weights)
            (transfer! [-0.1 0.2] (bias fc))
            (forward fc []) => fc
            (nrm2 (axpy! -1 (view-vctr (output fc))
@@ -195,7 +198,7 @@
            (backward fc) => fc
            (backward fc [ 1 1]) => fc
            (view-vctr input-tz) => (vctr train-tz -0.5 0 0.2 1.0 0.3 -0.69999999)
-           (nrm2 (view-vctr (weights fc))) => (float 149791.78)
+           (nrm2 (view-vctr (output (out-weights)))) => (float 149791.78)
            (nrm2 (axpy! -1 (view-vctr (bias fc))
                         (vctr train-tz 2.2351741790771484E-8 -0.6299999952316284)))))) => (roughly 0 0.0000001)
 

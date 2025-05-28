@@ -24,7 +24,8 @@
             [uncomplicate.neanderthal.internal.cpp.structures :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
              :refer [TensorDescriptor shape layout TensorContainer Transfer input output
-                     Revert ConnectorCreator connector view-tz transformer batch-size]
+                     Revert ConnectorCreator connector view-tz transformer batch-size
+                     default-desc]
              :as tz]
             [uncomplicate.diamond.internal
              [protocols
@@ -32,7 +33,7 @@
                       neanderthal-factory tensor-engine native-diamond-factory Offset offset
                       DiffTransfer diff-input diff-output create-tensor-desc parameters
                       DescriptorProvider BatchDescriptor batch-index]]
-             [utils :refer [check-contiguous]]]
+             [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory strides submemory-desc
                            equal-desc? execute! reorder primitive fwd-args offset! ndims
@@ -85,7 +86,7 @@
   (connector [in-desc out]
     (if (equal-desc? in-desc (input out))
       (view out)
-      (let [out-tz (output out)]
+      (let [out-tz (output out)];;TODO are we sure it should be (output out), and not (input out)
         (if (equal-desc? in-desc out-tz)
           (view out-tz)
           (let [fact (diamond-factory out-tz)]
@@ -582,7 +583,7 @@
   [source destination]
   (if (contiguous? destination)
     (transfer! source (view-vctr destination))
-    (with-release [connect (connector (dnnl-contiguous-desc (shape destination)) destination)]
+    (with-release [connect (connector (default-desc destination) destination)]
       (transfer! source (view-vctr (input connect)))
       (connect)))
   destination)
@@ -591,7 +592,7 @@
   [source destination]
   (if (contiguous? source)
     (transfer! (view-vctr source) destination)
-    (with-release [connect (connector source (dnnl-contiguous-desc (shape source)))]
+    (with-release [connect (connector source (default-desc destination))]
       (connect)
       (transfer! (view-vctr (output source)) destination)))
   (transfer! (view-vctr source) destination))
