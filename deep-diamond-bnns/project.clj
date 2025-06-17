@@ -28,7 +28,7 @@
                                       [codox-theme-rdash "0.1.2"]
                                       [org.uncomplicate/deep-diamond-test "0.34.0-SNAPSHOT"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}
-             :macosx {:dependencies [[org.bytedeco/openblas "0.3.29-1.5.12-SNAPSHOT" :classifier macosx-arm64]]}}
+             :macosx {:dependencies [[org.bytedeco/openblas "0.3.29-1.5.12-SNAPSHOT" :classifier "macosx-arm64"]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 
