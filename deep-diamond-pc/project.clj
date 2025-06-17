@@ -27,13 +27,25 @@
         uncomplicate.neanderthal.internal.cpp.openblas.factory
         uncomplicate.neanderthal.internal.cpp.cuda.structures
         uncomplicate.neanderthal.internal.cpp.cuda.factory
+        uncomplicate.diamond.metrics
+        uncomplicate.diamond.tensor
+        uncomplicate.diamond.internal.cost
+        uncomplicate.diamond.internal.protocols
+        uncomplicate.diamond.internal.utils
+        uncomplicate.diamond.internal.network
+        uncomplicate.diamond.internal.neanderthal.directed
         uncomplicate.diamond.internal.dnnl.constants
+        uncomplicate.diamond.internal.dnnl.protocols
+        uncomplicate.diamond.internal.dnnl.impl
         uncomplicate.diamond.internal.dnnl.core
         uncomplicate.diamond.internal.dnnl.tensor
         uncomplicate.diamond.internal.dnnl.directed
         uncomplicate.diamond.internal.dnnl.rnn
         uncomplicate.diamond.internal.dnnl.factory
+        uncomplicate.diamond.internal.neanderthal.factory
         uncomplicate.diamond.internal.cudnn.constants
+        uncomplicate.diamond.internal.cudnn.protocols
+        uncomplicate.diamond.internal.cudnn.impl
         uncomplicate.diamond.internal.cudnn.core
         uncomplicate.diamond.internal.cudnn.tensor
         uncomplicate.diamond.internal.cudnn.directed
@@ -53,9 +65,9 @@
                                       [org.clojure/data.csv "1.1.0"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "-Djdk.attach.allowAttachSelf"]}
              :linux {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]
-                                    [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT" :classifier linux-x86_64-redist]]}
+                                    [org.bytedeco/cuda "12.9-9.9-1.5.12-SNAPSHOT" :classifier linux-x86_64-redist]]}
              :windows {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier windows-x86_64-redist]
-                                      [org.bytedeco/cuda "12.8-9.8-1.5.12-SNAPSHOT" :classifier windows-x86_64-redist]]}}
+                                      [org.bytedeco/cuda "12.9-9.9-1.5.12-SNAPSHOT" :classifier windows-x86_64-redist]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

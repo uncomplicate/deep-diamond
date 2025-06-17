@@ -17,6 +17,6 @@ The progress goes along with the [books](https://aiprobook.com)
 
 ## License
 
-Copyright © 2019-2020 Dragan Djuric
+Copyright © 2019-2025 Dragan Djuric
 
 Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.
