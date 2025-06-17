@@ -28,9 +28,9 @@
                                       [org.uncomplicate/deep-diamond-test "0.34.0-SNAPSHOT"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
-                                    [org.bytedeco/mkl "2025.0-1.5.11" :classifier linux-x86_64-redist]]}
+                                    [org.bytedeco/mkl "2025.0-1.5.11" :classifier "linux-x86_64-redist"]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
-                                      [org.bytedeco/mkl "2025.0-1.5.11" :classifier windows-x86_64-redist]]}
+                                      [org.bytedeco/mkl "2025.0-1.5.11" :classifier "windows-x86_64-redist"]]}
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.54.0-SNAPSHOT"]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
