@@ -10,3 +10,14 @@
 
 (defprotocol DescProvider
   (desc [this]))
+
+(defprotocol Descriptor
+  (dims* [this])
+  (data-type* [this])
+  (strides* [this])
+  (rank* [this])
+  (data* [this] [this data])
+  (clone* [this]))
+
+(defprotocol LayerCreator
+  (layer* [params filter-params]))

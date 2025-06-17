@@ -13,7 +13,7 @@
             [uncomplicate.fluokitten.protocols :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [int-pointer long-pointer float-pointer pointer-pointer get-entry
-                     fill! pointer-vec safe byte-pointer position! get-pointer put-entry!
+                     zero! pointer-vec safe byte-pointer position! get-pointer put-entry!
                      type-pointer pointer position capacity null?]]
             [uncomplicate.diamond.internal.utils :refer [default-strides]]
             [uncomplicate.diamond.internal.dnnl
@@ -140,7 +140,7 @@
     (if (number? dim)
       (submemory-desc* (extract (desc parent-desc)) dim)
       (with-release [dims (long-pointer dim)
-                     offsets (fill! (long-pointer (size dims)) 0)]
+                     offsets (zero! (long-pointer (size dims)))]
         (submemory-desc* (extract (desc parent-desc)) (extract dims) (extract offsets))))
     true)))
 
@@ -604,7 +604,7 @@
   ([eng prop-kind alg-kind src-desc weights-desc bias-desc dst-desc strides dilates padding-l padding-r]
    (with-release [strides (long-pointer strides)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (size strides)) 0))
+                              (zero! (long-pointer (size strides))))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (convolution-forward* (extract eng)
@@ -627,7 +627,7 @@
     strides dilates padding-l padding-r]
    (with-release [strides (long-pointer strides)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (size strides)) 0))
+                              (zero! (long-pointer (size strides))))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (convolution-backward-data* (extract eng)
@@ -648,7 +648,7 @@
     strides dilates padding-l padding-r]
    (with-release [strides (long-pointer strides)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (size strides)) 0))
+                              (zero! (long-pointer (size strides))))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (convolution-backward-weights* (extract eng)
@@ -674,7 +674,7 @@
    (with-release [strides (long-pointer strides)
                   kernel(long-pointer kernel)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (size strides)) 0))
+                              (zero! (long-pointer (size strides))))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (pooling-forward* (extract eng) (enc-keyword dnnl-forward-prop-kind prop-kind)
@@ -692,7 +692,7 @@
    (with-release [strides (long-pointer strides)
                   kernel(long-pointer kernel)
                   dilates (if dilates (long-pointer dilates)
-                              (fill! (long-pointer (size strides)) 0))
+                              (zero! (long-pointer (size strides))))
                   padding-l (long-pointer padding-l)
                   padding-r (long-pointer padding-r)]
      (pooling-backward* (extract eng) (enc-keyword dnnl-pooling-alg-kind alg-kind)

@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.utils
   (:require [uncomplicate.commons
-             [core :refer [Releaseable with-release]]
+             [core :refer [Releaseable with-release size]]
              [utils :refer [dragan-says-ex with-check]]]
             [uncomplicate.fluokitten.core :refer [foldmap extract]]
             [uncomplicate.clojure-cpp :refer [null?]]
@@ -20,16 +20,15 @@
   (:import uncomplicate.neanderthal.internal.api.Block))
 
 (defmacro extend-pointer [name release-method error]
-  (let [name-str (str name)]
-    `(extend-type ~name
-       Releaseable
-       (release [this#]
-         (locking this#
-           (when-not (null? this#)
-             (with-check ~error (~release-method this#)
-               (do (.deallocate this#)
-                   (.setNull this#)))))
-         true))))
+  `(extend-type ~name
+     Releaseable
+     (release [this#]
+       (locking this#
+         (when-not (null? this#)
+           (with-check ~error (~release-method this#)
+             (do (.deallocate this#)
+                 (.setNull this#)))))
+       true)))
 
 (defn check-contiguous
   ([^Block x]
@@ -50,8 +49,12 @@ Please use a copy or create a transformer."
    (check-contiguous z)
    (check-contiguous w)))
 
-(defn default-strides [shape]
-  (let [cnt (count shape)]
+
+(defn default-strides
+  "Creates the first major (in Apple parlance) strides vector
+  (entries are in descending order)."
+  [shape]
+  (let [cnt (size shape)]
     (case cnt
       0 []
       1 [1]
@@ -60,7 +63,7 @@ Please use a copy or create a transformer."
         (loop [res res i (dec cnt)]
           (if (< 0 i)
             (do (aset res (dec i) (* (aget res i) (long (get shape i))))
-                (recur res  (dec i)))
+                (recur res (dec i)))
             (vec res)))))))
 
 (defn transfer-weights-bias! [source destination]

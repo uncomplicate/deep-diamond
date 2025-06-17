@@ -29,7 +29,8 @@
                                       [org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
                                       [org.uncomplicate/deep-diamond-dnnl "0.34.0-SNAPSHOT"]
                                       [org.uncomplicate/deep-diamond-test "0.34.0-SNAPSHOT"]]
-                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"]}
+                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
+                                            "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier "linux-x86_64-redist"]
                                     [org.bytedeco/cuda "12.9-9.9-1.5.12-SNAPSHOT"  :classifier "linux-x86_64-redist"]]}
              :windows {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier "windows-x86_64-redist"]

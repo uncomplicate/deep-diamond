@@ -16,5 +16,5 @@
        => [])
 
 (facts "BNNS data-layout tests."
-       (remove identity (map #(= % (bnns-data-layouqt (dec-data-layout %))) (vals bnns-data-layout)))
+       (remove identity (map #(= % (bnns-data-layout (dec-data-layout %))) (vals bnns-data-layout)))
        => [])

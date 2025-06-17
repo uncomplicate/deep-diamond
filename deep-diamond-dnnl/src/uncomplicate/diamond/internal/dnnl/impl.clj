@@ -283,15 +283,15 @@
                 (release data))))))
     true)
   Comonad
-  (extract [this]
+  (extract [_]
     (if-not (null? mem) mem nil))
   DescProvider
-  (desc [this]
+  (desc [_]
     mem-desc)
   PointerCreator
-  (pointer* [this]
+  (pointer* [_]
     (if-not (or (null? mem) (null? data)) data nil))
-  (pointer* [this i]
+  (pointer* [_ i]
     (if-not (or (null? mem) (null? data)) (pointer data i) nil))
   Bytes
   (bytesize* [_]

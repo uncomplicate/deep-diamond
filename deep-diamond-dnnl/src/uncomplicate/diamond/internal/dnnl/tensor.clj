@@ -530,7 +530,7 @@
         (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view in-tz) out-tz)))))
 
 (defn dnnl-tensor
-  ([diamond-fact neand-fact eng mem-desc n-index]
+  ([diamond-fact neand-fact eng mem-desc n-index];;TODO n-index is commonly called axis
    (let [mem-desc (desc mem-desc)
          shp (dims mem-desc)
          nc (* (long (first shp)) (long (apply * (rest shp))))]
