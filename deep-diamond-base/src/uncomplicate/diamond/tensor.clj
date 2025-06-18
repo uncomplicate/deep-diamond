@@ -307,7 +307,7 @@
 
       (def t1 (tensor [2 3] :float :nc))
       (transfer! (range) t1)
-      (def t2 (tensor [3 2] :float :cn))
+      (def t2 (tensor [2 3] :float :cn))
       (def tr-1-2 (transformer t1 t2))
 
       (tr-1-2)
