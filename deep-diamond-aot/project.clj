@@ -71,4 +71,7 @@
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 
+  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
+                       "--enable-native-access=ALL-UNNAMED"]
+
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])

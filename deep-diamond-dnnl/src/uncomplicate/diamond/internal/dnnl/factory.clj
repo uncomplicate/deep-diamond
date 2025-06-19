@@ -11,13 +11,12 @@
              [core :refer [Releaseable release let-release view bytesize]]
              [utils :refer [dragan-says-ex mapped-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
-            [uncomplicate.neanderthal
-             [native :refer [factory-by-type]]
-             [block :refer [create-data-source buffer initialize!]]]
+            [uncomplicate.neanderthal.block :refer [create-data-source buffer initialize!]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider]]
             [uncomplicate.neanderthal.internal.cpp.lapack :refer [with-lapack-check]]
             [uncomplicate.neanderthal.internal.cpp.mkl.factory
-             :refer [->FloatVectorEngine ->IntVectorEngine ->ByteVectorEngine]]
+             :refer [->FloatVectorEngine ->IntVectorEngine ->ByteVectorEngine
+                     mkl-double mkl-float mkl-long mkl-int mkl-short mkl-byte]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* output shape data-type layout]]
             [uncomplicate.diamond.internal
@@ -46,6 +45,34 @@
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the DNNL platform.
 Please contribute towards making it possible, or use on of the supported types.")
+
+(defn factory-by-type [data-type]
+  (case data-type
+    :float mkl-float
+    :double mkl-double
+    :int mkl-int
+    :long mkl-long
+    :short mkl-short
+    :byte mkl-byte
+    :uint8 mkl-byte
+    (cond
+      (= Float/TYPE data-type) mkl-float
+      (= Double/TYPE data-type) mkl-double
+      (= Integer/TYPE data-type) mkl-int
+      (= Long/TYPE data-type) mkl-long
+      (= Short/TYPE data-type) mkl-short
+      (= Byte/TYPE data-type) mkl-byte
+      (= float data-type) mkl-float
+      (= double data-type) mkl-double
+      (= int data-type) mkl-int
+      (= long data-type) mkl-long
+      (= short data-type) mkl-short
+      (= byte data-type) mkl-byte
+      :default (dragan-says-ex "You requested a factory for an unsupported data type."
+                               {:requested data-type
+                                :available [:float :int :double :long :short :byte
+                                            Float/TYPE Double/TYPE
+                                            Integer/TYPE Long/TYPE Short/TYPE Byte/TYPE]}))))
 
 (deftype DnnlFactory [eng strm master tensor-engines]
   Releaseable
@@ -123,7 +150,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (sum-blueprint [this src-descs]
     (dnnl-sum-blueprint this eng src-descs))
   (create-workspace [_ byte-size]
-    (create-data-source (factory-by-type :byte) (max 1 (long byte-size))))
+    (create-data-source mkl-byte (max 1 (long byte-size))))
   RnnFactory
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
     (case activ

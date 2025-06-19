@@ -12,9 +12,7 @@
              [utils :refer [dragan-says-ex direct-buffer mapped-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal.core :refer [entry!]]
-            [uncomplicate.neanderthal
-             [native :refer [factory-by-type]]
-             [block :refer [create-data-source]]]
+            [uncomplicate.neanderthal.block :refer [create-data-source]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
             [uncomplicate.neanderthal.internal.cpp.mkl.factory
              :refer [->FloatVectorEngine ->IntVectorEngine ->ByteVectorEngine]]
@@ -34,7 +32,8 @@
                                dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
                                dnnl-split-blueprint dnnl-concat-blueprint
                                dnnl-batch-norm-layer-blueprint dnnl-pooling-blueprint
-                               dnnl-branch-blueprint dnnl-sum-blueprint]]]))
+                               dnnl-branch-blueprint dnnl-sum-blueprint]]
+             [factory :refer [factory-by-type]]]))
 
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the Neanderthal/DNNL platform.

@@ -17,8 +17,7 @@
             [uncomplicate.clojurecuda.core :refer [memcpy-to-host! cuda-malloc]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim vctr copy! native]]
-             [block :refer [entry-width buffer data-accessor create-data-source cast-prim contiguous?]]
-             [cuda :refer [factory-by-type]]]
+             [block :refer [entry-width buffer data-accessor create-data-source cast-prim contiguous?]]]
             [uncomplicate.neanderthal.internal.api
              :refer [flow equals-block compatible? set-all MemoryContext
                      EngineProvider Container DataAccessorProvider FactoryProvider

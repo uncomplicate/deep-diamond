@@ -75,7 +75,7 @@
   `td1` and `td2` can be any objects that can provide cuDNN descriptors (tensors,
   descriptors themselves,  etc.)"
   [td1 td2]
-  (= (desc td1) (desc td2))))
+  (= (desc td1) (desc td2)))
 
 (defn data-type
   "Returns the data type of a tensor descriptor."
