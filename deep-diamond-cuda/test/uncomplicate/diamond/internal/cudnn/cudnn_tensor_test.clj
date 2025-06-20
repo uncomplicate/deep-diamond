@@ -10,8 +10,10 @@
     uncomplicate.diamond.internal.cudnn.cudnn-tensor-test
   (:require [midje.sweet :refer [facts throws =>]]
             [uncomplicate.commons.core :refer [with-release]]
-            [uncomplicate.neanderthal.core :refer [dim asum native transfer!]]
+            [uncomplicate.neanderthal.core :refer [dim asum native transfer! ge entry! view-vctr vctr]]
+            [uncomplicate.neanderthal.internal.api :refer [native-factory factory]]
             [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor offset! view-tz]]
+            [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.tensor-test :refer :all])
@@ -19,12 +21,12 @@
 
 (defn test-cudnn-create [fact]
   (facts
-   "Test cuDNN specific constraints."
-   (tensor fact [0 1 1 1] :float :nchw) => (throws ExceptionInfo)
-   (tensor fact [2 3] :int :nc) => (throws ExceptionInfo)
-   (tensor fact [2 3] :long :nc) => (throws ExceptionInfo)
-   (with-release [t1 (tensor fact [2 3 2 2] :double :nchw)]
-     (dim t1) => 24)))
+    "Test cuDNN specific constraints."
+    (tensor fact [0 1 1 1] :float :nchw) => (throws ExceptionInfo)
+    (tensor fact [2 3] :int :nc) => (throws ExceptionInfo)
+    (tensor fact [2 3] :long :nc) => (throws ExceptionInfo)
+    (with-release [t1 (tensor fact [2 3 2 2] :double :nchw)]
+      (dim t1) => 24)))
 
 (defn test-cudnn-transfer [fact0 fact1]
   (with-release [tz-x (tensor fact0 [6 2] :byte :nc)
@@ -41,6 +43,22 @@
            (asum (native (transfer! sub-x sub-y))) => 14.0
            (seq (native (transfer! sub-y sub-z))) => [2 3 4 5]
            (seq (native tz-z)) => [0 0 2 3 4 5 0  1 2 3 4 5])))
+
+(defn test-cudnn-transfer-overwriting [cpu-fact cuda-fact]
+  (with-release [cuda-t (tensor cuda-fact [1 2 2] :float :ncw)
+                 cpu-t (tensor cpu-fact [1 2 2] :float :ncw)
+                 cpu-v (vctr (neanderthal-factory cpu-fact :float) [1 10])
+                 cuda-v (vctr (neanderthal-factory cuda-fact :float) 4)]
+    (facts "Test whether heterogeneous transfer from a vector writes beyond its turf."
+           (entry! cuda-t 33)
+           (entry! cpu-t 44)
+           (entry! cuda-v 55)
+           (seq (native cuda-v)) => [55.0 55.0 55.0 55.0]
+           (transfer! cpu-v (view-vctr cuda-t))
+           (transfer! cpu-v cpu-t) => cpu-t
+           (transfer! cpu-v cuda-v) => cuda-v
+           (seq (native cuda-v)) => [1.0 10.0 55.0 55.0]
+           (seq (native cuda-t)) => [1.0 10.0 33.0 33.0])))
 
 (with-release [dnnl-fact (dnnl-factory)]
   (with-diamond cudnn-factory []
@@ -63,4 +81,5 @@
     (test-batcher *diamond-factory*)
     (test-batcher-tnc *diamond-factory*)
     (test-shuffler *diamond-factory*)
-    (test-cudnn-transfer dnnl-fact *diamond-factory*)))
+    (test-cudnn-transfer dnnl-fact *diamond-factory*)
+    (test-cudnn-transfer-overwriting dnnl-fact *diamond-factory*)))

@@ -546,6 +546,14 @@
                      :compatible? (compatible? src dest)}))
   dest)
 
+(defmethod transfer! [VectorSpace CUDnnTensor]
+  [source destination]
+  (if (contiguous? destination)
+    (transfer! source (view-vctr destination))
+    (with-release [mid (raw destination (native-diamond-factory destination))]
+      (transfer! (transfer! source mid) destination)))
+  destination)
+
 (defmethod transfer! [CUDnnTensor Object]
   [source destination]
   (with-release [src (host source)]
@@ -553,9 +561,11 @@
 
 (defmethod transfer! [Object CUDnnTensor]
   [source destination]
-  (with-release [mid (raw destination (native-diamond-factory destination))]
-    (transfer! (transfer! source mid) destination)
-    destination))
+  (if (contiguous? destination)
+    (transfer! source (view-vctr destination))
+    (with-release [mid (raw destination (native-diamond-factory destination))]
+      (transfer! (transfer! source mid) destination)))
+  destination)
 
 (defmethod transfer! [Object CUDnnTransformer]
   [source destination]
