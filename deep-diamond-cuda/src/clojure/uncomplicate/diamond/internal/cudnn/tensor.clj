@@ -19,7 +19,7 @@
              [core :refer [transfer! dim vctr copy! native]]
              [block :refer [entry-width buffer data-accessor create-data-source cast-prim contiguous?]]]
             [uncomplicate.neanderthal.internal.api
-             :refer [flow equals-block compatible? set-all MemoryContext
+             :refer [flow equals-block compatible? set-all MemoryContext copy engine
                      EngineProvider Container DataAccessorProvider FactoryProvider
                      native-factory zero raw host factory fits? DenseContainer view-vctr]]
             [uncomplicate.neanderthal.internal.cpp.cuda.structures
@@ -27,7 +27,8 @@
             [uncomplicate.diamond.tensor
              :as diamond
              :refer [TensorDescriptor shape layout data-type TensorContainer Transfer
-                     input output Revert ConnectorCreator connector view-tz batch-size]]
+                     input output Revert ConnectorCreator connector view-tz batch-size
+                     default-desc]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [TensorFactory DiamondFactoryProvider create-tensor create-tensor-desc
@@ -42,9 +43,9 @@
             [uncomplicate.diamond.internal.cudnn
              [core :refer [tensor-descriptor equal-desc? dims strides transform-tensor]]
              [protocols :refer [DescProvider desc handle]]
-             [constants :refer [cudnn-format]]])
+             [constants :refer [cudnn-format data-type-width]]])
   (:import [clojure.lang IFn ExceptionInfo AFn]
-           [uncomplicate.neanderthal.internal.api Block Changeable DataAccessor VectorSpace]
+           [uncomplicate.neanderthal.internal.api Block Changeable DataAccessor VectorSpace CUVector]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
            uncomplicate.diamond.internal.dnnl.tensor.DnnlTensor
            [uncomplicate.diamond.internal.cudnn.impl CUTensorDescriptor CUFilterDescriptor]))
@@ -257,8 +258,8 @@
 
 (defn cudnn-batcher [cudnn-hdl src-tz dst-tz mb-size]
   (let [mb-size (max 1 (long mb-size))]
-    (let-release [src-sub (view (view-tz src-tz mb-size))
-                  dst-sub (view (view-tz dst-tz mb-size))]
+    (let-release [src-sub (view-tz src-tz mb-size)
+                  dst-sub (view-tz dst-tz mb-size)]
       (->CUDnnBatcher cudnn-hdl src-sub dst-sub
                       src-tz dst-tz mb-size
                       ((dims src-tz) (batch-index src-tz)) ((strides src-sub) (batch-index src-tz))
@@ -374,12 +375,12 @@
     (raw x diamond-fact))
   (raw [_ fact]
     (let [df (diamond-factory fact)]
-      (create-tensor df (create-tensor-desc df cu-desc) n-index false)))
+      (create-tensor df (default-desc cu-desc) n-index false)))
   (zero [x]
     (zero x diamond-fact))
   (zero [_ fact]
     (let [df (diamond-factory fact)]
-      (create-tensor df (create-tensor-desc df cu-desc) n-index true)))
+      (create-tensor df (default-desc cu-desc) n-index true)))
   (host [x]
     (let-release [res (raw x (native-diamond-factory diamond-fact))]
       (get-vector! vect-buf (view-vctr res))
@@ -448,7 +449,7 @@
     n-index)
   Viewable
   (view [_]
-    (->CUDnnTensor diamond-fact eng (view vect-buf) (view cu-desc) nc n-index))
+    (cudnn-tensor diamond-fact false (pointer (buffer vect-buf) 0) (view cu-desc) n-index))
   DenseContainer
   (view-vctr [_]
     vect-buf)
@@ -462,8 +463,12 @@
                                                 (.layout cu-desc))
                              (cudnn-tensor-desc (shape sub)
                                                 (or (data-type sub) (.data-type cu-desc))
-                                                (or (layout sub) (.layout cu-desc))))]
-      (cudnn-tensor diamond-fact false (pointer (buffer vect-buf) 0) sub-desc n-index)))
+                                                (cudnn-shape-padding (or (layout sub) (.layout cu-desc)))))
+                  sub-buf (cu-block-vector (neanderthal-factory diamond-fact (data-type sub-desc))
+                                           false (pointer (buffer vect-buf) 0)
+                                           (quot (bytesize sub-desc) (data-type-width (data-type sub-desc)))
+                                           1)]
+      (->CUDnnTensor diamond-fact eng sub-buf sub-desc (apply * (dims sub-desc)) n-index)))
   Offset
   (offset [this ofst]
     (if (<= 0 (long ofst) (capacity (buffer vect-buf)))
@@ -482,9 +487,12 @@
   ([diamond-fact master buf tdesc n-index]
    (let [tdesc (desc tdesc)
          neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
-         nc (apply * (dims tdesc))]
-     (if (<= 0 (bytesize tdesc) (bytesize buf))
-       (let-release [vect-buf (cu-block-vector neand-fact master buf nc 1)]
+         nc (apply * (dims tdesc))
+         tz-bytesize (bytesize tdesc)]
+     (if (<= 0 tz-bytesize (bytesize buf))
+       (let-release [vect-buf (cu-block-vector neand-fact master buf
+                                               (quot tz-bytesize (data-type-width (data-type tdesc)))
+                                               1)]
          (->CUDnnTensor diamond-fact
                         (tensor-engine diamond-fact (data-type tdesc))
                         vect-buf tdesc nc n-index))
@@ -508,7 +516,7 @@
 
 (defmethod transfer! [CUDnnTensor CUDnnTensor]
   [source destination]
-  (copy! source destination))
+  (copy (engine source) source destination))
 
 (defmethod transfer! [DnnlTensor CUDnnTensor]
   [src dest]
@@ -517,12 +525,11 @@
              (= (data-type src) (data-type dest))
              (= (cudnn-shape-padding (layout src)) (strides dest)))
       (set-vector! (view-vctr src) (view-vctr dest))
-      (with-release [dnnl-mid (raw dest src)
-                     dnnl-view (view-tz src (diamond/desc (cudnn-shape-padding (shape src))
-                                                          (data-type src)
-                                                          (cudnn-shape-padding (layout src))))]
-        (transfer! dnnl-view dnnl-mid)
-        (set-vector! (view-vctr dnnl-mid) (view-vctr dest))))
+      (with-release [dnnl-connect (connector src (default-desc dest))
+                     cudnn-connect (connector (default-desc dest) dest)]
+        (dnnl-connect)
+        (transfer! (output dnnl-connect) (input cudnn-connect))
+        (cudnn-connect)))
     (dragan-says-ex DOES_NOT_FIT_MSG
                     {:source (dnnl/desc src) :destination (desc dest)
                      :compatible? (compatible? src dest)}))
@@ -535,37 +542,32 @@
              (= (data-type src) (data-type dest))
              (= (strides src) (cudnn-shape-padding (layout dest))))
       (get-vector! (view-vctr src) (view-vctr dest))
-      (with-release [dnnl-mid (raw src dest)
-                     dnnl-view (view-tz dest (diamond/desc (cudnn-shape-padding (shape dest))
-                                                           (data-type dest)
-                                                           (cudnn-shape-padding (layout dest))))]
-        (get-vector! (view-vctr src) (view-vctr dnnl-mid))
-        (transfer! dnnl-mid dnnl-view)))
+      (with-release [cudnn-connect (connector src (default-desc src))
+                     dnnl-connect (connector (default-desc src) dest)]
+        (cudnn-connect)
+        (transfer! (output cudnn-connect) (input dnnl-connect))
+        (dnnl-connect)))
     (dragan-says-ex DOES_NOT_FIT_MSG
                     {:source (desc src) :destination (dnnl/desc dest)
                      :compatible? (compatible? src dest)}))
   dest)
 
-(defmethod transfer! [VectorSpace CUDnnTensor]
-  [source destination]
-  (if (contiguous? destination)
-    (transfer! source (view-vctr destination))
-    (with-release [mid (raw destination (native-diamond-factory destination))]
-      (transfer! (transfer! source mid) destination)))
-  destination)
-
-(defmethod transfer! [CUDnnTensor Object]
-  [source destination]
-  (with-release [src (host source)]
-    (transfer! src destination)))
-
 (defmethod transfer! [Object CUDnnTensor]
   [source destination]
   (if (contiguous? destination)
     (transfer! source (view-vctr destination))
-    (with-release [mid (raw destination (native-diamond-factory destination))]
-      (transfer! (transfer! source mid) destination)))
+    (with-release [connect (connector (default-desc destination) destination)]
+      (transfer! source (view-vctr (input connect)))
+      (connect)))
   destination)
+
+(defmethod transfer! [CUDnnTensor Object]
+  [source destination]
+  (if (contiguous? source)
+    (transfer! (view-vctr source) destination)
+    (with-release [connect (connector source (default-desc destination))]
+      (connect)
+      (transfer! (view-vctr (output source)) destination))))
 
 (defmethod transfer! [Object CUDnnTransformer]
   [source destination]
@@ -575,3 +577,11 @@
 (defmethod transfer! [CUDnnTransformer Object]
   [source destination]
   (transfer! (output source) destination))
+
+(prefer-method transfer! [CUDnnTensor Object] [Object CUDnnTensor])
+(prefer-method transfer! [CUDnnTensor Object] [Object CUVector])
+(prefer-method transfer! [Object CUDnnTensor] [CUVector Object])
+(prefer-method transfer! [CUDnnTensor DnnlTensor] [CUDnnTensor Object])
+(prefer-method transfer! [DnnlTensor CUDnnTensor] [Object CUDnnTensor])
+(prefer-method transfer! [CUDnnTensor CUDnnTensor] [CUDnnTensor Object])
+(prefer-method transfer! [CUDnnTensor CUDnnTensor] [Object CUDnnTensor])

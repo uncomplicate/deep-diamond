@@ -192,6 +192,33 @@
            (out-y)
            (asum (output out-y)) => (double (reduce + (range 12))))))
 
+(defn test-transfer-view-tz [fact]
+  (with-release [tz (doto (tensor fact [1 3 3 1] :float :nchw) (entry! 100.0))
+                 ibtz (view-tz tz [1 2 1 1])]
+    (offset! ibtz 1)
+    (offset! ibtz 1)
+    (transfer! (range 1 3) ibtz)
+    (facts "Partial view-tz."
+           (seq (native tz)) => [100.0 1.0 100.0 100.0 2.0 100.0 100.0 100.0 100.0])))
+
+(defn test-heterogenous-transfer [fact0 fact1]
+  (with-release [tz-x (tensor fact0 [6 2 1 1] :byte :nchw)
+                 sub-x (offset! (view-tz tz-x 2) (* 2 4))
+                 tz-y (tensor fact1 [6 2 1 1] :float :nchw)
+                 sub-y (offset! (view-tz tz-y 2) (* 2 2))
+                 tz-z (tensor fact0 [6 2 1 1] :uint8 :nchw)
+                 sub-z (offset! (view-tz tz-z 2) (* 2 1))
+                 conn (connector tz-x tz-y)]
+    (facts "Test heterogenous transfer."
+           (transfer! (range -6 6) tz-x)
+           (seq (native tz-x)) => (range -6 6)
+           (transfer! tz-x tz-y)
+           (asum (transfer! tz-x tz-y)) => 36.0
+           (seq (native (transfer! tz-y tz-z))) => [0 0 0 0 0 0 0 1 2 3 4 5]
+           (asum (native (transfer! sub-x sub-y))) => 14.0
+           (seq (native (transfer! sub-y sub-z))) => [2 3 4 5]
+           (seq (native tz-z)) => [0 0 2 3 4 5 0 1 2 3 4 5])))
+
 (defn test-pull-different [fact]
   (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)
                  tz-y-desc (desc [2 3 4 5] :float :nhwc)

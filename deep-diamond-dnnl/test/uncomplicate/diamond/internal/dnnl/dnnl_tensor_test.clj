@@ -10,7 +10,7 @@
     uncomplicate.diamond.internal.dnnl.dnnl-tensor-test
   (:require [midje.sweet :refer [facts throws => truthy]]
             [uncomplicate.commons.core :refer [with-release]]
-            [uncomplicate.neanderthal.core :refer [dim view-vctr]]
+            [uncomplicate.neanderthal.core :refer [dim view-vctr transfer!]]
             [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [engine stream]]
@@ -50,6 +50,7 @@
   (test-transformer diamond-factory)
   (test-transformer-any diamond-factory)
   (test-transfer-any diamond-factory)
+  (test-transfer-view-tz diamond-factory)
   (test-pull-different diamond-factory)
   (test-pull-same diamond-factory)
   (test-push-different diamond-factory)
@@ -58,7 +59,8 @@
   (test-shuffler diamond-factory)
   (test-batcher-tnc diamond-factory)
   (test-tensor-fold diamond-factory)
-  (test-tensor-reducible diamond-factory))
+  (test-tensor-reducible diamond-factory)
+  (test-heterogenous-transfer diamond-factory diamond-factory1))
 
 (with-release [eng (engine)
                strm (stream eng)]
@@ -76,6 +78,7 @@
     (test-transformer *diamond-factory*)
     (test-transformer-any *diamond-factory*)
     (test-transfer-any *diamond-factory*)
+    (test-transfer-view-tz *diamond-factory*)
     (test-pull-different *diamond-factory*)
     (test-pull-same *diamond-factory*)
     (test-push-different *diamond-factory*)
@@ -84,4 +87,5 @@
     (test-shuffler *diamond-factory*)
     (test-batcher-tnc *diamond-factory*)
     (test-tensor-fold *diamond-factory*)
-    (test-tensor-reducible *diamond-factory*)))
+    (test-tensor-reducible *diamond-factory*)
+    (test-heterogenous-transfer *diamond-factory* *diamond-factory*)))

@@ -28,22 +28,6 @@
     (with-release [t1 (tensor fact [2 3 2 2] :double :nchw)]
       (dim t1) => 24)))
 
-(defn test-cudnn-transfer [fact0 fact1]
-  (with-release [tz-x (tensor fact0 [6 2] :byte :nc)
-                 sub-x (offset! (view-tz tz-x 2) (* 2 4))
-                 tz-y (tensor fact1 [6 2] :float :nc)
-                 sub-y (offset! (view-tz tz-y 2) (* 2 2))
-                 tz-z (tensor fact0 [6 2] :uint8 :nc)
-                 sub-z (offset! (view-tz tz-z 2) (* 2 1))]
-    (facts "Test heterogenous transfer."
-           (transfer! (range -6 6) tz-x)
-           (seq (native tz-x)) => (range -6 6)
-           (asum (native (transfer! tz-x tz-y))) => 36.0
-           (seq (native (transfer! tz-y tz-z))) => [0 0 0 0 0 0 0 1 2 3 4 5]
-           (asum (native (transfer! sub-x sub-y))) => 14.0
-           (seq (native (transfer! sub-y sub-z))) => [2 3 4 5]
-           (seq (native tz-z)) => [0 0 2 3 4 5 0  1 2 3 4 5])))
-
 (defn test-cudnn-transfer-overwriting [cpu-fact cuda-fact]
   (with-release [cuda-t (tensor cuda-fact [1 2 2] :float :ncw)
                  cpu-t (tensor cpu-fact [1 2 2] :float :ncw)
@@ -69,6 +53,7 @@
     (test-equality *diamond-factory*)
     (test-release *diamond-factory*)
     (test-transfer *diamond-factory* dnnl-fact)
+    (test-transfer-view-tz *diamond-factory*)
     (test-contiguous *diamond-factory*)
     (test-subtensor *diamond-factory*)
     (test-transformer *diamond-factory*)
@@ -81,5 +66,5 @@
     (test-batcher *diamond-factory*)
     (test-batcher-tnc *diamond-factory*)
     (test-shuffler *diamond-factory*)
-    (test-cudnn-transfer dnnl-fact *diamond-factory*)
+    (test-heterogenous-transfer dnnl-fact *diamond-factory*)
     (test-cudnn-transfer-overwriting dnnl-fact *diamond-factory*)))

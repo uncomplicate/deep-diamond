@@ -13,7 +13,7 @@
             [uncomplicate.fluokitten.core :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [pointer put-float! get-float byte-pointer float-pointer put-entry! get-entry
-                     position pointer-seq position! null? fill!]]
+                     position pointer-seq position! null? fill! capacity!]]
             [uncomplicate.neanderthal
              [core :refer [zero raw nrm2 entry! entry transfer!]]
              [native :refer [fv]]
@@ -264,21 +264,27 @@
                         a-desc (memory-desc dims :float :nchw)
                         b-desc (memory-desc dims :float :nchw)
                         c-desc (memory-desc dims :float :nhwc)
+                        d-desc (memory-desc dims :byte :nhwc)
                         reorder-a-c-pd (reorder eng a-desc c-desc)
                         reorder-a-b-pd (reorder eng a-desc b-desc)
+                        reorder-a-d-pd (reorder eng a-desc d-desc)
                         a-vec (fv (range (apply * dims)))
                         b-vec (zero a-vec)
                         c-vec (zero a-vec)
                         a-mem (memory eng a-desc (buffer a-vec))
                         b-mem (memory eng a-desc (buffer b-vec))
                         c-mem (memory eng a-desc (buffer c-vec))
+                        d-mem (memory eng d-desc)
                         reorder-a-c (primitive reorder-a-c-pd)
                         reorder-a-b (primitive reorder-a-b-pd)
+                        reorder-a-d (primitive reorder-a-d-pd)
                         reorder-a-c-args (fwd-args a-mem c-mem)
-                        reorder-a-b-args (fwd-args a-mem b-mem)]
+                        reorder-a-b-args (fwd-args a-mem b-mem)
+                        reorder-a-d-args (fwd-args a-mem d-mem)]
            (equal-desc? a-desc a-desc) => true
            (equal-desc? a-desc b-desc) => true
            (equal-desc? a-desc c-desc) => false
+           (equal-desc? a-desc d-desc) => false
            (= a-vec c-vec) => false
            (= (nrm2 a-vec) (nrm2 c-vec)) => false
            (execute! s reorder-a-c reorder-a-c-args) => s
@@ -287,7 +293,10 @@
            (= a-vec b-vec) => false
            (= (nrm2 a-vec) (nrm2 b-vec)) => false
            (execute! s reorder-a-b reorder-a-b-args) => s
-           (= a-vec b-vec) => true)))
+           (= a-vec b-vec) => true
+           (apply + (pointer-seq (capacity! (pointer d-mem) (apply * dims)))) =not=> 276
+           (execute! s reorder-a-d reorder-a-d-args) => s
+           (apply + (pointer-seq (capacity! (pointer d-mem) (apply * dims)))) => 276)))
 
 (facts "Reordering memory with strides."
        (let [dims [2 2 3 2]]

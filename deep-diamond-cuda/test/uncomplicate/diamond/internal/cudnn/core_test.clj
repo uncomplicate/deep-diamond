@@ -12,7 +12,7 @@
             [uncomplicate.commons.core :refer [with-release release info bytesize size]]
             [uncomplicate.fluokitten.core :refer [fmap! extract]]
             [uncomplicate.clojure-cpp
-             :refer [pointer int-pointer float-pointer pointer-seq get-entry null? fill! zero!]]
+             :refer [pointer int-pointer float-pointer pointer-seq get-entry null? fill! zero! byte-pointer double-pointer]]
             [uncomplicate.clojurecuda.core
              :refer [with-default default-stream mem-alloc-runtime memcpy-host! synchronize! memset!
                      cuda-malloc cuda-free! memcpy-to-host! memcpy-to-device!]]
@@ -34,6 +34,19 @@
            (dims desc-tnc) => [2 3 4 1]
            (strides desc-tnc) => [12 4 1 1]
            (data-type desc-x) => :float)))
+
+(with-default
+  (with-release [cudnn-hdl (cudnn-context default-stream)
+                 desc-x (tensor-descriptor [2 3 1 1] :byte :nchw)
+                 desc-y (tensor-descriptor [2 3 1 1] :double :nchw)
+                 gpu-x (mem-alloc-runtime (bytesize desc-x))
+                 gpu-y (mem-alloc-runtime (bytesize desc-y))
+                 host-x (byte-pointer (range 1 7))
+                 host-y (double-pointer 6)]
+    (memcpy-host! host-x gpu-x)
+    (transform-tensor cudnn-hdl (double 1.0) desc-x (pointer gpu-x) (double 0.0) desc-y (pointer gpu-y))
+    (facts "transform-tensor test."
+           (pointer-seq (memcpy-host! gpu-y host-y)) => (range 1.0 7.0))))
 
 (with-default
   (with-release [cudnn-hdl (cudnn-context default-stream)
