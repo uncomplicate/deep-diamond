@@ -50,7 +50,7 @@
 (defn dims
   "Queries the dimensions of a Descriptor."
   [nd]
-  (pointer-vec (dims* nd)))
+  (vec (reverse (pointer-vec (dims* nd)))))
 
 (defn rank
   "Queries the rank of a Descriptor."
@@ -60,25 +60,25 @@
 (defn strides
   "Queries the strides of a Descriptor."
   [nd]
-  (pointer-vec (strides* nd)))
+  (vec (reverse (pointer-vec (strides* nd)))))
 
 (defprotocol Parameters
   (w-desc [this])
   (i-desc [this])
   (o-desc [this])
-  (bias [this]))
+  (b-desc [this]))
 
 (defmacro extend-bnns-parameters [t]
   `(extend-type ~t
      Parameters
-     (i-desc* [this#]
-       (.i_desc this#))
-     (w-desc* [this#]
-       (.w_desc this#))
-     (bias* [this#]
-       (.bias this#))
-     (o-desc* [this#]
-       (.o_desc this#))))
+     (i-desc [this#]
+       (.i_desc (extract this#)))
+     (w-desc [this#]
+       (.w_desc (extract this#)))
+     (b-desc [this#]
+       (.bias (extract this#)))
+     (o-desc [this#]
+       (.o_desc (extract this#)))))
 
 (extend-type BnnsNdArrayDescriptorImpl
   Info
@@ -124,7 +124,9 @@
 
 (defn nda-desc
   ([shape data-type layout strides]
-   (let [rank (count shape)
+   (let [shape (reverse shape)
+         strides (reverse strides)
+         rank (count shape)
          dtype (enc-keyword bnns-data-type data-type)
          dlayout (enc-keyword bnns-data-layout layout)]
      (if (<= 0 (count strides) rank bnns/BNNS_MAX_TENSOR_DIMENSION)
@@ -146,7 +148,9 @@
 
 (defn tensor-desc
   ([shape data-type strides]
-   (let[rank (count shape)
+   (let[shape (reverse shape)
+        strides (reverse strides)
+        rank (count shape)
         dtype (enc-keyword bnns-data-type data-type)]
      (if (<= 0 (count strides) rank bnns/BNNS_MAX_TENSOR_DIMENSION)
        (let-release [shape (size-t-pointer shape)
@@ -178,7 +182,7 @@
    (let [dsc (if layout
                (nda-desc shape data-type layout strides)
                (tensor-desc shape data-type strides))]
-     (if (<= (bytesize dsc) (bytesize data))
+     (if (<= 0 (bytesize dsc) (bytesize data))
        (let [data-pointer (pointer data 0)]
          (data* dsc data-pointer)
          (->BnnsTensorImpl dsc data-pointer master))
@@ -191,7 +195,7 @@
                       ((if layout nda-shape-size tensor-shape-size) shape strides))]
      (tensor shape data-type layout strides (safe buf) true)))
   ([dsc data master]
-   (if (<= (bytesize dsc) (bytesize data))
+   (if (and (<= 0 (bytesize dsc) (bytesize data)))
      (let [data-pointer (pointer data 0)
            dsc (clone* dsc)]
        (data* dsc data-pointer)
@@ -218,7 +222,7 @@
     (dragan-says-ex "Null is not allowed in this descriptor's data.")))
 
 (defn apply-filter [^bnns$BNNSFilter filter in out]
-  (filter-apply* (extract filter) (pointer (safe-data in)) (pointer (safe-data out))))
+  (filter-apply* (safe (extract filter)) (pointer (safe-data in)) (pointer (safe-data out))))
 
 (defn layer
   ([layer-params filter-params]

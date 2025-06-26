@@ -249,7 +249,7 @@
     (if-not (null? data) (extract data) nil))
   PointerCreator
   (pointer* [_]
-    (if (and (extract dsc) (extract data)) (extract data) nil))
+    (if (and (extract dsc) (extract data)) data nil))
   (pointer* [_ i]
     (if (and (extract dsc) (extract data)) (pointer data i) nil))
   Descriptor
@@ -277,7 +277,7 @@
   (view [this]
     (->BnnsTensorImpl dsc data false)))
 
-(defn tensor*
+#_(defn tensor* TODO remove
   ([shape data-type strides data]
    (let [dsc (tensor-descriptor* shape data-type strides)
          data-pointer (pointer data 0)]
@@ -290,7 +290,7 @@
      (tensor* (dims* dsc) (data-type* dsc) (layout* dsc) (strides* dsc)
               ((bnns-data-type-pointer (data-type* dsc)) buf)))))
 
-(defn ndarray*
+#_(defn ndarray* TODO remove
   ([shape data-type layout strides data]
    (let-release [dsc (ndarray-descriptor* shape data-type layout strides)
                  data-pointer (pointer data 0)]
@@ -302,7 +302,6 @@
    (let-release [buf (byte-pointer (bytesize dsc))]
      (ndarray* (dims* dsc) (data-type* dsc) (layout* dsc) (strides* dsc)
                ((bnns-data-type-pointer (data-type* dsc)) buf)))))
-
 
 ;; ===================== Filter ================================================
 

@@ -112,6 +112,7 @@
    :oihw-pack32 bnns/BNNSDataLayoutConvolutionWeightsOIHW_Pack32
    :4d-last bnns/BNNSDataLayout4DLastMajor
    :4d-first bnns/BNNSDataLayout4DFirstMajor
+   :nchw bnns/BNNSDataLayout4DFirstMajor
    :5d-last bnns/BNNSDataLayout5DLastMajor
    :5d-first bnns/BNNSDataLayout5DFirstMajor
    :6d-last bnns/BNNSDataLayout6DLastMajor

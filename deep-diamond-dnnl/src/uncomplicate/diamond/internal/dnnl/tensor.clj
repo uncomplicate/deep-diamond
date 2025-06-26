@@ -36,8 +36,7 @@
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory strides submemory-desc
-                           equal-desc? execute! reorder primitive fwd-args offset! ndims
-                           dnnl-contiguous-desc]
+                           equal-desc? execute! reorder primitive fwd-args offset! ndims]
               :as dnnl-core]
              [constants :refer [entry-bytes]]
              [protocols :refer [DescProvider desc dnnl-engine]]])
@@ -280,7 +279,7 @@
     (-> (hash :DnnlTensor) (hash-combine (hash tz-mem))))
   (equals [x y]
     (or (identical? x y)
-        (and (instance? DnnlTensor y) (equal-desc? tz-mem (desc y))
+        (and (instance? DnnlTensor y) (equal-desc? tz-mem y)
              (= (strides tz-mem) (layout y))
              vector-view (.isContiguous ^DnnlTensor y)
              (= vector-view (view-vctr y)))))
@@ -337,14 +336,18 @@
     (dnnl-tensor diamond-fact tz-mem n-index))
   (raw [_ fact]
     (let [df (diamond-factory fact)]
-      (create-tensor df (default-desc tz-mem) n-index false)))
+      (create-tensor df
+                     (create-tensor-desc df (dims tz-mem) (data-type tz-mem) (strides tz-mem))
+                     n-index false)))
   (zero [_]
     (let-release [res (dnnl-tensor diamond-fact tz-mem n-index)]
       (zero! (buffer res))
       res))
   (zero [_ fact]
     (let [df (diamond-factory fact)]
-      (create-tensor df (default-desc tz-mem) n-index true)))
+      (create-tensor df
+                     (create-tensor-desc df (dims tz-mem) (data-type tz-mem) (strides tz-mem))
+                     n-index true)))
   (host [x]
     (let-release [res (raw x)]
       (memcpy! (buffer x) (buffer res))))
@@ -500,22 +503,20 @@
   (view-tz [this]
     this)
   (view-tz [_ sub]
-    (let [dtype (or (tz/data-type sub) (data-type tz-mem))
-          sub-neand-fact (neanderthal-factory diamond-fact dtype)]
-      (with-release [sub-desc (if (number? sub)
-                                (if (= 0 n-index)
-                                  (submemory-desc tz-mem sub)
-                                  (submemory-desc tz-mem (assoc (dims tz-mem) n-index sub)))
-                                (memory-desc (shape sub) dtype (or (layout sub) (strides tz-mem))))]
-        (let-release [sub-mem (memory (dnnl-engine diamond-fact) sub-desc (pointer tz-mem 0) false)
-                      shp (dims sub-mem)
-                      nc (* (long (first shp)) (long (apply * (rest shp))))
-                      sub-vector-view (if (= (size sub-mem) (apply * (dims sub-mem)))
-                                        (create-vector* sub-neand-fact false (pointer sub-mem) nc 1)
-                                        nil)]
-          (->DnnlTensor diamond-fact sub-neand-fact
-                        (tensor-engine diamond-fact dtype) false sub-mem sub-vector-view nc
-                        (if (= (count shp) (count (dims tz-mem))) n-index 0))))))
+    (with-release [sub-desc (if (number? sub)
+                              (if (= 0 n-index)
+                                (submemory-desc tz-mem sub)
+                                (submemory-desc tz-mem (assoc (dims tz-mem) n-index sub)))
+                              (memory-desc (shape sub) (or (tz/data-type sub) (data-type tz-mem))
+                                           (or (layout sub) (strides tz-mem))))]
+      (let-release [sub-mem (memory (dnnl-engine diamond-fact) sub-desc (pointer tz-mem 0) false)
+                    shp (dims sub-mem)
+                    nc (* (long (first shp)) (long (apply * (rest shp))))
+                    sub-vector-view (if (= (size sub-mem) (apply * (dims sub-mem)))
+                                      (create-vector* neand-fact false (pointer sub-mem) nc 1)
+                                      nil)]
+        (->DnnlTensor diamond-fact neand-fact eng false sub-mem sub-vector-view nc
+                      (if (= (count shp) (count (dims tz-mem))) n-index 0)))))
   Offset
   (offset [this ofst]
     (offset! tz-mem ofst)
@@ -524,18 +525,13 @@
   (connector [in-tz out-desc]
     (if (equal-desc? tz-mem out-desc)
       (view in-tz)
-      (let [dtype (tz/data-type out-desc)]
-        (let-release [out-tz (dnnl-tensor diamond-fact
-                                          (neanderthal-factory diamond-fact dtype)
-                                          (tensor-engine diamond-fact dtype)
-                                          out-desc (batch-index in-tz))]
-          (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view in-tz) out-tz))))))
+      (let-release [out-tz (dnnl-tensor diamond-fact neand-fact eng out-desc (batch-index in-tz))]
+        (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view in-tz) out-tz)))))
 
 (defn dnnl-tensor
   ([diamond-fact neand-fact eng mem-desc n-index];;TODO n-index is commonly called axis
    (let [mem-desc (desc mem-desc)
-         shp (dims mem-desc)
-         nc (* (long (first shp)) (long (apply * (rest shp))))]
+         nc (apply * (dims mem-desc))]
      (let-release [tz-mem (memory (dnnl-engine diamond-fact) mem-desc)
                    vector-view (if (= (size tz-mem) (apply * (dims tz-mem)))
                                  (create-vector* neand-fact false (pointer tz-mem) nc 1)
@@ -552,9 +548,8 @@
 
 (defn dnnl-tensor* [diamond-fact mem-desc buf n-index master]
   (let [mem-desc (desc mem-desc)
-        shp (dims mem-desc)
         dtype (tz/data-type mem-desc)
-        nc (* (long (first shp)) (long (apply * (rest shp))))]
+        nc (apply * (dims mem-desc))]
     (let-release [tz-mem (memory (dnnl-engine diamond-fact) mem-desc buf master)
                   vector-view (if (= (size tz-mem) (apply * (dims tz-mem)))
                                 (create-vector* (neanderthal-factory diamond-fact dtype)
@@ -596,7 +591,8 @@
     (transfer! (view-vctr source) destination)
     (with-release [connect (connector source (default-desc destination))]
       (connect)
-      (transfer! (view-vctr (output source)) destination))))
+      (transfer! (view-vctr (output source)) destination)))
+  (transfer! (view-vctr source) destination))
 
 (defmethod transfer! [Object DnnlTransformer]
   [source destination]

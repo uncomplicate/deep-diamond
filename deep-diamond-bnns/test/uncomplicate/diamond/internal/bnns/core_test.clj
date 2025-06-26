@@ -50,6 +50,8 @@
          (strides nda) => strds
          (bytesize nda) => 796
          (bytesize (nda-desc [2 3] :uint16 [0 0])) => 12
+         (bytesize (nda-desc [2] :uint16 [4])) => 10
+         (bytesize (nda-desc [2] :uint16 [0])) => 4
          (nda-desc [1 1] :f64 [1 1]) => (throws ExceptionInfo)
          (data-type (nda-desc [1 1])) => :float
          (bytesize (nda-desc [2 3 4 5])) => 480
@@ -61,9 +63,16 @@
        (with-release [n-dsc (nda-desc [2 3 4 5] :float :4d-first)
                       t-dsc (tensor-desc [2 3 4 5] :float)
                       n-tz (tensor n-dsc)
-                      t-tz (tensor t-dsc)]
+                      t-tz (tensor t-dsc)
+                      large-dsc (nda-desc [50000000] :float :x)]
          (pointer n-tz) => truthy
-         (bytesize n-dsc) => (bytesize t-dsc)))
+         (pointer t-tz) => truthy
+         (bytesize n-dsc) => (bytesize t-dsc)
+         (bytesize n-tz) => (bytesize t-tz)
+         (size large-dsc) => 50000000
+         (null? (api/data* large-dsc)) => true
+         (null? (api/data* n-dsc)) => true
+         (null? (api/data* t-dsc)) => true))
 
 (facts "Test activation."
        (with-release [activ (activation :linear 2.0)
@@ -82,12 +91,13 @@
          (pointer-seq (pointer in-tz)) => [-1.0 0.0 1.0]
          (pointer-seq (pointer out-tz)) => [-2.0 0.0 2.0]))
 
+;;TODO it seems that the following SOMETIMES crashes the VM...
 (facts "NDArray offset operation."
        (with-release [nda (nda-desc [2 3 4 5] :float :4d-first)
                       buf (byte-pointer (+ 8 (bytesize nda)))
                       tz (tensor nda buf)
                       activ (activation :relu)
-                      activ-params (activation-params activ nda nda)
+                      activ-params (activation-params activ tz tz)
                       activ-layer (layer activ-params)]
          (put-float! buf 0 -100)
          (put-float! buf 1 -20)
@@ -97,7 +107,8 @@
          (position! (pointer tz) 4)
          (position (pointer tz)) => 4
          (position buf) => 0
-         (apply-filter activ-layer tz tz)
+         (dotimes [i 1000]
+           (apply-filter activ-layer tz tz))
          (get-float buf 0) => -100.0
          (get-float buf 1) => 0.0
          (get-float buf 2) => 0.0
@@ -145,7 +156,8 @@
                       fc-layer (layer fc-params)]
          (put! (pointer src-tz) [1.0])
          (pointer-seq (capacity! (float-pointer (.data (b-desc fc-params))) 1)) => [1.0]
-         (put! (float-pointer (.data (b-desc fc-params))) [2000]) ;; doesn't do anything for fc-layer!
+         (null? (.data (b-desc fc-params))) => false
+         (put! (capacity! (float-pointer (.data (b-desc fc-params))) 1) [2000]) ;; doesn't do anything for fc-layer!
          (pointer-seq (capacity! (float-pointer (.data (b-desc fc-params))) 1)) => [2000.0]
          (apply-filter fc-layer src-tz dst-tz)
          (pointer-seq (pointer src-tz)) => [1.0]
@@ -156,7 +168,7 @@
 
 (facts "Inner product forward 4D squashed to 1D."
        (with-release [src-desc (nda-desc [9] :float :x)
-                      weights-desc (nda-desc [9 2] :float :row)
+                      weights-desc (nda-desc [2 9] :float :row)
                       bias-desc (nda-desc [2] :float :x)
                       dst-desc (nda-desc [2] :float :x)
                       activ (activation :linear 1.0)
@@ -190,11 +202,10 @@
          (apply-filter (layer conv-params) src-tz dst-tz)
          (pointer-seq (pointer dst-tz)) => [-3.0]))
 
-
 ;;TODO as we can see, shape is backwards in BNNS...
 (facts "Convolution forward."
-       (with-release [src-desc (nda-desc [4 4 1] :float :chw)
-                      weights-desc (nda-desc [3 3 1 2] :float :oihw)
+       (with-release [src-desc (nda-desc [1 4 4] :float :chw)
+                      weights-desc (nda-desc [2 1 3 3] :float :oihw)
                       bias-desc (nda-desc [2] :float :x)
                       dst-desc (nda-desc [2 2 2] :float :chw)
                       activ (activation :linear 1.0)
