@@ -13,7 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.0"]
-                 [org.uncomplicate/neanderthal-base "0.54.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-base "0.54.1"]
                  [org.uncomplicate/deep-diamond-base "0.34.0-SNAPSHOT"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]]

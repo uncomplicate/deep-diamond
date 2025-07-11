@@ -12,8 +12,8 @@
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.0"]
-                 [org.uncomplicate/neanderthal-cuda  "0.54.0-SNAPSHOT"]
+  :dependencies [[org.clojure/clojure "1.12.1"]
+                 [org.uncomplicate/neanderthal-cuda  "0.54.1"]
                  [org.uncomplicate/deep-diamond-base "0.34.0-SNAPSHOT"]]
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]
@@ -26,15 +26,15 @@
                        :dependencies [[midje "1.10.10"]
                                       [codox-theme-rdash "0.1.2"]
                                       [org.clojure/data.csv "1.1.0"]
-                                      [org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
+                                      [org.uncomplicate/neanderthal-mkl "0.54.0"]
                                       [org.uncomplicate/deep-diamond-dnnl "0.34.0-SNAPSHOT"]
                                       [org.uncomplicate/deep-diamond-test "0.34.0-SNAPSHOT"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier "linux-x86_64-redist"]
-                                    [org.bytedeco/cuda "12.9-9.10-1.5.12-SNAPSHOT"  :classifier "linux-x86_64-redist"]]}
+                                    [org.bytedeco/cuda "12.9-9.10-1.5.12"  :classifier "linux-x86_64-redist"]]}
              :windows {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier "windows-x86_64-redist"]
-                                      [org.bytedeco/cuda "12.9-9.10-1.5.12-SNAPSHOT"  :classifier "linux-x86_64-redist"]]}}
+                                      [org.bytedeco/cuda "12.9-9.10-1.5.12"  :classifier "linux-x86_64-redist"]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

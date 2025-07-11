@@ -12,9 +12,9 @@
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.0"]
+  :dependencies [[org.clojure/clojure "1.12.1"]
                  [org.uncomplicate/deep-diamond-base "0.34.0-SNAPSHOT"]
-                 [org.bytedeco/dnnl-platform "3.8.1-1.5.12-SNAPSHOT"]]
+                 [org.bytedeco/dnnl-platform "3.8.1-1.5.12"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]
@@ -28,11 +28,11 @@
                                       [org.uncomplicate/deep-diamond-test "0.34.0-SNAPSHOT"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0"]
                                     [org.bytedeco/mkl "2025.0-1.5.11" :classifier "linux-x86_64-redist"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0-SNAPSHOT"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0"]
                                       [org.bytedeco/mkl "2025.0-1.5.11" :classifier "windows-x86_64-redist"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.54.0-SNAPSHOT"]]}}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.54.0"]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

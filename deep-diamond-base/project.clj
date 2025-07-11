@@ -12,8 +12,8 @@
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.0"]
-                 [org.uncomplicate/neanderthal-base "0.54.0-SNAPSHOT"]]
+  :dependencies [[org.clojure/clojure "1.12.1"]
+                 [org.uncomplicate/neanderthal-base "0.54.1"]]
 
   :profiles {:dev {:plugins [[lein-codox "0.10.8"]]
                    :resource-paths ["data"]
