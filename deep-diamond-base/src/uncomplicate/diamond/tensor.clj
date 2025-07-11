@@ -372,19 +372,17 @@
   Example:
 
       (def t1 (tensor [2 3] :float :nc))
-      (def t2 (tensor [1 3] :float :cn))
+      (def t2 (tensor [2 3] :float :nc))
       (transfer! (range) t1)
-      (def bat (batcher t1 t2))
+      (def shuffle! (shuffler t1 t2))
 
-      (bat)
-      =>
-      {:shape [1 3], :data-type :float, :layout [1 1]}
-      [   0.00    1.00    2.00 ]
+      (shuffle! [1 0])
+      => {:shape [2 3], :data-type :float, :layout [3 1]}
+      [   3.00    4.00    5.00    0.0    1.0    2.0]
 
-      (bat 1)
-      =>
-      {:shape [1 3], :data-type :float, :layout [1 1]}
-      [   3.00    4.00    5.00 ]
+      (shuffle! [1 1])
+      => {:shape [2 3], :data-type :float, :layout [3 1]}
+      [    3.0    4.0    5.0    3.0    4.0     5.0]
   "
   [x y]
   (api/create-shuffler (api/diamond-factory x) x y))
