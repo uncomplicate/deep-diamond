@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-test "0.34.0"
+(defproject org.uncomplicate/deep-diamond-test "0.35.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -14,7 +14,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.1"]
                  [org.uncomplicate/neanderthal-base "0.55.0"]
-                 [org.uncomplicate/deep-diamond-base "0.34.0"]]
+                 [org.uncomplicate/deep-diamond-base "0.35.0-SNAPSHOT"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]]
                    :global-vars {*warn-on-reflection* true
