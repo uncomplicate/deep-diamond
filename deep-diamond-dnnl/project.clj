@@ -6,14 +6,14 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-dnnl "0.34.0-SNAPSHOT"
+(defproject org.uncomplicate/deep-diamond-dnnl "0.34.0"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.1"]
-                 [org.uncomplicate/deep-diamond-base "0.34.0-SNAPSHOT"]
+                 [org.uncomplicate/deep-diamond-base "0.34.0"]
                  [org.bytedeco/dnnl-platform "3.8.1-1.5.12"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
@@ -25,14 +25,14 @@
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
                                       [codox-theme-rdash "0.1.2"]
-                                      [org.uncomplicate/deep-diamond-test "0.34.0-SNAPSHOT"]]
+                                      [org.uncomplicate/deep-diamond-test "0.34.0"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0"]
-                                    [org.bytedeco/mkl "2025.0-1.5.11" :classifier "linux-x86_64-redist"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.54.0"]
-                                      [org.bytedeco/mkl "2025.0-1.5.11" :classifier "windows-x86_64-redist"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.54.0"]]}}
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.55.0"]
+                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.55.0"]
+                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]]}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.55.0"]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

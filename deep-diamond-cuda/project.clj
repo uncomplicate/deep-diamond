@@ -6,15 +6,17 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-cuda "0.34.0-SNAPSHOT"
+(defproject org.uncomplicate/deep-diamond-cuda "0.34.0"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.1"]
-                 [org.uncomplicate/neanderthal-cuda  "0.54.1"]
-                 [org.uncomplicate/deep-diamond-base "0.34.0-SNAPSHOT"]]
+                 [org.uncomplicate/neanderthal-cuda  "0.55.0"]
+                 [org.uncomplicate/deep-diamond-base "0.34.0"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.34.0"]]
+
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]
                                  [lein-codox "0.10.8"]]
@@ -26,15 +28,14 @@
                        :dependencies [[midje "1.10.10"]
                                       [codox-theme-rdash "0.1.2"]
                                       [org.clojure/data.csv "1.1.0"]
-                                      [org.uncomplicate/neanderthal-mkl "0.54.0"]
-                                      [org.uncomplicate/deep-diamond-dnnl "0.34.0-SNAPSHOT"]
-                                      [org.uncomplicate/deep-diamond-test "0.34.0-SNAPSHOT"]]
+                                      [org.uncomplicate/neanderthal-mkl "0.55.0"]
+                                      [org.uncomplicate/deep-diamond-test "0.34.0"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier "linux-x86_64-redist"]
-                                    [org.bytedeco/cuda "12.9-9.10-1.5.12"  :classifier "linux-x86_64-redist"]]}
-             :windows {:dependencies [[org.bytedeco/mkl "2025.0-1.5.11" :classifier "windows-x86_64-redist"]
-                                      [org.bytedeco/cuda "12.9-9.10-1.5.12"  :classifier "linux-x86_64-redist"]]}}
+             :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
+                                    [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.143830-1"  :classifier "linux-x86_64-redist"]]}
+             :windows {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
+                                      [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.145546-3"  :classifier "linux-x86_64-redist"]]}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

@@ -525,7 +525,7 @@
   (connector [in-tz out-desc]
     (if (equal-desc? tz-mem out-desc)
       (view in-tz)
-      (let-release [out-tz (dnnl-tensor diamond-fact neand-fact eng out-desc (batch-index in-tz))]
+      (let-release [out-tz (dnnl-tensor diamond-fact out-desc (batch-index in-tz))]
         (dnnl-transformer (dnnl-engine diamond-fact) (flow diamond-fact) (view in-tz) out-tz)))))
 
 (defn dnnl-tensor

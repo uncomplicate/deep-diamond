@@ -13,8 +13,8 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.1"]
-                 [org.uncomplicate/neanderthal-accelerate "0.54.0"]
-                 [org.uncomplicate/deep-diamond-base "0.34.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-accelerate "0.55.0"]
+                 [org.uncomplicate/deep-diamond-base "0.34.0"]
                  [org.uncomplicate/accelerate "0.1.0-1.5.12"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
@@ -26,7 +26,7 @@
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
                                       [codox-theme-rdash "0.1.2"]
-                                      [org.uncomplicate/deep-diamond-test "0.34.0-SNAPSHOT"]]
+                                      [org.uncomplicate/deep-diamond-test "0.34.0"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :macosx {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
