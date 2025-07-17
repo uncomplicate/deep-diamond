@@ -18,14 +18,12 @@
                  [org.uncomplicate/accelerate "0.1.0-1.5.12"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
-             :dev/all {:plugins [[lein-midje "3.2.1"]
-                                 [lein-codox "0.10.8"]]
+             :dev/all {:plugins [[lein-midje "3.2.1"]]
                        :global-vars {*warn-on-reflection* true
                                      *assert* false
                                      *unchecked-math* :warn-on-boxed
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
-                                      [codox-theme-rdash "0.1.2"]
                                       [org.uncomplicate/deep-diamond-test "0.34.0"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}

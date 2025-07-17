@@ -15,23 +15,10 @@
   :dependencies [[org.clojure/clojure "1.12.1"]
                  [org.uncomplicate/neanderthal-base "0.55.0"]]
 
-  :profiles {:dev {:plugins [[lein-codox "0.10.8"]]
-                   :resource-paths ["data"]
-                   :global-vars {*warn-on-reflection* true
+  :profiles {:dev {:global-vars {*warn-on-reflection* true
                                  *assert* false
                                  *unchecked-math* :warn-on-boxed
                                  *print-length* 128}
-                   :dependencies [[codox-theme-rdash "0.1.2"]]
-                   :codox {:metadata {:doc/format :markdown}
-                           :source-uri "http://github.com/uncomplicate/deep-diamond/blob/master/{filepath}#L{line}"
-                           :themes [:rdash]
-                           :namespaces [uncomplicate.diamond.tensor
-                                        uncomplicate.diamond.dnn
-                                        uncomplicate.diamond.metrics
-                                        uncomplicate.diamond.native
-                                        uncomplicate.diamond.internal.protocols]
-                           :output-path "../docs/codox"}
-
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                         "--enable-native-access=ALL-UNNAMED"]}}
 

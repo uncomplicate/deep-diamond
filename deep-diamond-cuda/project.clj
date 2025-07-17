@@ -18,15 +18,13 @@
                  [org.uncomplicate/deep-diamond-dnnl "0.34.0"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
-             :dev/all {:plugins [[lein-midje "3.2.1"]
-                                 [lein-codox "0.10.8"]]
+             :dev/all {:plugins [[lein-midje "3.2.1"]]
                        :resource-paths ["data"]
                        :global-vars {*warn-on-reflection* true
                                      *assert* false
                                      *unchecked-math* :warn-on-boxed
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
-                                      [codox-theme-rdash "0.1.2"]
                                       [org.clojure/data.csv "1.1.0"]
                                       [org.uncomplicate/neanderthal-mkl "0.55.0"]
                                       [org.uncomplicate/deep-diamond-test "0.34.0"]]

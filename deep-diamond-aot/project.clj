@@ -60,7 +60,23 @@
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
                                       [codox-theme-rdash "0.1.2"]
-                                      [org.clojure/data.csv "1.1.0"]]}
+                                      [org.clojure/data.csv "1.1.0"]]
+                       :codox {:metadata {:doc/format :markdown}
+                               :source-uri "http://github.com/uncomplicate/deep-diamond/blob/master/{filepath}#L{line}"
+                               :themes [:rdash]
+                               :source-paths ["../deep-diamond-base/src/"
+                                              "../deep-diamond-cuda/src/clojure/"
+                                              "../deep-diamond-dnnl/src/clojure/"]
+                               :namespaces [uncomplicate.diamond.tensor
+                                            uncomplicate.diamond.dnn
+                                            uncomplicate.diamond.metrics
+                                            uncomplicate.diamond.native
+                                            uncomplicate.diamond.internal.protocols
+                                            uncomplicate.diamond.internal.dnnl.core
+                                            uncomplicate.diamond.internal.dnnl.constants
+                                            uncomplicate.diamond.internal.cudnn.core
+                                            uncomplicate.diamond.internal.cudnn.constants]
+                               :output-path "../docs/codox"}}
              :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.143830-1" :classifier "linux-x86_64-redist"]]}
              :windows {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
