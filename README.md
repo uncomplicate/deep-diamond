@@ -14,6 +14,12 @@ Deep Diamond is a Clojure library for fast tensors and neural network related co
 
 ![](https://clojars.org/uncomplicate/deep-diamond/latest-version.svg)
 
+or
+
+![](https://clojars.org/org.uncomplicate/deep-diamond-base/latest-version.svg)
+![](https://clojars.org/org.uncomplicate/deep-diamond-dnnl/latest-version.svg)
+![](https://clojars.org/org.uncomplicate/deep-diamond-cuda/latest-version.svg)
+
 ## License
 
 Copyright © 2019-2025 Dragan Djuric
