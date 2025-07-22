@@ -374,13 +374,11 @@
   (raw [x]
     (raw x diamond-fact))
   (raw [_ fact]
-    (let [df (diamond-factory fact)]
-      (create-tensor df (default-desc cu-desc) n-index false)))
+    (create-tensor (diamond-factory fact) (default-desc cu-desc) n-index false))
   (zero [x]
     (zero x diamond-fact))
   (zero [_ fact]
-    (let [df (diamond-factory fact)]
-      (create-tensor df (default-desc cu-desc) n-index true)))
+    (create-tensor (diamond-factory fact) (default-desc cu-desc) n-index true))
   (host [x]
     (let-release [res (raw x (native-diamond-factory diamond-fact))]
       (get-vector! vect-buf (view-vctr res))
@@ -483,7 +481,7 @@
       (let-release [out-tz (cudnn-tensor diamond-fact out-desc (batch-index in-tz))]
         (cudnn-transformer (handle diamond-fact) (view in-tz) out-tz)))))
 
-(defn cudnn-tensor
+(defn cudnn-tensor ;;TODO synchronize with bnns-tensor and, if possible, dnnl-tensor
   ([diamond-fact master buf tdesc n-index]
    (let [tdesc (desc tdesc)
          neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
@@ -496,7 +494,7 @@
          (->CUDnnTensor diamond-fact
                         (tensor-engine diamond-fact (data-type tdesc))
                         vect-buf tdesc nc n-index))
-       (throw (ex-info "Insufficient buffer size."
+       (throw (dragan-says-ex "Insufficient buffer size."
                        {:desc-size (bytesize tdesc) :buffer-size (bytesize buf)})))))
   ([diamond-fact master buf tdesc]
    (cudnn-tensor diamond-fact master buf tdesc 0))

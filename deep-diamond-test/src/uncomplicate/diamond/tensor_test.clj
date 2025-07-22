@@ -29,9 +29,10 @@
 (defn test-zero [fact]
   (with-release [tz (tensor fact [2 3 4 5] :float :nchw)
                  tz-zero (zero tz)]
-    (asum tz) => 0.0
-    (asum (entry! tz 1)) => 120.0
-    (asum tz-zero) => 0.0))
+    (facts "Test zero tensor."
+     (asum tz) => 0.0
+     (asum (entry! tz 1)) => 120.0
+     (asum tz-zero) => 0.0)))
 
 (defn test-create [fact]
   (with-release [t1 (tensor fact [1 1 1 1] :float :nchw)

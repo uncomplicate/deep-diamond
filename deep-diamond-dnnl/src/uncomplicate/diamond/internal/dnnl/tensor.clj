@@ -334,7 +334,7 @@
   Container
   (raw [_]
     (dnnl-tensor diamond-fact tz-mem n-index))
-  (raw [_ fact]
+  (raw [_ fact];; TODO cuda tensor's raw creates a contiguous descriptor. Check whether that makes more sense here, too.
     (let [df (diamond-factory fact)]
       (create-tensor df
                      (create-tensor-desc df (dims tz-mem) (data-type tz-mem) (strides tz-mem))
@@ -343,7 +343,7 @@
     (let-release [res (dnnl-tensor diamond-fact tz-mem n-index)]
       (zero! (buffer res))
       res))
-  (zero [_ fact]
+  (zero [_ fact];; TODO cuda tensor's zero creates a contiguous descriptor. Check whether that makes more sense here, too.
     (let [df (diamond-factory fact)]
       (create-tensor df
                      (create-tensor-desc df (dims tz-mem) (data-type tz-mem) (strides tz-mem))
@@ -533,7 +533,7 @@
    (let [mem-desc (desc mem-desc)
          nc (apply * (dims mem-desc))]
      (let-release [tz-mem (memory (dnnl-engine diamond-fact) mem-desc)
-                   vector-view (if (= (size tz-mem) (apply * (dims tz-mem)))
+                   vector-view (if (= nc (size tz-mem))
                                  (create-vector* neand-fact false (pointer tz-mem) nc 1)
                                  nil)]
        (->DnnlTensor diamond-fact neand-fact eng true tz-mem vector-view nc n-index))))
@@ -551,7 +551,7 @@
         dtype (tz/data-type mem-desc)
         nc (apply * (dims mem-desc))]
     (let-release [tz-mem (memory (dnnl-engine diamond-fact) mem-desc buf master)
-                  vector-view (if (= (size tz-mem) (apply * (dims tz-mem)))
+                  vector-view (if (= nc (size tz-mem))
                                 (create-vector* (neanderthal-factory diamond-fact dtype)
                                                 false (pointer tz-mem) nc 1)
                                 nil)]

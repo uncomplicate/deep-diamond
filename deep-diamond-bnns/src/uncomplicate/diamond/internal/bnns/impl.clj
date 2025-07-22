@@ -141,7 +141,7 @@
   (equals [this other]
     (and (instance? BnnsNdArrayDescriptorImpl other)
          (or (= td (extract other))
-             (= (.layout td) (.layout other))
+             (= (.layout td) (.layout ^bnns$BNNSNDArrayDescriptor (extract other)))
              (equal-desc-properties? this other))))
   (toString [this]
     (format "#BnnsNdArrayDescriptorImpl[0x%s, master: %s]" (address td) master))
