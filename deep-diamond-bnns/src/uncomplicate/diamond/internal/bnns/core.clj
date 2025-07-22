@@ -222,7 +222,7 @@
     (dragan-says-ex "Null is not allowed in this descriptor's data.")))
 
 (defn apply-filter [^bnns$BNNSFilter filter in out]
-  (filter-apply* (safe (extract filter)) (pointer (safe-data in)) (pointer (safe-data out))))
+  (filter-apply* (safe (extract filter)) (safe (data* in)) (safe (data* out))))
 
 (defn layer
   ([layer-params filter-params]

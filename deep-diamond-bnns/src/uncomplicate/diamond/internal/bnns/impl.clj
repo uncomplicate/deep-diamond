@@ -327,7 +327,7 @@
   Comonad
   (extract [this]
     (if (null? this) nil this))
-  Releasaeble
+  Releaseable
   (release [this#]
     (locking this#
       (when-not (null? this#)

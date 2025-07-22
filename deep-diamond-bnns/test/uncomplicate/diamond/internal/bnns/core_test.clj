@@ -91,30 +91,33 @@
          (pointer-seq (pointer in-tz)) => [-1.0 0.0 1.0]
          (pointer-seq (pointer out-tz)) => [-2.0 0.0 2.0]))
 
-;;TODO it seems that the following SOMETIMES crashes the VM...
+;; TODO it seems that the following SOMETIMES crashes the VM...
+;; It needs to be evaluate dozens of times, but eventually it crashes...
+;; From time to time, it throws a NPE...
+;; The culprit is in apply-filter. It crashes all the same without changing offsets.
 (facts "NDArray offset operation."
        (with-release [nda (nda-desc [2 3 4 5] :float :4d-first)
                       buf (byte-pointer (+ 8 (bytesize nda)))
-                      tz (tensor nda buf)
+                      _ (do (position! buf 4) nil)
+                      in-tz (tensor nda buf)
+                      out-tz (tensor nda)
                       activ (activation :relu)
-                      activ-params (activation-params activ tz tz)
+                      activ-params (activation-params activ nda nda) ;;It appears to me that BNNS NDA controls the data pointer and you can't do much with offsetting it through the buff pointer itself..
                       activ-layer (layer activ-params)]
-         (put-float! buf 0 -100)
-         (put-float! buf 1 -20)
+         (position! buf 0)
+         (put-float! buf 0 100)
+         (put-float! buf 1 20)
          (put-float! buf 2 -200)
          (put-float! buf 120 -400)
          (put-float! buf 121 -500)
-         (position! (pointer tz) 4)
-         (position (pointer tz)) => 4
-         (position buf) => 0
-         (dotimes [i 1000]
-           (apply-filter activ-layer tz tz))
-         (get-float buf 0) => -100.0
-         (get-float buf 1) => 0.0
-         (get-float buf 2) => 0.0
-         (get-float buf 120) => 0.0
-         (get-float buf 121) => -500.0
-         (position! (pointer tz) 489) => (throws IndexOutOfBoundsException)))
+         (position! (.data in-tz) 1)
+         (position! buf 4)
+         (position buf) => 4
+         (dotimes [i 1000000]
+           (apply-filter activ-layer in-tz out-tz))
+         (get-entry (pointer out-tz) 0) => 20.0
+         (get-entry (pointer out-tz) 1) => 0.0
+         (position! buf 489) => (throws IndexOutOfBoundsException)))
 
 (facts "Test arithmetic."
        (with-release [activ (activation :linear 2.0)
