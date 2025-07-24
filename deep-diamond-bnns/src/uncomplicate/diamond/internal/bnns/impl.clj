@@ -261,8 +261,8 @@
     (dims* dsc))
   (data* [this]
     (data* dsc))
-  (data* [this p]
-    (data* this p))
+  (data* [_ p]
+    (data* dsc p))
   (rank* [_]
     (rank* dsc))
   Bytes

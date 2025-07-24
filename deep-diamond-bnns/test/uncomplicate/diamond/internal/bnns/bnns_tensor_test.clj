@@ -9,13 +9,15 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.bnns.bnns-tensor-test
   (:require [midje.sweet :refer [facts throws => truthy]]
-            [uncomplicate.clojure-cpp :refer [position!]]
+            [uncomplicate.clojure-cpp :refer [position! pointer-seq]]
             [uncomplicate.commons.core :refer [with-release bytesize]]
-            [uncomplicate.neanderthal.core :refer [dim view-vctr transfer! native]]
+            [uncomplicate.neanderthal
+             [core :refer [dim view-vctr transfer! native entry!]]
+             [block :refer [buffer contiguous? initialize!]]]
             [uncomplicate.diamond.tensor
-             :refer [with-diamond *diamond-factory* tensor layout shape data-type desc]]
-            [uncomplicate.diamond.internal.bnns
-             [factory :refer [bnns-factory]]]
+             :refer [with-diamond *diamond-factory* tensor layout shape data-type desc view-tz]]
+            [uncomplicate.diamond.internal.bnns [factory :refer [bnns-factory]]]
+            [uncomplicate.diamond.internal [protocols :refer [offset]]]
             [uncomplicate.diamond.tensor-test :refer :all])
   (:import clojure.lang.ExceptionInfo))
 
@@ -27,10 +29,10 @@
                    non-contiguous-tensor (tensor fact [2 3 2 1] :float [48 8 2 2])]
 
       (dim t0) => 0
-      (layout t0) => [0 0 0 0]
+      (layout t0) => :4d-first
       (dim tnc) => 6
       (shape tnc) => [2 3]
-      (layout tnc) => [0 0]
+      (layout tnc) => :column
       (data-type tnc) => :float
       (view-vctr non-contiguous-tensor) => (throws ExceptionInfo)
       (tensor fact [2 3] :double :nc) => (throws ExceptionInfo)
@@ -53,38 +55,15 @@
            (= x5 y5) => false
            (transfer! (range) x1) => (transfer! (range) y1))))
 
-
-(defn test-bnns-subtensor [fact]
-  (with-release [tz-x (tensor fact [6 1 1 1] :float [1 1 1 1])
-                 sub-x (view-tz tz-x [2 1 1 1])
-                 sub-y (view-tz tz-x (desc [1 3 1 1] [3 1 1 1]))
-                 sub-z (view-tz tz-x 4)]
-    (facts "Test subtensors and offsets."
-           (transfer! (range) tz-x)
-           (seq (native tz-x)) => [0.0 1.0 2.0 3.0 4.0 5.0]
-           (seq (native sub-x)) => [0.0 1.0]
-           (seq (native sub-y)) => [0.0 1.0 2.0]
-           (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
-           (position! (.buffer sub-y) 3)
-           (seq (native sub-y)) => [3.0 4.0 5.0]
-           (seq (native sub-x)) => [0.0 1.0]
-           (position! (.buffer sub-z) 1)
-           (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
-           (seq (native sub-x)) => [0.0 1.0]
-           (seq (native tz-x)) => [0.0 1.0 2.0 3.0 4.0 5.0]
-    ;;       (initialize! sub-y (buffer sub-y))
-           (seq (native tz-x)) => [0.0 1.0 2.0 0.0 0.0 0.0])))
-
-
 (with-release [diamond-factory (bnns-factory)]
   (test-bnns-create diamond-factory)
+  (test-bnns-equality diamond-factory)
   (test-tensor diamond-factory)
   (test-zero diamond-factory)
-  (test-bnns-equality diamond-factory)
   (test-release diamond-factory)
-  ;; (test-transfer diamond-factory diamond-factory)
+  ;; ;; (test-transfer diamond-factory diamond-factory)
   (test-contiguous diamond-factory)
-  (test-bnns-subtensor diamond-factory)
+  (test-subtensor diamond-factory)
   ;; (test-transformer diamond-factory)
   ;; (test-transformer-any diamond-factory)
   ;; (test-transfer-any diamond-factory)
@@ -95,32 +74,29 @@
   ;; (test-batcher diamond-factory)
   ;; (test-shuffler diamond-factory)
   ;; (test-batcher-tnc diamond-factory)
-  ;; (test-tensor-fold diamond-factory)
-  ;; (test-tensor-reducible diamond-factory)
-  )
+  (test-tensor-fold diamond-factory)
+  (test-tensor-reducible diamond-factory))
 
-#_(with-release [eng (engine)
-                 strm (stream eng)]
-    (with-diamond dnnl-factory [eng strm]
+#_(with-diamond dnnl-factory []
 
-      (test-tensor *diamond-factory*)
-      (test-zero *diamond-factory*)
-      (test-create *diamond-factory*)
-      (test-dnnl-create *diamond-factory*)
-      (test-equality *diamond-factory*)
-      (test-release *diamond-factory*)
-      (test-transfer *diamond-factory* *diamond-factory*)
-      (test-contiguous *diamond-factory*)
-      (test-subtensor *diamond-factory*)
-      (test-transformer *diamond-factory*)
-      (test-transformer-any *diamond-factory*)
-      (test-transfer-any *diamond-factory*)
-      (test-pull-different *diamond-factory*)
-      (test-pull-same *diamond-factory*)
-      (test-push-different *diamond-factory*)
-      (test-push-same *diamond-factory*)
-      (test-batcher *diamond-factory*)
-      (test-shuffler *diamond-factory*)
-      (test-batcher-tnc *diamond-factory*)
-      (test-tensor-fold *diamond-factory*)
-      (test-tensor-reducible *diamond-factory*)))
+  (test-tensor *diamond-factory*)
+  (test-zero *diamond-factory*)
+  (test-create *diamond-factory*)
+  (test-dnnl-create *diamond-factory*)
+  (test-equality *diamond-factory*)
+  (test-release *diamond-factory*)
+  (test-transfer *diamond-factory* *diamond-factory*)
+  (test-contiguous *diamond-factory*)
+  (test-subtensor *diamond-factory*)
+  (test-transformer *diamond-factory*)
+  (test-transformer-any *diamond-factory*)
+  (test-transfer-any *diamond-factory*)
+  (test-pull-different *diamond-factory*)
+  (test-pull-same *diamond-factory*)
+  (test-push-different *diamond-factory*)
+  (test-push-same *diamond-factory*)
+  (test-batcher *diamond-factory*)
+  (test-shuffler *diamond-factory*)
+  (test-batcher-tnc *diamond-factory*)
+  (test-tensor-fold *diamond-factory*)
+  (test-tensor-reducible *diamond-factory*))

@@ -55,7 +55,7 @@
                  x5 (tensor fact [2 2 2 2] :float :nchw)
                  y5 (tensor fact [2 2 2 2] :float :nhwc)]
     (facts "Equality and hash code tests."
-           (.equals x1 nil) => false
+           (.equals ^Object x1 nil) => false
            (= x1 y1) => true
            (= x1 y3) => false
            (= x1 y4) => false
@@ -106,14 +106,14 @@
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native sub-y)) => [0.0 1.0 2.0]
            (seq (native sub-z)) => [0.0 1.0 2.0 3.0]
-           (position! (buffer sub-y) 3)
+           (offset sub-y 3)
            (seq (native sub-y)) => [3.0 4.0 5.0]
            (seq (native sub-x)) => [0.0 1.0]
-           (position! (buffer sub-z) 1)
+           (offset sub-z 1)
            (seq (native sub-z)) => [1.0 2.0 3.0 4.0]
            (seq (native sub-x)) => [0.0 1.0]
            (seq (native tz-x)) => [0.0 1.0 2.0 3.0 4.0 5.0]
-           (initialize! sub-y (buffer sub-y))
+           (entry! (view-vctr sub-y) 0)
            (seq (native tz-x)) => [0.0 1.0 2.0 0.0 0.0 0.0])))
 
 (defn test-tensor-fold [fact]

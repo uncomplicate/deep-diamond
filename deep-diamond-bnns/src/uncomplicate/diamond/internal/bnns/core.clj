@@ -14,8 +14,8 @@
             [uncomplicate.clojure-cpp
              :refer [ptr* size-t-pointer int-pointer long-pointer float-pointer
                      pointer-pointer get-entry zero! pointer-vec safe byte-pointer
-                     position! get-pointer put-entry!
-                     type-pointer pointer position capacity null?]]
+                     position! get-pointer put-entry! pointer
+                     position capacity capacity! null?]]
             [uncomplicate.diamond.internal.utils :refer [default-strides]]
             [uncomplicate.diamond.internal.bnns
              [impl :refer :all]
@@ -61,6 +61,11 @@
   "Queries the strides of a Descriptor."
   [nd]
   (vec (reverse (pointer-vec (strides* nd)))))
+
+(defn data [nd]
+  (when-let [res (data* nd)]
+    (capacity! ((bnns-data-type-pointer (data-type* nd)) res)
+               (size nd))))
 
 (defprotocol Parameters
   (w-desc [this])

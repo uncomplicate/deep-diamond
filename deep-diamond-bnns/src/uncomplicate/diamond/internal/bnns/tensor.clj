@@ -8,43 +8,50 @@
 
 (ns uncomplicate.diamond.internal.bnns.tensor
   (:require [uncomplicate.commons
-             [core :refer [Releaseable release let-release with-release Info info
-                           Viewable view size Bytes bytesize* bytesize]]
+             [core :refer [Releaseable release let-release with-release Info
+                           info Viewable view size bytesize* bytesize sizeof]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.protocols
-             :refer [Magma Monoid Applicative Functor Foldable Comonad extract fold foldmap]]
-            [uncomplicate.clojure-cpp :refer [pointer safe null? get-entry zero! memcpy!]]
+             :refer [Magma Monoid Applicative Functor Foldable Comonad
+                     extract fold foldmap]]
+            [uncomplicate.clojure-cpp :refer
+             [pointer safe null? get-entry zero! memcpy! capacity capacity! position!]]
             [uncomplicate.neanderthal
              [core :refer [transfer! copy! dim]]
              [block :refer [entry-width data-accessor buffer contiguous?]]]
             [uncomplicate.neanderthal.internal.api
-             :refer [create-vector flow FactoryProvider EngineProvider DataAccessorProvider
-                     Container raw zero copy MemoryContext compatible? factory native-factory
-                     create-vector* DenseContainer view-vctr]]
-            [uncomplicate.neanderthal.internal.cpp.structures :refer [real-block-vector]]
+             :refer [create-vector flow FactoryProvider EngineProvider
+                     DataAccessorProvider Container raw zero copy MemoryContext
+                     compatible? factory native-factory create-vector*
+                     DenseContainer view-vctr]]
+            [uncomplicate.neanderthal.internal.cpp.structures
+             :refer [real-block-vector]]
             [uncomplicate.diamond.tensor
-             :refer [TensorDescriptor shape TensorContainer Transfer input output
-                     Revert ConnectorCreator connector view-tz transformer batch-size
-                     default-desc]
+             :refer [TensorDescriptor shape TensorContainer Transfer input
+                     output Revert ConnectorCreator connector view-tz
+                     transformer batch-size default-desc]
              :as tz]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [TensorFactory DiamondFactoryProvider diamond-factory create-tensor
-                      neanderthal-factory tensor-engine native-diamond-factory Offset offset
-                      DiffTransfer diff-input diff-output create-tensor-desc parameters
+              :refer [TensorFactory DiamondFactoryProvider diamond-factory
+                      create-tensor neanderthal-factory tensor-engine
+                      native-diamond-factory Offset offset DiffTransfer
+                      diff-input diff-output create-tensor-desc parameters
                       DescriptorProvider BatchDescriptor batch-index]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.bnns
              [impl :refer [nda-shape-size]]
              [core :as bnns
-              :refer [equal-desc? nda-desc dims data-type layout strides]]
+              :refer [equal-desc? nda-desc dims data-type layout strides rank data]]
              [constants :refer [bnns-data-type-pointer]]
              [protocols :refer [DescProvider desc data*]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn AFn]
-           [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable Vector]
+           [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable
+            Vector]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
-           [uncomplicate.diamond.internal.bnns.impl BnnsTensorDescriptorImpl BnnsNdArrayDescriptorImpl BnnsTensorImpl]))
+           [uncomplicate.diamond.internal.bnns.impl BnnsTensorDescriptorImpl
+            BnnsNdArrayDescriptorImpl BnnsTensorImpl]))
 
 (declare ->BnnsTensor bnns-tensor)
 
@@ -125,16 +132,19 @@
   [^BnnsNdArrayDescriptorImpl d ^java.io.Writer w]
   (.write w (pr-str {:shape (tz/shape d) :data-type (tz/data-type d) :layout (tz/layout d)})))
 
-(deftype BnnsTensor [diamond-fact neand-fact eng master tz-desc vector-view ^long nc ^long n-index]
+(deftype BnnsTensor [diamond-fact neand-fact eng master tz-desc vector-view
+                     ^long nc ^long n-index]
   Object
   (hashCode [x]
     (-> (hash :BnnsTensor) (hash-combine (hash tz-desc))))
   (equals [x y]
     (or (identical? x y)
-        (and (instance? BnnsTensor y) (equal-desc? tz-desc y)
-             (= (strides tz-desc) (tz/layout y))
-             vector-view (.isContiguous ^BnnsTensor y)
-             (= vector-view (view-vctr y)))))
+        (and (instance? BnnsTensor y)
+             (equal-desc? tz-desc y)
+             (= (layout tz-desc) (layout y))
+             (if (and vector-view (.isContiguous ^BnnsTensor y))
+               (= vector-view (view-vctr y))
+               (= (data tz-desc) (data (extract y)))))))
   (toString [this]
     (pr-str {:shape (dims tz-desc) :data-type (data-type tz-desc) :layout (strides tz-desc)}))
   Info
@@ -142,6 +152,7 @@
     {:data-type (data-type tz-desc)
      :class (class x)
      :device :cpu
+     :rank (rank tz-desc)
      :shape (dims tz-desc)
      :layout (strides tz-desc)
      :master master
@@ -151,6 +162,7 @@
       :data-type (data-type tz-desc)
       :class (class x)
       :device :cpu
+      :rank (rank tz-desc)
       :shape (dims tz-desc)
       :layout (strides tz-desc)
       :master master
@@ -158,12 +170,10 @@
       nil))
   Releaseable
   (release [_]
-    (if master
-      (release tz-desc)
-      true))
-  Bytes
-  (bytesize* [_]
-    (bytesize* tz-desc))
+    (when-not master
+      (data* tz-desc nil))
+    (release tz-desc)
+    true)
   Comonad
   (extract [_]
     (extract tz-desc))
@@ -187,11 +197,15 @@
   (raw [x]
     (raw x diamond-fact))
   (raw [_ fact]
-    (create-tensor (diamond-factory fact) (default-desc tz-desc) n-index false))
+    (create-tensor (diamond-factory fact)
+                   (default-desc (dims tz-desc) (data-type tz-desc))
+                   n-index false))
   (zero [x]
     (zero x diamond-fact))
   (zero [_ fact]
-    (create-tensor (diamond-factory fact) (default-desc tz-desc) n-index true))
+    (create-tensor (diamond-factory fact)
+                   (default-desc (dims tz-desc) (data-type tz-desc))
+                   n-index true))
   (host [x]
     (let-release [res (raw x)]
       (memcpy! (buffer x) (buffer res))))
@@ -199,7 +213,7 @@
     x)
   Seqable
   (seq [this]
-    (seq vector-view))
+    (seq (view-vctr this)))
   MemoryContext
   (compatible? [_ y]
     (compatible? neand-fact (factory y)))
@@ -209,7 +223,7 @@
     :cpu)
   Monoid
   (id [_]
-    (with-release [ndims (count (dims tz-desc))
+    (with-release [ndims (rank tz-desc)
                    md (nda-desc (repeat ndims 0)
                                 (data-type tz-desc)
                                 (repeat ndims 0))]
@@ -222,56 +236,57 @@
   Foldable
   (fold [this]
     (check-contiguous this)
-    (fold vector-view))
+    (fold (view-vctr this)))
   (fold [this f init]
     (check-contiguous this)
-    (fold vector-view f init))
+    (fold (view-vctr this) f init))
   (fold [this f init y]
     (check-contiguous this y)
-    (fold vector-view f init (view-vctr y)))
+    (fold (view-vctr this) f init (view-vctr y)))
   (fold [this f init y z]
     (check-contiguous this y z)
-    (fold vector-view f init (view-vctr y) (view-vctr z)))
+    (fold (view-vctr this) f init (view-vctr y) (view-vctr z)))
   (fold [this f init y z v]
     (check-contiguous this y z v)
-    (fold vector-view f init (view-vctr y) (view-vctr z) (view-vctr v)))
+    (fold (view-vctr this) f init (view-vctr y) (view-vctr z) (view-vctr v)))
   (fold [this f init y z v ws]
     (check-contiguous this y z v)
     (doseq [w ws] (check-contiguous w))
-    (fold vector-view f (view-vctr y) (view-vctr z) (view-vctr v) (map view-vctr ws)))
+    (fold (view-vctr this) f (view-vctr y) (view-vctr z) (view-vctr v) (map view-vctr ws)))
   (foldmap [this g]
     (check-contiguous this)
-    (foldmap vector-view g))
+    (foldmap (view-vctr this) g))
   (foldmap [this g f init]
     (check-contiguous this)
-    (foldmap vector-view g f init))
+    (foldmap (view-vctr this) g f init))
   (foldmap [this g f init y]
     (check-contiguous this y)
-    (foldmap vector-view f init (view-vctr y)))
+    (foldmap (view-vctr this) f init (view-vctr y)))
   (foldmap [this g f init y z]
     (check-contiguous this y z)
-    (foldmap vector-view g f init (view-vctr y) (view-vctr z)))
+    (foldmap (view-vctr this) g f init (view-vctr y) (view-vctr z)))
   (foldmap [this g f init y z v]
     (check-contiguous this y z v)
-    (foldmap vector-view g f init (view-vctr y) (view-vctr z) (view-vctr v)))
+    (foldmap (view-vctr this) g f init (view-vctr y) (view-vctr z) (view-vctr v)))
   (foldmap [this g f init y z v ws]
     (check-contiguous this y z v)
     (doseq [w ws] (check-contiguous w))
-    (foldmap vector-view g f (view-vctr y) (view-vctr z) (view-vctr v) (map view-vctr ws)))
+    (foldmap (view-vctr this) g f (view-vctr y) (view-vctr z)
+             (view-vctr v) (map view-vctr ws)))
   Applicative
   (pure [_ v]
-    (with-release [ndims (count (shape tz-desc))
+    (with-release [ndims (rank tz-desc)
                    md (nda-desc (repeat ndims 1)
-                                (tz/data-type tz-desc)
+                                (data-type tz-desc)
                                 (repeat ndims 1))]
       (let-release [res (bnns-tensor diamond-fact md n-index)]
         (zero! (buffer res))
         res)))
   (pure [_ v vs]
     (let [vs (cons v vs)]
-      (with-release [ndims (count (shape tz-desc))
+      (with-release [ndims (rank tz-desc)
                      md (nda-desc (cons (count vs) (repeat (dec ndims) 1))
-                                  (tz/data-type tz-desc) (repeat ndims 1))]
+                                  (data-type tz-desc) (repeat ndims 1))]
         (let-release [res (bnns-tensor diamond-fact md n-index)]
           (transfer! vs res)))))
   VectorSpace
@@ -282,7 +297,7 @@
     (.boxedEntry ^Vector vector-view i))
   Block
   (buffer [_]
-    (extract tz-desc))
+    (data tz-desc))
   (offset [_]
     0)
   (stride [_]
@@ -335,7 +350,10 @@
   (data-type [_]
     (data-type tz-desc))
   (layout [_]
-    (strides tz-desc))
+    (let [strd (strides tz-desc)]
+      (if (some zero? strd)
+        (bnns/layout tz-desc)
+        strd)))
   BatchDescriptor
   (batch-index [_]
     n-index)
@@ -363,18 +381,22 @@
                                  (nda-desc (shape sub) dtype
                                            (bnns/layout (desc tz-desc))
                                            sub-layout))))]
-      (let [dtype (data-type sub-desc)
-            neand-fact (neanderthal-factory diamond-fact dtype)]
-        (let-release [sub-buf (create-vector neand-fact
-                                             false (pointer (buffer vector-view) 0)
-                                             (size sub-desc) 0 1)
-                      sub-tz-desc (bnns/tensor sub-desc (buffer sub-buf))]
-          (->BnnsTensor diamond-fact neand-fact (tensor-engine diamond-fact dtype)
-                        true sub-tz-desc sub-buf (dim sub-buf) n-index)))))
-  ;; Offset
-  ;; (offset [this ofst]
-  ;;   (offset! tz-desc ofst)
-  ;;   this)
+      (bnns-tensor diamond-fact sub-desc
+                   (data tz-desc)
+                   n-index false)))
+  Offset
+  (offset [this ofst]
+    (let [p (buffer this)]
+      (if (<= 0 (long ofst)
+              (long (if vector-view
+                      (capacity (buffer vector-view))
+                      (size tz-desc))))
+        (do (position! p ofst)
+            (data* tz-desc p)
+            (when vector-view (position! (buffer vector-view) ofst)))
+        (dragan-says-ex "There isn't enough capacity in the underlying buffer for this offset."
+                        {:requested ofst :available (size tz-desc)})))
+    this)
   ;; ConnectorCreator
   ;; (connector [in-tz out-desc]
   ;;   (if (equal-desc? tz-desc out-desc)
@@ -394,11 +416,11 @@
          (if (<= 0 tz-bytesize (bytesize buf))
            (let-release [vect-view (if (= nc (size tdesc))
                                      (create-vector neand-fact master buf nc 0 1)
-                                     nil)
-                         tz-desc (bnns/tensor tdesc buf)]
+                                     nil)]
+             (data* tdesc buf)
              (->BnnsTensor diamond-fact neand-fact
                            (tensor-engine diamond-fact dtype)
-                           master tz-desc vect-view nc n-index))
+                           master tdesc vect-view nc n-index))
            (throw (dragan-says-ex "Insufficient buffer size."
                                   {:desc-size (bytesize tdesc) :buffer-size (bytesize buf)}))))
        (throw (dragan-says-ex "We cannot overwrite NDA descriptor's existing data pointer! Please provide a fresh NDA descriptor."
