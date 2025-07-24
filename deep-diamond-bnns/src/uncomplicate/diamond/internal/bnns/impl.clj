@@ -17,7 +17,7 @@
              [core :refer [foldmap fold]]]
             [uncomplicate.clojure-cpp
              :refer [null? get-entry safe2 ptr* pointer byte-pointer address
-                     PointerCreator]]
+                     PointerCreator pointer-seq]]
             [uncomplicate.diamond.internal.utils
              :refer [extend-pointer default-strides]]
             [uncomplicate.diamond.internal.bnns
@@ -43,9 +43,9 @@
    (bnns-error err-code nil)))
 
 (defn equal-desc-properties? [d1 d2]
-  (and (= (dims* d1) (dims* d2))
+  (and (= (pointer-seq (dims* d1)) (pointer-seq (dims* d2)))
        (= (data-type* d1) (data-type* d2))
-       (= (strides* d1) (strides* d2))))
+       (= (pointer-seq (strides* d1)) (pointer-seq (strides* d2)))))
 
 (defmacro extend-bnns-pointer [t]
   `(extend-type ~t
@@ -102,7 +102,8 @@
          (or (= td (extract other))
              (equal-desc-properties? this other))))
   (toString [this]
-    (format "#BnnsTensorDescriptorImpl[0x%s, master: %s]" (address td) master))
+    (format "#BnnsTensorDescriptorImpl[0x%s, type: %s, master: %s]"
+            (address td) (dec-data-type (data-type* this)) master))
   Descriptor
   (strides* [this]
     (.capacity (.stride ^bnns$BNNSTensor (extract this)) rank))
@@ -141,10 +142,12 @@
   (equals [this other]
     (and (instance? BnnsNdArrayDescriptorImpl other)
          (or (= td (extract other))
-             (= (.layout td) (.layout ^bnns$BNNSNDArrayDescriptor (extract other)))
-             (equal-desc-properties? this other))))
+             (and (= (.layout td) (.layout ^bnns$BNNSNDArrayDescriptor (extract other)))
+                  (equal-desc-properties? this other)))))
   (toString [this]
-    (format "#BnnsNdArrayDescriptorImpl[0x%s, master: %s]" (address td) master))
+    (format "#BnnsNdArrayDescriptorImpl[0x%s,type: %s, layout: %s, master: %s]"
+            (address td) (dec-data-type (data-type* this))
+            (dec-data-layout (layout* this)) master))
   Descriptor
   (strides* [this]
     (.capacity (.stride ^bnns$BNNSNDArrayDescriptor (extract this)) rank))
@@ -277,32 +280,6 @@
   (view [this]
     (->BnnsTensorImpl dsc data false)))
 
-#_(defn tensor* TODO remove
-  ([shape data-type strides data]
-   (let [dsc (tensor-descriptor* shape data-type strides)
-         data-pointer (pointer data 0)]
-     (.data dsc data-pointer)
-     (->BnnsTensorImpl dsc data-pointer true)))
-  ([dsc data]
-   (tensor* (dims* dsc) (data-type* dsc) (strides* dsc) data))
-  ([dsc]
-   (let-release [buf (byte-pointer (bytesize dsc))]
-     (tensor* (dims* dsc) (data-type* dsc) (layout* dsc) (strides* dsc)
-              ((bnns-data-type-pointer (data-type* dsc)) buf)))))
-
-#_(defn ndarray* TODO remove
-  ([shape data-type layout strides data]
-   (let-release [dsc (ndarray-descriptor* shape data-type layout strides)
-                 data-pointer (pointer data 0)]
-     (.data dsc data-pointer)
-     (->BnnsTensorImpl dsc data-pointer true)))
-  ([dsc data]
-   (ndarray* (dims* dsc) (data-type* dsc) (layout* dsc) (strides* dsc) data))
-  ([dsc]
-   (let-release [buf (byte-pointer (bytesize dsc))]
-     (ndarray* (dims* dsc) (data-type* dsc) (layout* dsc) (strides* dsc)
-               ((bnns-data-type-pointer (data-type* dsc)) buf)))))
-
 ;; ===================== Filter ================================================
 
 (extend-bnns-pointer bnns$BNNSFilterParameters)
@@ -336,15 +313,24 @@
         (.setNull this#)))
     true))
 
+;; ===================== Tensor Copy ===========================================
+
+(defn copy* [^bnns$BNNSNDArrayDescriptor src
+             ^bnns$BNNSNDArrayDescriptor dst
+             ^bnns$BNNSFilterParameters params]
+  (with-check bnns-error
+    (bnns/BNNSCopy dst src params)
+    dst))
+
 ;; ===================== Activation ============================================
 
 (extend-bnns-pointer bnns$BNNSActivation)
 
 (defn activation*
   ([^long function]
-   (activation* function 0 0))
+   (activation* function 0.0 0.0))
   ([^long function ^double alpha]
-   (activation* function alpha 0))
+   (activation* function alpha 0.0))
   ([^long function ^double alpha ^double beta]
    (let-release [res (bnns$BNNSActivation.)]
      (.function res function)
@@ -353,9 +339,9 @@
      res))
   ([function alpha beta iscale ioffset ishift]
    (let-release [res (activation* function alpha beta)]
-     (.iscale iscale)
-     (.ioffset ioffset)
-     (.ishift ishift)
+     (.iscale res iscale)
+     (.ioffset res ioffset)
+     (.ishift res ishift)
      res)))
 
 (extend-bnns-pointer bnns$BNNSLayerParametersActivation)

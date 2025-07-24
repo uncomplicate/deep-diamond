@@ -119,6 +119,35 @@
          (get-entry (pointer out-tz) 1) => 0.0
          (position! buf 489) => (throws IndexOutOfBoundsException)))
 
+(facts "Test copy and transform."
+       (with-release [nda (nda-desc [3 2] :float :column)
+                      in-tz (tensor nda)
+                      out-tz (tensor nda)
+                      nda-row (nda-desc [3 2] :byte :row)
+                      nda-row1 (nda-desc [3 2] :byte :column [4 2])
+                      out-tz-row (tensor nda-row)
+                      out-tz-row1 (tensor nda-row1)
+                      activ (activation :identity)
+                      activ-params (activation-params activ nda nda-row)
+                      activ-layer (layer activ-params)
+                      activ-params1 (activation-params activ nda nda-row1)
+                      activ-layer1 (layer activ-params1)]
+         (pointer-seq (pointer in-tz)) => [0.0 0.0 0.0 0.0 0.0 0.0]
+         (pointer-seq (pointer out-tz)) => [0.0 0.0 0.0 0.0 0.0 0.0]
+         (pointer-seq (pointer out-tz-row)) => [0 0 0 0 0 0]
+         (put! (pointer in-tz) [-1 0 1 -2 10 2])
+         (pointer-seq (pointer in-tz)) => [-1.0 0.0 1.0 -2.0 10.0 2.0]
+         (copy in-tz out-tz) => out-tz
+         (pointer-seq (pointer in-tz)) => [-1.0 0.0 1.0 -2.0 10.0 2.0]
+         (pointer-seq (pointer out-tz)) => [-1.0 0.0 1.0 -2.0 10.0 2.0]
+         (copy in-tz out-tz-row) => (throws ExceptionInfo)
+         (copy in-tz out-tz-row1) => (throws ExceptionInfo)
+         ;; Default strides don't work
+         (apply-filter activ-layer in-tz out-tz-row) => (throws IllegalArgumentException)
+         ;; It happily accept whatever explicit strides and work with them
+         (apply-filter activ-layer1 in-tz out-tz-row1)
+         (pointer-seq (pointer out-tz-row1)) => [-1 0 0 0 1 0 -2 0 10 0 2]))
+
 (facts "Test arithmetic."
        (with-release [activ (activation :linear 2.0)
                       nda (nda-desc [3] :float :x)

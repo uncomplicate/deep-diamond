@@ -183,6 +183,7 @@
       (tensor-desc shape :float (default-strides shape)))))
 
 (defn tensor
+  "Used just in testing/api discovery, not in DD implementations."
   ([shape data-type layout strides data master]
    (let [dsc (if layout
                (nda-desc shape data-type layout strides)
@@ -227,13 +228,25 @@
     (dragan-says-ex "Null is not allowed in this descriptor's data.")))
 
 (defn apply-filter [^bnns$BNNSFilter filter in out]
-  (filter-apply* (safe (extract filter)) (safe (data* in)) (safe (data* out))))
+  (filter-apply* (safe filter) (safe (data* in)) (safe (data* out))))
 
 (defn layer
   ([layer-params filter-params]
-   (layer* layer-params filter-params))
+   (layer* (safe layer-params) (safe filter-params)))
   ([layer-params]
-   (layer* layer-params default-filter-params)))
+   (layer* (safe layer-params) (safe default-filter-params))))
+
+;; ===================== Tensor Copy ===========================================
+
+(defn copy
+  ([src dst params]
+   (if (equal-desc? src dst)
+     (copy* (safe (extract (desc src))) (safe (extract (desc dst))) (safe params))
+     (dragan-says-ex "Copy can work only on equal descriptors. Otherwise it crashes the JVM! Use activation-layer instead."))
+   dst)
+  ([src dst]
+   (copy src dst default-filter-params)
+   dst))
 
 ;; ===================== Activation ============================================
 
@@ -250,9 +263,9 @@
 
 (defn activation-params
   ([^bnns$BNNSActivation activ in-desc out-desc]
-   (activation-params* (extract activ)
-                       (extract (desc in-desc))
-                       (extract (desc out-desc))))
+   (activation-params* (safe activ)
+                       (safe (extract (desc in-desc)))
+                       (safe (extract (desc out-desc)))))
   ([^bnns$BNNSActivation activ desc]
    (activation-params activ desc desc)))
 
@@ -260,17 +273,26 @@
 
 (defn arithmetic
   ([in-desc in-type out-desc out-type]
-   (arithmetic* (extract (desc in-desc)) (enc-keyword bnns-descriptor-type in-type)
-                (extract (desc out-desc)) (enc-keyword bnns-descriptor-type out-type)))
+   (arithmetic* (safe (extract (desc in-desc)))
+                (enc-keyword bnns-descriptor-type in-type)
+                (safe (extract (desc out-desc)))
+                (enc-keyword bnns-descriptor-type out-type)))
   ([in1-desc in1-type in2-desc in2-type out-desc out-type]
-   (arithmetic* (extract (desc in1-desc)) (enc-keyword bnns-descriptor-type in1-type)
-                (extract (desc in2-desc)) (enc-keyword bnns-descriptor-type in2-type)
-                (extract (desc out-desc)) (enc-keyword bnns-descriptor-type out-type)))
+   (arithmetic* (safe (extract (desc in1-desc)))
+                (enc-keyword bnns-descriptor-type in1-type)
+                (safe (extract (desc in2-desc)))
+                (enc-keyword bnns-descriptor-type in2-type)
+                (safe (extract (desc out-desc)))
+                (enc-keyword bnns-descriptor-type out-type)))
   ([in1-desc in1-type in2-desc in2-type in3-desc in3-type out-desc out-type]
-   (arithmetic* (extract (desc in1-desc)) (enc-keyword bnns-descriptor-type in1-type)
-                (extract (desc in2-desc)) (enc-keyword bnns-descriptor-type in2-type)
-                (extract (desc in3-desc)) (enc-keyword bnns-descriptor-type in3-type)
-                (extract (desc out-desc)) (enc-keyword bnns-descriptor-type out-type))))
+   (arithmetic* (safe (extract (desc in1-desc)))
+                (enc-keyword bnns-descriptor-type in1-type)
+                (safe (extract (desc in2-desc)))
+                (enc-keyword bnns-descriptor-type in2-type)
+                (safe (extract (desc in3-desc)))
+                (enc-keyword bnns-descriptor-type in3-type)
+                (safe (extract (desc out-desc)))
+                (enc-keyword bnns-descriptor-type out-type))))
 
 (defn arithmetic-params
   ([function arithm ^bnns$BNNSActivation activation]
@@ -278,43 +300,43 @@
          fun-type (bnns-arithmetic-function-fields fun)]
      (arithmetic-params* fun
                          (if (instance? fun-type arithm)
-                           arithm
+                           (safe arithm)
                            (dragan-says-ex "fields has to be an instance of appropriate arithmetic kind."
                                            {:type (type arithm)
                                             :required fun-type}))
-                         activation)))
+                         (safe activation))))
   ([function arithm]
    (arithmetic-params function arithm nil)))
 
 ;; ================= Fully Connected ===========================
 
 (defn fully-connected-params [^bnns$BNNSActivation activ in-desc w-desc b-desc out-desc]
-  (fully-connected-params* (extract activ)
-                           (extract (desc in-desc))
-                           (extract (desc (safe-data w-desc)))
-                           (extract (desc (safe-data b-desc)))
-                           (extract (desc out-desc))))
+  (fully-connected-params* (safe activ)
+                           (safe (extract (desc in-desc)))
+                           (safe (extract (desc (safe-data w-desc))))
+                           (safe (extract (desc (safe-data b-desc))))
+                           (safe (extract (desc out-desc)))))
 
 (extend-bnns-parameters bnns$BNNSLayerParametersFullyConnected)
 
-;; ================= Convolutionxo  ===========================
+;; ================= Convolution  ===========================
 
 (defn convolution-params
   ([^bnns$BNNSActivation activ in-desc w-desc b-desc out-desc]
-   (convolution-params* (extract activ)
-                        (extract (desc in-desc))
-                        (extract (desc (safe-data w-desc)))
-                        (extract (desc (safe-data b-desc)))
-                        (extract (desc out-desc))))
+   (convolution-params* (safe activ)
+                        (safe (extract (desc in-desc)))
+                        (safe (extract (desc (safe-data w-desc))))
+                        (safe (extract (desc (safe-data b-desc))))
+                        (safe (extract (desc out-desc)))))
   ([^bnns$BNNSActivation activ in-desc w-desc b-desc out-desc strides dilates]
    (convolution-params activ in-desc w-desc b-desc out-desc strides dilates nil nil nil))
   ([^bnns$BNNSActivation activ in-desc w-desc b-desc out-desc
     strides dilates padding groups pad]
-   (convolution-params* (extract activ)
-                        (extract (desc in-desc))
-                        (extract (desc (safe-data w-desc)))
-                        (extract (desc (safe-data b-desc)))
-                        (extract (desc out-desc))
+   (convolution-params* (safe activ)
+                        (safe (extract (desc in-desc)))
+                        (safe (extract (desc (safe-data w-desc))))
+                        (safe (extract (desc (safe-data b-desc))))
+                        (safe (extract (desc out-desc)))
                         (get strides 0 1) (get strides 1 1)
                         (get dilates 0 1) (get dilates 1 1)
                         (get padding 0 0) (get padding 1 0)

@@ -132,6 +132,11 @@
   [^BnnsNdArrayDescriptorImpl d ^java.io.Writer w]
   (.write w (pr-str {:shape (tz/shape d) :data-type (tz/data-type d) :layout (tz/layout d)})))
 
+;; =================== Transformer ==============================================
+
+
+
+
 (deftype BnnsTensor [diamond-fact neand-fact eng master tz-desc vector-view
                      ^long nc ^long n-index]
   Object
