@@ -264,8 +264,9 @@
     (dims* dsc))
   (data* [this]
     (data* dsc))
-  (data* [_ p]
-    (data* dsc p))
+  (data* [this p]
+    (data* dsc p)
+    this)
   (rank* [_]
     (rank* dsc))
   Bytes
@@ -275,10 +276,7 @@
   (sizeof* [_]
     (sizeof* data))
   (size* [this]
-    (quot (bytesize this) (sizeof data)))
-  Viewable
-  (view [this]
-    (->BnnsTensorImpl dsc data false)))
+    (quot (bytesize this) (sizeof data))))
 
 ;; ===================== Filter ================================================
 

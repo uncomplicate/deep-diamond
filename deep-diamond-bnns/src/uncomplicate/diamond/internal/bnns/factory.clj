@@ -29,7 +29,7 @@
             [uncomplicate.diamond.internal.bnns
              [protocols :refer [desc]]
              [core :refer [nda-desc]]
-             [tensor :refer [bnns-tensor]]
+             [tensor :refer [bnns-tensor bnns-transformer]]
              #_[directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-inner-product-blueprint
                                dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
                                dnnl-split-blueprint dnnl-concat-blueprint dnnl-fc-blueprint
@@ -65,8 +65,8 @@ Please contribute towards making it possible, or use on of the supported types."
     (bnns-tensor this tensor-desc))
   (create-tensor [this tensor-desc batch-index _]
     (bnns-tensor this tensor-desc batch-index))
-  #_(create-transformer [_ in-tz out-tz]
-    (bnns-transformer eng strm (view in-tz) (view out-tz)))
+  (create-transformer [_ in-tz out-tz]
+    (bnns-transformer (view in-tz) (view out-tz)))
   #_(create-shuffler [_ src-tz dst-tz]
     (bnns-shuffler eng strm (view src-tz) (view dst-tz)))
   #_(create-batcher [_ src-tz dst-tz mb-size]

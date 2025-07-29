@@ -12,10 +12,11 @@
             [uncomplicate.clojure-cpp :refer [position! pointer-seq]]
             [uncomplicate.commons.core :refer [with-release bytesize]]
             [uncomplicate.neanderthal
-             [core :refer [dim view-vctr transfer! native entry!]]
+             [core :refer [dim view-vctr transfer! native entry! entry asum]]
              [block :refer [buffer contiguous? initialize!]]]
             [uncomplicate.diamond.tensor
-             :refer [with-diamond *diamond-factory* tensor layout shape data-type desc view-tz]]
+             :refer [with-diamond *diamond-factory* tensor transformer layout
+                     shape data-type desc view-tz input output]]
             [uncomplicate.diamond.internal.bnns [factory :refer [bnns-factory]]]
             [uncomplicate.diamond.internal [protocols :refer [offset]]]
             [uncomplicate.diamond.tensor-test :refer :all])
@@ -55,6 +56,26 @@
            (= x5 y5) => false
            (transfer! (range) x1) => (transfer! (range) y1))))
 
+(defn test-bnns-transformer [fact]
+  (let [tz-x (tensor fact [2 3 4 5] :float :nchw)
+                 tz-y (tensor fact [2 3 4 5] :float :nchw)
+                 tz-sub-x (view-tz tz-x [1 3 4 5])
+                 tz-sub-y (view-tz tz-y [1 3 4 5])
+                 transform (transformer tz-x tz-y)
+                 sub-transform (transformer tz-sub-x tz-sub-y)]
+    (facts "Tensor transformer"
+           (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
+           (entry (view-vctr (native tz-y)) 119) => 0.0
+           (buffer (input transform)) => (buffer tz-x)
+           (buffer (output transform)) => (buffer tz-y)
+           (transform) => tz-y
+           (asum tz-y) => (asum tz-x)
+           (entry (view-vctr (native tz-y)) 119) => 119.0
+           (transfer! (range 0 1000 10) tz-x)
+           (sub-transform) => tz-sub-y
+           (entry (view-vctr (native tz-y)) 34) => 340.0
+           (entry (view-vctr (native tz-y)) 68) => 68.0)))
+
 (with-release [diamond-factory (bnns-factory)]
   (test-bnns-create diamond-factory)
   (test-bnns-equality diamond-factory)
@@ -64,7 +85,7 @@
   ;; ;; (test-transfer diamond-factory diamond-factory)
   (test-contiguous diamond-factory)
   (test-subtensor diamond-factory)
-  ;; (test-transformer diamond-factory)
+  (test-bnns-transformer diamond-factory)
   ;; (test-transformer-any diamond-factory)
   ;; (test-transfer-any diamond-factory)
   ;; (test-pull-different diamond-factory)

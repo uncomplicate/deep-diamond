@@ -9,7 +9,7 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.bnns.core-test
   (:require [midje.sweet :refer [facts throws => roughly truthy just]]
-            [uncomplicate.commons.core :refer [with-release bytesize size release]]
+            [uncomplicate.commons.core :refer [with-release bytesize size release view]]
             [uncomplicate.fluokitten.core :refer [extract]]
             [uncomplicate.clojure-cpp
              :refer [pointer put! put-float! get-float byte-pointer float-pointer put-entry! get-entry
@@ -64,15 +64,19 @@
                       t-dsc (tensor-desc [2 3 4 5] :float)
                       n-tz (tensor n-dsc)
                       t-tz (tensor t-dsc)
+                      t-view (view t-tz)
                       large-dsc (nda-desc [50000000] :float :x)]
          (pointer n-tz) => truthy
          (pointer t-tz) => truthy
          (bytesize n-dsc) => (bytesize t-dsc)
          (bytesize n-tz) => (bytesize t-tz)
          (size large-dsc) => 50000000
-         (null? (api/data* large-dsc)) => true
-         (null? (api/data* n-dsc)) => true
-         (null? (api/data* t-dsc)) => true))
+         (null? (data large-dsc)) => true
+         (null? (data n-dsc)) => true
+         (null? (data t-dsc)) => true
+         (count (pointer-seq (data t-tz))) => 120
+         (api/data* t-view nil) => t-view
+         (count (pointer-seq (data t-view))) => 0))
 
 (facts "Test activation."
        (with-release [activ (activation :linear 2.0)
@@ -144,7 +148,7 @@
          (copy in-tz out-tz-row1) => (throws ExceptionInfo)
          ;; Default strides don't work
          (apply-filter activ-layer in-tz out-tz-row) => (throws IllegalArgumentException)
-         ;; It happily accept whatever explicit strides and work with them
+         ;; It happily accepts whatever explicit strides and works with them
          (apply-filter activ-layer1 in-tz out-tz-row1)
          (pointer-seq (pointer out-tz-row1)) => [-1 0 0 0 1 0 -2 0 10 0 2]))
 

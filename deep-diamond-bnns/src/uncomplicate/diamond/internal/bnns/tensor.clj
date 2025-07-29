@@ -42,9 +42,10 @@
             [uncomplicate.diamond.internal.bnns
              [impl :refer [nda-shape-size]]
              [core :as bnns
-              :refer [equal-desc? nda-desc dims data-type layout strides rank data]]
+              :refer [equal-desc? nda-desc dims data-type layout strides rank data
+                      apply-filter copy activation activation-params layer]]
              [constants :refer [bnns-data-type-pointer]]
-             [protocols :refer [DescProvider desc data*]]])
+             [protocols :refer [DescProvider desc data* clone*]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn AFn]
            [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable
@@ -53,7 +54,7 @@
            [uncomplicate.diamond.internal.bnns.impl BnnsTensorDescriptorImpl
             BnnsNdArrayDescriptorImpl BnnsTensorImpl]))
 
-(declare ->BnnsTensor bnns-tensor)
+(declare ->BnnsTensor bnns-tensor bnns-transformer)
 
 (extend-type TensorDescriptorImpl
   DescProvider
@@ -134,8 +135,64 @@
 
 ;; =================== Transformer ==============================================
 
+(deftype BnnsTransformer [activ-params reorder in-tz out-tz]
+  Releaseable
+  (release [_]
+    (release in-tz)
+    (release out-tz)
+    (release activ-params)
+    (release reorder))
+  Object
+  (hashCode [_]
+    (-> (hash :transformer)
+        (hash-combine (shape in-tz))
+        (hash-combine (shape out-tz))))
+  (equals [_ other]
+    (and (instance? BnnsTransformer other)
+         (= (shape in-tz) (shape (.in-tz ^BnnsTransformer other)))
+         (= out-tz (.out-tz ^BnnsTransformer other))))
+  (toString [this]
+    (str {:input in-tz
+          :output out-tz}))
+  Revert
+  (revert [_]
+    (bnns-transformer (view out-tz) (view in-tz)))
+  Viewable
+  (view [_]
+    (bnns-transformer (view in-tz) (view out-tz)))
+  Transfer
+  (input [_]
+    in-tz)
+  (output [_]
+    out-tz)
+  IFn
+  (invoke [_]
+    (if reorder
+      (apply-filter reorder in-tz out-tz)
+      (copy in-tz out-tz))
+    out-tz)
+  (invoke [_ _]
+    (if reorder
+      (apply-filter reorder in-tz out-tz)
+      (copy in-tz out-tz))
+    out-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
+  ConnectorCreator
+  (connector [this out-desc]
+    (if (equal-desc? out-tz out-desc)
+      this
+      (connector in-tz out-desc))))
 
+(let [activ (activation :identity)]
+  (defn bnns-transformer [in-tz out-tz]
+    (if (equal-desc? in-tz out-tz)
+      (->BnnsTransformer nil nil in-tz out-tz)
+      (let-release [activ-params (activation-params activ in-tz out-tz)
+                    reorder (layer activ-params)]
+        (->BnnsTransformer activ-params reorder in-tz out-tz)))))
 
+;; =================== Tensor === ==============================================
 
 (deftype BnnsTensor [diamond-fact neand-fact eng master tz-desc vector-view
                      ^long nc ^long n-index]
@@ -364,7 +421,9 @@
     n-index)
   Viewable
   (view [this]
-    (->BnnsTensor diamond-fact neand-fact eng false tz-desc vector-view nc n-index))
+    (let-release [tz-desc-clone (clone* tz-desc)]
+      (data* tz-desc-clone (data* tz-desc))
+      (->BnnsTensor diamond-fact neand-fact eng false tz-desc-clone vector-view nc n-index)))
   DenseContainer
   (view-vctr [this]
     (or vector-view (dragan-says-ex "Strided tensors cannot be viewed nor used as vectors."

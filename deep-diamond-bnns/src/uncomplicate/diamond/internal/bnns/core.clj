@@ -8,7 +8,7 @@
 
 (ns uncomplicate.diamond.internal.bnns.core
   (:require [uncomplicate.commons
-             [core :refer [let-release with-release view Info bytesize size]]
+             [core :refer [let-release with-release Viewable view Info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.fluokitten.protocols :refer [extract]]
             [uncomplicate.clojure-cpp
@@ -124,7 +124,6 @@
          :data-type (data-type this#)
          :strides (strides this#)}))))
 
-(extend-tensor-info BnnsTensorImpl)
 (extend-tensor-info BnnsTensorDescriptorImpl)
 
 (defn nda-desc
@@ -217,6 +216,12 @@
                (safe ((bnns-data-type-pointer (data-type* dsc)) buf))
                true))
      nil)))
+
+(extend-tensor-info BnnsTensorImpl)
+(extend-type BnnsTensorImpl
+  Viewable
+  (view [this]
+    (tensor (.-dsc this) (.-data this) false)))
 
 ;; ===================== Filter ================================================
 
