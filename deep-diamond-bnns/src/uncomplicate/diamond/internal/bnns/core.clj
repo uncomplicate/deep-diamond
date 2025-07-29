@@ -304,9 +304,26 @@
                            (dragan-says-ex "fields has to be an instance of appropriate arithmetic kind."
                                            {:type (type arithm)
                                             :required fun-type}))
-                         (safe activation))))
+                         activation)))
   ([function arithm]
    (arithmetic-params function arithm nil)))
+
+(defn apply-arithmetic  ;;TODO Support batches
+  ([^bnns$BNNSFilter filter in out]
+   (with-release [pp (pointer-pointer 1)]
+     (put-entry! pp 0 (safe (data* in)))
+     (arithmetic-apply* (safe filter) pp (safe (data* out)))))
+  ([^bnns$BNNSFilter filter in1 in2 out]
+   (with-release [pp (pointer-pointer 2)]
+     (put-entry! pp 0 (safe (data* in1)))
+     (put-entry! pp 1 (safe (data* in2)))
+     (arithmetic-apply* (safe filter) pp (safe (data* out)))))
+  ([^bnns$BNNSFilter filter in1 in2 in3 out]
+   (with-release [pp (pointer-pointer 2)]
+     (put-entry! pp 0 (safe (data* in1)))
+     (put-entry! pp 1 (safe (data* in2)))
+     (put-entry! pp 2 (safe (data* in3)))
+     (arithmetic-apply* (safe filter) pp (safe (data* out))))))
 
 ;; ================= Fully Connected ===========================
 

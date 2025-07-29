@@ -16,8 +16,8 @@
              [protocols :refer [Comonad extract]]
              [core :refer [foldmap fold]]]
             [uncomplicate.clojure-cpp
-             :refer [null? get-entry safe2 ptr* pointer byte-pointer address
-                     PointerCreator pointer-seq]]
+             :refer [null? get-entry safe2 ptr* pointer byte-pointer size-t-pointer
+                     address PointerCreator pointer-seq]]
             [uncomplicate.diamond.internal.utils
              :refer [extend-pointer default-strides]]
             [uncomplicate.diamond.internal.bnns
@@ -422,10 +422,11 @@
      (.arithmetic_function_fields res fields)
      res)))
 
-#_(defn arithmetic-apply* [^bnns$BNNSFilter filter batch-size ^PointerPointer in ^Pointer out]TODO
-    (with-check bnns-error
-      (bnns/BNNSArithmeticFilterApplyBatch filter in out)
-      filter))
+(defn arithmetic-apply*
+  ([^bnns$BNNSFilter filter ^PointerPointer in ^Pointer out]
+   (with-check bnns-error
+     (bnns/BNNSArithmeticFilterApplyBatch filter 1 (size in) in (size-t-pointer [(size in)]) out (size out))
+     filter)))
 
 ;; ================= Fully Connected ===========================
 

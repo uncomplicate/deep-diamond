@@ -155,8 +155,8 @@
                       out-tz (tensor nda)
                       activ-params (activation-params activ nda nda)
                       activ-layer (layer activ-params)
-                      arith (arithmetic nda :constant nda :constant)
-                      arith-params (arithmetic-params :sqr arith)
+                      arith (arithmetic in-tz :constant out-tz :constant)
+                      arith-params (arithmetic-params :sqr arith activ)
                       arith-layer (layer arith-params)]
          (pointer-seq (pointer in-tz)) => [0.0 0.0 0.0]
          (pointer-seq (pointer out-tz)) => [0.0 0.0 0.0]
@@ -167,10 +167,9 @@
          (apply-filter activ-layer in-tz out-tz)
          (pointer-seq (pointer in-tz)) => [-1.0 0.0 1.0]
          (pointer-seq (pointer out-tz)) => [-2.0 0.0 2.0]
-         ;;(apply-filter arith-layer in-tz out-tz) TODO
-         ;; (pointer-seq (pointer in-tz)) => [-1.0 0.0 1.0]
-         ;; (pointer-seq (pointer out-tz)) => [1.0 0.0 1.0]
-         ))
+         (apply-arithmetic arith-layer in-tz out-tz)
+         (pointer-seq (pointer in-tz)) => [-1.0 0.0 1.0]
+         (pointer-seq (pointer out-tz)) => [2.0 0.0 2.0]))
 
 (facts "Inner product forward 1D."
        (with-release [src-desc (nda-desc [1] :float :x)
