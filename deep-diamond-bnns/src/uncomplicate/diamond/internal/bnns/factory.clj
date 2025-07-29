@@ -61,10 +61,16 @@ Please contribute towards making it possible, or use on of the supported types."
     (nda-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
     (desc tz-desc))
-  (create-tensor [this tensor-desc _]
-    (bnns-tensor this tensor-desc))
-  (create-tensor [this tensor-desc batch-index _]
-    (bnns-tensor this tensor-desc batch-index))
+  (create-tensor [this tensor-desc init]
+    (let-release [res (bnns-tensor this tensor-desc)]
+      (when init
+        (initialize! res (buffer res)))
+      res))
+  (create-tensor [this tensor-desc batch-index init]
+    (let-release [res (bnns-tensor this tensor-desc batch-index)]
+      (when init
+        (initialize! res (buffer res)))
+      res))
   (create-transformer [_ in-tz out-tz]
     (bnns-transformer (view in-tz) (view out-tz)))
   #_(create-shuffler [_ src-tz dst-tz]

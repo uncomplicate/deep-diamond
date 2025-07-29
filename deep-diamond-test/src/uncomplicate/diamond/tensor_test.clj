@@ -156,7 +156,7 @@
                  tz-sub-y (view-tz tz-y [1 3 4 5])
                  transform (transformer tz-x tz-y)
                  sub-transform (transformer tz-sub-x tz-sub-y)]
-    (facts "Tensor transformer"
+    (facts "Tensor transformer."
            (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
            (entry (view-vctr (native tz-y)) 119) => 0.0
            (buffer (input transform)) => (buffer tz-x)
@@ -169,12 +169,12 @@
            (entry (view-vctr (native tz-y)) 34) => 310.0)))
 
 (defn test-transformer-any [fact]
-  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 8 2 2])
+  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 16 5x 2])
                  in-x (connector (desc [2 3 2 1] :float :nchw) tz-x)
-                 tz-y (tensor fact [2 3 2 1] :float [48 8 2 2])
+                 tz-y (tensor fact [2 3 2 1] :float [48 13 4 2])
                  out-y (connector tz-y (desc [2 3 2 1] :float :nchw))
                  transform (transformer tz-x tz-y)]
-    (facts "Tensor transformer for arbitrary strides"
+    (facts "Tensor transformer for arbitrary strides."
            (transfer! (range) (input in-x))
            (in-x)
            (transform)
@@ -182,11 +182,11 @@
            (output out-y) => (input in-x))))
 
 (defn test-transfer-any [fact]
-  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 8 2 2])
+  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 12 4 2])
                  in-x (connector (desc [2 3 2 1] :float :nchw) tz-x)
-                 tz-y (tensor fact [2 3 2 1] :float [48 8 2 2])
+                 tz-y (tensor fact [2 3 2 1] :float [48 14 4 2])
                  out-y (connector tz-y (desc [2 3 2 1] :float :nchw))]
-    (facts "Tensor transformer for arbitrary strides"
+    (facts "Tensor transfer for arbitrary strides."
            (transfer! (range) (input in-x))
            (in-x)
            (transfer! tz-x tz-y)

@@ -97,6 +97,7 @@
    :row bnns/BNNSDataLayoutRowMajorMatrix
    :column bnns/BNNSDataLayoutColumnMajorMatrix
    :nc bnns/BNNSDataLayoutColumnMajorMatrix
+   :cn bnns/BNNSDataLayoutRowMajorMatrix
    :2d-last bnns/BNNSDataLayout2DLastMajor
    :2d-first bnns/BNNSDataLayout2DFirstMajor
    :sparse bnns/BNNSDataLayoutFullyConnectedSparse

@@ -48,7 +48,7 @@
                  y4 (tensor fact [2 1 2 2] :float :4d-first)
                  x5 (tensor fact [2 2 2 2] :float :4d-first)
                  y5 (tensor fact [2 2 2 2] :float :4d-last)]
-    (facts "Equality and hash code tests."
+    (facts "BNNS Equality and hash code tests."
            (.equals x1 nil) => false
            (= x1 y1) => true
            (= x1 y3) => false
@@ -63,7 +63,7 @@
                  tz-sub-y (view-tz tz-y [1 3 4 5])
                  transform (transformer tz-x tz-y)
                  sub-transform (transformer tz-sub-x tz-sub-y)]
-    (facts "Tensor transformer"
+    (facts "Tensor BNNS transformer."
            (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
            (entry (view-vctr (native tz-y)) 119) => 0.0
            (buffer (input transform)) => (buffer tz-x)
@@ -83,7 +83,7 @@
                  tz-y (tensor fact [2 3 2 1] :float [48 12 4 1])
                  out-y (connector tz-y (desc [2 3 2 1] :float :nchw))
                  transform (transformer tz-x tz-y)]
-    (facts "Tensor transformer for arbitrary strides"
+    (facts "Tensor BNNS transformer for arbitrary strides."
            (transfer! (range) (input in-x))
            (in-x)
            (transfer! (repeat 10 0.0) (input in-x))
@@ -102,8 +102,9 @@
   (test-contiguous diamond-factory)
   (test-subtensor diamond-factory)
   (test-bnns-transformer diamond-factory)
+  (test-transformer-any diamond-factory)
   (test-bnns-transformer-any diamond-factory)
-  ;; (test-transfer-any diamond-factory)
+  (test-transfer-any diamond-factory)
   ;; (test-pull-different diamond-factory)
   ;; (test-pull-same diamond-factory)
   ;; (test-push-different diamond-factory)

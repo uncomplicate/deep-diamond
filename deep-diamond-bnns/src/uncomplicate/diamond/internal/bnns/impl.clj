@@ -193,20 +193,27 @@
   ([shape ^long data-type strides]
    (let [rank (size shape)
          td (bnns$BNNSTensor.)]
-     (try
-       (.data-type td data-type)
-       (.rank td rank)
-       (dotimes [i rank]
-         (.shape td i (get-entry shape i)))
-       (if (null? strides)
-         (dotimes [i rank]
-           (.stride td i 0))
-         (dotimes [i rank]
-           (.stride td i (get-entry strides i))))
-       td
-       (catch Exception e
-         (.deallocate td)
-         (throw e)))))
+     (if (= rank (size strides))
+       (try
+         (.data-type td data-type)
+         (.rank td rank)
+         (dotimes [i bnns/BNNS_MAX_TENSOR_DIMENSION]
+           (if (< i rank)
+             (.shape td i (get-entry shape i))
+             (.shape td i 0)))
+         (if (null? strides)
+           (dotimes [i bnns/BNNS_MAX_TENSOR_DIMENSION]
+             (.stride td i 0))
+           (dotimes [i bnns/BNNS_MAX_TENSOR_DIMENSION]
+             (if (< i rank)
+               (.stride td i (get-entry strides i))
+               (.stride td i 0))))
+         td
+         (catch Exception e
+           (.deallocate td)
+           (throw e)))
+       (dragan-says-ex "Shape and strides must have the same rank!"
+                       {:shape (info shape) :strides (info strides)}))))
   ([dsc]
    (tensor-descriptor* (dims* dsc) (data-type* dsc) (strides* dsc))))
 
@@ -214,20 +221,27 @@
   ([shape ^long data-type ^long layout strides]
    (let [rank (size shape)
          nda (bnns$BNNSNDArrayDescriptor.)]
-     (try
-       (.data-type nda data-type)
-       (.layout nda layout)
-       (dotimes [i rank]
-         (.size nda i (get-entry shape i)))
-       (if (null? strides)
-         (dotimes [i rank]
-           (.stride nda i 0))
-         (dotimes [i rank]
-           (.stride nda i (get-entry strides i))))
-       nda
-       (catch Exception e
-         (.deallocate nda)
-         (throw e)))))
+     (if (= rank (size strides))
+       (try
+         (.data-type nda data-type)
+         (.layout nda layout)
+         (dotimes [i bnns/BNNS_MAX_TENSOR_DIMENSION]
+           (if (< i rank)
+             (.size nda i (get-entry shape i))
+             (.size nda i 0)))
+         (if (null? strides)
+           (dotimes [i bnns/BNNS_MAX_TENSOR_DIMENSION]
+             (.stride nda i 0))
+           (dotimes [i bnns/BNNS_MAX_TENSOR_DIMENSION]
+             (if (< i rank)
+               (.stride nda i (get-entry strides i))
+               (.stride nda i 0))))
+         nda
+         (catch Exception e
+           (.deallocate nda)
+           (throw e)))
+       (dragan-says-ex "Shape and strides must have the same rank!"
+                       {:shape (info shape) :strides (info strides)}))))
   ([dsc]
    (ndarray-descriptor* (dims* dsc) (data-type* dsc) (layout* dsc) (strides* dsc))))
 

@@ -162,11 +162,15 @@
 
 (let [activ (activation :identity)]
   (defn bnns-transformer [in-tz out-tz]
-    (if (equal-desc? in-tz out-tz)
+    (if (and (not (identical? in-tz out-tz))
+             (equal-desc? in-tz out-tz))
       (->BnnsTransformer nil in-tz out-tz)
       (with-release [activ-params (activation-params activ in-tz out-tz)]
         (let-release [reorder (layer activ-params)]
-          (->BnnsTransformer reorder in-tz out-tz))))))
+          (if (null? reorder)
+            (dragan-says-ex "BNNS cannot create a transformer for this combination of input and output."
+                            {:in (info in-tz) :out (info out-tz)})
+            (->BnnsTransformer reorder in-tz out-tz)))))))
 
 ;; =================== Tensor === ==============================================
 

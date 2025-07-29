@@ -144,14 +144,14 @@
 
 (defn nda-desc
   ([shape data-type layout strides]
-   (let [shape (reverse shape)
-         strides (reverse strides)
-         rank (count shape)
+   (let [rank (count shape)
+         shape (reverse shape)
+         strides (or (seq (reverse strides)) (repeat rank 0))
          dtype (enc-keyword bnns-data-type data-type)
          dlayout (enc-keyword bnns-data-layout layout)]
      (if (<= 0 (count strides) rank bnns/BNNS_MAX_TENSOR_DIMENSION)
        (let-release [shape (size-t-pointer shape)
-                     strides (size-t-pointer (or strides (vec (repeat rank 0))))]
+                     strides (size-t-pointer strides)]
          (->BnnsNdArrayDescriptorImpl (ndarray-descriptor* shape dtype dlayout strides)
                                       rank true))
        (dragan-says-ex (format "Shapes must have rank between 0 and %s, while strides can have less than or equeal count as shapes."
@@ -169,12 +169,12 @@
 (defn tensor-desc
   ([shape data-type strides]
    (let[shape (reverse shape)
-        strides (reverse strides)
+        strides (or (seq (reverse strides)) (repeat rank 0))
         rank (count shape)
         dtype (enc-keyword bnns-data-type data-type)]
      (if (<= 0 (count strides) rank bnns/BNNS_MAX_TENSOR_DIMENSION)
        (let-release [shape (size-t-pointer shape)
-                     strides (size-t-pointer (or strides (vec (repeat rank 0))))]
+                     strides (size-t-pointer strides)]
          (->BnnsTensorDescriptorImpl (tensor-descriptor* shape dtype strides)
                                      rank true))
        (dragan-says-ex (format "Shapes and strides must have equal rank between 0 and %s."
