@@ -98,9 +98,10 @@
   (hashCode [this#]
     (hash td))
   (equals [this other]
-    (and (instance? BnnsTensorDescriptorImpl other)
-         (or (= td (extract other))
-             (equal-desc-properties? this other))))
+    (or (identical? this other)
+        (and (instance? BnnsTensorDescriptorImpl other)
+             (or (= td (extract other))
+                 (equal-desc-properties? this other)))))
   (toString [this]
     (format "#BnnsTensorDescriptorImpl[0x%s, type: %s, master: %s]"
             (address td) (dec-data-type (data-type* this)) master))
@@ -132,18 +133,16 @@
 
 (extend-tensor-descriptor BnnsTensorDescriptorImpl)
 
-(defn layout* [nd]
-  (.layout ^bnns$BNNSNDArrayDescriptor (extract nd)))
-
 (deftype BnnsNdArrayDescriptorImpl [^bnns$BNNSNDArrayDescriptor td rank master]
   Object
   (hashCode [this]
     (hash td))
   (equals [this other]
-    (and (instance? BnnsNdArrayDescriptorImpl other)
-         (or (= td (extract other))
-             (and (= (.layout td) (.layout ^bnns$BNNSNDArrayDescriptor (extract other)))
-                  (equal-desc-properties? this other)))))
+    (or  (identical? this other)
+         (and (instance? BnnsNdArrayDescriptorImpl other)
+              (or (= td (extract other))
+                  (and (= (.layout td) (.layout ^bnns$BNNSNDArrayDescriptor (extract other)))
+                       (equal-desc-properties? this other))))))
   (toString [this]
     (format "#BnnsNdArrayDescriptorImpl[0x%s,type: %s, layout: %s, master: %s]"
             (address td) (dec-data-type (data-type* this))
@@ -151,6 +150,10 @@
   Descriptor
   (strides* [this]
     (.capacity (.stride ^bnns$BNNSNDArrayDescriptor (extract this)) rank))
+  (layout* [this]
+    (.layout ^bnns$BNNSNDArrayDescriptor (extract this)))
+  (layout* [this layout]
+    (.layout ^bnns$BNNSNDArrayDescriptor (extract this) (long layout*)))
   (data-type* [this]
     (.data_type ^bnns$BNNSNDArrayDescriptor (extract this)))
   (dims* [this]
@@ -233,9 +236,10 @@
   (hashCode [_]
     (hash dsc))
   (equals [this other]
-    (and (instance? BnnsTensorImpl other)
-         (= dsc (.-dsc ^BnnsTensorImpl other))
-         (= data (.-data ^BnnsTensorImpl other))))
+    (or (identical? this other)
+        (and (instance? BnnsTensorImpl other)
+             (= dsc (.-dsc ^BnnsTensorImpl other))
+             (= data (.-data ^BnnsTensorImpl other)))))
   (toString [this]
     (format "#BnnsTensorImpl[0x%s, master: %s]" (address (extract dsc)) master))
   Releaseable

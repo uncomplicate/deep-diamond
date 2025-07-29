@@ -100,11 +100,12 @@
   (hashCode [this]
     (hash td))
   (equals [this other]
-    (and (instance? CUTensorDescriptor other)
-         (let [td2 ^CUTensorDescriptor other]
-           (or (= td (extract other))
-               (and (= (.dims this) (.dims td2)) (= (.data-type this) (.data-type td2))
-                    (= (.layout this) (.layout td2)))))))
+    (or (identical? this other)
+        (and (instance? CUTensorDescriptor other)
+             (let [td2 ^CUTensorDescriptor other]
+               (or (= td (extract other))
+                   (and (= (.dims this) (.dims td2)) (= (.data-type this) (.data-type td2))
+                        (= (.layout this) (.layout td2))))))))
   (toString [this]
     (format "#CUTensorDescriptor[0x%s, master: %s]" (address td) master))
   Bytes
@@ -307,11 +308,12 @@
   (hashCode [this]
     (hash td))
   (equals [this other]
-    (and (instance? CUFilterDescriptor other)
-         (let [td2 ^CUFilterDescriptor other]
-           (or (= td (extract other))
-               (and (= (.dims this) (.dims td2)) (= (.data-type this) (.data-type td2))
-                    (= (.layout this) (.layout td2)))))))
+    (or (identical? this other)
+        (and (instance? CUFilterDescriptor other)
+             (let [td2 ^CUFilterDescriptor other]
+               (or (= td (extract other))
+                   (and (= (.dims this) (.dims td2)) (= (.data-type this) (.data-type td2))
+                        (= (.layout this) (.layout td2))))))))
   (toString [this]
     (format "#CUFilterDescriptor[0x%s, master: %s]" (address td) master))
   Bytes

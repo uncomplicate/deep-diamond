@@ -122,6 +122,17 @@
    :8d-last bnns/BNNSDataLayout8DLastMajor
    :8d-first bnns/BNNSDataLayout8DFirstMajor})
 
+(def ^:const bnns-default-layout
+  [:x
+   :x
+   :nc
+   :chw
+   :nchw
+   :5d-first
+   :6d-first
+   :7d-first
+   :8d-first])
+
 (defn dec-data-layout [^long data-layout]
   (case data-layout
     0x10000 :x

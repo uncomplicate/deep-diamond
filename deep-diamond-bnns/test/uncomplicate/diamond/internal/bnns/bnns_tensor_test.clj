@@ -16,7 +16,7 @@
              [block :refer [buffer contiguous? initialize!]]]
             [uncomplicate.diamond.tensor
              :refer [with-diamond *diamond-factory* tensor transformer layout
-                     shape data-type desc view-tz input output]]
+                     shape data-type desc view-tz input output connector revert]]
             [uncomplicate.diamond.internal.bnns [factory :refer [bnns-factory]]]
             [uncomplicate.diamond.internal [protocols :refer [offset]]]
             [uncomplicate.diamond.tensor-test :refer :all])
@@ -57,7 +57,7 @@
            (transfer! (range) x1) => (transfer! (range) y1))))
 
 (defn test-bnns-transformer [fact]
-  (let [tz-x (tensor fact [2 3 4 5] :float :nchw)
+  (with-release [tz-x (tensor fact [2 3 4 5] :float :nchw)
                  tz-y (tensor fact [2 3 4 5] :float :nchw)
                  tz-sub-x (view-tz tz-x [1 3 4 5])
                  tz-sub-y (view-tz tz-y [1 3 4 5])
@@ -76,6 +76,22 @@
            (entry (view-vctr (native tz-y)) 34) => 340.0
            (entry (view-vctr (native tz-y)) 68) => 68.0)))
 
+(defn test-bnns-transformer-any [fact]
+  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 14 4 2]) ;; TODO strides must have sense! In the original dnnl/cuda test, the memory is overlapping!
+                 in-x (connector (desc [2 3 2 1] :float :nchw) tz-x)
+                 out-x (revert in-x)
+                 tz-y (tensor fact [2 3 2 1] :float [48 12 4 1])
+                 out-y (connector tz-y (desc [2 3 2 1] :float :nchw))
+                 transform (transformer tz-x tz-y)]
+    (facts "Tensor transformer for arbitrary strides"
+           (transfer! (range) (input in-x))
+           (in-x)
+           (transfer! (repeat 10 0.0) (input in-x))
+           (seq (out-x)) => (map float (range 0 12))
+           (transform)
+           (out-y)
+           (seq (output out-y)) => (seq (input in-x)))))
+
 (with-release [diamond-factory (bnns-factory)]
   (test-bnns-create diamond-factory)
   (test-bnns-equality diamond-factory)
@@ -86,7 +102,7 @@
   (test-contiguous diamond-factory)
   (test-subtensor diamond-factory)
   (test-bnns-transformer diamond-factory)
-  ;; (test-transformer-any diamond-factory)
+  (test-bnns-transformer-any diamond-factory)
   ;; (test-transfer-any diamond-factory)
   ;; (test-pull-different diamond-factory)
   ;; (test-pull-same diamond-factory)

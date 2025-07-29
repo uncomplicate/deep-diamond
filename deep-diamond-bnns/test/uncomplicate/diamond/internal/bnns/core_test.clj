@@ -150,7 +150,12 @@
          (apply-filter activ-layer in-tz out-tz-row) => (throws IllegalArgumentException)
          ;; It happily accepts whatever explicit strides and works with them
          (apply-filter activ-layer1 in-tz out-tz-row1)
-         (pointer-seq (pointer out-tz-row1)) => [-1 0 0 0 1 0 -2 0 10 0 2]))
+         (pointer-seq (pointer out-tz-row1)) => [-1 0 0 0 1 0 -2 0 10 0 2]
+         (put! (pointer in-tz) [-10 0 10 -2 10 2])
+         (with-release [activ-layer2 (with-release [activ-params2 (activation-params activ nda nda-row1)]
+                                       (layer activ-params2))]
+           (apply-filter activ-layer2 in-tz out-tz-row1))
+         (pointer-seq (pointer out-tz-row1)) => [-10 0 0 0 10 0 -2 0 10 0 2]))
 
 (facts "Test arithmetic."
        (with-release [activ (activation :linear 2.0)

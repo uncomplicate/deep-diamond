@@ -14,7 +14,7 @@
             [uncomplicate.clojure-cpp
              :refer [ptr* size-t-pointer int-pointer long-pointer float-pointer
                      pointer-pointer get-entry zero! pointer-vec safe byte-pointer
-                     position! get-pointer put-entry! pointer
+                     position! get-pointer put-entry! pointer pointer-seq
                      position capacity capacity! null?]]
             [uncomplicate.diamond.internal.utils :refer [default-strides]]
             [uncomplicate.diamond.internal.bnns
@@ -31,26 +31,41 @@
 
 (defn equal-desc?
   "Compares two BNNS descriptor providers `td1` and `td2` for descriptro equality.
-
   `td1` and `td2` can be any objects that can provide BNNS descriptors (tensors,
   descriptors themselves,  etc.)"
   [td1 td2]
   (= (desc td1) (desc td2)))
 
+(defn compatible-desc?
+  "Compares two BNNS descriptor providers `td1` and `td2` for descriptro compatibility.
+  Descriptors are compatible if they have equal shape, data type, and layout.
+  `td1` and `td2` can be any objects that can provide BNNS descriptors (tensors,
+  descriptors themselves,  etc.)"
+  [td1 td2]
+  (let [d1 (desc td1)
+        d2 (desc td2)]
+    (and (= (pointer-seq (dims* d1)) (pointer-seq (dims* d2)))
+         (= (data-type* d1) (data-type* d2))
+         (= (layout* d1) (layout* d2)))))
+
 (defn data-type
   "Queries the data type of a Descriptor."
   [nd]
-  (dec-data-type (data-type* nd)))
+  (dec-data-type (data-type* (desc nd))))
 
 (defn layout
   "Queries the layout of a Descriptor."
   [nd]
-  (dec-data-layout (layout* nd)))
+  (dec-data-layout (layout* (desc nd))))
+
+(defn layout!
+  [nd layout]
+  (layout* nd (enc-keyword bnns-data-layout layout)))
 
 (defn dims
   "Queries the dimensions of a Descriptor."
   [nd]
-  (vec (reverse (pointer-vec (dims* nd)))))
+  (vec (reverse (pointer-vec (dims* (desc nd))))))
 
 (defn rank
   "Queries the rank of a Descriptor."
@@ -60,12 +75,13 @@
 (defn strides
   "Queries the strides of a Descriptor."
   [nd]
-  (vec (reverse (pointer-vec (strides* nd)))))
+  (vec (reverse (pointer-vec (strides* (desc nd))))))
 
-(defn data [nd]
-  (when-let [res (data* nd)]
-    (capacity! ((bnns-data-type-pointer (data-type* nd)) res)
-               (size nd))))
+(defn data [d]
+  (let [dsc (desc d)]
+    (when-let [res (data* dsc)]
+      (capacity! ((bnns-data-type-pointer (data-type* dsc)) res)
+                 (size dsc)))))
 
 (defprotocol Parameters
   (w-desc [this])
@@ -144,7 +160,7 @@
   ([shape data-type layout]
    (if (keyword? layout)
      (nda-desc shape data-type layout nil)
-     (nda-desc shape data-type :x layout)));;TODO this x might be junk here
+     (nda-desc shape data-type (bnns-default-layout (count layout)) layout)))
   ([shape data-type]
    (nda-desc shape data-type (default-strides shape)))
   ([shape]
@@ -200,13 +216,14 @@
                       ((if layout nda-shape-size tensor-shape-size) shape strides))]
      (tensor shape data-type layout strides (safe buf) true)))
   ([dsc data master]
-   (if (and (<= 0 (bytesize dsc) (bytesize data)))
-     (let [data-pointer (pointer data 0)
-           dsc (clone* dsc)]
-       (data* dsc data-pointer)
-       (->BnnsTensorImpl dsc data-pointer master))
-     (dragan-says-ex "The buffer has to be large enough for the descriptor."
-                     {:desc-bytes (bytesize dsc) :buffer-bytes (bytesize data)})))
+   (let [dsc (desc dsc)]
+     (if (and (<= 0 (bytesize dsc) (bytesize data)))
+       (let [data-pointer (pointer data 0)
+             dsc (clone* dsc)]
+         (data* dsc data-pointer)
+         (->BnnsTensorImpl dsc data-pointer master))
+       (dragan-says-ex "The buffer has to be large enough for the descriptor."
+                       {:desc-bytes (bytesize dsc) :buffer-bytes (bytesize data)}))))
   ([dsc buf]
    (tensor dsc buf false))
   ([dsc]
@@ -227,13 +244,13 @@
 
 (def default-filter-params (filter-params*))
 
-(defn safe-data [desc]
-  (if-not (null? (data* desc))
-    desc
+(defn safe-data [dsc]
+  (if-not (null? (data* (desc dsc)))
+    dsc
     (dragan-says-ex "Null is not allowed in this descriptor's data.")))
 
 (defn apply-filter [^bnns$BNNSFilter filter in out]
-  (filter-apply* (safe filter) (safe (data* in)) (safe (data* out))))
+  (filter-apply* (safe filter) (safe (data* (desc in))) (safe (data* (desc out)))))
 
 (defn layer
   ([layer-params filter-params]
@@ -245,9 +262,9 @@
 
 (defn copy
   ([src dst params]
-   (if (equal-desc? src dst)
+   (if (compatible-desc? src dst)
      (copy* (safe (extract (desc src))) (safe (extract (desc dst))) (safe params))
-     (dragan-says-ex "Copy can work only on equal descriptors. Otherwise it crashes the JVM! Use activation-layer instead."))
+     (dragan-says-ex "Copy can work only on compatible descriptors. Otherwise it crashes the JVM! Use activation-layer instead."))
    dst)
   ([src dst]
    (copy src dst default-filter-params)
@@ -267,10 +284,32 @@
                 scale offset shift)))
 
 (defn activation-params
-  ([^bnns$BNNSActivation activ in-desc out-desc]
-   (activation-params* (safe activ)
-                       (safe (extract (desc in-desc)))
-                       (safe (extract (desc out-desc)))))
+  ([^bnns$BNNSActivation activ in out]
+   (let [in-desc (desc in)
+         out-desc (desc out)]
+     (if-let [res (activation-params* (safe activ)
+                                      (safe (extract in-desc))
+                                      (safe (extract out-desc)))]
+       res
+       (let [in-zero-stride (some zero? (pointer-seq (strides* in-desc)))
+             out-zero-stride (some zero? (pointer-seq (strides* out-desc)))]
+         (if-let [res (cond (and in-zero-stride out-zero-stride)
+                            nil
+                            in-zero-stride
+                            (with-release [out-clone (clone* out-desc)]
+                              (layout* out-clone (layout* in-desc))
+                              (activation-params* (safe activ)
+                                                  (safe (extract in-desc))
+                                                  out-clone))
+                            out-zero-stride
+                            (with-release [in-clone (clone* in-desc)]
+                              (layout* in-clone (layout* out-desc))
+                              (activation-params* (safe activ)
+                                                  in-clone
+                                                  (safe (extract out-desc))))
+                            :default nil)]
+           res
+           (dragan-says-ex "Activation parameters descriptors are not compatible!"))))))
   ([^bnns$BNNSActivation activ desc]
    (activation-params activ desc desc)))
 
@@ -316,19 +355,19 @@
 (defn apply-arithmetic  ;;TODO Support batches
   ([^bnns$BNNSFilter filter in out]
    (with-release [pp (pointer-pointer 1)]
-     (put-entry! pp 0 (safe (data* in)))
-     (arithmetic-apply* (safe filter) pp (safe (data* out)))))
+     (put-entry! pp 0 (safe (data* (desc in))))
+     (arithmetic-apply* (safe filter) pp (safe (data* (desc out))))))
   ([^bnns$BNNSFilter filter in1 in2 out]
    (with-release [pp (pointer-pointer 2)]
-     (put-entry! pp 0 (safe (data* in1)))
-     (put-entry! pp 1 (safe (data* in2)))
-     (arithmetic-apply* (safe filter) pp (safe (data* out)))))
+     (put-entry! pp 0 (safe (data* (desc in1))))
+     (put-entry! pp 1 (safe (data* (desc in2))))
+     (arithmetic-apply* (safe filter) pp (safe (data* (desc out))))))
   ([^bnns$BNNSFilter filter in1 in2 in3 out]
    (with-release [pp (pointer-pointer 2)]
-     (put-entry! pp 0 (safe (data* in1)))
-     (put-entry! pp 1 (safe (data* in2)))
-     (put-entry! pp 2 (safe (data* in3)))
-     (arithmetic-apply* (safe filter) pp (safe (data* out))))))
+     (put-entry! pp 0 (safe (data* (desc in1))))
+     (put-entry! pp 1 (safe (data* (desc in2))))
+     (put-entry! pp 2 (safe (data* (desc in3))))
+     (arithmetic-apply* (safe filter) pp (safe (data* (desc out)))))))
 
 ;; ================= Fully Connected ===========================
 

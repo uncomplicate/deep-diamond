@@ -109,10 +109,11 @@
     (-> (hash :transformer)
         (hash-combine (shape in-tz))
         (hash-combine (shape out-tz))))
-  (equals [_ other]
-    (and (instance? DnnlTransformer other)
-         (= (shape in-tz) (shape (.in-tz ^DnnlTransformer other)))
-         (= out-tz (.out-tz ^DnnlTransformer other))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? DnnlTransformer other)
+             (= (shape in-tz) (shape (.in-tz ^DnnlTransformer other)))
+             (= out-tz (.out-tz ^DnnlTransformer other)))))
   (toString [this]
     (str {:input in-tz
           :output out-tz}))
@@ -166,11 +167,12 @@
     (-> (hash :batcher)
         (hash-combine (shape src-sub))
         (hash-combine (shape dst-sub))))
-  (equals [_ other]
-    (and (instance? DnnlBatcher other)
-         (= (shape src-tz) (shape (.src-tz ^DnnlBatcher other)))
-         (= (shape dst-tz) (shape (.dst-tz ^DnnlBatcher other)))
-         (= src-tz (.src-tz ^DnnlBatcher other))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? DnnlBatcher other)
+             (= (shape src-tz) (shape (.src-tz ^DnnlBatcher other)))
+             (= (shape dst-tz) (shape (.dst-tz ^DnnlBatcher other)))
+             (= src-tz (.src-tz ^DnnlBatcher other)))))
   (toString [_]
     (str {:input src-tz
           :output dst-tz
@@ -229,11 +231,12 @@
   Object
   (hashCode [_]
     (hash-combine (hash :shuffler) (hash batcher)))
-  (equals [_ other]
-    (and (instance? DnnlShuffler other)
-         (= batch-size (.batch-size ^DnnlShuffler other))
-         (= mb-size (.mb-size ^DnnlShuffler other))
-         (= batcher (.batcher ^DnnlShuffler other))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? DnnlShuffler other)
+             (= batch-size (.batch-size ^DnnlShuffler other))
+             (= mb-size (.mb-size ^DnnlShuffler other))
+             (= batcher (.batcher ^DnnlShuffler other)))))
   (toString [this]
     (str {:input (input this)
           :output (output this)

@@ -157,10 +157,11 @@
     (-> (hash :transformer)
         (hash-combine (shape in-tz))
         (hash-combine (shape out-tz))))
-  (equals [_ other]
-    (and (instance? CUDnnTransformer other)
-         (= (shape in-tz) (shape (.in-tz ^CUDnnTransformer other)))
-         (= out-tz (.out-tz ^CUDnnTransformer other))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? CUDnnTransformer other)
+             (= (shape in-tz) (shape (.in-tz ^CUDnnTransformer other)))
+             (= out-tz (.out-tz ^CUDnnTransformer other)))))
   (toString [this]
     (str {:input in-tz
           :output out-tz}))
@@ -210,10 +211,11 @@
     (-> (hash :batcher)
         (hash-combine (shape src-sub))
         (hash-combine (shape dst-sub))))
-  (equals [_ other]
-    (and (instance? CUDnnBatcher other)
-         (= (shape dst-tz) (shape (.dst-tz ^CUDnnBatcher other)))
-         (= src-tz (.src-tz ^CUDnnBatcher other))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? CUDnnBatcher other)
+             (= (shape dst-tz) (shape (.dst-tz ^CUDnnBatcher other)))
+             (= src-tz (.src-tz ^CUDnnBatcher other)))))
   (toString [_]
     (str {:input src-tz
           :output dst-tz
@@ -271,11 +273,12 @@
     (release batcher))
   (hashCode [_]
     (hash-combine (hash :shuffler) (hash batcher)))
-  (equals [_ other]
-    (and (instance? CUDnnShuffler other)
-         (= batch-size (.batch-size ^CUDnnShuffler other))
-         (= mb-size (.mb-size ^CUDnnShuffler other))
-         (= batcher (.batcher ^CUDnnShuffler other))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? CUDnnShuffler other)
+             (= batch-size (.batch-size ^CUDnnShuffler other))
+             (= mb-size (.mb-size ^CUDnnShuffler other))
+             (= batcher (.batcher ^CUDnnShuffler other)))))
   (toString [this]
     (str {:input (input this)
           :output (output this)

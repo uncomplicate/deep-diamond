@@ -42,7 +42,8 @@
             [uncomplicate.diamond.internal.bnns
              [impl :refer [nda-shape-size]]
              [core :as bnns
-              :refer [equal-desc? nda-desc dims data-type layout strides rank data
+              :refer [equal-desc? compatible-desc? nda-desc dims data-type
+                      layout strides rank data
                       apply-filter copy activation activation-params layer]]
              [constants :refer [bnns-data-type-pointer]]
              [protocols :refer [DescProvider desc data* clone*]]])
@@ -70,39 +71,16 @@
     (data-type this))
   (layout [this]
     (strides this))
-  ;;TODO
-  ;; ConnectorCreator
-  ;; (connector [in-desc out]
-  ;;   (if (equal-desc? in-desc (input out))
-  ;;     (view out)
-  ;;     (let [out-tz (output out)]
-  ;;       (if (equal-desc? in-desc out-tz)
-  ;;         (view out-tz)
-  ;;         (let [fact (diamond-factory out-tz)]
-  ;;           (let-release [in-tz (bnns-tensor fact (view in-desc) (batch-index out-tz))]
-  ;;             (cudnn-transformer (handle fact) in-tz (view out-tz))))))))
-  )
-
-(extend-type BnnsTensorImpl
-  TensorDescriptor
-  (shape [this]
-    (dims this))
-  (data-type [this]
-    (data-type this))
-  (layout [this]
-    (strides this))
-  ;;TODO
-  ;; ConnectorCreator
-  ;; (connector [in-desc out]
-  ;;   (if (equal-desc? in-desc (input out))
-  ;;     (view out)
-  ;;     (let [out-tz (output out)]
-  ;;       (if (equal-desc? in-desc out-tz)
-  ;;         (view out-tz)
-  ;;         (let [fact (diamond-factory out-tz)]
-  ;;           (let-release [in-tz (bnns-tensor fact (view in-desc) (batch-index out-tz))]
-  ;;             (cudnn-transformer (handle fact) in-tz (view out-tz))))))))
-  )
+  ConnectorCreator
+  (connector [in-desc out]
+    (if (equal-desc? in-desc (input out))
+      (view out)
+      (let [out-tz (output out)]
+        (if (equal-desc? in-desc out-tz)
+          (view out-tz)
+          (let [fact (diamond-factory out-tz)]
+            (let-release [in-tz (bnns-tensor fact (view in-desc) (batch-index out-tz))]
+              (bnns-transformer in-tz (view out-tz)))))))))
 
 (defmethod print-method BnnsTensorDescriptorImpl
   [^BnnsTensorDescriptorImpl d ^java.io.Writer w]
@@ -116,18 +94,16 @@
     (data-type this))
   (layout [this]
     (bnns/layout this))
-  ;;TODO
-  ;; ConnectorCreator
-  ;; (connector [in-desc out]
-  ;;   (if (equal-desc? in-desc (input out))
-  ;;     (view out)
-  ;;     (let [out-tz (output out)]
-  ;;       (if (equal-desc? in-desc out-tz)
-  ;;         (view out-tz)
-  ;;         (let [fact (diamond-factory out-tz)]
-  ;;           (let-release [in-tz (bnns-tensor fact (view in-desc) (batch-index out-tz))]
-  ;;             (cudnn-transformer (handle fact) in-tz (view out-tz))))))))
-  )
+  ConnectorCreator
+  (connector [in-desc out]
+    (if (equal-desc? in-desc (input out))
+      (view out)
+      (let [out-tz (output out)]
+        (if (equal-desc? in-desc out-tz)
+          (view out-tz)
+          (let [fact (diamond-factory out-tz)]
+            (let-release [in-tz (bnns-tensor fact (view in-desc) (batch-index out-tz))]
+              (bnns-transformer in-tz (view out-tz)))))))))
 
 (defmethod print-method BnnsNdArrayDescriptorImpl
   [^BnnsNdArrayDescriptorImpl d ^java.io.Writer w]
@@ -135,22 +111,22 @@
 
 ;; =================== Transformer ==============================================
 
-(deftype BnnsTransformer [activ-params reorder in-tz out-tz]
+(deftype BnnsTransformer [reorder in-tz out-tz]
   Releaseable
   (release [_]
     (release in-tz)
     (release out-tz)
-    (release activ-params)
     (release reorder))
   Object
   (hashCode [_]
     (-> (hash :transformer)
         (hash-combine (shape in-tz))
         (hash-combine (shape out-tz))))
-  (equals [_ other]
-    (and (instance? BnnsTransformer other)
-         (= (shape in-tz) (shape (.in-tz ^BnnsTransformer other)))
-         (= out-tz (.out-tz ^BnnsTransformer other))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? BnnsTransformer other)
+             (= (shape in-tz) (shape (.in-tz ^BnnsTransformer other)))
+             (= out-tz (.out-tz ^BnnsTransformer other)))))
   (toString [this]
     (str {:input in-tz
           :output out-tz}))
@@ -187,10 +163,10 @@
 (let [activ (activation :identity)]
   (defn bnns-transformer [in-tz out-tz]
     (if (equal-desc? in-tz out-tz)
-      (->BnnsTransformer nil nil in-tz out-tz)
-      (let-release [activ-params (activation-params activ in-tz out-tz)
-                    reorder (layer activ-params)]
-        (->BnnsTransformer activ-params reorder in-tz out-tz)))))
+      (->BnnsTransformer nil in-tz out-tz)
+      (with-release [activ-params (activation-params activ in-tz out-tz)]
+        (let-release [reorder (layer activ-params)]
+          (->BnnsTransformer reorder in-tz out-tz))))))
 
 ;; =================== Tensor === ==============================================
 
@@ -461,13 +437,12 @@
         (dragan-says-ex "There isn't enough capacity in the underlying buffer for this offset."
                         {:requested ofst :available (size tz-desc)})))
     this)
-  ;; ConnectorCreator
-  ;; (connector [in-tz out-desc]
-  ;;   (if (equal-desc? tz-desc out-desc)
-  ;;     (view in-tz)
-  ;;     (let-release [out-tz (bnns-tensor diamond-fact neand-fact eng out-desc (batch-index in-tz))]
-  ;;       (bnns-transformer (bnns-engine diamond-fact) (flow diamond-fact) (view in-tz) out-tz))))
-  )
+  ConnectorCreator
+  (connector [in-tz out-desc]
+    (if (equal-desc? tz-desc out-desc)
+      (view in-tz)
+      (let-release [out-tz (bnns-tensor diamond-fact out-desc (batch-index in-tz))]
+        (bnns-transformer (view in-tz) out-tz)))))
 
 (defn bnns-tensor
   ([diamond-fact tdesc buf n-index master]

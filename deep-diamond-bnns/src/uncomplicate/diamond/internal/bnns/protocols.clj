@@ -15,6 +15,7 @@
   (dims* [this])
   (data-type* [this])
   (strides* [this])
+  (layout* [this] [this layout])
   (rank* [this])
   (data* [this] [this data])
   (clone* [this]))
