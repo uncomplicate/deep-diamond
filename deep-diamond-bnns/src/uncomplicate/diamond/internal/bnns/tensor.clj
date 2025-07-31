@@ -21,7 +21,7 @@
              [block :refer [entry-width data-accessor buffer contiguous?]]]
             [uncomplicate.neanderthal.internal.api
              :refer [create-vector flow FactoryProvider EngineProvider
-                     DataAccessorProvider Container raw zero copy MemoryContext
+                     DataAccessorProvider Container raw zero MemoryContext
                      compatible? factory native-factory create-vector*
                      DenseContainer view-vctr]]
             [uncomplicate.neanderthal.internal.cpp.structures
@@ -43,7 +43,7 @@
              [impl :refer [nda-shape-size]]
              [core :as bnns
               :refer [equal-desc? compatible-desc? nda-desc dims data-type
-                      layout strides rank data
+                      layout strides rank data bnns-default-desc
                       apply-filter copy activation activation-params layer]]
              [constants :refer [bnns-data-type-pointer]]
              [protocols :refer [DescProvider desc data* clone*]]])
@@ -55,13 +55,32 @@
            [uncomplicate.diamond.internal.bnns.impl BnnsTensorDescriptorImpl
             BnnsNdArrayDescriptorImpl BnnsTensorImpl]))
 
-(declare ->BnnsTensor bnns-tensor bnns-transformer)
+(declare ->BnnsTensor bnns-tensor bnns-transformer bnns-batcher bnns-shuffler)
+
+(extend-type java.util.Collection
+  DescProvider
+  (desc [this]
+    (nda-desc (shape this) :float)))
+
+(extend-type java.lang.Number
+  DescProvider
+  (desc [this]
+    (nda-desc [this] :float :x [1])))
+
+(extend-type java.util.Map
+  DescProvider
+  (desc [this]
+    (nda-desc (shape this) (or (:data-type this) :float) (tz/layout this))))
+
+(extend-type Object
+  DescProvider
+  (desc [this]
+    (nda-desc (shape this) (or (data-type this) :float) (tz/layout this))))
 
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (nda-desc (.shape this) (or (.data-type this) :float)
-              (or (tz/layout this) (default-strides this)))))
+    (nda-desc (.shape this) (or (.data-type this) :float) (tz/layout this))))
 
 (extend-type BnnsTensorDescriptorImpl
   TensorDescriptor
@@ -114,8 +133,6 @@
 (deftype BnnsTransformer [reorder in-tz out-tz]
   Releaseable
   (release [_]
-    (release in-tz)
-    (release out-tz)
     (release reorder))
   Object
   (hashCode [_]
@@ -147,11 +164,8 @@
       (apply-filter reorder in-tz out-tz)
       (copy in-tz out-tz))
     out-tz)
-  (invoke [_ _]
-    (if reorder
-      (apply-filter reorder in-tz out-tz)
-      (copy in-tz out-tz))
-    out-tz)
+  (invoke [this _]
+    (.invoke this))
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   ConnectorCreator
@@ -160,7 +174,68 @@
       this
       (connector in-tz out-desc))))
 
+;; =================== Batcher ==================================================
+
+(deftype BnnsBatcher [reorder src-sub dst-sub src-tz dst-tz ^long mb-size
+                      ^long src-cnt ^long src-stride-n
+                      ^long dst-cnt ^long dst-stride-n]
+  Releaseable
+  (release [_]
+    (release src-tz)
+    (release dst-tz)
+    (release src-sub)
+    (release dst-sub))
+  Object
+  (hashCode [_]
+    (-> (hash :batcher)
+        (hash-combine (shape src-sub))
+        (hash-combine (shape dst-sub))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? BnnsBatcher other)
+             (= (shape dst-tz) (shape (.dst-tz ^BnnsBatcher other)))
+             (= src-tz (.src-tz ^BnnsBatcher other)))))
+  (toString [_]
+    (str {:input src-tz
+          :output dst-tz
+          :mb-size mb-size}))
+  Viewable
+  (view [_]
+    (bnns-batcher (view src-tz) (view dst-tz) mb-size))
+  Transfer
+  (input [_]
+    src-tz)
+  (output [_]
+    dst-tz)
+  IFn
+  (invoke [this]
+    (.invoke this 0 0))
+  (invoke [this src-n]
+    (.invoke this src-n 0))
+  (invoke [_ src-n dst-n]
+    (let [src-n (long src-n)
+          dst-n (long dst-n)]
+      (if (and (<= 0 src-n (- src-cnt mb-size)) (<= 0 dst-n (- dst-cnt mb-size)))
+        (do (offset src-sub (* src-stride-n src-n))
+            (offset dst-sub (* dst-stride-n dst-n))
+            (if reorder
+              (apply-filter reorder src-sub dst-sub)
+              (copy src-sub dst-sub)))
+        (dragan-says-ex "Requested subtensor is outside of bounds."
+                        {:src-index src-n :src-cnt src-cnt
+                         :dst-index dst-n :dst-cnt dst-cnt
+                         :mb-size mb-size})))
+    dst-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
+  ConnectorCreator
+  (connector [this dst-desc]
+    (if (equal-desc? dst-tz dst-desc)
+      this
+      (connector dst-tz dst-desc))))
+
 (let [activ (activation :identity)]
+
   (defn bnns-transformer [in-tz out-tz]
     (if (and (not (identical? in-tz out-tz))
              (equal-desc? in-tz out-tz))
@@ -170,12 +245,32 @@
           (if (null? reorder)
             (dragan-says-ex "BNNS cannot create a transformer for this combination of input and output."
                             {:in (info in-tz) :out (info out-tz)})
-            (->BnnsTransformer reorder in-tz out-tz)))))))
+            (->BnnsTransformer reorder in-tz out-tz))))))
 
-;; =================== Tensor === ==============================================
+  (defn bnns-batcher [src-tz dst-tz mb-size]
+    (let [mb-size (max 1 (long mb-size))]
+      (let-release [src-sub (view-tz src-tz mb-size)
+                    dst-sub (view-tz dst-tz mb-size)]
+        (->BnnsBatcher (if (and (not (identical? src-tz dst-tz))
+                                (equal-desc? src-sub dst-sub))
+                         nil
+                         (with-release [activ-params (activation-params activ src-sub dst-sub)]
+                           (let-release [reorder (layer activ-params)]
+                             (if (null? reorder)
+                               (dragan-says-ex "BNNS cannot create a batcher for this combination of input and output."
+                                               {:src (info src-tz) :dst (info dst-tz)})
+                               reorder))))
+                       src-sub dst-sub
+                       src-tz dst-tz mb-size
+                       ((dims src-tz) (batch-index src-tz))
+                       ((strides src-sub) (batch-index src-tz))
+                       ((dims dst-tz) (batch-index dst-tz))
+                       ((strides dst-sub) (batch-index dst-tz)))))))
+
+;; =================== Tensor =================================================
 
 (deftype BnnsTensor [diamond-fact neand-fact eng master tz-desc vector-view
-                     ^long nc ^long n-index]
+                     ^long buf-capacity ^long nc ^long n-index]
   Object
   (hashCode [x]
     (-> (hash :BnnsTensor) (hash-combine (hash tz-desc))))
@@ -186,7 +281,7 @@
              (= (layout tz-desc) (layout y))
              (if (and vector-view (.isContiguous ^BnnsTensor y))
                (= vector-view (view-vctr y))
-               (= (data tz-desc) (data (extract y)))))))
+               (= (data tz-desc) (data (desc y)))))))
   (toString [this]
     (pr-str {:shape (dims tz-desc) :data-type (data-type tz-desc) :layout (strides tz-desc)}))
   Info
@@ -339,7 +434,7 @@
     (.boxedEntry ^Vector vector-view i))
   Block
   (buffer [_]
-    (data tz-desc))
+    (capacity! (data tz-desc) buf-capacity))
   (offset [_]
     0)
   (stride [_]
@@ -403,7 +498,8 @@
   (view [this]
     (let-release [tz-desc-clone (clone* tz-desc)]
       (data* tz-desc-clone (data* tz-desc))
-      (->BnnsTensor diamond-fact neand-fact eng false tz-desc-clone vector-view nc n-index)))
+      (->BnnsTensor diamond-fact neand-fact eng false tz-desc-clone vector-view
+                    buf-capacity nc n-index)))
   DenseContainer
   (view-vctr [this]
     (or vector-view (dragan-says-ex "Strided tensors cannot be viewed nor used as vectors."
@@ -431,10 +527,7 @@
   Offset
   (offset [this ofst]
     (let [p (buffer this)]
-      (if (<= 0 (long ofst)
-              (long (if vector-view
-                      (capacity (buffer vector-view))
-                      (size tz-desc))))
+      (if (<= 0 (long ofst) buf-capacity)
         (do (position! p ofst)
             (data* tz-desc p)
             (when vector-view (position! (buffer vector-view) ofst)))
@@ -445,7 +538,8 @@
   (connector [in-tz out-desc]
     (if (equal-desc? tz-desc out-desc)
       (view in-tz)
-      (let-release [out-tz (bnns-tensor diamond-fact out-desc (batch-index in-tz))]
+      (let-release [out-tz (bnns-tensor diamond-fact (view (desc out-desc))
+                                        (batch-index in-tz))]
         (bnns-transformer (view in-tz) out-tz)))))
 
 (defn bnns-tensor
@@ -463,7 +557,8 @@
              (data* tdesc buf)
              (->BnnsTensor diamond-fact neand-fact
                            (tensor-engine diamond-fact dtype)
-                           master tdesc vect-view nc n-index))
+                           master tdesc vect-view
+                           (capacity buf) nc n-index))
            (throw (dragan-says-ex "Insufficient buffer size."
                                   {:desc-size (bytesize tdesc) :buffer-size (bytesize buf)}))))
        (throw (dragan-says-ex "We cannot overwrite NDA descriptor's existing data pointer! Please provide a fresh NDA descriptor."
@@ -487,37 +582,36 @@
     (.write w "(... non-printable ...)")))
 
 (defmethod transfer! [BnnsTensor BnnsTensor]
-  [source destination]
-  (if (and (equal-desc? source destination) (contiguous? source) (contiguous? destination))
-    (copy! source destination)
-    (with-release [transform! (transformer source destination)]
+  [src dst]
+  (if (and (equal-desc? src dst) (contiguous? src) (contiguous? dst))
+    (copy! src dst)
+    (with-release [transform! (transformer src dst)]
       (transform!)))
-  destination)
+  dst)
 
 (defmethod transfer! [Object BnnsTensor]
-  [source destination]
-  (if (contiguous? destination)
-    (transfer! source (view-vctr destination))
-    (with-release [connect (connector (default-desc destination) destination)]
-      (transfer! source (view-vctr (input connect)))
+  [src dst]
+  (if (contiguous? dst)
+    (transfer! src (view-vctr dst))
+    (with-release [connect (connector (bnns-default-desc dst) dst)]
+      (transfer! src (view-vctr (input connect)))
       (connect)))
-  destination)
+  dst)
 
 (defmethod transfer! [BnnsTensor Object]
-  [source destination]
-  (if (contiguous? source)
-    (transfer! (view-vctr source) destination)
-    (with-release [connect (connector source (default-desc source))]
+  [src dst]
+  (if (contiguous? src)
+    (transfer! (view-vctr src) dst)
+    (with-release [connect (connector src (bnns-default-desc src))]
       (connect)
-      (transfer! (view-vctr (output source)) destination)))
-  (transfer! (view-vctr source) destination))
+      (transfer! (view-vctr (output connect)) dst))))
 
-#_(defmethod transfer! [Object BnnsTransformer]
-  [source destination]
-  (transfer! source (input destination))
-  destination)
+(defmethod transfer! [Object BnnsTransformer]
+  [src dst]
+  (transfer! src (input dst))
+  dst)
 
-#_(defmethod transfer! [BnnsTransformer Object]
+(defmethod transfer! [BnnsTransformer Object]
   [source destination]
   (transfer! (output source) destination))
 

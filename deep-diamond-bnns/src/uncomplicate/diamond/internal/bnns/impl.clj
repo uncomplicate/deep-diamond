@@ -117,7 +117,7 @@
   (data* [this]
     (.data ^bnns$BNNSTensor (extract this)))
   (data* [this p]
-    (.data ^bnns$BNNSTensor (extract this) (extract p)))
+    (.data ^bnns$BNNSTensor (extract this) (byte-pointer (extract p))))
   (clone* [this]
     (->BnnsTensorDescriptorImpl
      (tensor-descriptor* (dims* this) (data-type* this) (strides* this))
@@ -163,7 +163,7 @@
   (data* [this]
     (.data ^bnns$BNNSNDArrayDescriptor (extract this)))
   (data* [this p]
-    (.data ^bnns$BNNSNDArrayDescriptor (extract this) (extract p)))
+    (.data ^bnns$BNNSNDArrayDescriptor (extract this) (byte-pointer (extract p))))
   (clone* [this]
     (->BnnsNdArrayDescriptorImpl
      (ndarray-descriptor* (dims* this) (data-type* this) (layout* this) (strides* this))
@@ -280,7 +280,7 @@
     (data-type* dsc))
   (dims* [_]
     (dims* dsc))
-  (data* [this]
+  (data* [_]
     (data* dsc))
   (data* [this p]
     (data* dsc p)

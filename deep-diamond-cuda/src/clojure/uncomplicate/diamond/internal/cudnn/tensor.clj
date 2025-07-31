@@ -568,7 +568,7 @@
     (transfer! (view-vctr source) destination)
     (with-release [connect (connector source (default-desc destination))]
       (connect)
-      (transfer! (view-vctr (output source)) destination))))
+      (transfer! (view-vctr (output connect)) destination))))
 
 (defmethod transfer! [Object CUDnnTransformer]
   [source destination]

@@ -166,6 +166,16 @@
   ([shape]
    (nda-desc shape :float)))
 
+(defn bnns-default-desc [dsc]
+  (let [dsc (desc dsc)
+        shp(dims dsc)]
+    (nda-desc shp (or (data-type dsc) :float)
+              (let [lout (layout dsc)]
+                (if (keyword? lout)
+                  lout
+                  (bnns-default-layout (count lout))))
+              (default-strides shp))))
+
 (defn tensor-desc
   ([shape data-type strides]
    (let[shape (reverse shape)

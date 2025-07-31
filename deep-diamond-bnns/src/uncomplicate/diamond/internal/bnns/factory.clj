@@ -29,7 +29,7 @@
             [uncomplicate.diamond.internal.bnns
              [protocols :refer [desc]]
              [core :refer [nda-desc]]
-             [tensor :refer [bnns-tensor bnns-transformer]]
+             [tensor :refer [bnns-tensor bnns-transformer bnns-batcher bnns-shuffler]]
              #_[directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-inner-product-blueprint
                                dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
                                dnnl-split-blueprint dnnl-concat-blueprint dnnl-fc-blueprint
@@ -72,11 +72,11 @@ Please contribute towards making it possible, or use on of the supported types."
         (initialize! res (buffer res)))
       res))
   (create-transformer [_ in-tz out-tz]
-    (bnns-transformer (view in-tz) (view out-tz)))
+    (bnns-transformer in-tz out-tz)) ;;TODO I had to use direct tensors instead of view because otherwise bnns data wouldn't track offsets of the original tensors. See whether I can make this consistent in DNNL adn cuDNN...
   #_(create-shuffler [_ src-tz dst-tz]
     (bnns-shuffler eng strm (view src-tz) (view dst-tz)))
-  #_(create-batcher [_ src-tz dst-tz mb-size]
-    (bnns-batcher eng strm (view src-tz) (view dst-tz) mb-size))
+  (create-batcher [_ src-tz dst-tz mb-size]
+    (bnns-batcher (view src-tz) (view dst-tz) mb-size))
   (tensor-engine [this dtype]
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))

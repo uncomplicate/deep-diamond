@@ -1,5 +1,5 @@
 ;;   Copyright (c) Dragan Djuric. All rights reserved.
-;;   The use and distribution terms for this software are covered by the
+\;;   The use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
 ;;   which can be found in the file LICENSE at the root of this distribution.
 ;;   By using this software in any fashion, you are agreeing to be bound by
@@ -16,7 +16,8 @@
              [block :refer [buffer contiguous? initialize!]]]
             [uncomplicate.diamond.tensor
              :refer [with-diamond *diamond-factory* tensor transformer layout
-                     shape data-type desc view-tz input output connector revert]]
+                     shape data-type desc view-tz input output connector revert
+                     batcher]]
             [uncomplicate.diamond.internal.bnns [factory :refer [bnns-factory]]]
             [uncomplicate.diamond.internal [protocols :refer [offset]]]
             [uncomplicate.diamond.tensor-test :refer :all])
@@ -30,7 +31,7 @@
                    non-contiguous-tensor (tensor fact [2 3 2 1] :float [48 8 2 2])]
 
       (dim t0) => 0
-      (layout t0) => :4d-first
+      (layout t0) => :4d-last
       (dim tnc) => 6
       (shape tnc) => [2 3]
       (layout tnc) => :column
@@ -73,8 +74,10 @@
            (entry (view-vctr (native tz-y)) 119) => 119.0
            (transfer! (range 0 1000 10) tz-x)
            (sub-transform) => tz-sub-y
-           (entry (view-vctr (native tz-y)) 34) => 340.0
-           (entry (view-vctr (native tz-y)) 68) => 68.0)))
+           (seq (view-vctr (native tz-y))) => (into (vec (range 0.0 600.0 10.0)) (range 60.0 120 1.0))
+           (offset tz-sub-y 60)
+           (sub-transform)
+           (seq (view-vctr (native tz-y))) => (into (vec (range 0.0 600.0 10.0)) (range 0.0 600.0 10.0)))))
 
 (defn test-bnns-transformer-any [fact]
   (with-release [tz-x (tensor fact [2 3 2 1] :float [48 14 4 2]) ;; TODO strides must have sense! In the original dnnl/cuda test, the memory is overlapping!
@@ -92,26 +95,46 @@
            (out-y)
            (seq (output out-y)) => (seq (input in-x)))))
 
+(defn test-bnns-batcher [fact]
+  (with-release [tz-x (tensor fact [7 2 1 1] :float [2 1 1 1])
+                 tz-y (tensor fact [3 2 1 1] :float [4 2 1 1])
+                 batch (batcher tz-x tz-y 3)
+                 batch-2 (batcher tz-x tz-y 2)]
+    (facts "batcher test."
+           (transfer! (range 1 15) tz-x)
+           (seq (transfer! tz-x (float-array 14))) => (range 1.0 15.0)
+           (batch 0 0) => tz-y
+           (seq (transfer! tz-y (float-array 6))) => (range 1.0 7.0)
+           (transfer! (repeat 0) tz-y)
+           (batch 1 0) => tz-y
+           (seq (transfer! tz-y (float-array 6))) => (range 3.0 9.0)
+           (batch-2 0 0) => tz-y
+           (seq (transfer! tz-y (float-array 6))) => [1.0 2.0 3.0 4.0 7.0 8.0]
+           (batch 8) => (throws ExceptionInfo)
+           (batch 0 -1) => (throws ExceptionInfo)
+           (batch 7 -1) => (throws ExceptionInfo)
+           (batch -1) => (throws ExceptionInfo))))
+
 (with-release [diamond-factory (bnns-factory)]
   (test-bnns-create diamond-factory)
   (test-bnns-equality diamond-factory)
   (test-tensor diamond-factory)
   (test-zero diamond-factory)
   (test-release diamond-factory)
-  ;; ;; (test-transfer diamond-factory diamond-factory)
+  (test-transfer diamond-factory diamond-factory)
   (test-contiguous diamond-factory)
   (test-subtensor diamond-factory)
   (test-bnns-transformer diamond-factory)
   (test-transformer-any diamond-factory)
   (test-bnns-transformer-any diamond-factory)
   (test-transfer-any diamond-factory)
-  ;; (test-pull-different diamond-factory)
-  ;; (test-pull-same diamond-factory)
+  ;;(test-pull-different diamond-factory)
+  (test-pull-same diamond-factory)
   ;; (test-push-different diamond-factory)
-  ;; (test-push-same diamond-factory)
-  ;; (test-batcher diamond-factory)
+  (test-push-same diamond-factory)
+  (test-bnns-batcher diamond-factory)
   ;; (test-shuffler diamond-factory)
-  ;; (test-batcher-tnc diamond-factory)
+  ;;(test-batcher-tnc diamond-factory)
   (test-tensor-fold diamond-factory)
   (test-tensor-reducible diamond-factory))
 

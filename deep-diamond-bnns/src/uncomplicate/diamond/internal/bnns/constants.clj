@@ -113,7 +113,7 @@
    :oihw-pack32 bnns/BNNSDataLayoutConvolutionWeightsOIHW_Pack32
    :4d-last bnns/BNNSDataLayout4DLastMajor
    :4d-first bnns/BNNSDataLayout4DFirstMajor
-   :nchw bnns/BNNSDataLayout4DFirstMajor
+   :nchw bnns/BNNSDataLayout4DLastMajor
    :5d-last bnns/BNNSDataLayout5DLastMajor
    :5d-first bnns/BNNSDataLayout5DFirstMajor
    :6d-last bnns/BNNSDataLayout6DLastMajor
@@ -129,10 +129,10 @@
    :nc
    :chw
    :nchw
-   :5d-first
-   :6d-first
-   :7d-first
-   :8d-first])
+   :5d-last
+   :6d-last
+   :7d-last
+   :8d-last])
 
 (defn dec-data-layout [^long data-layout]
   (case data-layout

@@ -102,23 +102,22 @@
 (facts "NDArray offset operation."
        (with-release [nda (nda-desc [2 3 4 5] :float :4d-first)
                       buf (byte-pointer (+ 8 (bytesize nda)))
-                      _ (do (position! buf 4) nil)
                       in-tz (tensor nda buf)
                       out-tz (tensor nda)
                       activ (activation :relu)
-                      activ-params (activation-params activ nda nda) ;;It appears to me that BNNS NDA controls the data pointer and you can't do much with offsetting it through the buff pointer itself..
+                      activ-params (activation-params activ nda nda) ;;It appears to me that BNNS NDA controls the data pointer and you can't do much with offsetting it through the buff pointer itself.
                       activ-layer (layer activ-params)]
-         (position! buf 0)
          (put-float! buf 0 100)
          (put-float! buf 1 20)
          (put-float! buf 2 -200)
+         (put-float! buf 3 300)
          (put-float! buf 120 -400)
          (put-float! buf 121 -500)
-         (position! (.data in-tz) 1)
          (position! buf 4)
-         (position buf) => 4
-         (dotimes [i 1000000]
-           (apply-filter activ-layer in-tz out-tz))
+         (apply-filter activ-layer in-tz out-tz)
+         (get-entry (pointer out-tz) 0) => 100.0
+         (api/data* in-tz buf);; We have to explicitly set the new offset data.
+         (apply-filter activ-layer in-tz out-tz)
          (get-entry (pointer out-tz) 0) => 20.0
          (get-entry (pointer out-tz) 1) => 0.0
          (position! buf 489) => (throws IndexOutOfBoundsException)))
@@ -156,6 +155,16 @@
                                        (layer activ-params2))]
            (apply-filter activ-layer2 in-tz out-tz-row1))
          (pointer-seq (pointer out-tz-row1)) => [-10 0 0 0 10 0 -2 0 10 0 2]))
+
+(facts "Test 3d transform."
+       (with-release [nda1 (nda-desc [3 2 1] :float :3d-last [3 1 1])
+                      nda2 (nda-desc [3 2 1] :byte :3d-last [7 2 1])
+                      in-tz (tensor nda1)
+                      out-tz (tensor nda2)
+                      activ (activation :identity)
+                      activ-params (activation-params activ nda1 nda2)
+                      activ-layer (layer activ-params)]
+         (apply-filter activ-layer in-tz out-tz)))
 
 (facts "Test arithmetic."
        (with-release [activ (activation :linear 2.0)
