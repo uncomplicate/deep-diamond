@@ -60,7 +60,7 @@
 (extend-type java.util.Collection
   DescProvider
   (desc [this]
-    (nda-desc (shape this) :float)))
+    (nda-desc (shape this))))
 
 (extend-type java.lang.Number
   DescProvider
@@ -488,7 +488,7 @@
     (data-type tz-desc))
   (layout [_]
     (let [strd (strides tz-desc)]
-      (if (some zero? strd)
+      (if (or (some zero? strd) (some zero? (dims tz-desc)))
         (bnns/layout tz-desc)
         strd)))
   BatchDescriptor
@@ -516,11 +516,10 @@
                              (let [sub-layout (tz/layout sub)
                                    dtype (or (tz/data-type sub) (data-type tz-desc))]
                                (if (keyword? sub-layout)
-                                 (nda-desc (shape sub) dtype sub-layout
-                                           (strides tz-desc))
-                                 (nda-desc (shape sub) dtype
-                                           (bnns/layout (desc tz-desc))
-                                           sub-layout))))]
+                                 (nda-desc (shape sub) dtype sub-layout (strides tz-desc))
+                                 (if (seq sub-layout)
+                                   (nda-desc (shape sub) dtype (layout tz-desc) sub-layout)
+                                   (nda-desc (shape sub) dtype (layout tz-desc))))))]
       (bnns-tensor diamond-fact sub-desc
                    (data tz-desc)
                    n-index false)))
@@ -567,6 +566,8 @@
    (bnns-tensor diamond-fact tdesc buf 0 master))
   ([diamond-fact tdesc n-index]
    (let [tdesc (desc tdesc)]
+     (layout tdesc)
+     (strides tdesc)
      (let-release [buf ((bnns-data-type-pointer (data-type tdesc))
                         (max 1 (size tdesc)))]
        (bnns-tensor diamond-fact tdesc buf n-index true))))

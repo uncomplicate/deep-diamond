@@ -12,8 +12,9 @@
             [uncomplicate.commons.core :refer [with-release bytesize size release view]]
             [uncomplicate.fluokitten.core :refer [extract]]
             [uncomplicate.clojure-cpp
-             :refer [pointer put! put-float! get-float byte-pointer float-pointer put-entry! get-entry
-                     position pointer-seq position! null? fill! capacity!]]
+             :refer [pointer put! put-float! get-float byte-pointer float-pointer
+                     put-entry! get-entry position pointer-seq position! null?
+                     fill! capacity!]]
             [uncomplicate.neanderthal
              [core :refer [zero raw nrm2 entry! entry transfer!]]
              [native :refer [fv]]
@@ -43,8 +44,10 @@
 (facts "NDA descriptor by strides."
        (with-release [strds [120 1 20 4]
                       dimensions [2 3 4 5]
-                      nda (nda-desc dimensions :float :x strds)];;;;TODO this x might be junk here
+                      nda (nda-desc dimensions :float strds)
+                      nda23 (nda-desc [2 3] :float :ab [3 1])]
          (data-type nda) => :float
+         (layout nda) => :abcd
          (rank nda) => (count dimensions)
          (dims nda) => dimensions
          (strides nda) => strds
@@ -55,12 +58,17 @@
          (nda-desc [1 1] :f64 [1 1]) => (throws ExceptionInfo)
          (data-type (nda-desc [1 1])) => :float
          (bytesize (nda-desc [2 3 4 5])) => 480
+         (strides (nda-desc [2 3 4 5])) => [60 20 5 1]
          (dims (nda-desc [2 3])) => [2 3]
-         (strides (nda-desc [2 3])) => [3 1]
+         (strides nda23) => [3 1]
+         (data-type nda23) => :float
+         (layout nda23) => :ab
+         (pointer-seq (api/strides* nda23)) => [1 3]
+         (bytesize nda23) => 24
          (strides (nda-desc [2 3] :float [3 1])) => [3 1]))
 
 (facts "Basic tensor memory integration."
-       (with-release [n-dsc (nda-desc [2 3 4 5] :float :4d-first)
+       (with-release [n-dsc (nda-desc [2 3 4 5] :float :abcd)
                       t-dsc (tensor-desc [2 3 4 5] :float)
                       n-tz (tensor n-dsc)
                       t-tz (tensor t-dsc)
@@ -100,7 +108,7 @@
 ;; From time to time, it throws a NPE...
 ;; The culprit is in apply-filter. It crashes all the same without changing offsets.
 (facts "NDArray offset operation."
-       (with-release [nda (nda-desc [2 3 4 5] :float :4d-first)
+       (with-release [nda (nda-desc [2 3 4 5] :float :abcd)
                       buf (byte-pointer (+ 8 (bytesize nda)))
                       in-tz (tensor nda buf)
                       out-tz (tensor nda)
@@ -157,8 +165,8 @@
          (pointer-seq (pointer out-tz-row1)) => [-10 0 0 0 10 0 -2 0 10 0 2]))
 
 (facts "Test 3d transform."
-       (with-release [nda1 (nda-desc [3 2 1] :float :3d-last [3 1 1])
-                      nda2 (nda-desc [3 2 1] :byte :3d-last [7 2 1])
+       (with-release [nda1 (nda-desc [3 2 1] :float :abc [3 1 1])
+                      nda2 (nda-desc [3 2 1] :byte :abc [7 2 1])
                       in-tz (tensor nda1)
                       out-tz (tensor nda2)
                       activ (activation :identity)

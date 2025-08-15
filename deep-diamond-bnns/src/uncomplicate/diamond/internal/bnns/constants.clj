@@ -78,7 +78,7 @@
         :bf16 short-pointer
         131104 int-pointer
         Integer int-pointer
-        131080 byte-pointer
+  o131080 byte-pointer
         Byte/TYPE byte-pointer
         Byte byte-pointer
         :u8 byte-pointer
@@ -93,75 +93,91 @@
         ptr*)))
 
 (def ^:const bnns-data-layout
-  {:x bnns/BNNSDataLayoutVector
+  {:a bnns/BNNSDataLayoutVector
+   :x bnns/BNNSDataLayoutVector
    :row bnns/BNNSDataLayoutRowMajorMatrix
    :column bnns/BNNSDataLayoutColumnMajorMatrix
-   :nc bnns/BNNSDataLayoutColumnMajorMatrix
+   :nc bnns/BNNSDataLayout2DLastMajor
    :cn bnns/BNNSDataLayoutRowMajorMatrix
-   :2d-last bnns/BNNSDataLayout2DLastMajor
-   :2d-first bnns/BNNSDataLayout2DFirstMajor
+   :ab bnns/BNNSDataLayout2DLastMajor
+   :ba bnns/BNNSDataLayout2DFirstMajor
    :sparse bnns/BNNSDataLayoutFullyConnectedSparse
    :chw bnns/BNNSDataLayoutImageCHW
    :sne bnns/BNNSDataLayoutSNE
    :nse bnns/BNNSDataLayoutNSE
    :mha-dhk bnns/BNNSDataLayoutMHA_DHK
-   :3d-last bnns/BNNSDataLayout3DLastMajor
-   :3d-first bnns/BNNSDataLayout3DFirstMajor
+   :abc bnns/BNNSDataLayout3DLastMajor
+   :cba bnns/BNNSDataLayout3DFirstMajor
    :oihw bnns/BNNSDataLayoutConvolutionWeightsOIHW
    :oihrwr bnns/BNNSDataLayoutConvolutionWeightsOIHrWr
-   :iohrr bnns/BNNSDataLayoutConvolutionWeightsIOHrWr
+   :iohrwr bnns/BNNSDataLayoutConvolutionWeightsIOHrWr
    :oihw-pack32 bnns/BNNSDataLayoutConvolutionWeightsOIHW_Pack32
-   :4d-last bnns/BNNSDataLayout4DLastMajor
-   :4d-first bnns/BNNSDataLayout4DFirstMajor
+   :abcd bnns/BNNSDataLayout4DLastMajor
+   :dcba bnns/BNNSDataLayout4DFirstMajor
    :nchw bnns/BNNSDataLayout4DLastMajor
-   :5d-last bnns/BNNSDataLayout5DLastMajor
-   :5d-first bnns/BNNSDataLayout5DFirstMajor
-   :6d-last bnns/BNNSDataLayout6DLastMajor
-   :6d-first bnns/BNNSDataLayout6DFirstMajor
-   :7d-last bnns/BNNSDataLayout7DLastMajor
-   :7d-first bnns/BNNSDataLayout7DFirstMajor
-   :8d-last bnns/BNNSDataLayout8DLastMajor
-   :8d-first bnns/BNNSDataLayout8DFirstMajor})
+   :abcde bnns/BNNSDataLayout5DLastMajor
+   :edcba bnns/BNNSDataLayout5DFirstMajor
+   :abcdef bnns/BNNSDataLayout6DLastMajor
+   :fedcba bnns/BNNSDataLayout6DFirstMajor
+   :abcdefg bnns/BNNSDataLayout7DLastMajor
+   :gfedcba bnns/BNNSDataLayout7DFirstMajor
+   :abcdefgh bnns/BNNSDataLayout8DLastMajor
+   :hgfedcba bnns/BNNSDataLayout8DFirstMajor})
 
-(def ^:const bnns-default-layout
-  [:x
-   :x
-   :nc
-   :chw
-   :nchw
-   :5d-last
-   :6d-last
-   :7d-last
-   :8d-last])
+(defn bnns-default-layout
+  ([major? rank]
+   (if major?
+     (bnns-default-layout rank)
+     (case rank
+       0 :a
+       1 :a
+       2 :ba
+       3 :cba
+       4 :dcba
+       5 :edcba
+       6 :fedcba
+       7 :gfedcba
+       8 :hgfedcba)))
+  ([rank]
+   (case rank
+     0 :a
+     1 :a
+     2 :ab
+     3 :abc
+     4 :abcd
+     5 :abcde
+     6 :abcdef
+     7 :abcdefg
+     8 :abcdefgh)))
 
 (defn dec-data-layout [^long data-layout]
   (case data-layout
     0x10000 :x
     0x20000 :row
     0x20001 :column
-    0x28000 :2d-last
-    0x28001 :2d-first
+    0x28000 :ab
+    0x28001 :ba
     0x21001 :sparse
     0x30000 :chw
     0x30001 :sne
     0x30002 :nse
     0x30003 :mha-dhk
-    0x38000 :3d-last
-    0x38001 :3d-first
+    0x38000 :abc
+    0x38001 :cba
     0x40000 :oihw
     0x40001 :oihrwr
-    0x40002 :iohrr
+    0x40002 :iohrwr
     0x40010 :oihw-pack32
-    0x48000 :4d-last
-    0x48001 :4d-first
-    0x58000 :5d-last
-    0x58001 :5d-first
-    0x68000 :6d-last
-    0x68001 :6d-first
-    0x78000 :7d-last
-    0x78001 :7d-first
-    0x88000 :8d-last
-    0x88001 :8d-first
+    0x48000 :abcd
+    0x48001 :dcba
+    0x58000 :abcde
+    0x58001 :edcba
+    0x68000 :abcdef
+    0x68001 :fedcba
+    0x78000 :abcdefg
+    0x78001 :gfedcba
+    0x88000 :abcdefgh
+    0x88001 :hgfedcba
     0 :undef
     (dragan-says-ex "Unknown data layout." {:data-layout data-layout})))
 

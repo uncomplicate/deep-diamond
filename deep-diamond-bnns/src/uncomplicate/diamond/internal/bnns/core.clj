@@ -60,22 +60,34 @@
 
 (defn layout!
   [nd layout]
-  (layout* nd (enc-keyword bnns-data-layout layout)))
+  (layout* (desc nd) (enc-keyword bnns-data-layout layout)))
 
 (defn dims
   "Queries the dimensions of a Descriptor."
   [nd]
-  (vec (reverse (pointer-vec (dims* (desc nd))))))
+  (let [dsc (desc nd)]
+    (vec ((if (major* dsc) reverse identity)
+          (pointer-vec (dims* dsc))))))
 
 (defn rank
   "Queries the rank of a Descriptor."
   [nd]
-  (rank* nd))
+  (rank* (desc nd)))
+
+(defn major-strides? [strd]
+  (if (seq strd)
+    (let [strd (remove zero? strd)]
+      (if (seq strd)
+        (or (apply = strd) (not (apply <= strd)))
+        true))
+    false))
 
 (defn strides
   "Queries the strides of a Descriptor."
   [nd]
-  (vec (reverse (pointer-vec (strides* (desc nd))))))
+  (let [dsc (desc nd)]
+    (vec ((if (major* dsc) reverse identity)
+          (pointer-vec (strides* dsc))))))
 
 (defn data [d]
   (let [dsc (desc d)]
@@ -142,13 +154,18 @@
 
 (extend-tensor-info BnnsTensorDescriptorImpl)
 
+(defn bnns-default-strides [major? shape]
+  (default-strides ((if major? identity reverse) shape)))
+
 (defn nda-desc
   ([shape data-type layout strides]
    (let [rank (count shape)
-         shape (reverse shape)
-         strides (or (seq (reverse strides)) (repeat rank 0))
          dtype (enc-keyword bnns-data-type data-type)
-         dlayout (enc-keyword bnns-data-layout layout)]
+         dlayout (enc-keyword bnns-data-layout
+                              (or layout
+                                  (bnns-default-layout (major-strides? strides) rank)))
+         shape ((if (major? dlayout) reverse identity) shape)
+         strides (or (seq (reverse strides)) (repeat rank 0))]
      (if (<= 0 (count strides) rank bnns/BNNS_MAX_TENSOR_DIMENSION)
        (let-release [shape (size-t-pointer shape)
                      strides (size-t-pointer strides)]
@@ -159,29 +176,25 @@
                        {:shape shape :layout layout :strides strides :max-rank bnns/BNNS_MAX_TENSOR_DIMENSION}))))
   ([shape data-type layout]
    (if (keyword? layout)
-     (nda-desc shape data-type layout nil)
-     (nda-desc shape data-type (bnns-default-layout (count layout)) layout)))
+     (nda-desc shape data-type layout (default-strides shape))
+     (nda-desc shape data-type nil layout)))
   ([shape data-type]
-   (nda-desc shape data-type (default-strides shape)))
+   (nda-desc shape data-type nil (default-strides shape)))
   ([shape]
    (nda-desc shape :float)))
 
 (defn bnns-default-desc [dsc]
   (let [dsc (desc dsc)
-        shp(dims dsc)]
-    (nda-desc shp (or (data-type dsc) :float)
-              (let [lout (layout dsc)]
-                (if (keyword? lout)
-                  lout
-                  (bnns-default-layout (count lout))))
+        shp (dims dsc)]
+    (nda-desc shp (data-type dsc) (layout dsc)
               (default-strides shp))))
 
 (defn tensor-desc
   ([shape data-type strides]
-   (let[shape (reverse shape)
-        strides (or (seq (reverse strides)) (repeat rank 0))
-        rank (count shape)
-        dtype (enc-keyword bnns-data-type data-type)]
+   (let[rank (count shape)
+        shape (reverse shape)
+        dtype (enc-keyword bnns-data-type data-type)
+        strides (or (seq (reverse strides)) (repeat rank 0))]
      (if (<= 0 (count strides) rank bnns/BNNS_MAX_TENSOR_DIMENSION)
        (let-release [shape (size-t-pointer shape)
                      strides (size-t-pointer strides)]
@@ -208,7 +221,7 @@
       (tensor-desc shape :float (default-strides shape)))))
 
 (defn tensor
-  "Used just in testing/api discovery, not in DD implementations."
+  "Used just in testing/api dscoveiry, not in DD implementations."
   ([shape data-type layout strides data master]
    (let [dsc (if layout
                (nda-desc shape data-type layout strides)
@@ -223,7 +236,9 @@
    (tensor shape data-type layout strides data false))
   ([shape data-type layout strides]
    (let-release [buf ((bnns-data-type-pointer data-type)
-                      ((if layout nda-shape-size tensor-shape-size) shape strides))]
+                      ((if layout
+                         (nda-shape-size (major? layout) shape size)
+                         (tensor-shape-size shape strides))))]
      (tensor shape data-type layout strides (safe buf) true)))
   ([dsc data master]
    (let [dsc (desc dsc)]

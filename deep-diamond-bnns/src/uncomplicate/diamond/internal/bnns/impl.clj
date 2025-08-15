@@ -57,16 +57,34 @@
                (.setNull this#))))
        true)))
 
-(defn tensor-shape-size ^long [shape strides]
+(defn major? [data-layout]
+  (if (#{0x28001 :ba 0x38001 :cba 0x48001 :dcba 0x58001 :edcba 0x68001 :fedcba
+         0x78001 :gfedcba 0x88001 :hgfedcba}
+       data-layout)
+    false
+    true))
+
+(defn tensor-shape-size-major ^long [shape strides]
   (inc (long (foldmap + 0
                       (fn [^long x ^long y]
                         (* (dec x) y))
                       shape strides))))
 
-(defn nda-shape-size ^long [shape strides]
+(defn tensor-shape-size-minor ^long [shape strides]
+  (let [n (size shape)]
+    (loop [i 0 j (dec n) acc 0]
+      (if (< i n)
+        (recur (inc i) (dec j) (+ acc
+                                  (* (dec (long (get-entry shape i)))
+                                     (long (get-entry strides j)))))
+        acc))))
+
+(defn nda-shape-size ^long [major shape strides]
   (if (and strides (< 0 (long (fold * strides))))
-    (tensor-shape-size shape strides)
+    ((if major tensor-shape-size-major tensor-shape-size-minor)
+     shape strides)
     (long (fold * shape))))
+
 
 (defmacro extend-tensor-descriptor [t]
   `(extend-type ~t
@@ -108,6 +126,8 @@
   Descriptor
   (strides* [this]
     (.capacity (.stride ^bnns$BNNSTensor (extract this)) rank))
+  (major* [this]
+    true)
   (data-type* [this]
     (.data_type ^bnns$BNNSTensor (extract this)))
   (dims* [this]
@@ -154,6 +174,8 @@
     (.layout ^bnns$BNNSNDArrayDescriptor (extract this)))
   (layout* [this layout]
     (.layout ^bnns$BNNSNDArrayDescriptor (extract this) (long layout*)))
+  (major* [this]
+    (major? (.layout ^bnns$BNNSNDArrayDescriptor (extract this))))
   (data-type* [this]
     (.data_type ^bnns$BNNSNDArrayDescriptor (extract this)))
   (dims* [this]
@@ -173,7 +195,7 @@
     (if (null? td)
       nil
       (* (long (bnns-data-type-size (data-type* this)))
-         (nda-shape-size (dims* this) (strides* this)))))
+         (nda-shape-size (major* this) (dims* this) (strides* this)))))
   Viewable
   (view [this]
     (->BnnsNdArrayDescriptorImpl td rank false)))

@@ -1,5 +1,5 @@
 ;;   Copyright (c) Dragan Djuric. All rights reserved.
-\;;   The use and distribution terms for this software are covered by the
+;;   The use and distribution terms for this software are covered by the
 ;;   Eclipse Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) or later
 ;;   which can be found in the file LICENSE at the root of this distribution.
 ;;   By using this software in any fashion, you are agreeing to be bound by
@@ -31,10 +31,10 @@
                    non-contiguous-tensor (tensor fact [2 3 2 1] :float [48 8 2 2])]
 
       (dim t0) => 0
-      (layout t0) => :4d-last
+      (layout t0) => :abcd
       (dim tnc) => 6
       (shape tnc) => [2 3]
-      (layout tnc) => :column
+      (layout tnc) => [3 1]
       (data-type tnc) => :float
       (view-vctr non-contiguous-tensor) => (throws ExceptionInfo)
       (tensor fact [2 3] :double :nc) => (throws ExceptionInfo)
@@ -43,12 +43,12 @@
       (tensor fact [1 -1 1 1] :float :nchw) => (throws ExceptionInfo))))
 
 (defn test-bnns-equality [fact]
-  (with-release [x1 (tensor fact [2 1 2 3] :float :4d-last)
-                 y1 (tensor fact [2 1 2 3] :float :4d-last)
-                 y3 (tensor fact [2 1 2 3] :float :4d-first)
-                 y4 (tensor fact [2 1 2 2] :float :4d-first)
-                 x5 (tensor fact [2 2 2 2] :float :4d-first)
-                 y5 (tensor fact [2 2 2 2] :float :4d-last)]
+  (with-release [x1 (tensor fact [2 1 2 3] :float :abcd)
+                 y1 (tensor fact [2 1 2 3] :float :abcd)
+                 y3 (tensor fact [2 1 2 3] :float :dcba)
+                 y4 (tensor fact [2 1 2 2] :float :dcba)
+                 x5 (tensor fact [2 2 2 2] :float :dcba)
+                 y5 (tensor fact [2 2 2 2] :float :abcd)]
     (facts "BNNS Equality and hash code tests."
            (.equals x1 nil) => false
            (= x1 y1) => true
@@ -115,6 +115,18 @@
            (batch 7 -1) => (throws ExceptionInfo)
            (batch -1) => (throws ExceptionInfo))))
 
+(defn test-bnns-pull-different [fact]
+  (with-release [tz-x (tensor fact [2 3 4 5] :float :abcd)
+                 tz-y-desc (desc [2 3 4 5] :int :abcd)
+                 connection (connector tz-x tz-y-desc)]
+    (facts "Tensor pull connector with different destination"
+
+           (entry (view-vctr (native (transfer! (range) tz-x))) 119) => 119.0
+           (= (buffer (input connection)) (buffer tz-x)) => true
+           (= (buffer (input connection)) (buffer (output connection))) => false
+           (entry (native (view-vctr (connection))) 119) => 119)))
+
+
 (with-release [diamond-factory (bnns-factory)]
   (test-bnns-create diamond-factory)
   (test-bnns-equality diamond-factory)
@@ -128,7 +140,7 @@
   (test-transformer-any diamond-factory)
   (test-bnns-transformer-any diamond-factory)
   (test-transfer-any diamond-factory)
-  ;;(test-pull-different diamond-factory)
+  (test-bnns-pull-different diamond-factory)
   (test-pull-same diamond-factory)
   ;; (test-push-different diamond-factory)
   (test-push-same diamond-factory)
