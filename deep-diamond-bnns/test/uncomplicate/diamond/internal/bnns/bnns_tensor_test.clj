@@ -17,7 +17,7 @@
             [uncomplicate.diamond.tensor
              :refer [with-diamond *diamond-factory* tensor transformer layout
                      shape data-type desc view-tz input output connector revert
-                     batcher]]
+                     batcher shuffler]]
             [uncomplicate.diamond.internal.bnns [factory :refer [bnns-factory]]]
             [uncomplicate.diamond.internal [protocols :refer [offset]]]
             [uncomplicate.diamond.tensor-test :refer :all])
@@ -99,6 +99,7 @@
   (with-release [tz-x (tensor fact [7 2 1 1] :float [2 1 1 1])
                  tz-y (tensor fact [3 2 1 1] :float [4 2 1 1])
                  batch (batcher tz-x tz-y 3)
+                 batch-1 (batcher tz-x tz-y 1)
                  batch-2 (batcher tz-x tz-y 2)]
     (facts "batcher test."
            (transfer! (range 1 15) tz-x)
@@ -110,6 +111,16 @@
            (seq (transfer! tz-y (float-array 6))) => (range 3.0 9.0)
            (batch-2 0 0) => tz-y
            (seq (transfer! tz-y (float-array 6))) => [1.0 2.0 3.0 4.0 7.0 8.0]
+           (transfer! (repeat 0) tz-y)
+           (batch-1 1 0) => tz-y
+           (seq (transfer! tz-y (float-array 6))) => [3.0 4.0 0.0 0.0 0.0 0.0]
+           (transfer! (repeat 0) tz-y)
+           (batch-1 1 1) => tz-y
+           (seq (transfer! tz-y (float-array 6))) => [0.0 0.0 3.0 4.0 0.0 0.0]
+           (batch-1 2 0) => tz-y
+           (seq (transfer! tz-y (float-array 6))) => [5.0 6.0 3.0 4.0 0.0 0.0]
+           (batch-1 3 2) => tz-y
+           (seq (transfer! tz-y (float-array 6))) => [5.0 6.0 3.0 4.0 7.0 8.0]
            (batch 8) => (throws ExceptionInfo)
            (batch 0 -1) => (throws ExceptionInfo)
            (batch 7 -1) => (throws ExceptionInfo)
@@ -126,6 +137,28 @@
            (= (buffer (input connection)) (buffer (output connection))) => false
            (entry (native (view-vctr (connection))) 119) => 119)))
 
+(defn test-bnns-push-different [fact]
+  (with-release [tz-y (tensor fact [2 3 4 5] :float :abcd)
+                 tz-x-desc (desc [2 3 4 5] :int :abcd)
+                 connection (connector tz-x-desc tz-y)]
+    (facts "Tensor push connector with different destination"
+           (entry (native (transfer! (range) (view-vctr (input connection)))) 119) => 119
+           (= (buffer (output connection)) (buffer tz-y)) => true
+           (= (buffer (input connection)) (buffer (output connection))) => false
+           (entry (native (view-vctr (connection))) 119) => 119.0)))
+
+(defn test-bnns-shuffler [fact]
+  (with-release [tz-x (tensor fact [6 2 1 1] :float [2 1 1 1])
+        tz-y (tensor fact [3 2 1 1] :int [4 2 1 1])
+        shuff (shuffler tz-x tz-y)]
+    (facts "shuffler test."
+           (transfer! (range 1 13) tz-x)
+           (seq (transfer! tz-x (float-array 12))) => (range 1.0 13.0)
+           (shuff [2 0 1])
+           (seq (transfer! tz-y (int-array 6))) => [5 6 1 2 3 4]
+           (shuff [0 2 1 1]) => (throws ExceptionInfo)
+           (shuff [0 2 8]) => (throws ExceptionInfo)
+           (shuff [0 1]) => tz-y)))
 
 (with-release [diamond-factory (bnns-factory)]
   (test-bnns-create diamond-factory)
@@ -142,34 +175,33 @@
   (test-transfer-any diamond-factory)
   (test-bnns-pull-different diamond-factory)
   (test-pull-same diamond-factory)
-  ;; (test-push-different diamond-factory)
+  (test-bnns-push-different diamond-factory)
   (test-push-same diamond-factory)
   (test-bnns-batcher diamond-factory)
-  ;; (test-shuffler diamond-factory)
+  (test-bnns-shuffler diamond-factory)
   ;;(test-batcher-tnc diamond-factory)
   (test-tensor-fold diamond-factory)
   (test-tensor-reducible diamond-factory))
 
-#_(with-diamond dnnl-factory []
-
+(with-diamond bnns-factory []
+  (test-bnns-create *diamond-factory*)
+  (test-bnns-equality *diamond-factory*)
   (test-tensor *diamond-factory*)
   (test-zero *diamond-factory*)
-  (test-create *diamond-factory*)
-  (test-dnnl-create *diamond-factory*)
-  (test-equality *diamond-factory*)
   (test-release *diamond-factory*)
   (test-transfer *diamond-factory* *diamond-factory*)
   (test-contiguous *diamond-factory*)
   (test-subtensor *diamond-factory*)
-  (test-transformer *diamond-factory*)
+  (test-bnns-transformer *diamond-factory*)
   (test-transformer-any *diamond-factory*)
+  (test-bnns-transformer-any *diamond-factory*)
   (test-transfer-any *diamond-factory*)
-  (test-pull-different *diamond-factory*)
+  (test-bnns-pull-different *diamond-factory*)
   (test-pull-same *diamond-factory*)
-  (test-push-different *diamond-factory*)
+  (test-bnns-push-different *diamond-factory*)
   (test-push-same *diamond-factory*)
-  (test-batcher *diamond-factory*)
-  (test-shuffler *diamond-factory*)
-  (test-batcher-tnc *diamond-factory*)
+  (test-bnns-batcher *diamond-factory*)
+  (test-bnns-shuffler *diamond-factory*)
+  ;;(test-batcher-tnc *diamond-factory*)
   (test-tensor-fold *diamond-factory*)
   (test-tensor-reducible *diamond-factory*))

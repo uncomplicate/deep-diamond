@@ -262,10 +262,11 @@
   (let [mb-size (max 1 (long mb-size))]
     (let-release [src-sub (view-tz src-tz mb-size)
                   dst-sub (view-tz dst-tz mb-size)]
-      (->CUDnnBatcher cudnn-hdl src-sub dst-sub
-                      src-tz dst-tz mb-size
-                      ((dims src-tz) (batch-index src-tz)) ((strides src-sub) (batch-index src-tz))
-                      ((dims dst-tz) (batch-index dst-tz)) ((strides dst-sub) (batch-index dst-tz))))))
+      (->CUDnnBatcher cudnn-hdl src-sub dst-sub src-tz dst-tz mb-size
+                      ((dims src-tz) (batch-index src-tz))
+                      ((strides src-sub) (batch-index src-tz))
+                      ((dims dst-tz) (batch-index dst-tz))
+                      ((strides dst-sub) (batch-index dst-tz))))))
 
 (deftype CUDnnShuffler [cudnn-hdl batcher batch-size mb-size]
   Releaseable

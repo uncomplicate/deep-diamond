@@ -55,7 +55,8 @@
            [uncomplicate.diamond.internal.bnns.impl BnnsTensorDescriptorImpl
             BnnsNdArrayDescriptorImpl BnnsTensorImpl]))
 
-(declare ->BnnsTensor bnns-tensor bnns-transformer bnns-batcher bnns-shuffler)
+(declare ->BnnsTensor ->BnnsShuffler
+         bnns-tensor bnns-transformer bnns-batcher bnns-shuffler)
 
 (extend-type java.util.Collection
   DescProvider
@@ -260,17 +261,63 @@
                                (dragan-says-ex "BNNS cannot create a batcher for this combination of input and output."
                                                {:src (info src-tz) :dst (info dst-tz)})
                                reorder))))
-                       src-sub dst-sub
-                       src-tz dst-tz mb-size
+                       src-sub dst-sub src-tz dst-tz mb-size
                        ((dims src-tz) (batch-index src-tz))
                        ((strides src-sub) (batch-index src-tz))
                        ((dims dst-tz) (batch-index dst-tz))
                        ((strides dst-sub) (batch-index dst-tz)))))))
 
+(deftype BnnsShuffler [batcher batch-sizeoo mb-size]
+  Releaseable
+  (release [_]
+    (release batcher))
+  (hashCode [_]
+    (hash-combine (hash :shuffler) (hash batcher)))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? BnnsShuffler other)
+             (= batch-size (.batch-size ^BnnsShuffler other))
+             (= mb-size (.mb-size ^BnnsShuffler other))
+             (= batcher (.batcher ^BnnsShuffler other)))))
+  (toString [this]
+    (str {:input (input this)
+          :output (output this)
+          :mb-size mb-size}))
+  Viewable
+  (view [_]
+    (->BnnsShuffler (view batcher) batch-size mb-size))
+  Transfer
+  (input [_]
+    (input batcher))
+  (output [_]
+    (output batcher))
+  IFn
+  (invoke [_]
+    (dotimes [i mb-size]
+      (batcher (rand-int batch-size) i))
+    (output batcher))
+  (invoke [_ cols]
+    (loop [src-n (first cols) cols (rest cols) dst-n 0]
+      (when src-n
+        (batcher src-n dst-n)
+        (recur (first cols) (rest cols) (inc dst-n))))
+    (output batcher))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
+  ConnectorCreator
+  (connector [this dst-desc]
+    (if (equal-desc? (output batcher) dst-desc)
+      this
+      (connector batcher dst-desc))))
+
+(defn bnns-shuffler [src-tz dst-tz]
+  (->BnnsShuffler (bnns-batcher src-tz dst-tz 1)
+                  (batch-size src-tz) (batch-size dst-tz)))
+
 ;; =================== Tensor =================================================
 
 (deftype BnnsTensor [diamond-fact neand-fact eng master tz-desc vector-view
-                     ^long buf-capacity ^long nc ^long n-index]
+                     buf ^long nc ^long n-index]
   Object
   (hashCode [x]
     (-> (hash :BnnsTensor) (hash-combine (hash tz-desc))))
@@ -307,9 +354,11 @@
       nil))
   Releaseable
   (release [_]
-    (when-not master
-      (data* tz-desc nil))
-    (release tz-desc)
+    (locking tz-desc
+      (if-not master
+        (data* tz-desc nil)
+        (release buf))
+      (release tz-desc))
     true)
   Comonad
   (extract [_]
@@ -434,7 +483,7 @@
     (.boxedEntry ^Vector vector-view i))
   Block
   (buffer [_]
-    (capacity! (data tz-desc) buf-capacity))
+    (capacity! (data tz-desc) (capacity buf)))
   (offset [_]
     0)
   (stride [_]
@@ -499,7 +548,7 @@
     (let-release [tz-desc-clone (clone* tz-desc)]
       (data* tz-desc-clone (data* tz-desc))
       (->BnnsTensor diamond-fact neand-fact eng false tz-desc-clone vector-view
-                    buf-capacity nc n-index)))
+                    buf nc n-index)))
   DenseContainer
   (view-vctr [this]
     (or vector-view (dragan-says-ex "Strided tensors cannot be viewed nor used as vectors."
@@ -520,18 +569,15 @@
                                  (if (seq sub-layout)
                                    (nda-desc (shape sub) dtype (layout tz-desc) sub-layout)
                                    (nda-desc (shape sub) dtype (layout tz-desc))))))]
-      (bnns-tensor diamond-fact sub-desc
-                   (data tz-desc)
-                   n-index false)))
+      (bnns-tensor diamond-fact sub-desc buf n-index false)))
   Offset
   (offset [this ofst]
-    (let [p (buffer this)]
-      (if (<= 0 (long ofst) buf-capacity)
-        (do (position! p ofst)
-            (data* tz-desc p)
-            (when vector-view (position! (buffer vector-view) ofst)))
-        (dragan-says-ex "There isn't enough capacity in the underlying buffer for this offset."
-                        {:requested ofst :available (size tz-desc)})))
+    (if (<= 0 (long ofst) (capacity buf))
+      (do (position! buf ofst)
+          (data* tz-desc buf)
+          (when vector-view (position! (buffer vector-view) ofst)))
+      (dragan-says-ex "There isn't enough capacity in the underlying buffer for this offset."
+                      {:requested ofst :available (size tz-desc)}))
     this)
   ConnectorCreator
   (connector [in-tz out-desc]
@@ -557,7 +603,7 @@
              (->BnnsTensor diamond-fact neand-fact
                            (tensor-engine diamond-fact dtype)
                            master tdesc vect-view
-                           (capacity buf) nc n-index))
+                           buf nc n-index))
            (throw (dragan-says-ex "Insufficient buffer size."
                                   {:desc-size (bytesize tdesc) :buffer-size (bytesize buf)}))))
        (throw (dragan-says-ex "We cannot overwrite NDA descriptor's existing data pointer! Please provide a fresh NDA descriptor."

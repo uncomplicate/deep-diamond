@@ -73,8 +73,8 @@ Please contribute towards making it possible, or use on of the supported types."
       res))
   (create-transformer [_ in-tz out-tz]
     (bnns-transformer in-tz out-tz)) ;;TODO I had to use direct tensors instead of view because otherwise bnns data wouldn't track offsets of the original tensors. See whether I can make this consistent in DNNL adn cuDNN...
-  #_(create-shuffler [_ src-tz dst-tz]
-    (bnns-shuffler eng strm (view src-tz) (view dst-tz)))
+  (create-shuffler [_ src-tz dst-tz]
+    (bnns-shuffler (view src-tz) (view dst-tz)))
   (create-batcher [_ src-tz dst-tz mb-size]
     (bnns-batcher (view src-tz) (view dst-tz) mb-size))
   (tensor-engine [this dtype]

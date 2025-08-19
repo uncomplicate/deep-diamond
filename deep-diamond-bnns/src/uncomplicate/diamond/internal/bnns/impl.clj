@@ -79,12 +79,15 @@
                                      (long (get-entry strides j)))))
         acc))))
 
+(defn tensor-shape-size ^long [major shape strides]
+  (if major
+    (tensor-shape-size-major shape strides)
+    (tensor-shape-size-minor shape strides)))
+
 (defn nda-shape-size ^long [major shape strides]
   (if (and strides (< 0 (long (fold * strides))))
-    ((if major tensor-shape-size-major tensor-shape-size-minor)
-     shape strides)
+    (tensor-shape-size major shape strides)
     (long (fold * shape))))
-
 
 (defmacro extend-tensor-descriptor [t]
   `(extend-type ~t
@@ -209,7 +212,8 @@
 
 (extend-type bnns$BNNSTensor
   Releaseable
-  (release [_] (dragan-says-ex "You should never directly release dnnl_memorybnns$BNNSTensor. Please use BnnsTensorImpl!")))
+  (release [_]
+    (dragan-says-ex "You should never directly release dnnl_memorybnns$BNNSTensor. Please use BnnsTensorImpl!")))
 
 (defn tensor-descriptor*
   ([shape ^long data-type strides]
