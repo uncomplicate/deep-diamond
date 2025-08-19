@@ -189,7 +189,7 @@
     (.data ^bnns$BNNSNDArrayDescriptor (extract this)))
   (data* [this p]
     (.data ^bnns$BNNSNDArrayDescriptor (extract this) (byte-pointer (extract p))))
-  (clone* [this]
+  (clone* [this];;TODO remove in favor of view
     (->BnnsNdArrayDescriptorImpl
      (ndarray-descriptor* (dims* this) (data-type* this) (layout* this) (strides* this))
      rank true))
@@ -201,7 +201,7 @@
          (nda-shape-size (major* this) (dims* this) (strides* this)))))
   Viewable
   (view [this]
-    (->BnnsNdArrayDescriptorImpl td rank false)))
+    (clone* this)))
 
 (extend-tensor-descriptor BnnsNdArrayDescriptorImpl)
 

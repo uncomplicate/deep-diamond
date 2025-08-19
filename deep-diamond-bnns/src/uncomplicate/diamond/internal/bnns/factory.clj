@@ -30,14 +30,8 @@
              [protocols :refer [desc]]
              [core :refer [nda-desc]]
              [tensor :refer [bnns-tensor bnns-transformer bnns-batcher bnns-shuffler]]
-             #_[directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-inner-product-blueprint
-                               dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
-                               dnnl-split-blueprint dnnl-concat-blueprint dnnl-fc-blueprint
-                               dnnl-gaussian-dropout-blueprint dnnl-batch-norm-layer-blueprint
-                               dnnl-pooling-blueprint dnnl-branch-blueprint dnnl-sum-blueprint]]
-             #_[rnn :refer [dnnl-rnn-op-blueprint dnnl-rnn-blueprint dnnl-abbreviate-blueprint
-                          dnnl-lstm-op-blueprint dnnl-lstm-blueprint
-                          dnnl-gru-op-blueprint dnnl-gru-blueprint]]]))
+             [constants :refer [bnns-data-type-pointer]]
+             [directed :refer [bnns-activ-blueprint]]]))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
   "This operation would be inefficient because it does not use BNNS capabilities.
@@ -80,14 +74,15 @@ Please contribute towards making it possible, or use on of the supported types."
   (tensor-engine [this dtype]
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
-  ;; MappedTensorFactory
-  ;; (map-channel [this channel td flag offset-bytes n-index]
-  ;;   (let [size (bytesize (desc td))]
-  ;;     (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))]
-  ;;       (bnns-tensor* this td buf n-index true))))
+  MappedTensorFactory
+  (map-channel [this channel td flag offset-bytes n-index]
+    (let [size (bytesize (desc td))]
+      (let-release [buf ((bnns-data-type-pointer (data-type td))
+                         (mapped-buffer channel offset-bytes size flag))]
+        (bnns-tensor this td buf n-index true))))
   DnnFactory
-  ;; (activ-blueprint [this src-desc activ alpha beta]
-  ;;   (dnnl-activ-blueprint this eng src-desc activ alpha beta))
+  (activ-blueprint [this src-desc activ alpha beta]
+    (bnns-activ-blueprint this src-desc activ alpha beta))
   ;; (inner-product-blueprint [this src-desc dst-desc weights-type]
   ;;   (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
   ;; (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]

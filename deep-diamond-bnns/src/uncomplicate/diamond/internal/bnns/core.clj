@@ -277,6 +277,9 @@
 (defn apply-filter [^bnns$BNNSFilter filter in out]
   (filter-apply* (safe filter) (safe (data* (desc in))) (safe (data* (desc out)))))
 
+(defn apply-filter-backward [^bnns$BNNSFilter filter in out]
+  "TODO")
+
 (defn layer
   ([layer-params filter-params]
    (layer* (safe layer-params) (safe filter-params)))
