@@ -104,7 +104,9 @@
    :sparse bnns/BNNSDataLayoutFullyConnectedSparse
    :chw bnns/BNNSDataLayoutImageCHW
    :sne bnns/BNNSDataLayoutSNE
+   :tnc bnns/BNNSDataLayoutSNE
    :nse bnns/BNNSDataLayoutNSE
+   :ntc bnns/BNNSDataLayoutNSE
    :mha-dhk bnns/BNNSDataLayoutMHA_DHK
    :abc bnns/BNNSDataLayout3DLastMajor
    :cba bnns/BNNSDataLayout3DFirstMajor
