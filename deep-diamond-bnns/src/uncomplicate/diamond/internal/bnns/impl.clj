@@ -342,6 +342,23 @@
     (bnns/BNNSFilterApply filter in out)
     filter))
 
+(defn filter-apply-backward*
+  ([^bnns$BNNSFilter filter ^bnns$BNNSNDArrayDescriptor in-delta
+    ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
+   (with-check bnns-error
+     (bnns/BNNSFilterApplyBackwardBatch
+      filter 1 nil 0 in-delta (size in-delta) out (size out)
+      out-delta (size out-delta) nil nil)
+     filter))
+  ([^bnns$BNNSFilter filter
+    ^Pointer in ^bnns$BNNSNDArrayDescriptor in-delta
+    ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
+   (with-check bnns-error
+     (bnns/BNNSFilterApplyBackwardBatch
+      filter 1 in (size in) in-delta (size in-delta) out (size out)
+      out-delta (size out-delta) nil nil)
+     filter)))
+
 (extend-type bnns$BNNSFilter
   Comonad
   (extract [this]

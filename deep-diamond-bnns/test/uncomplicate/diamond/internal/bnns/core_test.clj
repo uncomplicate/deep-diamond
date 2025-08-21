@@ -86,7 +86,7 @@
          (api/data* t-view nil) => t-view
          (count (pointer-seq (data t-view))) => 0))
 
-(facts "Test activation."
+(facts "Test activation forward."
        (with-release [activ (activation :linear 2.0)
                       nda (nda-desc [3] :float :x [1])
                       in-tz (tensor nda)
@@ -103,10 +103,30 @@
          (pointer-seq (pointer in-tz)) => [-1.0 0.0 1.0]
          (pointer-seq (pointer out-tz)) => [-2.0 0.0 2.0]))
 
-;; TODO it seems that the following SOMETIMES crashes the VM...
-;; It needs to be evaluate dozens of times, but eventually it crashes...
-;; From time to time, it throws a NPE...
-;; The culprit is in apply-filter. It crashes all the same without changing offsets.
+(facts "Test activation ReLU forward operation."
+       (with-release [nda (nda-desc [2 3 4 5] :float :nchw)
+                      in-tz (tensor nda)
+                      activ (activation :relu)
+                      relu-params (activation-params activ in-tz)
+                      relu-layer (layer relu-params)]
+         (put! (pointer in-tz) [-1 0 1])
+         (apply-filter relu-layer in-tz) => relu-layer
+         (take 4 (pointer-seq (pointer in-tz))) => [0.0 0.0 1.0 0.0]))
+
+(facts "Test activation ReLU bakward operation."
+       (with-release [nda (nda-desc [2 3] :float :nc)
+                      in-tz (tensor nda)
+                      out-tz (tensor nda)
+                      activ (activation :relu)
+                      relu-params (activation-params activ nda)
+                      relu-layer (layer relu-params)]
+         (put! (pointer in-tz) [-100 20])
+         (apply-filter relu-layer in-tz out-tz) => relu-layer
+         (take 2 (pointer-seq (pointer out-tz))) => [0.0 20.0]
+         (put! (pointer in-tz) (range 2 8))
+         (apply-filter-backward relu-layer in-tz out-tz in-tz) => relu-layer
+         (pointer-seq (pointer in-tz)) => [0.0 3.0 0.0 0.0 0.0 0.0]))
+
 (facts "NDArray offset operation."
        (with-release [nda (nda-desc [2 3 4 5] :float :abcd)
                       buf (byte-pointer (+ 8 (bytesize nda)))

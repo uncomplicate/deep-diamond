@@ -27,7 +27,7 @@
 
 (with-release [fact (bnns-factory)]
   (test-activation-relu fact)
-  ;; (test-activation-sigmoid fact)
+  (test-activation-sigmoid fact)
   ;; (test-fully-connected-inference fact)
   ;; (test-fully-connected-transfer fact)
   ;; (test-fully-connected-training fact)

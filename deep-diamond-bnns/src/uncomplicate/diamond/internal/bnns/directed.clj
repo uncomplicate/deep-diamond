@@ -33,7 +33,7 @@
 
 ;; ================================ Activation =============================================
 
-(deftype BnnsActivationInference [bluep activ-fwd data-tz]
+(deftype BnnsActivationInference [bluep activ data-tz]
   Releaseable
   (release [_]
     (release data-tz))
@@ -55,12 +55,12 @@
     this)
   IFn
   (invoke [_]
-    (apply-filter activ-fwd data-tz data-tz)
+    (apply-filter activ data-tz data-tz)
     data-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype BnnsActivationTraining [bluep activ-fwd activ-bwd
+(deftype BnnsActivationTraining [bluep activ
                                  src-tz dst-tz diff-dst-tz diff-src-tz]
   Releaseable
   (release [_]
@@ -97,21 +97,24 @@
     this)
   IFn
   (invoke [_]
-    (apply-filter activ-fwd src-tz dst-tz)
+    (apply-filter activ src-tz dst-tz)
     dst-tz)
   (applyTo [this xs]
     (AFn/applyToHelper this xs))
   Backprop
   (forward [this]
-    (apply-filter activ-fwd src-tz dst-tz)
+    (apply-filter activ src-tz dst-tz)
     this)
   (backward [this]
-    (apply-filter-backward activ-bwd) ;;TODO args when implement apply-backward
+    (apply-filter-backward activ diff-src-tz dst-tz diff-dst-tz)
     this))
 
-(deftype BnnsActivationBlueprint [fact activ inf-desc train-desc diff-desc]
+(deftype BnnsActivationBlueprint [fact activ activ-inf activ-train
+                                  inf-desc train-desc diff-desc]
   Releaseable
   (release [_]
+    (release activ-inf)
+    (release activ-train)
     (release inf-desc)
     (release train-desc)
     (release diff-desc))
@@ -141,18 +144,10 @@
     (layout train-desc))
   IFn
   (invoke [this src-tz]
-    (with-release [activ-params (activation-params activ src-tz)]
-      (let-release [activ-fwd (layer activ-params)]
-        (->BnnsActivationInference this activ-fwd src-tz))))
+    (->BnnsActivationInference this activ-inf src-tz))
   (invoke [this src-tz diff-src-tz]
-    (let-release [dst-tz (bnns-tensor fact (view diff-desc) (batch-index diff-src-tz))
-                  diff-dst-tz (bnns-tensor fact (view diff-desc) (batch-index src-tz))];;TODO
-      (with-release [activ-fwd-params (activation-params activ src-tz dst-tz)
-                     activ-bwd-params (activation-params activ src-tz dst-tz)];; TODO placeholder only add diff, etc.
-        (let-release [activ-fwd (layer activ-fwd-params)
-                      activ-bwd (layer activ-bwd-params)]
-          (->BnnsActivationTraining this activ-fwd activ-bwd
-                                    src-tz dst-tz diff-dst-tz diff-src-tz)))))
+    (let-release [dst-tz (bnns-tensor fact (view train-desc) (batch-index src-tz))]
+      (->BnnsActivationTraining this activ-train src-tz dst-tz diff-src-tz diff-src-tz)))
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
@@ -165,10 +160,14 @@
 
 (defn bnns-activation-blueprint
   ([fact inf-desc train-desc activ alpha beta]
-   (let [inf-desc (view (desc inf-desc))
-         train-desc (view (desc train-desc))]
-     (let-release [activ (activation activ alpha beta)]
-       (->BnnsActivationBlueprint fact activ inf-desc train-desc train-desc))))
+   (let-release [inf-desc (view (desc inf-desc))
+                 train-desc (view (desc train-desc))]
+     (with-release [activ-fn (activation activ alpha beta)
+                    inf-params (activation-params activ-fn inf-desc)
+                    train-params (activation-params activ-fn train-desc)]
+       (let-release [activ-inf (layer inf-params)
+                     activ-train (layer train-params)]
+         (->BnnsActivationBlueprint fact activ activ-inf activ-train inf-desc train-desc train-desc)))))
   ([fact data-desc activ alpha beta]
    (bnns-activation-blueprint fact data-desc data-desc activ alpha beta)))
 

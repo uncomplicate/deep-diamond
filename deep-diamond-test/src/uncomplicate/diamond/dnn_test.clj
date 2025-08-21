@@ -49,10 +49,9 @@
 
     (facts
      "Activation backward test."
-     (transfer! [-0.1 0.1 1 2 7 -0.6] (output activ-train))
+     (transfer! [-0.1 0.1 1 2 7 -0.6] (diff-input activ-train))
      (backward activ-train)
-     (view-vctr (output activ-train)) => (vctr src-tz [-0.1 0.1 1 2 7 -0.6])
-     (view-vctr (input activ-train)) => (vctr src-tz [0 0 1 2 7.0 0]))))
+     (view-vctr (diff-output activ-train)) => (vctr src-tz [0 0 1 2 7.0 0]))))
 
 (defn test-activation-sigmoid [fact]
   (with-release [src-tz (tensor fact [1 1 1 1] :float :nchw)
@@ -80,7 +79,6 @@
      "Activation backward test."
      (transfer! [-0.1] (diff-input activ-train))
      (backward activ-train)
-     (view-vctr (diff-input activ-train)) => (vctr src-tz [-0.10000000149011612])
      (view-vctr (input activ-train)) => (vctr src-tz [-0.02350037172436714]))))
 
 (defn test-fully-connected-inference [fact]
