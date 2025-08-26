@@ -17,8 +17,8 @@
              [random :refer [rand-uniform!]]
              [math :as math]]
             [uncomplicate.diamond
-             [tensor :refer [*diamond-factory* tensor connector transformer desc shape input output
-                             view-tz batcher]]
+             [tensor :refer [*diamond-factory* tensor connector transformer desc
+                             shape input output view-tz batcher]]
              [dnn-test :refer :all]]
             [uncomplicate.diamond.internal.protocols
              :refer [diff-weights forward backward weights bias]]
@@ -28,9 +28,9 @@
 (with-release [fact (bnns-factory)]
   (test-activation-relu fact)
   (test-activation-sigmoid fact)
-  ;; (test-fully-connected-inference fact)
-  ;; (test-fully-connected-transfer fact)
-  ;; (test-fully-connected-training fact)
+  (test-fully-connected-inference fact)
+  (test-fully-connected-transfer fact)
+  ;;(test-fully-connected-training fact)
   ;; (test-fully-connected-training-adam fact)
   ;; (test-fully-connected-layer-1 fact)
   ;; (test-fully-connected-layer-2 fact)

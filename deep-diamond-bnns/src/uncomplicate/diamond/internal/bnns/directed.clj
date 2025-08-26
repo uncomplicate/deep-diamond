@@ -16,7 +16,7 @@
              :refer [Transfer input output connector revert shape TensorDescriptor view-tz]]
             [uncomplicate.diamond.internal
              [protocols
-              :refer [bias weights ParametersSeq parameters DescriptorProvider
+              :refer [bias weights Parameters ParametersSeq parameters DescriptorProvider
                       DiamondFactoryProvider DiffParameters diff-weights Backprop forward backward
                       DiffTransfer diff-input diff-output diff-z LinearBackprop backward-diff
                       inf-desc train-desc diff-desc Initializable init batch-index create-tensor]]
@@ -70,11 +70,11 @@
     (release diff-src-tz))
   Info
   (info [this]
-        {:activation (info bluep :activation)
-         :src (info src-tz)
-         :dst (info dst-tz)
-         :diff-dst (info diff-dst-tz)
-         :diff-src (info diff-src-tz)})
+    {:activation (info bluep :activation)
+     :src (info src-tz)
+     :dst (info dst-tz)
+     :diff-dst (info diff-dst-tz)
+     :diff-src (info diff-src-tz)})
   (info [this info-type]
     (case info-type
       :src (info src-tz)

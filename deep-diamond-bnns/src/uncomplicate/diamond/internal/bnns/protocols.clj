@@ -23,3 +23,9 @@
 
 (defprotocol LayerCreator
   (layer* [params filter-params]))
+
+(defprotocol Parameters
+  (w-desc [this])
+  (i-desc [this])
+  (o-desc [this])
+  (b-desc [this]))

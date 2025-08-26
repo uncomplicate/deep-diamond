@@ -40,7 +40,6 @@
                       DescriptorProvider BatchDescriptor batch-index]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.bnns
-             [impl :refer [nda-shape-size]]
              [core :as bnns
               :refer [equal-desc? compatible-desc? nda-desc dims data-type
                       layout strides rank data bnns-default-desc
@@ -355,9 +354,9 @@
   Releaseable
   (release [_]
     (locking tz-desc
-      (if-not master
-        (data* tz-desc nil)
-        (release buf))
+      (if master
+        (release buf)
+        (data* tz-desc nil))
       (release tz-desc))
     true)
   Comonad
@@ -597,7 +596,7 @@
              tz-bytesize (bytesize tdesc)]
          (if (<= 0 tz-bytesize (bytesize buf))
            (let-release [vect-view (if (= nc (size tdesc))
-                                     (create-vector neand-fact master buf nc 0 1)
+                                     (create-vector neand-fact false buf nc 0 1)
                                      nil)]
              (data* tdesc buf)
              (->BnnsTensor diamond-fact neand-fact

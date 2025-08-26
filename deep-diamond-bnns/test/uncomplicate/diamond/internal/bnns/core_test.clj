@@ -25,6 +25,18 @@
              [protocols :as api]])
   (:import clojure.lang.ExceptionInfo))
 
+(facts "NDA descriptor memory safety strides."
+       (with-release [strds [120 1 20 4]
+                      dimensions [2 3 4 5]
+                      nd (nda-desc dimensions :float :abcd strds)
+                      tz (tensor nd)]
+         (data-type nd) => :float
+         (release nd) => true
+         (release nd) => true
+         (count (pointer-seq (data tz))) => 199
+         (release tz) => true
+         (release tz) => true))
+
 (facts "TD descriptor by strides."
        (with-release [strds [120 1 20 4]
                       dimensions [2 3 4 5]
@@ -232,16 +244,51 @@
                       fc-params (fully-connected-params activ src-desc weights-tz bias-tz dst-desc)
                       fc-layer (layer fc-params)]
          (put! (pointer src-tz) [1.0])
-         (pointer-seq (capacity! (float-pointer (.data (b-desc fc-params))) 1)) => [1.0]
-         (null? (.data (b-desc fc-params))) => false
-         (put! (capacity! (float-pointer (.data (b-desc fc-params))) 1) [2000]) ;; doesn't do anything for fc-layer!
-         (pointer-seq (capacity! (float-pointer (.data (b-desc fc-params))) 1)) => [2000.0]
+         (pointer-seq (capacity! (float-pointer (.data (api/b-desc fc-params))) 1)) => [1.0]
+         (null? (.data (api/b-desc fc-params))) => false
+         (put! (capacity! (float-pointer (.data (api/b-desc fc-params))) 1) [2000]) ;; doesn't do anything for fc-layer!
+         (pointer-seq (capacity! (float-pointer (.data (api/b-desc fc-params))) 1)) => [2000.0]
          (apply-filter fc-layer src-tz dst-tz)
          (pointer-seq (pointer src-tz)) => [1.0]
          (pointer-seq (pointer dst-tz)) => [6.0]
          (apply-filter (layer fc-params) src-tz dst-tz) ;; Layer gets its own copy of data, ovbiously!
          (pointer-seq (pointer src-tz)) => [1.0]
          (pointer-seq (pointer dst-tz)) => [4004.0]))
+
+#_(facts "Inner product backward 2D." TODO this deprecated functionality is rather wierd, and deprecated in BNNS for a reason...
+       (with-release [src-desc (nda-desc [2 2] :float :x)
+                      weights-desc (nda-desc [3 2] :float :io)
+                      bias-desc (nda-desc [3] :float :x)
+                      dst-desc (nda-desc [2 3] :float :x)
+                      activ (activation :linear 1.0)
+                      src-tz (tensor src-desc)
+                      weights-tz (tensor weights-desc)
+                      bias-tz (tensor bias-desc)
+                      dst-tz (tensor dst-desc)
+                      src-diff-tz (tensor src-desc)
+                      weights-diff-tz (tensor weights-desc)
+                      bias-diff-tz (tensor bias-desc)
+                      dst-diff-tz (tensor dst-desc)
+                      _ (put! (pointer weights-tz) [0.1 0.4 0.2 0.5 0.3 0.6]) ;; row-oriented
+                      _ (put! (pointer bias-tz) [1 2 3])
+                      fc-params (fully-connected-params activ src-desc weights-tz bias-tz dst-desc)
+                      fc-layer (layer fc-params)]
+         fc-layer =not=> nil
+         (put! (pointer src-tz) [2 3 1 1])
+         (apply-filter-forward fc-layer src-tz dst-tz)
+         (pointer-seq (pointer src-tz)) => [2.0 3.0 1.0 1.0]
+         (pointer-seq (pointer dst-tz)) => (map float [2.4 3.9 5.4 1.5 2.7 3.9])
+         (put! (pointer dst-diff-tz) [0.2 0.3 0.8 1 1 1])
+         (put! (pointer weights-diff-tz) [1 0 0 0 0 0])
+         (put! (pointer bias-diff-tz) [5 5 5])
+         (apply-filter-backward fc-layer src-tz src-diff-tz dst-tz dst-diff-tz
+                                weights-diff-tz bias-tz)
+         (apply-filter-backward fc-layer src-tz src-diff-tz dst-tz dst-diff-tz
+                                weights-diff-tz bias-tz)
+         (pointer-seq (pointer src-diff-tz)) => (map float [0.320000022649765 0.7100000381469727 0.6000000238418579 1.5])
+         (pointer-seq (pointer dst-diff-tz)) => (map float [0.2 0.3 0.8 1.0 1.0 1.0])
+         (pointer-seq (pointer weights-diff-tz)) => [1.4 1.6 1.6 1.9000000953674316 2.6 3.4]
+         (pointer-seq (pointer bias-tz)) => (map float [1.2 1.3 1.8])))
 
 (facts "Inner product forward 4D squashed to 1D."
        (with-release [src-desc (nda-desc [9] :float :x)

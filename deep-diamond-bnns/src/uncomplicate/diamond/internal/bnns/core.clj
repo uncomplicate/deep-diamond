@@ -95,12 +95,6 @@
       (capacity! ((bnns-data-type-pointer (data-type* dsc)) res)
                  (size dsc)))))
 
-(defprotocol Parameters
-  (w-desc [this])
-  (i-desc [this])
-  (o-desc [this])
-  (b-desc [this]))
-
 (defmacro extend-bnns-parameters [t]
   `(extend-type ~t
      Parameters
@@ -237,7 +231,7 @@
   ([shape data-type layout strides]
    (let-release [buf ((bnns-data-type-pointer data-type)
                       ((if layout
-                         (nda-shape-size (major? layout) shape size)
+                         (nda-shape-size (major? layout) shape strides)
                          (tensor-shape-size shape strides))))]
      (tensor shape data-type layout strides (safe buf) true)))
   ([dsc data master]
@@ -281,9 +275,27 @@
    (let [data (safe (data* (desc in-out)))]
      (filter-apply* (safe filter) data data))))
 
-(defn apply-filter-backward [^bnns$BNNSFilter filter in-delta out out-delta]
-  (filter-apply-backward* (safe filter) (safe (extract (desc in-delta)))
-                          (safe (data* (desc out))) (safe (extract (desc out-delta)))))
+(defn apply-filter-forward
+  ([^bnns$BNNSFilter filter in out]
+   ()
+   (filter-apply-forward* (safe filter) (first (dims (desc in)))
+                          (safe (data* (desc in))) (safe (data* (desc out)))))
+  ([^bnns$BNNSFilter filter in-out]
+   (let [data-desc (desc in-out)
+         data (safe (data* data-desc))]
+     (filter-apply* (safe filter) (first (dims data-desc)) data data))))
+
+(defn apply-filter-backward
+  ([^bnns$BNNSFilter filter in-delta out out-delta]
+   (filter-apply-backward* (safe filter) (first (dims (desc in-delta)))
+                           (safe (extract (desc in-delta)))
+                           (safe (data* (desc out))) (safe (extract (desc out-delta)))))
+  ([^bnns$BNNSFilter filter in in-delta out out-delta weights-delta bias-delta]
+   (filter-apply-backward* (safe filter) (first (dims (desc in)))
+                           (safe (data* (desc in))) (safe (extract (desc in-delta)))
+                           (safe (data* (desc out))) (safe (extract (desc out-delta)))
+                           (safe (extract (desc weights-delta)))
+                           (safe (extract (desc bias-delta))))))
 
 (defn layer
   ([layer-params filter-params]

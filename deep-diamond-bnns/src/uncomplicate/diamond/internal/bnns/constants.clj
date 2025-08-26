@@ -99,6 +99,8 @@
    :column bnns/BNNSDataLayoutColumnMajorMatrix
    :nc bnns/BNNSDataLayout2DLastMajor
    :cn bnns/BNNSDataLayoutRowMajorMatrix
+   :oi bnns/BNNSDataLayout2DLastMajor
+   :io bnns/BNNSDataLayoutRowMajorMatrix
    :ab bnns/BNNSDataLayout2DLastMajor
    :ba bnns/BNNSDataLayout2DFirstMajor
    :sparse bnns/BNNSDataLayoutFullyConnectedSparse

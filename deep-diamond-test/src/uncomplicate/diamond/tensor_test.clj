@@ -169,7 +169,7 @@
            (entry (view-vctr (native tz-y)) 34) => 310.0)))
 
 (defn test-transformer-any [fact]
-  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 16 5x 2])
+  (with-release [tz-x (tensor fact [2 3 2 1] :float [48 16 5 2])
                  in-x (connector (desc [2 3 2 1] :float :nchw) tz-x)
                  tz-y (tensor fact [2 3 2 1] :float [48 13 4 2])
                  out-y (connector tz-y (desc [2 3 2 1] :float :nchw))

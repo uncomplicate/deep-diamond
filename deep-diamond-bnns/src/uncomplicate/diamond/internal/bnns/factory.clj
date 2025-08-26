@@ -26,6 +26,7 @@
                       DnnFactory RnnFactory NeanderthalFactoryProvider diamond-factory]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
+            [uncomplicate.diamond.internal.neanderthal.directed :refer [neanderthal-fc-blueprint]]
             [uncomplicate.diamond.internal.bnns
              [protocols :refer [desc]]
              [core :refer [nda-desc]]
@@ -83,10 +84,10 @@ Please contribute towards making it possible, or use on of the supported types."
   DnnFactory
   (activ-blueprint [this src-desc activ alpha beta]
     (bnns-activ-blueprint this src-desc activ alpha beta))
-  ;; (inner-product-blueprint [this src-desc dst-desc weights-type]
-  ;;   (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
-  ;; (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
-  ;;   (dnnl-fc-blueprint this eng src-desc dst-desc activ alpha beta weights-type))
+  (inner-product-blueprint [this src-desc dst-desc weights-type]
+    (dragan-says-ex "BNNS engine does not implement the inner product blueprint."))
+  (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
+    (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta weights-type))
   ;; (convolution-blueprint [this src-desc weights-desc dst-desc activ
   ;;                         strides padding dilation alpha beta]
   ;;   (dnnl-convolution-layer-blueprint this eng src-desc weights-desc dst-desc activ

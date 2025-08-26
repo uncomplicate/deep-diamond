@@ -156,6 +156,11 @@
 
 (extend-tensor-descriptor BnnsTensorDescriptorImpl)
 
+(extend-type nil
+  Descriptor
+  (data* [_] nil)
+  (data* [_ _] nil))
+
 (deftype BnnsNdArrayDescriptorImpl [^bnns$BNNSNDArrayDescriptor td rank master]
   Object
   (hashCode [this]
@@ -342,21 +347,37 @@
     (bnns/BNNSFilterApply filter in out)
     filter))
 
+(defn filter-apply-forward* [^bnns$BNNSFilter filter ^long n ^Pointer in ^Pointer out]
+  (with-check bnns-error
+    (bnns/BNNSFilterApplyBatch filter n in (quot (size in) n) out (quot (size out) n))
+    filter))
+
 (defn filter-apply-backward*
-  ([^bnns$BNNSFilter filter ^bnns$BNNSNDArrayDescriptor in-delta
+  ([^bnns$BNNSFilter filter n ^bnns$BNNSNDArrayDescriptor in-delta
     ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
    (with-check bnns-error
      (bnns/BNNSFilterApplyBackwardBatch
-      filter 1 nil 0 in-delta (size in-delta) out (size out)
-      out-delta (size out-delta) nil nil)
+      filter (long n) nil 0 in-delta (quot (size in-delta) n) out (quot (size out) n)
+      out-delta (quot (size out-delta) n) nil nil)
      filter))
-  ([^bnns$BNNSFilter filter
+  ([^bnns$BNNSFilter filter n
     ^Pointer in ^bnns$BNNSNDArrayDescriptor in-delta
     ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
    (with-check bnns-error
      (bnns/BNNSFilterApplyBackwardBatch
-      filter 1 in (size in) in-delta (size in-delta) out (size out)
-      out-delta (size out-delta) nil nil)
+      filter (long n) in (quot (size in) n) in-delta (quot (size in-delta) n)
+      out (quot (size out) n) out-delta (quot (size out-delta) n) nil nil)
+     filter))
+  ([^bnns$BNNSFilter filter n
+    ^Pointer in ^bnns$BNNSNDArrayDescriptor in-delta
+    ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta
+    ^bnns$BNNSNDArrayDescriptor weights-delta
+    ^bnns$BNNSNDArrayDescriptor bias-delta]
+   (with-check bnns-error
+     (bnns/BNNSFilterApplyBackwardBatch
+      filter (long n) in (quot (size in) n) in-delta (quot (size in-delta) n)
+      out (quot (size out) n) out-delta (quot (size out-delta) n)
+      weights-delta bias-delta)
      filter)))
 
 (extend-type bnns$BNNSFilter
