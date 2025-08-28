@@ -12,7 +12,7 @@
             [uncomplicate.commons [core :refer [with-release release]]]
             [uncomplicate.neanderthal
              [core :refer [entry! entry native transfer! view-vctr vctr
-                           cols view-ge nrm2 axpy! asum]]
+                           cols view-ge nrm2 axpy! asum axpy nrm2]]
              [random :refer [rand-uniform!]]
              [math :as math]
              [vect-math :refer [div!]]
@@ -21,7 +21,7 @@
              [dnn :refer :all]
              [tensor :refer :all]]
             [uncomplicate.diamond.internal.protocols
-             :refer [diff-weights forward backward diff-input diff-output
+             :refer [diff-weights forward backward diff-input diff-output diff-z
                      weights bias *workspace* inf-ws-size train-ws-size create-workspace
                      parameters weights-layer weights-iter bias-layer]]))
 
@@ -246,10 +246,10 @@
            (transfer! [0.25 0.25] (view-vctr train-tz))
            (backward fc-output)
            (backward fc2) => fc2
-           (view-vctr (diff-input fc2)) => (vctr train-tz 0.45 0.45)
+           (nrm2 (axpy -1 (view-vctr (diff-input fc2)) (vctr train-tz 0.45 0.45))) => (roughly 0.0)
            (view-vctr (input fc2)) => (vctr train-tz 0.25 0.25)
            (backward fc2 [nil 1 0 0 false]) => fc2
-           (view-vctr (diff-output fc2)) => (vctr train-tz 0.35999998 0.35999998)
+           (nrm2 (axpy -1 (view-vctr (diff-output fc2)) (vctr train-tz 0.35999998 0.35999998))) => (roughly 0.0)
            (view-vctr (weights fc2)) => (vctr train-tz [0.6875])
            (view-vctr (bias fc2)) => (vctr train-tz [0.050000012])
            (backward fc1) => fc1

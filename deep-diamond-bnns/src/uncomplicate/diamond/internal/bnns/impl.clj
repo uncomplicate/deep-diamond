@@ -372,6 +372,24 @@
     filter))
 
 (defn filter-apply-backward*
+  ([^bnns$BNNSFilter filter ^bnns$BNNSNDArrayDescriptor in-delta
+    ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
+   (with-check bnns-error
+     (bnns/BNNSFilterApplyBackwardBatch
+      filter 1 nil 0 in-delta (size in-delta) out (size out)
+      out-delta (size out-delta) nil nil)
+     filter))
+  ([^bnns$BNNSFilter filter
+    ^Pointer in ^bnns$BNNSNDArrayDescriptor in-delta
+    ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
+   (with-check bnns-error
+     (bnns/BNNSFilterApplyBackwardBatch
+      filter 1 in (size in) in-delta (size in-delta)
+      out (size out) out-delta (size out-delta) nil nil)
+     filter)))
+
+;;TODO delete. Crashes when n>1 and not used anyway since BNNS fully-connected is a mess
+(defn filter-apply-backward-n*
   ([^bnns$BNNSFilter filter n ^bnns$BNNSNDArrayDescriptor in-delta
     ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
    (with-check bnns-error

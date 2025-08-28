@@ -55,7 +55,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor-desc [this shape dtype format]
     (nda-desc shape dtype format))
   (create-tensor-desc [this tz-desc]
-    (desc tz-desc))
+    (nda-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
   (create-tensor [this tensor-desc init]
     (let-release [res (bnns-tensor this tensor-desc)]
       (when init

@@ -127,7 +127,7 @@
          (take 4 (pointer-seq (pointer in-tz))) => [0.0 0.0 1.0 0.0]))
 
 (facts "Test activation ReLU bakward operation."
-       (with-release [nda (nda-desc [2 3] :float :nc)
+       (with-release [nda (nda-desc [20 3] :float :nc)
                       in-tz (tensor nda)
                       out-tz (tensor nda)
                       activ (activation :relu)
@@ -138,7 +138,7 @@
          (take 2 (pointer-seq (pointer out-tz))) => [0.0 20.0]
          (put! (pointer in-tz) (range 2 8))
          (apply-filter-backward relu-layer in-tz out-tz in-tz) => relu-layer
-         (pointer-seq (pointer in-tz)) => [0.0 3.0 0.0 0.0 0.0 0.0]))
+         (take 6 (pointer-seq (pointer in-tz))) => [0.0 3.0 0.0 0.0 0.0 0.0]))
 
 (facts "NDArray offset operation."
        (with-release [nda (nda-desc [2 3 4 5] :float :abcd)

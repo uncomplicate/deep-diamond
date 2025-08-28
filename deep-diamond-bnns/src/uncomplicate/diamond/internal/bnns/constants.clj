@@ -190,6 +190,7 @@
    :relu bnns/BNNSActivationFunctionRectifiedLinear
    :lrelu bnns/BNNSActivationFunctionLeakyRectifiedLinear
    :sigmoid bnns/BNNSActivationFunctionSigmoid
+   :logistic bnns/BNNSActivationFunctionSigmoid
    :tanh bnns/BNNSActivationFunctionTanh
    :scaled-tanh bnns/BNNSActivationFunctionScaledTanh
    :abs bnns/BNNSActivationFunctionAbs

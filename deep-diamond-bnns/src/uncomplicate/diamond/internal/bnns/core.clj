@@ -287,11 +287,11 @@
 
 (defn apply-filter-backward
   ([^bnns$BNNSFilter filter in-delta out out-delta]
-   (filter-apply-backward* (safe filter) (first (dims (desc in-delta)))
+   (filter-apply-backward* (safe filter)
                            (safe (extract (desc in-delta)))
                            (safe (data* (desc out))) (safe (extract (desc out-delta)))))
   ([^bnns$BNNSFilter filter in in-delta out out-delta weights-delta bias-delta]
-   (filter-apply-backward* (safe filter) (first (dims (desc in)))
+   (filter-apply-backward* (safe filter)
                            (safe (data* (desc in))) (safe (extract (desc in-delta)))
                            (safe (data* (desc out))) (safe (extract (desc out-delta)))
                            (safe (extract (desc weights-delta)))
