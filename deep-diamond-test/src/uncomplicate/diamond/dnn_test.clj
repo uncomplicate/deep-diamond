@@ -216,7 +216,7 @@
            (transfer! [-0.15] (view-vctr train-tz))
            (backward fc-output)
            (backward fc) => fc
-           (entry (native (view-vctr (output fc))) 0) => (roughly 0.4)
+           (entry (native (view-vctr (diff-input fc))) 0) => (roughly 0.4)
            (entry (native (view-vctr input-tz)) 0) => -0.5
            (backward fc [nil 1 0 0 false]) => fc
            (entry (native (view-vctr input-tz)) 0) => -0.5
@@ -246,10 +246,10 @@
            (transfer! [0.25 0.25] (view-vctr train-tz))
            (backward fc-output)
            (backward fc2) => fc2
-           (view-vctr (output fc2)) => (vctr train-tz 0.45 0.45)
+           (view-vctr (diff-input fc2)) => (vctr train-tz 0.45 0.45)
            (view-vctr (input fc2)) => (vctr train-tz 0.25 0.25)
            (backward fc2 [nil 1 0 0 false]) => fc2
-           (view-vctr (input fc2)) => (vctr train-tz 0.35999998 0.35999998)
+           (view-vctr (diff-output fc2)) => (vctr train-tz 0.35999998 0.35999998)
            (view-vctr (weights fc2)) => (vctr train-tz [0.6875])
            (view-vctr (bias fc2)) => (vctr train-tz [0.050000012])
            (backward fc1) => fc1
@@ -330,7 +330,7 @@
            (transfer! [0.25 0.35] train-tz)
            (transfer! [0.4 -1.3] (output net))
            (quad-cost) => 0.6862499438341274
-           (view-vctr (output net)) => (vctr train-tz 0.15 -1.64999998))))
+           (view-vctr (diff-input net)) => (vctr train-tz 0.15 -1.64999998))))
 
 (defn test-crossentropy-cost [fact]
   (with-release [input-tz (tensor fact [2 1] :float :nc)

@@ -299,8 +299,7 @@
   [tz ^long n]
   (api/offset tz n))
 
-(defn transform
-er
+(defn transformer
   "Creates a function optimized for transferring data from tensor
   `x` to tensor `y`.
 

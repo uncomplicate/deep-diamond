@@ -160,7 +160,7 @@
   (applyTo [this xs]
     (AFn/applyToHelper this xs)))
 
-(deftype InnerProductTraining [ones prop-diff? b w a-1 z diff-w diff-b
+(deftype InnerProductTraining [ones prop-diff? b w a-1 z diff-w diff-b diff-a-1
                                src-conn bias-tz weights-tz dst-tz
                                diff-weights-tz diff-src-conn]
   Releaseable
@@ -169,6 +169,7 @@
     (release b)
     (release w)
     (release a-1)
+    (release diff-a-1)
     (release z)
     (release diff-w)
     (release diff-b)
@@ -235,7 +236,7 @@
     (mm! scal-diff-w z (trans a-1) scal-g diff-w)
     (mv! scal-diff-b z ones scal-b diff-b)
     (when prop-diff?
-      (mm! 1.0 (trans w) z 0.0 a-1)
+      (mm! 1.0 (trans w) z 0.0 diff-a-1)
       (diff-src-conn))
     this))
 
@@ -318,12 +319,14 @@
                     diff-weights-tz (raw weights-tz)
                     x (view-ge (view-vctr (output src-conn))
                                (apply * (rest src-shape)) (long (get src-shape 0)))
+                    diff-x (view-ge (view-vctr (output diff-src-tz))
+                                    (apply * (rest src-shape)) (long (get src-shape 0)))
                     b (view-vctr bias-tz)
                     w (trans (view-ge (view-vctr weights-tz) (mrows x) (dim b)))
                     diff-w (trans (view-ge (view-vctr diff-weights-tz) (mrows x) (dim b)))
                     a (view-ge (view-vctr dst-tz) (dim b) (ncols x))]
         (->InnerProductTraining (view ones) prop-diff?
-                                b w x a diff-w b
+                                b w x a diff-w b diff-x
                                 src-conn bias-tz weights-tz dst-tz
                                 diff-weights-tz diff-src-conn))))
   (applyTo [this xs]
@@ -517,7 +520,7 @@
 
 (defn sgd-layer [fact bluep op-bluep activ-bluep prev-layer prop-diff?]
   (let-release [src-tz (output prev-layer)
-                op (op-bluep (output prev-layer) (diff-input prev-layer) prop-diff? true)
+                op (op-bluep src-tz (diff-input prev-layer) prop-diff? true)
                 activ (activ-bluep (output op) (diff-input op))]
     (->SGDLayer fact bluep op activ (get (shape src-tz) (batch-index src-tz))
                 (view-vctr (diff-weights op)) (view-vctr (weights op))
