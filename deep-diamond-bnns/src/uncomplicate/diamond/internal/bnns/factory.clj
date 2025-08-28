@@ -29,10 +29,10 @@
             [uncomplicate.diamond.internal.neanderthal.directed :refer [neanderthal-fc-blueprint]]
             [uncomplicate.diamond.internal.bnns
              [protocols :refer [desc]]
-             [core :refer [nda-desc]]
+             [core :refer [nda-desc dims]]
              [tensor :refer [bnns-tensor bnns-transformer bnns-batcher bnns-shuffler]]
              [constants :refer [bnns-data-type-pointer]]
-             [directed :refer [bnns-activ-blueprint]]]))
+             [directed :refer [bnns-activ-blueprint bnns-universal-cost bnns-custom-cost]]]))
 
 (def ^{:private true :const true} INEFFICIENT_OPERATION_MSG
   "This operation would be inefficient because it does not use BNNS capabilities.
@@ -106,8 +106,8 @@ Please contribute towards making it possible, or use on of the supported types."
   ;;   (dnnl-split-blueprint this eng src-desc n))
   ;; (sum-blueprint [this src-descs]
   ;;   (dnnl-sum-blueprint this eng src-descs))
-  ;; (create-workspace [_ byte-size]
-  ;;   (create-data-source (factory-by-type :byte) (max 1 (long byte-size))))
+  (create-workspace [_ byte-size]
+    (create-data-source (factory-by-type :byte) (max 1 (long byte-size))))
   ;; RnnFactory
   ;; (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
   ;;   (case activ
@@ -121,16 +121,15 @@ Please contribute towards making it possible, or use on of the supported types."
   ;;     (dnnl-rnn-blueprint fact eng src-desc dst-desc lrs activ alpha weights-type src-iter? dst-iter?)))
   ;; (abbreviate-blueprint [fact src-desc dst-type]
   ;;   (dnnl-abbreviate-blueprint fact eng src-desc dst-type))
-  ;; CostFactory
-  ;; (quadratic-cost [this prev-layer train-tz]
-  ;;   (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))
-  ;; (mean-absolute-cost [this prev-layer train-tz]
-  ;;   (dnnl-universal-cost eng strm prev-layer train-tz mean-absolute-cost!))
-  ;; (crossentropy-cost [this prev-layer train-tz]
-  ;;   (dnnl-custom-cost eng strm prev-layer train-tz
-  ;;                     (partial crossentropy-cost!
-  ;;                              ((dims (output prev-layer)) 0))))
-  )
+  CostFactory
+  (quadratic-cost [this prev-layer train-tz]
+    (bnns-universal-cost prev-layer train-tz quadratic-cost!))
+  (mean-absolute-cost [this prev-layer train-tz]
+    (bnns-universal-cost prev-layer train-tz mean-absolute-cost!))
+  (crossentropy-cost [this prev-layer train-tz]
+    (bnns-custom-cost prev-layer train-tz
+                      (partial crossentropy-cost!
+                               ((dims (output prev-layer)) 0)))))
 
 (defn bnns-factory []
   (->BnnsFactory {:float (->FloatVectorEngine)

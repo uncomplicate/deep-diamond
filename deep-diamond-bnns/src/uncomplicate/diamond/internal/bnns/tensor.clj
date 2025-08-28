@@ -75,7 +75,7 @@
 (extend-type Object
   DescProvider
   (desc [this]
-    (nda-desc (shape this) (or (data-type this) :float) (tz/layout this))))
+    (nda-desc (shape this) (or (tz/data-type this) :float) (tz/layout this))))
 
 (extend-type TensorDescriptorImpl
   DescProvider

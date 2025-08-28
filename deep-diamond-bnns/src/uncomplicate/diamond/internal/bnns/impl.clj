@@ -128,19 +128,24 @@
             (address td) (dec-data-type (data-type* this)) master))
   Descriptor
   (strides* [this]
-    (.capacity (.stride ^bnns$BNNSTensor (extract this)) rank))
+    (when-not (null? td)
+      (.capacity (.stride ^bnns$BNNSTensor td) rank)))
   (major* [this]
     true)
   (data-type* [this]
-    (.data_type ^bnns$BNNSTensor (extract this)))
+    (when-not (null? td)
+      (.data_type ^bnns$BNNSTensor td)))
   (dims* [this]
-    (.capacity (.shape ^bnns$BNNSTensor (extract this)) rank))
+    (when-not (null? td)
+      (.capacity (.shape ^bnns$BNNSTensor td) rank)))
   (rank* [_]
     rank)
   (data* [this]
-    (.data ^bnns$BNNSTensor (extract this)))
+    (when-not (null? td)
+      (.data ^bnns$BNNSTensor td)))
   (data* [this p]
-    (.data ^bnns$BNNSTensor (extract this) (byte-pointer (extract p))))
+    (when-not (null? td)
+      (.data ^bnns$BNNSTensor td (byte-pointer (extract p)))))
   (clone* [this]
     (->BnnsTensorDescriptorImpl
      (tensor-descriptor* (dims* this) (data-type* this) (strides* this))
@@ -159,7 +164,13 @@
 (extend-type nil
   Descriptor
   (data* [_] nil)
-  (data* [_ _] nil))
+  (data* [_ _] nil)
+  (strides* [_] nil)
+  (layout* [_] nil)
+  (major* [_] true)
+  (data-type* [_] nil)
+  (dims* [_] nil)
+  (rank* [_] 0))
 
 (deftype BnnsNdArrayDescriptorImpl [^bnns$BNNSNDArrayDescriptor td rank master]
   Object
@@ -176,24 +187,32 @@
             (address td) (dec-data-type (data-type* this))
             (dec-data-layout (layout* this)) master))
   Descriptor
-  (strides* [this]
-    (.capacity (.stride ^bnns$BNNSNDArrayDescriptor (extract this)) rank))
-  (layout* [this]
-    (.layout ^bnns$BNNSNDArrayDescriptor (extract this)))
+  (strides* [_]
+    (when-not (null? td)
+      (.capacity (.stride ^bnns$BNNSNDArrayDescriptor td) rank)))
+  (layout* [_]
+    (when-not (null? td)
+      (.layout ^bnns$BNNSNDArrayDescriptor td)))
   (layout* [this layout]
-    (.layout ^bnns$BNNSNDArrayDescriptor (extract this) (long layout*)))
+    (when-not (null? td)
+      (.layout ^bnns$BNNSNDArrayDescriptor td (long layout*))))
   (major* [this]
-    (major? (.layout ^bnns$BNNSNDArrayDescriptor (extract this))))
+    (or (null? td)
+        (major? (.layout ^bnns$BNNSNDArrayDescriptor td))))
   (data-type* [this]
-    (.data_type ^bnns$BNNSNDArrayDescriptor (extract this)))
+    (when-not (null? td)
+      (.data_type ^bnns$BNNSNDArrayDescriptor td)))
   (dims* [this]
-    (.capacity (.size ^bnns$BNNSNDArrayDescriptor (extract this)) rank))
+    (when-not (null? td)
+      (.capacity (.size ^bnns$BNNSNDArrayDescriptor td) rank)))
   (rank* [_]
     rank)
   (data* [this]
-    (.data ^bnns$BNNSNDArrayDescriptor (extract this)))
+    (when-not (null? td)
+      (.data ^bnns$BNNSNDArrayDescriptor (extract this))))
   (data* [this p]
-    (.data ^bnns$BNNSNDArrayDescriptor (extract this) (byte-pointer (extract p))))
+    (when-not (null? td)
+      (.data ^bnns$BNNSNDArrayDescriptor td (byte-pointer (extract p)))))
   (clone* [this];;TODO remove in favor of view
     (->BnnsNdArrayDescriptorImpl
      (ndarray-descriptor* (dims* this) (data-type* this) (layout* this) (strides* this))
@@ -201,7 +220,7 @@
   Bytes
   (bytesize* [this]
     (if (null? td)
-      nil
+      0
       (* (long (bnns-data-type-size (data-type* this)))
          (nda-shape-size (major* this) (dims* this) (strides* this)))))
   Viewable

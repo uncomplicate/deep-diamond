@@ -424,7 +424,7 @@
          (put-entry! s i (srcs i)))
        (sum-pp* (extract eng) (extract dst) (extract scale) (extract s) nil)))))
 
-;; ======================= Binary op ============================================================
+;; ======================= Binary op ===========================================
 
 (defn binary
   "DNNL binary operation. NOTE: much slower than Neanderthal add or mul. Use only when can't avoid it."
@@ -445,7 +445,7 @@
   ([src-and-dst src1]
    (binary-args src-and-dst src1 src-and-dst)))
 
-;; ========================= Execution Arguments =======================================
+;; ========================= Execution Arguments ===============================
 
 (defn args [arg-map]
   (let-release [args (dnnl_exec_arg_t. (count arg-map))]

@@ -12,8 +12,9 @@
             [uncomplicate.fluokitten.core :refer [fmap]]
             [uncomplicate.neanderthal.core :refer [axpby! dim transfer! scal! view-vctr]]
             [uncomplicate.neanderthal.internal.api :refer [flow]]
-            [uncomplicate.diamond.tensor :as tz
-             :refer [Transfer input output connector revert shape TensorDescriptor view-tz]]
+            [uncomplicate.diamond.tensor
+             :refer [Transfer input output connector revert TensorDescriptor view-tz
+                     shape data-type layout]]
             [uncomplicate.diamond.internal
              [protocols
               :refer [bias weights Parameters ParametersSeq parameters DescriptorProvider
@@ -23,13 +24,14 @@
              [utils :refer [transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.bnns
              [protocols :refer [desc]]
-             [core :refer :all]
+             [core :refer [apply-filter apply-filter-backward apply-arithmetic
+                           activation arithmetic activation-params arithmetic-params
+                           layer]]
              [tensor :refer [bnns-tensor bnns-transformer]]]
             [uncomplicate.diamond.internal.neanderthal.directed
              :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint ->NopActivation
                      ->NopActivationBlueprint]])
-  (:import [clojure.lang IFn AFn]
-           [uncomplicate.diamond.internal.neanderthal.directed DirectedLayerBlueprint GaussianDropoutBlueprint]))
+  (:import [clojure.lang IFn AFn]))
 
 ;; ================================ Activation =============================================
 
@@ -173,11 +175,103 @@
 
 (defn bnns-activ-blueprint
   ([fact inf-src-desc train-src-desc diff-desc activ alpha beta]
-   (case activ
-     :identity (bnns-nop-activation-blueprint fact inf-src-desc train-src-desc diff-desc)
-     ;;:softmax (bnns-softmax-blueprint fact eng inf-src-desc train-src-desc)
-     (bnns-activation-blueprint fact inf-src-desc train-src-desc  activ alpha beta)))
+   (if (= :identity activ)
+     (bnns-nop-activation-blueprint fact inf-src-desc train-src-desc diff-desc)
+     (bnns-activation-blueprint fact inf-src-desc train-src-desc activ alpha beta)))
   ([fact data-desc activ alpha beta]
    (bnns-activ-blueprint fact data-desc data-desc data-desc activ alpha beta)))
 
-;; ================================ Inner Product & Convolution ====================================
+;; ============================= Cost Function ========================================
+
+(deftype BnnsUniversalCost [prev-layer subtract
+                            connect-output connect-diff train-tz a-y cost]
+  Releaseable
+  (release [_]
+    (release subtract)
+    (release connect-output)
+    (release connect-diff)
+    (release train-tz)
+    (release a-y))
+  Transfer
+  (input [this]
+    (input connect-output))
+  (output [_]
+    (output connect-output))
+  DiffTransfer
+  (diff-input [_]
+    train-tz)
+  (diff-output [_]
+    (output connect-diff))
+  Backprop
+  (forward [this]
+    (connect-output)
+    this)
+  (backward [this]
+    (apply-arithmetic subtract (output connect-output) train-tz (input connect-diff))
+    (connect-diff)
+    (backward prev-layer)
+    this)
+  IFn
+  (invoke [_]
+    (connect-output)
+    (apply-arithmetic subtract (output connect-output) train-tz (input connect-diff))
+    (cost a-y))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn bnns-universal-cost [prev-layer train-tz cost]
+  (let [train-desc (desc train-tz)]
+    (with-release [arith (arithmetic train-desc :constant train-desc :constant train-desc :constant)
+                   subtract-params (arithmetic-params :sub arith)]
+      (let-release [connect-output (connector (output prev-layer) train-desc)
+                    connect-diff (connector train-desc (diff-input prev-layer))
+                    subtract-layer (layer subtract-params)]
+        (->BnnsUniversalCost prev-layer subtract-layer
+                             connect-output connect-diff train-tz
+                             (view-vctr (input connect-diff))
+                             cost)))))
+
+(deftype BnnsCustomCost [prev-layer subtract
+                         connect-output connect-diff train-tz a y cost]
+  Releaseable
+  (release [_]
+    (release subtract)
+    (release connect-output)
+    (release connect-diff)
+    (release train-tz))
+  Transfer
+  (input [this]
+    (input connect-output))
+  (output [_]
+    (output connect-output))
+  DiffTransfer
+  (diff-input [_]
+    train-tz)
+  (diff-output [_]
+    (output connect-diff))
+  Backprop
+  (forward [this]
+    (connect-output)
+    this)
+  (backward [this]
+    (apply-arithmetic subtract (output connect-output) train-tz (input connect-diff))
+    (connect-diff)
+    this)
+  IFn
+  (invoke [_]
+    (connect-output)
+    (cost y a))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defn bnns-custom-cost [prev-layer train-tz cost]
+  (let [train-desc (desc train-tz)]
+    (with-release [arith (arithmetic train-desc :constant train-desc :constant train-desc :constant)
+                   subtract-params (arithmetic-params :sub arith)]
+      (let-release [connect-output (connector (output prev-layer) train-desc)
+                    connect-diff (connector train-desc (diff-z prev-layer))
+                    subtract-layer (layer subtract-params)]
+        (->BnnsCustomCost prev-layer subtract-layer
+                          connect-output connect-diff (view train-tz)
+                          (view-vctr (output connect-output)) (view-vctr train-tz)
+                          cost)))))

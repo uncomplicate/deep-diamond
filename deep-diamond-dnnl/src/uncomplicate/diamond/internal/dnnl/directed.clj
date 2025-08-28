@@ -23,7 +23,7 @@
              [utils :refer [transfer-weights-bias! concat-strides concat-dst-shape direction-count]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer :all]
-             [core :refer :all :as dnnl]
+             [core :refer :all]
              [tensor :refer [dnnl-tensor dnnl-transformer]]]
             [uncomplicate.diamond.internal.neanderthal.directed
              :refer [->DirectedLayerBlueprint ->GaussianDropoutBlueprint ->NopActivation
@@ -1960,7 +1960,7 @@
     (pr-str {:shape (shape this)
              :topology :sum}))
   DiamondFactoryProvider
-  (diamond-factory [_]
+oo  (diamond-factory [_]
     fact)
   DescriptorProvider
   (inf-desc [this]

@@ -35,7 +35,8 @@
          (release nd) => true
          (count (pointer-seq (data tz))) => 199
          (release tz) => true
-         (release tz) => true))
+         (release tz) => true
+         (data tz) => nil))
 
 (facts "TD descriptor by strides."
        (with-release [strds [120 1 20 4]
