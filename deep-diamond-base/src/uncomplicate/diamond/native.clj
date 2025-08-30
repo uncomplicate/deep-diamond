@@ -35,10 +35,11 @@
        (info "BNNS (Apple Accelerate BNNS) native backend loaded.")))
 
 (defn find-default-backend []
+  (info "Searching for a suitable backend.")
   (cond
     (and (clojure.string/includes? (clojure.string/lower-case (System/getProperty "os.name")) "mac")
          (load-class "uncomplicate.javacpp.accelerate.global.bnns"))
-    :accelerate
+    :bnns
     (and (#{"amd64" "x86_64" "x86-64" "x64"} (System/getProperty "os.arch"))
          (load-class "org.bytedeco.dnnl.global.dnnl"))
     :dnnl
@@ -49,11 +50,12 @@
    `(load-backend ~(find-default-backend)))
   ([backend]
    (let [backend# backend]
+     (info (format "Loading %s backend. It may take a few seconds. Please stand by." backend#))
      (case backend#
        :accelerate (if (load-class "uncomplicate.javacpp.accelerate.global.bnns")
                      `(load-bnns)
-                     (do (error "Accelerate is not available in your classpath!")
-                         (info "If you want to use Accelerate, please ensure deep-diamond-accelerate is in your project dependencies.")
+                     (do (error "Apple BNNS is not available in your classpath!")
+                         (info "If you want to use Accelerate, please ensure deep-diamond-bnns is in your project dependencies.")
                          (dragan-says-ex "Accelerate cannot be loaded!  Please check yor project's dependencies.")))
        :dnnl (if (load-class "org.bytedeco.dnnl.global.dnnl")
                `(load-dnnl)
@@ -61,7 +63,7 @@
                   (info "If you want to use DNNL, please ensure deep-diamond-dnnl and org.bytedeco/dnnl are in your project dependencies.")
                   (dragan-says-ex "DNNL be loaded! Please check yor project's dependencies.")))
        nil (error "This project has no native engine available, so nothing was loaded!")
-       (dragan-says-ex "Unknown native backend. Please use one of: :dnnl :bnns."
+       (dragan-says-ex (format "Unknown native backend \"%s\". Please use one of: :dnnl :bnns." backend#)
                        {:requested backend# :expected [:dnnl :bnns nil]})))))
 
 (load-backend)

@@ -112,4 +112,5 @@
 
 #_(with-release [fact (dnnl-factory)]
   (bench-wide-layers fact))
-;; "Elapsed time: 4990.836368 msecs"
+;; Intel i9 9900X (2019)
+;; "Elapsed time: 1430.487041 msecs"
