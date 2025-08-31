@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-dnnl "0.35.0"
+(defproject org.uncomplicate/deep-diamond-dnnl "0.35.2"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -14,17 +14,17 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.uncomplicate/neanderthal-mkl "0.56.0"]
-                 [org.uncomplicate/deep-diamond-base "0.35.0"]
+                 [org.uncomplicate/deep-diamond-base "0.35.2"]
                  [org.bytedeco/dnnl-platform "3.8.1-1.5.12"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
                        :global-vars {*warn-on-reflection* true
-                                     *assert* false
+                                     *assert* falsel
                                      *unchecked-math* :warn-on-boxed
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
-                                      [org.uncomplicate/deep-diamond-test "0.35.0"]]
+                                      [org.uncomplicate/deep-diamond-test "0.35.2"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}

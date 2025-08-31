@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.35.0"
+(defproject uncomplicate/deep-diamond "0.35.2"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -14,42 +14,26 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.uncomplicate/neanderthal-base "0.56.0"]
-                 [org.uncomplicate/neanderthal-openblas "0.56.0"]
                  [org.uncomplicate/neanderthal-mkl "0.56.0"]
                  [org.uncomplicate/neanderthal-cuda "0.56.0"]
                  [org.uncomplicate/neanderthal-accelerate "0.56.0"]
-                 [org.uncomplicate/deep-diamond-base "0.35.0"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.35.0"]
-                 [org.uncomplicate/deep-diamond-cuda "0.35.0"]
-                 [org.uncomplicate/deep-diamond-bnns "0.35.0"]]
+                 [org.uncomplicate/deep-diamond-base "0.35.2"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.35.2"]
+                 [org.uncomplicate/deep-diamond-cuda "0.35.2"]
+                 [org.uncomplicate/deep-diamond-bnns "0.35.2"]]
 
   :aot [uncomplicate.neanderthal.internal.cpp.structures
         uncomplicate.neanderthal.internal.cpp.factory
         uncomplicate.neanderthal.internal.cpp.mkl.factory
-        uncomplicate.neanderthal.internal.cpp.openblas.factory
         uncomplicate.neanderthal.internal.cpp.cuda.structures
         uncomplicate.neanderthal.internal.cpp.cuda.factory
+        uncomplicate.neanderthal.internal.cpp.accelerate.factory
         uncomplicate.diamond.internal.cost
         uncomplicate.diamond.internal.protocols
         uncomplicate.diamond.internal.utils
         uncomplicate.diamond.internal.network
-        uncomplicate.diamond.internal.neanderthal.directed
-        uncomplicate.diamond.internal.dnnl.constants
-        uncomplicate.diamond.internal.dnnl.protocols
-        uncomplicate.diamond.internal.dnnl.impl
-        uncomplicate.diamond.internal.dnnl.core
-        uncomplicate.diamond.internal.dnnl.tensor
-        uncomplicate.diamond.internal.dnnl.directed
-        uncomplicate.diamond.internal.dnnl.rnn
         uncomplicate.diamond.internal.dnnl.factory
         uncomplicate.diamond.internal.neanderthal.factory
-        uncomplicate.diamond.internal.cudnn.constants
-        uncomplicate.diamond.internal.cudnn.protocols
-        uncomplicate.diamond.internal.cudnn.impl
-        uncomplicate.diamond.internal.cudnn.core
-        uncomplicate.diamond.internal.cudnn.tensor
-        uncomplicate.diamond.internal.cudnn.directed
-        uncomplicate.diamond.internal.cudnn.rnn
         uncomplicate.diamond.internal.cudnn.factory]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
@@ -73,17 +57,23 @@
                                             uncomplicate.diamond.dnn
                                             uncomplicate.diamond.metrics
                                             uncomplicate.diamond.native
-                                            uncomplicate.diamond.internal.protocols
-                                            uncomplicate.diamond.internal.dnnl.core
-                                            uncomplicate.diamond.internal.dnnl.constants
-                                            uncomplicate.diamond.internal.cudnn.core
-                                            uncomplicate.diamond.internal.cudnn.constants]
+                                            uncomplicate.diamond.internal.protocols]
                                :output-path "../docs/codox"}}
              :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                    [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.143830-1" :classifier "linux-x86_64-redist"]]}
+                                    [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.143830-1" :classifier "linux-x86_64-redist"]]
+                     :codox {:namespaces [uncomplicate.diamond.internal.dnnl.core
+                                          uncomplicate.diamond.internal.dnnl.constants
+                                          uncomplicate.diamond.internal.cudnn.core
+                                          uncomplicate.diamond.internal.cudnn.constants]}}
              :windows {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
-                                      [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.145546-3" :classifier "windows-x86_64-redist"]]}
-             :macosx {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
+                                      [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.145546-3" :classifier "windows-x86_64-redist"]]
+                       :codox {:namespaces [uncomplicate.diamond.internal.dnnl.core
+                                            uncomplicate.diamond.internal.dnnl.constants
+                                            uncomplicate.diamond.internal.cudnn.core
+                                            uncomplicate.diamond.internal.cudnn.constants]}}
+             :macosx {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
+                      :codox {:namespaces [uncomplicate.diamond.internal.bnns.core
+                                           uncomplicate.diamond.internal.constants.constants]}}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 
