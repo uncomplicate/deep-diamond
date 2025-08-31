@@ -88,8 +88,10 @@
       (init layer init-fn))
     this)
   Transfer
-  (input [_] x-tz)
-  (output [_] (output (peek forward-layers)))
+  (input [_]
+    x-tz)
+  (output [_]
+    (output (peek forward-layers)))
   DiffTransfer
   (diff-input [this]
     (diff-input (peek forward-layers)))
@@ -164,8 +166,10 @@
       (init layer init-fn))
     this)
   Transfer
-  (input [_] x-mb-tz)
-  (output [_] (output last-layer))
+  (input [_]
+    x-mb-tz)
+  (output [_]
+    (output last-layer))
   DiffTransfer
   (diff-input [_]
     (diff-input last-layer))

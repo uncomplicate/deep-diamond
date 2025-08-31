@@ -1960,7 +1960,7 @@
     (pr-str {:shape (shape this)
              :topology :sum}))
   DiamondFactoryProvider
-oo  (diamond-factory [_]
+  (diamond-factory [_]
     fact)
   DescriptorProvider
   (inf-desc [this]
