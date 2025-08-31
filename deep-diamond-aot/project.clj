@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.35.2"
+(defproject uncomplicate/deep-diamond "0.35.3"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -25,16 +25,10 @@
   :aot [uncomplicate.neanderthal.internal.cpp.structures
         uncomplicate.neanderthal.internal.cpp.factory
         uncomplicate.neanderthal.internal.cpp.mkl.factory
+        uncomplicate.neanderthal.internal.cpp.openblas.factory
         uncomplicate.neanderthal.internal.cpp.cuda.structures
         uncomplicate.neanderthal.internal.cpp.cuda.factory
-        uncomplicate.neanderthal.internal.cpp.accelerate.factory
-        uncomplicate.diamond.internal.cost
-        uncomplicate.diamond.internal.protocols
-        uncomplicate.diamond.internal.utils
-        uncomplicate.diamond.internal.network
-        uncomplicate.diamond.internal.dnnl.factory
-        uncomplicate.diamond.internal.neanderthal.factory
-        uncomplicate.diamond.internal.cudnn.factory]
+        uncomplicate.neanderthal.internal.cpp.accelerate.factory]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]

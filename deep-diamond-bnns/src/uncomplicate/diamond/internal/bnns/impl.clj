@@ -237,7 +237,7 @@
 (extend-type bnns$BNNSTensor
   Releaseable
   (release [_]
-    (dragan-says-ex "You should never directly release dnnl_memorybnns$BNNSTensor. Please use BnnsTensorImpl!")))
+    (dragan-says-ex "You should never directly release bnns$BNNSTensor. Please use BnnsTensorImpl!")))
 
 (defn tensor-descriptor*
   ([shape ^long data-type strides]
