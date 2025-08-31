@@ -31,7 +31,7 @@
 (defmacro load-bnns []
   `(do (require 'uncomplicate.diamond.internal.bnns.factory)
        (alter-var-root #'uncomplicate.diamond.tensor/*diamond-factory*
-                       (constantly (uncomplicate.diamond.internal.bnns.factory/dnnl-factory)))
+                       (constantly (uncomplicate.diamond.internal.bnns.factory/bnns-factory)))
        (info "BNNS (Apple Accelerate BNNS) native backend loaded.")))
 
 (defn find-default-backend []
@@ -52,7 +52,7 @@
    (let [backend# backend]
      (info (format "Loading %s backend. It may take a few seconds. Please stand by." backend#))
      (case backend#
-       :accelerate (if (load-class "uncomplicate.javacpp.accelerate.global.bnns")
+       :bnns (if (load-class "uncomplicate.javacpp.accelerate.global.bnns")
                      `(load-bnns)
                      (do (error "Apple BNNS is not available in your classpath!")
                          (info "If you want to use Accelerate, please ensure deep-diamond-bnns is in your project dependencies.")

@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-bnns "0.35.0"
+(defproject org.uncomplicate/deep-diamond-bnns "0.35.1-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -14,7 +14,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.uncomplicate/neanderthal-accelerate "0.56.0"]
-                 [org.uncomplicate/deep-diamond-base "0.35.0"]
+                 [org.uncomplicate/deep-diamond-base "0.35.1-SNAPSHOT"]
                  [org.uncomplicate/accelerate-platform "0.1.0-1.5.12"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]

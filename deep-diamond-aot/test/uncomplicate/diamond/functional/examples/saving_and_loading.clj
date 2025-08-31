@@ -16,8 +16,7 @@
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
              [dnn :refer [sum activation inner-product fully-connected network init! train! cost rnn abbreviate]]
-             [native :refer [map-tensor]]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]))
+             [native :refer [map-tensor]]]))
 
 (with-release [td1 (desc [2 3] :float :nc)
                tf1 (random-access "td1.tz")

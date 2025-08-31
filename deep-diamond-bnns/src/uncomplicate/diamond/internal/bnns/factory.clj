@@ -23,7 +23,8 @@
             [uncomplicate.diamond.internal
              [protocols
               :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider CostFactory
-                      DnnFactory RnnFactory NeanderthalFactoryProvider diamond-factory]]
+                      DnnFactory RnnFactory NeanderthalFactoryProvider diamond-factory
+                      create-tensor-desc]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.neanderthal.directed :refer [neanderthal-fc-blueprint]]
@@ -80,7 +81,7 @@ Please contribute towards making it possible, or use on of the supported types."
     (let [size (bytesize (desc td))]
       (let-release [buf ((bnns-data-type-pointer (data-type td))
                          (mapped-buffer channel offset-bytes size flag))]
-        (bnns-tensor this td buf n-index true))))
+        (bnns-tensor this (create-tensor-desc this td) buf n-index true))))
   DnnFactory
   (activ-blueprint [this src-desc activ alpha beta]
     (bnns-activ-blueprint this src-desc activ alpha beta))

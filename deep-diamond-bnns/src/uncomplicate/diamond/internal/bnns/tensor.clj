@@ -9,7 +9,7 @@
 (ns uncomplicate.diamond.internal.bnns.tensor
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release with-release Info
-                           info Viewable view size bytesize* bytesize sizeof]]
+                           info Viewable view size Bytes bytesize* bytesize sizeof]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.protocols
              :refer [Magma Monoid Applicative Functor Foldable Comonad
@@ -359,6 +359,9 @@
         (data* tz-desc nil))
       (release tz-desc))
     true)
+  Bytes
+  (bytesize* [_]
+    (bytesize* tz-desc))
   Comonad
   (extract [_]
     (extract tz-desc))
