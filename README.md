@@ -19,6 +19,7 @@ or
 ![](https://clojars.org/org.uncomplicate/deep-diamond-base/latest-version.svg)
 ![](https://clojars.org/org.uncomplicate/deep-diamond-dnnl/latest-version.svg)
 ![](https://clojars.org/org.uncomplicate/deep-diamond-cuda/latest-version.svg)
+![](https://clojars.org/org.uncomplicate/deep-diamond-bnns/latest-version.svg)
 
 ## License
 

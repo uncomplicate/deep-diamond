@@ -240,7 +240,9 @@
    Float dnnl/dnnl_f32
    :half dnnl/dnnl_f16
    :f16 dnnl/dnnl_f16
+   :float16 dnnl/dnnl_f16
    :bf16 dnnl/dnnl_bf16
+   :bfloat16 dnnl/dnnl_bf16
    :int dnnl/dnnl_s32
    Integer/TYPE dnnl/dnnl_s32
    Integer dnnl/dnnl_s32
@@ -249,7 +251,8 @@
    Byte dnnl/dnnl_s8
    :u8 dnnl/dnnl_u8
    :uint8 dnnl/dnnl_u8
-   :undef dnnl/dnnl_data_type_undef})
+   :undef dnnl/dnnl_data_type_undef
+   :undefined dnnl/dnnl_data_type_undef})
 
 (def ^:const dnnl-forward-prop-kind
   {:training dnnl/dnnl_forward_training
