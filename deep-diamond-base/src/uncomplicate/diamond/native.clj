@@ -11,7 +11,8 @@
   By evaluating this namespace, you're altering [[uncomplicate.diamond.tensor/*diamond-factory*]]
   var root to the engine produced by [[uncomplicate.diamond.internal.dnnl.factory/dnnl-factory]].
   "
-  (:require [clojure.tools.logging :refer [warn error info]]
+  (:require [clojure.string :refer [includes? lower-case]]
+            [clojure.tools.logging :refer [warn error info]]
             [uncomplicate.commons.utils :refer [dragan-says-ex channel]]
             [uncomplicate.diamond.internal.protocols :refer [map-channel create-tensor-desc]])
   (:import java.nio.channels.FileChannel))
@@ -36,14 +37,12 @@
 
 (defn find-default-backend []
   (info "Searching for a suitable backend.")
-  (cond
-    (and (clojure.string/includes? (clojure.string/lower-case (System/getProperty "os.name")) "mac")
-         (load-class "uncomplicate.javacpp.accelerate.global.bnns"))
-    :bnns
-    (and (#{"amd64" "x86_64" "x86-64" "x64"} (System/getProperty "os.arch"))
-         (load-class "org.bytedeco.dnnl.global.dnnl"))
-    :dnnl
-    :default nil))
+  (cond (load-class "org.bytedeco.dnnl.global.dnnl")
+        :dnnl
+        (and (includes? (lower-case (System/getProperty "os.name")) "mac")
+             (load-class "uncomplicate.javacpp.accelerate.global.bnns"))
+        :bnns
+        :default nil))
 
 (defmacro load-backend
   ([]

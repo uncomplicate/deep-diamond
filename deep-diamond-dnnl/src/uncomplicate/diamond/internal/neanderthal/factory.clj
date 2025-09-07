@@ -12,10 +12,10 @@
              [utils :refer [dragan-says-ex direct-buffer mapped-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal.core :refer [entry!]]
-            [uncomplicate.neanderthal.block :refer [create-data-source]]
-            [uncomplicate.neanderthal.internal.api :refer [FlowProvider flow]]
-            [uncomplicate.neanderthal.internal.cpp.mkl.factory
-             :refer [->FloatVectorEngine ->IntVectorEngine ->ByteVectorEngine]]
+            [uncomplicate.neanderthal
+             [native :refer [factory-by-type native-float native-int native-byte]]
+             [block :refer [create-data-source buffer initialize!]]]
+            [uncomplicate.neanderthal.internal.api :refer [FlowProvider vector-engine]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* output data-type]]
             [uncomplicate.diamond.internal
              [protocols
@@ -32,8 +32,7 @@
                                dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
                                dnnl-split-blueprint dnnl-concat-blueprint
                                dnnl-batch-norm-layer-blueprint dnnl-pooling-blueprint
-                               dnnl-branch-blueprint dnnl-sum-blueprint]]
-             [factory :refer [factory-by-type]]]))
+                               dnnl-branch-blueprint dnnl-sum-blueprint]]]))
 
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the Neanderthal/DNNL platform.
@@ -68,12 +67,12 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor [this tensor-desc init]
     (let-release [res (dnnl-tensor this tensor-desc)]
       (when init
-        (entry! res 0))
+        (initialize! res (buffer res)))
       res))
   (create-tensor [this tensor-desc batch-index init]
     (let-release [res (dnnl-tensor this tensor-desc batch-index)]
       (when init
-        (entry! res 0))
+        (initialize! res (buffer res)))
       res))
   (create-transformer [_ in-tz out-tz]
     (dnnl-transformer eng strm (view in-tz) (view out-tz)))
@@ -115,7 +114,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (sum-blueprint [this src-descs]
     (dnnl-sum-blueprint this eng src-descs))
   (create-workspace [_ byte-size]
-    (create-data-source (factory-by-type :byte) (max 1 (long byte-size))))
+    (create-data-source native-byte (max 1 (long byte-size))))
   CostFactory
   (quadratic-cost [this prev-layer train-tz]
     (dnnl-universal-cost eng strm prev-layer train-tz quadratic-cost!))
@@ -128,13 +127,13 @@ Please contribute towards making it possible, or use on of the supported types."
 
 (defn neanderthal-factory
   ([eng strm]
-   (->NeanderthalFactory eng strm false {:float (->FloatVectorEngine)
-                                         :int (->IntVectorEngine)
-                                         :byte (->ByteVectorEngine)
-                                         :uint8 (->ByteVectorEngine)}))
+   (->NeanderthalFactory eng strm false {:float (vector-engine native-float)
+                                         :int (vector-engine native-int)
+                                         :byte (vector-engine native-byte)
+                                         :uint8 (vector-engine native-byte)}))
   ([]
    (let-release [eng (engine)]
-     (->NeanderthalFactory eng (stream eng) true {:float (->FloatVectorEngine)
-                                                  :int (->IntVectorEngine)
-                                                  :byte (->ByteVectorEngine)
-                                                  :uint8 (->ByteVectorEngine)}))))
+     (->NeanderthalFactory eng (stream eng) true {:float (vector-engine native-float)
+                                                  :int (vector-engine native-int)
+                                                  :byte (vector-engine native-byte)
+                                                  :uint8 (vector-engine native-byte)}))))

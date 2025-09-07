@@ -13,8 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
-                 [org.uncomplicate/neanderthal-mkl "0.56.0"]
-                 [org.uncomplicate/deep-diamond-base "0.35.2"]
+                 [org.uncomplicate/deep-diamond-base "0.36.0-SNAPSHOT"]
                  [org.bytedeco/dnnl-platform "3.9.1-1.5.13-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
@@ -24,12 +23,15 @@
                                      *unchecked-math* :warn-on-boxed
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
-                                      [org.uncomplicate/deep-diamond-test "0.35.2"]]
+                                      [org.uncomplicate/deep-diamond-test "0.36.0-SNAPSHOT"]
+                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
-             :windows {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]]}}
-
-  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]]}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0-SNAPSHOT"]
+                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])

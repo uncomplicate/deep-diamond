@@ -13,14 +13,14 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
-                 [org.uncomplicate/neanderthal-base "0.56.0"]
-                 [org.uncomplicate/neanderthal-mkl "0.56.0"]
-                 [org.uncomplicate/neanderthal-cuda "0.56.0"]
-                 [org.uncomplicate/neanderthal-accelerate "0.56.0"]
-                 [org.uncomplicate/deep-diamond-base "0.35.2"]
+                 [org.uncomplicate/neanderthal-base "0.57.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-cuda "0.57.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-accelerate "0.57.0-SNAPSHOT"]
+                 [org.uncomplicate/deep-diamond-base "0.36.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-dnnl "0.36.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-cuda "0.36.0-SNAPSHOT"]
-                 [org.uncomplicate/deep-diamond-bnns "0.35.2"]]
+                 [org.uncomplicate/deep-diamond-bnns "0.36.0-SNAPSHOT"]]
 
   :aot [uncomplicate.neanderthal.internal.cpp.structures
         uncomplicate.neanderthal.internal.cpp.factory
@@ -45,29 +45,32 @@
                                :source-uri "http://github.com/uncomplicate/deep-diamond/blob/master/{filepath}#L{line}"
                                :themes [:rdash]
                                :source-paths ["../deep-diamond-base/src/"
-                                              "../deep-diamond-cuda/src/clojure/"
-                                              "../deep-diamond-dnnl/src/clojure/"]
+                                              "../deep-diamond-dnnl/src"]
                                :namespaces [uncomplicate.diamond.tensor
                                             uncomplicate.diamond.dnn
                                             uncomplicate.diamond.metrics
                                             uncomplicate.diamond.native
-                                            uncomplicate.diamond.internal.protocols]
+                                            uncomplicate.diamond.internal.protocols
+                                            uncomplicate.diamond.internal.dnnl.core
+                                            uncomplicate.diamond.internal.dnnl.constants]
                                :output-path "../docs/codox"}}
-             :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.143830-1" :classifier "linux-x86_64-redist"]]
-                     :codox {:namespaces [uncomplicate.diamond.internal.dnnl.core
-                                          uncomplicate.diamond.internal.dnnl.constants
-                                          uncomplicate.diamond.internal.cudnn.core
-                                          uncomplicate.diamond.internal.cudnn.constants]}}
-             :windows {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
+                     :codox {:namespaces [uncomplicate.diamond.internal.cudnn.core
+                                          uncomplicate.diamond.internal.cudnn.constants]
+                             :source-paths ["../deep-diamond-cuda/src/clojure/"]}}
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
                                       [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.145546-3" :classifier "windows-x86_64-redist"]]
-                       :codox {:namespaces [uncomplicate.diamond.internal.dnnl.core
-                                            uncomplicate.diamond.internal.dnnl.constants
-                                            uncomplicate.diamond.internal.cudnn.core
-                                            uncomplicate.diamond.internal.cudnn.constants]}}
-             :macosx {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
+                       :codox {:namespaces [uncomplicate.diamond.internal.cudnn.core
+                                            uncomplicate.diamond.internal.cudnn.constants]
+                               :source-paths ["../deep-diamond-cuda/src/clojure/"]}}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0-SNAPSHOT"]
+                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
                       :codox {:namespaces [uncomplicate.diamond.internal.bnns.core
-                                           uncomplicate.diamond.internal.constants.constants]}}}
+                                           uncomplicate.diamond.internal.constants.constants]
+                              :source-paths ["../deep-diamond-bnns/src"]}}}
 
   :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
 

@@ -6,14 +6,14 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-base "0.35.2"
+(defproject org.uncomplicate/deep-diamond-base "0.36.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
-                 [org.uncomplicate/neanderthal-base "0.56.0"]]
+                 [org.uncomplicate/neanderthal-base "0.57.0-SNAPSHOT"]]
 
   :profiles {:dev {:global-vars {*warn-on-reflection* true
                                  *assert* false
