@@ -13,10 +13,10 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
-                 [org.uncomplicate/neanderthal-base "0.57.0-SNAPSHOT"]
-                 [org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
-                 [org.uncomplicate/neanderthal-cuda "0.57.0-SNAPSHOT"]
-                 [org.uncomplicate/neanderthal-accelerate "0.57.0-SNAPSHOT"]
+                 [org.uncomplicate/neanderthal-base "0.57.0"]
+                 [org.uncomplicate/neanderthal-mkl "0.57.0"]
+                 [org.uncomplicate/neanderthal-cuda "0.57.0"]
+                 [org.uncomplicate/neanderthal-accelerate "0.57.0"]
                  [org.uncomplicate/deep-diamond-base "0.36.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-dnnl "0.36.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-cuda "0.36.0-SNAPSHOT"]
@@ -54,19 +54,19 @@
                                             uncomplicate.diamond.internal.dnnl.core
                                             uncomplicate.diamond.internal.dnnl.constants]
                                :output-path "../docs/codox"}}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.143830-1" :classifier "linux-x86_64-redist"]]
                      :codox {:namespaces [uncomplicate.diamond.internal.cudnn.core
                                           uncomplicate.diamond.internal.cudnn.constants]
                              :source-paths ["../deep-diamond-cuda/src/clojure/"]}}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
                                       [org.bytedeco/cuda "12.9-9.10-1.5.12-20250612.145546-3" :classifier "windows-x86_64-redist"]]
                        :codox {:namespaces [uncomplicate.diamond.internal.cudnn.core
                                             uncomplicate.diamond.internal.cudnn.constants]
                                :source-paths ["../deep-diamond-cuda/src/clojure/"]}}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0-SNAPSHOT"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
                       :codox {:namespaces [uncomplicate.diamond.internal.bnns.core
                                            uncomplicate.diamond.internal.constants.constants]

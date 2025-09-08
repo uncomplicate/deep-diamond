@@ -13,7 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
-                 [org.uncomplicate/neanderthal-base "0.57.0-SNAPSHOT"]]
+                 [org.uncomplicate/neanderthal-base "0.57.0"]]
 
   :profiles {:dev {:global-vars {*warn-on-reflection* true
                                  *assert* false

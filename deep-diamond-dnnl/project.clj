@@ -27,11 +27,11 @@
                                       [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0-SNAPSHOT"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0-SNAPSHOT"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
