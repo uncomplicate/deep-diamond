@@ -9,7 +9,7 @@
 (ns hello-world.cuda
   (:require [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.neanderthal.core :refer [transfer! asum]]
-            [uncomplicate.diamond.tensor :refer [tensor]]
+            [uncomplicate.diamond.tensor :refer [tensor with-diamond]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (with-release [cudnn (cudnn-factory)
@@ -20,3 +20,10 @@
 ;; If you see something like this:
 ;; 15.0
 ;; It means that everything is set up and you can enjoy programming with Deep Diamond :)
+
+;; Alternatively, you can also use:
+
+(with-diamond cudnn-factory []
+  (with-release [t (tensor [2 3] :float :nc)]
+    (transfer! (range) t)
+    (asum t)))
