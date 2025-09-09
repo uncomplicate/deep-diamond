@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.36.1"
+(defproject uncomplicate/deep-diamond "0.37.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -17,10 +17,10 @@
                  [org.uncomplicate/neanderthal-mkl "0.57.1"]
                  [org.uncomplicate/neanderthal-cuda "0.57.0"]
                  [org.uncomplicate/neanderthal-accelerate "0.57.0"]
-                 [org.uncomplicate/deep-diamond-base "0.36.1"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.36.1"]
-                 [org.uncomplicate/deep-diamond-cuda "0.36.1"]
-                 [org.uncomplicate/deep-diamond-bnns "0.36.1"]]
+                 [org.uncomplicate/deep-diamond-base "0.37.0-SNAPSHOT"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.37.0-SNAPSHOT"]
+                 [org.uncomplicate/deep-diamond-cuda "0.37.0-SNAPSHOT"]
+                 [org.uncomplicate/deep-diamond-bnns "0.37.0-SNAPSHOT"]]
 
   :aot [uncomplicate.neanderthal.internal.cpp.structures
         uncomplicate.neanderthal.internal.cpp.factory
@@ -72,7 +72,8 @@
                                            uncomplicate.diamond.internal.constants.constants]
                               :source-paths ["../deep-diamond-bnns/src"]}}}
 
-  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
+  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]
+                 ["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]<]
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                        "--enable-native-access=ALL-UNNAMED"]

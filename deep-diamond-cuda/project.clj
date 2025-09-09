@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-cuda "0.36.1"
+(defproject org.uncomplicate/deep-diamond-cuda "0.37.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -14,8 +14,8 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.2"]
                  [org.uncomplicate/neanderthal-cuda  "0.57.0"]
-                 [org.uncomplicate/deep-diamond-base "0.36.1"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.36.1"]]
+                 [org.uncomplicate/deep-diamond-base "0.37.0-SNAPSHOT"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.37.0-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -26,7 +26,7 @@
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
                                       [org.clojure/data.csv "1.1.0"]
-                                      [org.uncomplicate/deep-diamond-test "0.36.1"]]
+                                      [org.uncomplicate/deep-diamond-test "0.37.0-SNAPSHOT"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
@@ -38,7 +38,8 @@
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
-  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
+  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]
+                 ["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/device"])

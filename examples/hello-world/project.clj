@@ -31,7 +31,8 @@
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   ;; Wee need this for the CUDA binaries, which are not available in the Maven Central due to its huge size (3GB, vs 1GB limit)!
-  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
+  :repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]
+                 ["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 
   ;; We need direct linking for properly resolving types in heavy macros and avoiding reflection warnings!
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
