@@ -21,12 +21,8 @@ or
 ![](https://clojars.org/org.uncomplicate/deep-diamond-cuda/latest-version.svg)
 ![](https://clojars.org/org.uncomplicate/deep-diamond-bnns/latest-version.svg)
 
-You also need to add 2 maven central repositories to your project:
-
-=
-:repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]
-    ["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
-=
+You also need to add 2 maven central repositories to your project, as in
+this hello-world project example: ![](https://github.com/uncomplicate/deep-diamond/blob/master/examples/hello-world-aot/project.clj)
 
 ## License
 
