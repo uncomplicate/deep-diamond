@@ -22,6 +22,4 @@
                    :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                         "--enable-native-access=ALL-UNNAMED"]}}
 
-  ;;:repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
-
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])

@@ -23,6 +23,4 @@
                                  *print-length* 128}
                    :dependencies [[midje "1.10.10"]]}}
 
-  ;;:repositories [["snapshots" "https://oss.sonatype.org/content/repositories/snapshots"]]
-
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
