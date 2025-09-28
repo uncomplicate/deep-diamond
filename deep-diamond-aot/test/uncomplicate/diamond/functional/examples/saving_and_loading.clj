@@ -1,4 +1,5 @@
-(ns uncomplicate.diamond.functional.examples.saving-and-loading
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.functional.examples.saving-and-loading
   (:require [midje.sweet :refer [facts throws => =not=>]]
             [clojure.java.io :as io]
             [clojure.data.csv :as csv]

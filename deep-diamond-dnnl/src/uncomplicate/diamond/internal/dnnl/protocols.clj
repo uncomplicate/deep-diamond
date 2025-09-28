@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.dnnl.protocols)
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.dnnl.protocols)
 
 (defprotocol BlockedDesc
   (memory-desc* [this dims data-type]))

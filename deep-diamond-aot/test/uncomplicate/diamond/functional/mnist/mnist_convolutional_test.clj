@@ -1,4 +1,5 @@
-(ns uncomplicate.diamond.functional.mnist.mnist-convolutional-test
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.functional.mnist.mnist-convolutional-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons
              [core :refer [with-release]]

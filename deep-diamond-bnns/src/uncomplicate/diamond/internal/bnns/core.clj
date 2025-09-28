@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.bnns.core
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.bnns.core
   (:require [uncomplicate.commons
              [core :refer [let-release with-release Viewable view Info bytesize size]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]

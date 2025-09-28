@@ -1,4 +1,5 @@
-(ns uncomplicate.diamond.functional.mastercard.mastercard-rnn
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.functional.mastercard.mastercard-rnn
   (:require [midje.sweet :refer [facts throws => roughly]]
             [clojure.java.io :as io]
             [clojure.data.csv :as csv]

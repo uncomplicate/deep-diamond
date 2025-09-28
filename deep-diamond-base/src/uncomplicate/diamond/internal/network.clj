@@ -1,4 +1,5 @@
-(ns uncomplicate.diamond.internal.network
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.network
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release Info info with-release view bytesize]]
              [utils :refer [dragan-says-ex channel]]]

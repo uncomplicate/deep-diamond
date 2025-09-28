@@ -77,14 +77,20 @@
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional-tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
   "
-  ([fact src-desc activ alpha beta]
-   (api/activ-blueprint (api/diamond-factory fact) src-desc activ alpha beta))
-  ([fact src-desc activ alpha]
-   (api/activ-blueprint (api/diamond-factory fact) src-desc activ alpha 0.0))
+  ([fact src-desc activ args]
+   (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
+         beta (or (:beta args) 0.0)]
+     (api/activ-blueprint (api/diamond-factory fact) src-desc activ alpha beta)))
   ([fact src-desc activ]
-   (api/activ-blueprint (api/diamond-factory fact) src-desc activ 0.0 0.0))
-  ([src-desc activ]
-   (api/activ-blueprint *diamond-factory* src-desc activ 0.0 0.0)))
+   (activation (api/diamond-factory fact) src-desc activ nil))
+  ([activ args]
+   (fn
+     ([fact src-desc]
+      (activation fact src-desc activ args))
+     ([src-desc]
+      (activation *diamond-factory* src-desc activ args))))
+  ([activ]
+   (activation activ nil)))
 
 (defn inner-product
   "Creates an inner-product blueprint, which is also a function that can create an inner product
@@ -786,7 +792,7 @@
 
 (defn infer!
   "Estimates output `out` for the provided input `in`. Works with tensors, connectors, and anything
-  that can provide Does [[uncomplicate.diamond.tensor/input]] and Does [[uncomplicate.diamond.tensor/output]].
+  that can provide [[uncomplicate.diamond.tensor/input]] and [[uncomplicate.diamond.tensor/output]].
   If `in` and `out` are bigger than the network shapes, automatically does the inference in mini-batches.
 
   Please also see [[train]].

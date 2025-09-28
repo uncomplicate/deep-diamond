@@ -1,4 +1,5 @@
-(ns uncomplicate.diamond.functional.mnist.mnist-classification-test
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.functional.mnist.mnist-classification-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [uncomplicate.commons
              [core :refer [let-release Releaseable release with-release]]

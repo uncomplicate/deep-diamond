@@ -1,4 +1,5 @@
-(ns uncomplicate.diamond.functional.imdb-sentiment.classification-test
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.functional.imdb-sentiment.classification-test
   (:require [midje.sweet :refer [facts throws => roughly]]
             [clojure.java.io :as io]
             [clojure.data.csv :as csv]

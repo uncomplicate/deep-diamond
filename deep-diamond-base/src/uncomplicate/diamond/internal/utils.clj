@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.utils
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.utils
   (:require [uncomplicate.commons
              [core :refer [Releaseable with-release size]]
              [utils :refer [dragan-says-ex with-check]]]

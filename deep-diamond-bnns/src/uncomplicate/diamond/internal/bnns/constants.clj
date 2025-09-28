@@ -6,7 +6,8 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(ns uncomplicate.diamond.internal.bnns.constants
+(ns ^{:author "Dragan Djuric"}
+    uncomplicate.diamond.internal.bnns.constants
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
             [uncomplicate.clojure-cpp
              :refer [ptr* byte-pointer short-pointer int-pointer float-pointer
