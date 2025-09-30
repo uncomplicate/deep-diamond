@@ -90,17 +90,15 @@ Please contribute towards making it possible, or use on of the supported types."
                           (view (inf-desc desc-provider))
                           (view (train-desc desc-provider))
                           (view (diff-desc desc-provider))
-                          activ coef))
+                          activ alpha beta))
   (activ-blueprint [this desc-provider activ alpha beta]
     (let-release [activ-bluep (bnns-activ-blueprint
                                this
                                (view (inf-desc desc-provider))
                                (view (train-desc desc-provider))
                                (view (diff-desc desc-provider))
-                               activ coef)]
+                               activ alpha beta)]
       (->ActivationLayerBlueprint this activ-bluep)))
-  (activ-op-blueprint [this src-desc activ alpha beta]
-    (bnns-activ-blueprint this src-desc activ alpha beta))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dragan-says-ex "BNNS engine does not implement the inner product blueprint."))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]
