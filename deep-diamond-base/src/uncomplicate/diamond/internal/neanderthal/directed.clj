@@ -27,7 +27,7 @@
             [uncomplicate.diamond.internal
              [protocols :refer [Parameters bias weights ParametersSeq parameters DescriptorProvider
                                 DiamondFactoryProvider DiffParameters diff-weights Backprop forward
-                                backward create-tensor activ-blueprint DiffTransfer diff-input
+                                backward create-tensor activ-op-blueprint DiffTransfer diff-input
                                 diff-output diff-z create-tensor-desc LinearBackprop backward-diff
                                 Workspace inf-ws-size train-ws-size neanderthal-factory inf-desc
                                 train-desc diff-desc Initializable init batch-index
@@ -78,7 +78,8 @@
   Releaseable
   (release [_]
     (release inf-desc)
-    (release train-desc))
+    (release train-desc)
+    (release diff-desc))
   Info
   (info [this]
     {:activation :identity})
@@ -729,7 +730,7 @@
                                                (or (data-type dst-desc) (data-type src-desc))
                                                :nc)
                   ip-bluep (inner-product-blueprint fact src-desc dst-desc weights-type)
-                  activ-bluep (activ-blueprint fact (view dst-desc) activ alpha beta)]
+                  activ-bluep (activ-op-blueprint fact ip-bluep activ alpha beta)]
       (->DirectedLayerBlueprint fact :dense ip-bluep activ-bluep))))
 
 (defmethod transfer! [InferenceLayer Object]
@@ -922,5 +923,125 @@
   destination)
 
 (defmethod transfer! [GaussianDropoutLayer Object]
+  [source destination]
+  destination)
+
+;; ============= Standalone Activation Layer ==================================================
+
+(deftype ActivationLayer [fact bluep activ]
+  Releaseable
+  (release [_]
+    (release activ))
+  Object
+  (hashCode [_]
+    (-> (hash activ)))
+  (equals [_ layer]
+    (and (instance? ActivationLayer layer)
+         (= (info activ :activation) (info layer :activation))))
+  (toString [_]
+    (str bluep))
+  Info
+  (info [x]
+    (info activ))
+  (info [x info-type]
+    (info activ info-type))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  Transfer
+  (input [this]
+    (input activ))
+  (output [_]
+    (output activ))
+  DiffTransfer
+  (diff-input [this]
+    (diff-input activ))
+  #_(diff-z [_] TODO maybe we will need it sometimes in future, in some combinations. Time will tell.
+    (diff-z prev-layer))
+  (diff-output [_]
+    (diff-output activ))
+  ParametersSeq
+  (parameters [_]
+    [])
+  Initializable
+  (init [this init-fn]
+    (init activ init-fn)
+    this)
+  IFn
+  (invoke [_]
+    (activ))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
+  Backprop
+  (forward [this]
+    (forward activ)
+    this)
+  (forward [this _]
+    (forward activ)
+    this)
+  (backward [this]
+    (backward activ))
+  (backward [this _]
+    this))
+
+(defmethod print-method ActivationLayer
+  [layer ^java.io.Writer w]
+  (.write w (format "#Activation[%s]" (info layer :activation))))
+
+(deftype ActivationLayerBlueprint [fact activ-bluep]
+  Releaseable
+  (release [_]
+    (release activ-bluep))
+  Object
+  (hashCode [_]
+    (hash activ-bluep))
+  (equals [_ other]
+    (and (instance? ActivationLayerBlueprint other)
+         (= activ-bluep (.activ-bluep ^DirectedLayerBlueprint other))))
+  (toString [this]
+    (str {:shape (shape this)
+          :activation (info activ-bluep :activation) }))
+  Info
+  (info [x]
+    (assoc (into (info activ-bluep) )
+           :shape (shape activ-bluep)))
+  (info [x info-type]
+    (case info-type
+      :shape (shape activ-bluep)
+      (info activ-bluep info-type)))
+  DiamondFactoryProvider
+  (diamond-factory [_]
+    fact)
+  DescriptorProvider
+  (inf-desc [_]
+    (inf-desc activ-bluep))
+  (train-desc [_]
+    (train-desc activ-bluep))
+  (diff-desc [_]
+    (diff-desc activ-bluep))
+  TensorDescriptor
+  (shape [_]
+    (shape activ-bluep))
+  (data-type [_]
+    (data-type activ-bluep))
+  (layout [_]
+    (layout activ-bluep))
+  IFn
+  (invoke [this prev-layer]
+    (let-release [activ (activ-bluep (output prev-layer))]
+      (->ActivationLayer fact this activ)))
+  (invoke [this prev-layer _ _]
+    (.invoke this prev-layer nil))
+  (invoke [this prev-layer _]
+    (let-release [activ (activ-bluep (output prev-layer) (diff-input prev-layer))]
+      (->ActivationLayer fact this activ)))
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs)))
+
+(defmethod print-method ActivationLayerBlueprint
+  [bp ^java.io.Writer w]
+  (.write w (str bp)))
+
+(defmethod transfer! [ActivationLayer Object]
   [source destination]
   destination)

@@ -54,22 +54,21 @@
              [utils :refer [default-strides]]]))
 
 (defn activation
-  "Creates an activation blueprint, which is also a function that can create activation
-  (usually non-linear) that can then be attached to the end of a network layer. It can be
-  used in many ways, from a relatively low-level structure, to the fully automatic piece
-  in a description of neural network.
+  "Creates an activation layer blueprint, which is also a function that
+  can create the actual layer either when directly called or when used in
+  the neural network description.
 
   Arguments:
 
   - `fact`: technology-specific engine factory.
-  - `src-desc`: tensor descriptor (or even just a relevant part of its shape) of the activation
+  - `src-provider`: tensor descriptor (or even just a relevant part of its shape) of the activation
   input and output.
   - `activ`: keyword that determines the activation function (:relu, :elu, etc.).
   See activation functions supported by DNNL ([[uncomplicate.diamond.internal.dnnl.constants/dnnl-eltwise-alg-kind]]),
   and cuDNN ([[uncomplicate.diamond.internal.cudnn.constants/cudnn-activation-mode]]).
   Keywords are the same, but not all keywords are supported by all backends, in general.
-  - `alpha`: the first scalar constant (if supported by the chosen `activ`).
-  - `beta`: the second scalar constant (if supported by the chosen `activ`).
+  - `args`: a map of additional arguments such as `:alpha`, `:beta`, or some of
+  the technology specific options supported by the underlying engine.
 
   Most of these arguments can be automatically inferred when this blueprint is used
   in a DNN DSL in the context of a network.
@@ -77,18 +76,34 @@
   See examples in [dnn-test](https://github.com/uncomplicate/deep-diamond/blob/master/test/uncomplicate/diamond/dnn_test.clj),
   and [functional-tests](https://github.com/uncomplicate/deep-diamond/tree/master/test/uncomplicate/diamond/functional).
   "
-  ([fact src-desc activ args]
+  ([fact src-provider activ args]
    (let [alpha (or (:alpha args) (if (= activ :linear) 1.0 0.0))
          beta (or (:beta args) 0.0)]
-     (api/activ-blueprint (api/diamond-factory fact) src-desc activ alpha beta)))
-  ([fact src-desc activ]
-   (activation (api/diamond-factory fact) src-desc activ nil))
+     (api/activ-blueprint (api/diamond-factory fact) src-provider activ alpha beta)))
+  ([fact src-provider activ]
+   (activation (api/diamond-factory fact) src-provider activ nil))
   ([activ args]
    (fn
-     ([fact src-desc]
-      (activation fact src-desc activ args))
-     ([src-desc]
-      (activation *diamond-factory* src-desc activ args))))
+     ([fact src-provider]
+      (activation fact src-provider activ args))
+     ([src-provider]
+      (activation *diamond-factory* src-provider activ args))))
+  ([activ]
+   (activation activ nil)))
+
+(defn activ
+  "A simpler version of [[activation]]. You'll usually use this function in the network description.
+
+  Arguments:
+
+  - `activ`: keyword that determines the activation function (`:relu`, `:elu`, etc.). See [[activation]].
+  - `args`: a map of additional arguments such as `:alpha`, `:beta`, or some of
+  the technology specific options supported by the underlying engine.
+
+  See [[convolution]].
+  "
+  ([activ args]
+   (activation activ args))
   ([activ]
    (activation activ nil)))
 

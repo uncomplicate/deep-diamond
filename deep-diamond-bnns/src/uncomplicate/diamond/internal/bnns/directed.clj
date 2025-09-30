@@ -156,15 +156,15 @@
 
 (defn bnns-nop-activation-blueprint
   [fact inf-src-desc train-src-desc diff-desc]
-  (let-release [inf-src-desc (view (desc inf-src-desc))
-                train-src-desc (view (desc train-src-desc))
-                diff-desc (view (desc diff-desc))]
+  (let-release [inf-src-desc (desc inf-src-desc)
+                train-src-desc (desc train-src-desc)
+                diff-desc (desc diff-desc)]
     (->NopActivationBlueprint fact inf-src-desc train-src-desc diff-desc)))
 
 (defn bnns-activation-blueprint
   ([fact inf-desc train-desc activ alpha beta]
-   (let-release [inf-desc (view (desc inf-desc))
-                 train-desc (view (desc train-desc))]
+   (let-release [inf-desc (desc inf-desc)
+                 train-desc (desc train-desc)]
      (with-release [activ-fn (activation activ alpha beta)
                     inf-params (activation-params activ-fn inf-desc)
                     train-params (activation-params activ-fn train-desc)]

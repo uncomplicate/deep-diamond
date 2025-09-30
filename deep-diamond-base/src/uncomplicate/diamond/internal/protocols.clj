@@ -67,8 +67,11 @@
   creates blueprints for common layers such as fully connected layers,
   convolutions, batch normalization, etc.
   "
-  (activ-blueprint [this src-desc activ alpha beta]
+  (activ-op-blueprint [this src-desc activ alpha beta]
     "Create technology specific activation blueprint from `src-desc`,
+     `activ` keyword, `alpha`, and `beta` scalar parameters.")
+  (activ-blueprint [this src-provider activ alpha beta]
+    "Create technology specific activation layer blueprint from `src-provider`,
      `activ` keyword, `alpha`, and `beta` scalar parameters.")
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     "Create technology specific inner product blueprint with input `src-desc`,

@@ -351,9 +351,9 @@
 
 (defn cudnn-activ-blueprint
   ([fact inf-desc train-desc diff-desc activ coef]
-   (let [inf-desc (desc inf-desc)
-         train-desc (desc train-desc)
-         diff-desc (desc diff-desc)]
+   (let-release [inf-desc (desc inf-desc)
+                 train-desc (desc train-desc)
+                 diff-desc (desc diff-desc)]
      (case activ
        :identity (->NopActivationBlueprint fact inf-desc train-desc diff-desc)
        :softmax (->CUDnnSoftmaxBlueprint fact inf-desc train-desc diff-desc)

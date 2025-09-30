@@ -20,11 +20,12 @@
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* output shape data-type layout]]
             [uncomplicate.diamond.internal
-             [protocols
-              :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider CostFactory
-                      DnnFactory RnnFactory NeanderthalFactoryProvider diamond-factory]]
+             [protocols :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider CostFactory
+                                DnnFactory RnnFactory NeanderthalFactoryProvider diamond-factory
+                                inf-desc train-desc diff-desc]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
+            [uncomplicate.diamond.internal.neanderthal.directed :refer [->ActivationLayerBlueprint]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims primitive-cache-capacity!]]
@@ -97,8 +98,15 @@ Please contribute towards making it possible, or use on of the supported types."
       (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))]
         (dnnl-tensor* this td buf n-index true))))
   DnnFactory
-  (activ-blueprint [this src-desc activ alpha beta]
-    (dnnl-activ-blueprint this eng src-desc activ alpha beta))
+  (activ-op-blueprint [this desc-provider activ alpha beta]
+    (dnnl-activ-blueprint this eng
+                          (inf-desc desc-provider) (train-desc desc-provider)
+                          (diff-desc desc-provider) activ alpha beta))
+  (activ-blueprint [this desc-provider activ alpha beta]
+    (let-release [activ-bluep (dnnl-activ-blueprint this eng
+                                                    (inf-desc desc-provider) (train-desc desc-provider)
+                                                    (diff-desc desc-provider) activ alpha beta)]
+      (->ActivationLayerBlueprint this activ-bluep)))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]

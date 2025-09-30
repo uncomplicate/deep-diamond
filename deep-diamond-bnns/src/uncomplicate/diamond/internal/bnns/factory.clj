@@ -22,13 +22,14 @@
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* output shape data-type layout]]
             [uncomplicate.diamond.internal
-             [protocols
-              :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider CostFactory
-                      DnnFactory RnnFactory NeanderthalFactoryProvider diamond-factory
-                      create-tensor-desc]]
+             [protocols :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider
+                                CostFactory DnnFactory RnnFactory NeanderthalFactoryProvider
+                                diamond-factory create-tensor-desc
+                                inf-desc train-desc diff-desc]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
-            [uncomplicate.diamond.internal.neanderthal.directed :refer [neanderthal-fc-blueprint]]
+            [uncomplicate.diamond.internal.neanderthal.directed
+             :refer [neanderthal-fc-blueprint ->ActivationLayerBlueprint]]
             [uncomplicate.diamond.internal.bnns
              [protocols :refer [desc]]
              [core :refer [nda-desc dims]]
@@ -84,7 +85,21 @@ Please contribute towards making it possible, or use on of the supported types."
                          (mapped-buffer channel offset-bytes size flag))]
         (bnns-tensor this (create-tensor-desc this td) buf n-index true))))
   DnnFactory
-  (activ-blueprint [this src-desc activ alpha beta]
+  (activ-op-blueprint [this desc-provider activ alpha beta]
+    (bnns-activ-blueprint this
+                          (view (inf-desc desc-provider))
+                          (view (train-desc desc-provider))
+                          (view (diff-desc desc-provider))
+                          activ coef))
+  (activ-blueprint [this desc-provider activ alpha beta]
+    (let-release [activ-bluep (bnns-activ-blueprint
+                               this
+                               (view (inf-desc desc-provider))
+                               (view (train-desc desc-provider))
+                               (view (diff-desc desc-provider))
+                               activ coef)]
+      (->ActivationLayerBlueprint this activ-bluep)))
+  (activ-op-blueprint [this src-desc activ alpha beta]
     (bnns-activ-blueprint this src-desc activ alpha beta))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dragan-says-ex "BNNS engine does not implement the inner product blueprint."))

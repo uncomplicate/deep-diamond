@@ -33,8 +33,8 @@
              [protocols
               :refer [TensorFactory DiamondFactoryProvider create-tensor create-tensor-desc
                       diamond-factory neanderthal-factory tensor-engine native-diamond-factory
-                      Offset offset DiffTransfer diff-input diff-output BatchDescriptor
-                      batch-index]]
+                      Offset offset DiffTransfer diff-input diff-output DescriptorProvider
+                      BatchDescriptor batch-index]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :as dnnl]
@@ -438,6 +438,13 @@
     (AFn/applyToHelper this xs))
   DescProvider
   (desc [_]
+    cu-desc)
+  DescriptorProvider
+  (inf-desc [_]
+    cu-desc)
+  (train-desc [_]
+    cu-desc)
+  (diff-desc [_]
     cu-desc)
   TensorDescriptor
   (shape [_]

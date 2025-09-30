@@ -25,11 +25,13 @@
             [uncomplicate.diamond.tensor :refer [shape data-type layout output]]
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
-                                CostFactory DnnFactory RnnFactory batch-index]]
+                                CostFactory DnnFactory RnnFactory batch-index
+                                inf-desc train-desc diff-desc]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            [uncomplicate.diamond.internal.neanderthal.directed :refer [neanderthal-fc-blueprint]]
+            [uncomplicate.diamond.internal.neanderthal.directed
+             :refer [neanderthal-fc-blueprint ->ActivationLayerBlueprint]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
              [core :refer [cudnn-context get-cudnn-stream ndims dims
@@ -374,8 +376,19 @@ Please contribute towards making it possible, or use on of the supported types."
     (or (get tensor-engines dtype)
         (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
   DnnFactory
-  (activ-blueprint [this src-desc activ coef _]
-    (cudnn-activ-blueprint this src-desc activ coef))
+  (activ-op-blueprint [this desc-provider activ coef _]
+    (cudnn-activ-blueprint this
+                           (view (inf-desc desc-provider))
+                           (view (train-desc desc-provider))
+                           (view (diff-desc desc-provider))
+                           activ coef))
+  (activ-blueprint [this desc-provider activ coef _]
+    (let-release [activ-bluep (cudnn-activ-blueprint
+                               this (view (inf-desc desc-provider))
+                               (view (train-desc desc-provider))
+                               (view (diff-desc desc-provider))
+                               activ coef)]
+      (->ActivationLayerBlueprint this activ-bluep)))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dragan-says-ex "cuDNN engine does not implement the inner product blueprint."))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]

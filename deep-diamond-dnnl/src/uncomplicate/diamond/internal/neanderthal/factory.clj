@@ -19,12 +19,13 @@
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider vector-engine]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* output data-type]]
             [uncomplicate.diamond.internal
-             [protocols
-              :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider
-                      CostFactory DnnFactory NeanderthalFactoryProvider]]
+             [protocols :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider
+                                CostFactory DnnFactory NeanderthalFactoryProvider
+                                inf-desc train-desc diff-desc]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.neanderthal.directed
-             :refer [neanderthal-fc-blueprint neanderthal-gaussian-dropout-blueprint]]
+             :refer [neanderthal-fc-blueprint neanderthal-gaussian-dropout-blueprint
+                     ->ActivationLayerBlueprint]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [DescProvider desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims]]
@@ -90,8 +91,17 @@ Please contribute towards making it possible, or use on of the supported types."
       (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))]
         (dnnl-tensor* this td buf n-index true))))
   DnnFactory
-  (activ-blueprint [this src-desc activ alpha beta]
-    (dnnl-activ-blueprint this eng src-desc activ alpha beta))
+  (activ-op-blueprint [this desc-provider activ alpha beta]
+    (dnnl-activ-blueprint this eng (view (inf-desc desc-provider))
+                          (view (train-desc desc-provider))
+                          (view (diff-desc desc-provider))
+                          activ alpha beta))
+  (activ-blueprint [this desc-provider activ alpha beta]
+    (let-release [activ-bluep (dnnl-activ-blueprint this eng (view (inf-desc desc-provider))
+                                                    (view (train-desc desc-provider))
+                                                    (view (diff-desc desc-provider))
+                                                    activ alpha beta)]
+      (->ActivationLayerBlueprint this activ-bluep)))
   (inner-product-blueprint [this src-desc dst-desc weights-type]
     (dnnl-inner-product-blueprint this eng src-desc dst-desc weights-type))
   (fc-blueprint [this src-desc dst-desc activ alpha beta weights-type]

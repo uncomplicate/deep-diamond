@@ -312,12 +312,12 @@
 
 (declare eval-layer)
 
-(defn sequential-network [fact src-desc layers]
+(defn sequential-network [fact desc-provider layers]
   (let-release [layers (reduce (fn [lrs layer]
                                  (conj lrs (eval-layer fact (peek lrs) layer)))
-                               [(eval-layer fact src-desc (first layers))]
+                               [(eval-layer fact desc-provider (first layers))]
                                (rest layers))]
-    (->SequentialNetworkBlueprint fact src-desc layers
+    (->SequentialNetworkBlueprint fact desc-provider layers
                                   (apply max (map inf-ws-size layers))
                                   (apply max (map train-ws-size layers)))))
 
@@ -570,16 +570,16 @@
   [nn ^java.io.Writer w]
   (.write w (str nn)))
 
-(defn parallel-network [fact src-descs parallel-layers]
-  (let-release [layers (mapv (partial sequential-network fact) src-descs parallel-layers)]
-    (->ParallelNetworkBlueprint fact src-descs layers
+(defn parallel-network [fact desc-providers parallel-layers]
+  (let-release [layers (mapv (partial sequential-network fact) desc-providers parallel-layers)]
+    (->ParallelNetworkBlueprint fact desc-providers layers
                                 (apply max (map inf-ws-size layers))
                                 (apply max (map train-ws-size layers)))))
 
-(defn eval-layer [fact src-desc layer]
+(defn eval-layer [fact desc-provider layer]
   (if (sequential? layer)
-    (parallel-network fact (if (sequential? src-desc) src-desc (train-desc src-desc)) layer)
-    (layer fact src-desc)))
+    (parallel-network fact (if (sequential? desc-provider) desc-provider (train-desc desc-provider)) layer)
+    (layer fact desc-provider)))
 
 (defmethod transfer! [ParallelNetworkInference Object]
   [source destination]
