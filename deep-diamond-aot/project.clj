@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.39.0"
+(defproject uncomplicate/deep-diamond "0.39.1"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -15,11 +15,11 @@
   :dependencies [[org.clojure/clojure "1.12.3"]
                  [org.uncomplicate/neanderthal-base "0.57.0"]
                  [org.uncomplicate/neanderthal-mkl "0.57.1"]
-                 [org.uncomplicate/neanderthal-cuda "0.58.0"]
+                 [org.uncomplicate/neanderthal-cuda "0.58.1"]
                  [org.uncomplicate/neanderthal-accelerate "0.57.0"]
                  [org.uncomplicate/deep-diamond-base "0.39.0"]
                  [org.uncomplicate/deep-diamond-dnnl "0.39.0"]
-                 [org.uncomplicate/deep-diamond-cuda "0.39.0"]
+                 [org.uncomplicate/deep-diamond-cuda "0.39.1"]
                  [org.uncomplicate/deep-diamond-bnns "0.39.0"]]
 
   :aot [uncomplicate.neanderthal.internal.cpp.structures
@@ -54,24 +54,21 @@
                                             uncomplicate.diamond.internal.dnnl.core
                                             uncomplicate.diamond.internal.dnnl.constants]
                                :output-path "../docs/codox"}}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
-                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                    [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "linux-x86_64-redist"]
-                                    [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "linux-x86_64-redist-cublas"]
-                                    [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "linux-x86_64-redist-cudnn"]]
+             :linux {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
+                                    [org.bytedeco/cuda-redist "12.9-9.10-1.5.12" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-cublas "12.9-9.10-1.5.12" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-cudnn "12.9-9.10-1.5.12" :classifier "linux-x86_64"]]
                      :codox {:namespaces [uncomplicate.diamond.internal.cudnn.core
                                           uncomplicate.diamond.internal.cudnn.constants]
                              :source-paths ["../deep-diamond-cuda/src/clojure/"]}}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
-                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
-                                      [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "windows-x86_64-redist"]
-                                      [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "windows-x86_64-redist-cublas"]
-                                      [org.bytedeco/cuda "12.9-9.10-1.5.13-20250913.041224-9" :classifier "windows-x86_64-redist-cudnn"]]
+             :windows {:dependencies [[org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
+                                      [org.bytedeco/cuda-redist "12.9-9.10-1.5.12" :classifier "windows-x86_64"]
+                                      [org.bytedeco/cuda-redist-cublas "12.9-9.10-1.5.12" :classifier "windows-x86_64"]
+                                      [org.bytedeco/cuda-redist-cudnn "12.9-9.10-1.5.12" :classifier "windows-x86_64"]]
                        :codox {:namespaces [uncomplicate.diamond.internal.cudnn.core
                                             uncomplicate.diamond.internal.cudnn.constants]
                                :source-paths ["../deep-diamond-cuda/src/clojure/"]}}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
-                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
+             :macosx {:dependencies [[org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
                       :codox {:namespaces [uncomplicate.diamond.internal.bnns.core
                                            uncomplicate.diamond.internal.constants.constants]
                               :source-paths ["../deep-diamond-bnns/src"]}}}
