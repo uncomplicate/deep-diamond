@@ -476,11 +476,13 @@ Please contribute towards making it possible, or use on of the supported types."
     (let-release [cudnn-hdl (cudnn-context hstream)
                   hstream (get-cudnn-stream cudnn-hdl)]
       (create-cudnn-factory ctx hstream cudnn-hdl false))))
+  ([hstream]
+   (let-release [cudnn-hdl (cudnn-context hstream)]
+     (create-cudnn-factory (current-context) default-stream cudnn-hdl true)))
   ([]
    (init)
    (let-release [ctx (context (device))]
      (in-context
       ctx
-      (let-release [hstream (stream)
-                    cudnn-hdl (cudnn-context hstream)]
-        (create-cudnn-factory ctx hstream cudnn-hdl true))))))
+      (let-release [cudnn-hdl (cudnn-context default-stream)]
+        (create-cudnn-factory ctx default-stream cudnn-hdl true))))))

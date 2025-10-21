@@ -54,7 +54,7 @@
 
 ;; "Elapsed time: 52966.299469 msecs"
 ;; "Elapsed time: 33227.93959 msecs" with new DNNL 2025...
-;; "Elapsed time: 17423.55197 msecs" with DNNL 7.7.3!
+;; "Elapsed time: 17423.55197 msecs" with DNNL 2.7.3!
 
 (with-diamond cudnn-factory []
   (with-release [x-mb-tz (tensor [128 1 28 28] :float :nchw)
