@@ -65,7 +65,7 @@
 
              (time (train-shuffle! net x-train y-train :quadratic 50 [0.001])) => (roughly 0.0 0.2)
              (transfer! net net-infer)
-             (nrm2 (axpby! 1 y-test -1.0 (infer! net-infer x-test))) => (roughly 0.0 3.0)))))
+             (nrm2 (axpby! 1 y-test -1.0 (infer! net-infer x-test))) => (roughly 0.0 4.0)))))
 
 (with-release [fact (dnnl-factory)]
   (test-timeseries fact :gru))

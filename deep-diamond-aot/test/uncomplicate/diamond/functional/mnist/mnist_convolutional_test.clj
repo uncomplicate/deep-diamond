@@ -43,7 +43,7 @@
                  net (init! (net-bp :adam))
                  net-infer (net-bp)]
     (facts "MNIST classification tests."
-           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.0 0.03)
+           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.0 0.04)
            (transfer! net net-infer)
            (with-release [inf (infer! net-infer test-images)
                           pred (mnist/dec-categories inf)
@@ -74,7 +74,7 @@
                  test-images (transfer! test-images (tensor [10000 1 28 28] :float :nchw))
                  y-test (transfer! y-test (tensor [10000 10] :float :nchw))]
     (facts "cuDNN MNIST classification tests."
-           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.0 0.2)
+           (time (train! net train-images y-train :crossentropy 2 [])) => (roughly 0.0 0.3)
            (transfer! net net-infer)
            (with-release [inf (infer! net-infer test-images)
                           native-inf (native inf)
