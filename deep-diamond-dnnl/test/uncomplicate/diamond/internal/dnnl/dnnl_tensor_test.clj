@@ -27,7 +27,8 @@
      (dim t0) => 0
      (dim tnc) => 6
      (view-vctr non-contiguous-tensor) => (throws ExceptionInfo)
-     (tensor fact [2 3] :double :nc) => (throws ExceptionInfo)
+     (with-release [t1 (tensor fact [2 3 2 2] :double :nchw)]
+       (dim t1) => 24)
      (tensor fact [2 3] :int :nc) => truthy
      (tensor fact [2 3] :long :nc) => (throws ExceptionInfo))))
 

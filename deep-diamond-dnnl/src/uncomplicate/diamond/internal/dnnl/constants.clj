@@ -226,22 +226,30 @@
 
 (defn dec-data-type [^long data-type]
   (case data-type
-    3 :float
-    1 :half
+    1 :float16
     2 :bf16
+    3 :float
     4 :int
     5 :byte
     6 :uint8
+    7 :double
     0 :undef
     (dragan-says-ex "Unknown data type." {:data-type data-type})))
 
 (def ^:const dnnl-data-type
-  {:float dnnl/dnnl_f32
+  {:double dnnl/dnnl_f64
+   :float64 dnnl/dnnl_f64
+   :f64 dnnl/dnnl_f64
+   Double/TYPE dnnl/dnnl_f64
+   Double dnnl/dnnl_f64
+   :float dnnl/dnnl_f32
+   :float32 dnnl/dnnl_f32
+   :f32 dnnl/dnnl_f32
    Float/TYPE dnnl/dnnl_f32
    Float dnnl/dnnl_f32
    :half dnnl/dnnl_f16
-   :f16 dnnl/dnnl_f16
    :float16 dnnl/dnnl_f16
+   :f16 dnnl/dnnl_f16
    :bf16 dnnl/dnnl_bf16
    :bfloat16 dnnl/dnnl_bf16
    :int dnnl/dnnl_s32
@@ -307,7 +315,13 @@
 
 (defn entry-bytes ^long [data-type]
   (case data-type
+    :double Double/BYTES
+    :float64 Double/BYTES
+    :f64 Double/BYTES
     :float Float/BYTES
+    :float32 Float/BYTES
+    :f32 Float/BYTES
+    :float16 2
     :half 2
     :f16 2
     :bf16 2

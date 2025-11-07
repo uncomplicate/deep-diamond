@@ -18,7 +18,7 @@
 (defn dec-data-type [^long data-type]
   (case data-type
     65568 :float
-    65552 :half
+    65552 :float16
     98320 :bf16
     131104 :int
     131080 :byte
@@ -30,9 +30,11 @@
 
 (def ^:const bnns-data-type
   {:float bnns/BNNSDataTypeFloat32
+   :float32 bnns/BNNSDataTypeFloat32
    Float/TYPE bnns/BNNSDataTypeFloat32
    Float bnns/BNNSDataTypeFloat32
    :half bnns/BNNSDataTypeFloat16
+   :float16 bnns/BNNSDataTypeFloat16
    :f16 bnns/BNNSDataTypeFloat16
    :bf16 bnns/BNNSDataTypeBFloat16
    :int bnns/BNNSDataTypeInt32
@@ -50,6 +52,8 @@
 
 (def ^:const bnns-data-type-size
   {:float 4
+   :float32 4
+   :float16 2
    :half 2
    :f16 2
    :bf16 2
@@ -73,13 +77,16 @@
   (or (type-pointer t)
       (case t
         65568 float-pointer
+        :float float-pointer
+        :float32 float-pointer
         :half short-pointer
+        :float16 short-pointer
         65552 short-pointer
         :f16 short-pointer
         :bf16 short-pointer
         131104 int-pointer
         Integer int-pointer
-  o131080 byte-pointer
+        131080 byte-pointer
         Byte/TYPE byte-pointer
         Byte byte-pointer
         :u8 byte-pointer

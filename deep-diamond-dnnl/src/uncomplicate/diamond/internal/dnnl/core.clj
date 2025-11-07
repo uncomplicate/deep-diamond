@@ -9,7 +9,7 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.dnnl.core
   (:require [uncomplicate.commons
-             [core :refer [let-release with-release view Info bytesize size]]
+             [core :refer [let-release with-release view Info bytesize size info]]
              [utils :refer [enc-keyword dragan-says-ex mask]]]
             [uncomplicate.fluokitten.protocols :refer [extract]]
             [uncomplicate.clojure-cpp
@@ -193,14 +193,14 @@
      (info
        ([this# info-type#]
         (case info-type#
-          :class (class this#)
+          :class (info (class this#))
           :device :cpu
           :shape (dims this#)
           :data-type (data-type this#)
           :strides (strides this#)
           nil))
        ([this#]
-        {:class (class this#)
+        {:class (info (class this#))
          :device :cpu
          :shape (dims this#)
          :data-type (data-type this#)

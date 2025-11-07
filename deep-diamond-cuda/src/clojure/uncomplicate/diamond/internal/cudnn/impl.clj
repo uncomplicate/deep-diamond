@@ -82,14 +82,14 @@
      (info
        ([this# info-type#]
         (case info-type#
-          :class (class this#)
+          :class (info (class this#))
           :device :cuda
           :shape (.-dims this#)
           :data-type (.-data-type this#)
           :layout (.-layout this#)
           nil))
        ([this#]
-        {:class (class this#)
+        {:class (info (class this#))
          :device :cuda
          :shape (.-dims this#)
          :data-type (.-data-type this#)
@@ -132,7 +132,7 @@
                    dims (int-pointer cudnn/CUDNN_DIM_MAX)
                    strides (int-pointer cudnn/CUDNN_DIM_MAX)
                    nbdims (get-tensor-nd-descriptor* td data-type dims strides)]
-      {:class (class td)
+      {:class (info (class td))
        :device :cuda
        :shape (vec (take nbdims (pointer-seq dims)))
        :data-type (dec-data-type (get-entry data-type 0))
@@ -340,7 +340,7 @@
                    format (int-pointer 1)
                    dims (int-pointer cudnn/CUDNN_DIM_MAX)
                    nbdims (get-filter-nd-descriptor* fd data-type format dims)]
-      {:class (class fd)
+      {:class (info (class fd))
        :device :cuda
        :shape (vec (take nbdims (pointer-seq dims)))
        :data-type (dec-data-type (get-entry data-type 0))

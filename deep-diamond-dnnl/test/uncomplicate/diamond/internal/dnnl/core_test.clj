@@ -47,7 +47,7 @@
          (dims md) => dimensions
          (strides md) => strds
          (bytesize md) => (* (long (first strds)) (long (first dimensions)) Float/BYTES)
-         (memory-desc [1 1] :f64 [1 1]) => (throws ExceptionInfo)
+         (memory-desc [1 1] :f128 [1 1]) => (throws ExceptionInfo)
          (data-type (memory-desc [1 1])) => :float
          (dims (memory-desc [2 3])) => [2 3]
          (strides (memory-desc [2 3])) => [0 0]

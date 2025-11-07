@@ -61,11 +61,17 @@
 
 (def ^:const cudnn-data-type
   {:float cudnn/CUDNN_DATA_FLOAT
+   :float32 cudnn/CUDNN_DATA_FLOAT
+   :f32 cudnn/CUDNN_DATA_FLOAT
    Float/TYPE cudnn/CUDNN_DATA_FLOAT
    Float cudnn/CUDNN_DATA_FLOAT
    :double cudnn/CUDNN_DATA_DOUBLE
+   :float64 cudnn/CUDNN_DATA_DOUBLE
+   :f64 cudnn/CUDNN_DATA_DOUBLE
    Double/TYPE cudnn/CUDNN_DATA_DOUBLE
    Double cudnn/CUDNN_DATA_DOUBLE
+   :float16 cudnn/CUDNN_DATA_HALF
+   :f16 cudnn/CUDNN_DATA_HALF
    :half cudnn/CUDNN_DATA_HALF
    :int8 cudnn/CUDNN_DATA_INT8
    :byte cudnn/CUDNN_DATA_INT8
@@ -97,12 +103,17 @@
 (defn data-type-width ^long [data-type]
   (case data-type
     :float 4
+    :float32 4
+    :f32 4
     Float/TYPE 4
     Float 4
     :double 8
+    :float32 8
+    :f32 8
     Double/TYPE 8
     Double 8
     :half 2
+    :float16 2
     :byte 1
     Byte/TYPE 1
     Byte 1

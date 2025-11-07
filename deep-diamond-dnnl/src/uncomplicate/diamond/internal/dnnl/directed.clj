@@ -1299,11 +1299,11 @@
     (str bluep))
   Info
   (info [this]
-    {:dst (map info dst-tzs)
+    {:dst (fmap info dst-tzs)
      :src (info src-tz)})
   (info [this info-type]
     (case info-type
-      :dst (map info dst-tzs)
+      :dst (fmap info dst-tzs)
       :src (info src-tz)
       nil))
   DiamondFactoryProvider
@@ -1354,11 +1354,11 @@
     (str bluep))
   Info
   (info [this]
-    {:dst (map info dst-tzs)
+    {:dst (fmap info dst-tzs)
      :src (info src-tz)})
   (info [this info-type]
     (case info-type
-      :dst (map info dst-tzs)
+      :dst (fmap info dst-tzs)
       :src (info src-tz)
       nil))
   DiamondFactoryProvider
@@ -1503,11 +1503,11 @@
     (str bluep))
   Info
   (info [this]
-    {:src (map info src-tzs)
+    {:src (fmap info src-tzs)
      :dst (info dst-tz)})
   (info [this info-type]
     (case info-type
-      :src (map info src-tzs)
+      :src (fmap info src-tzs)
       :dst (info dst-tz)
       nil))
   DiamondFactoryProvider
@@ -1558,11 +1558,11 @@
     (str bluep))
   Info
   (info [this]
-    {:src (map info src-tzs)
+    {:src (fmap info src-tzs)
      :dst (info dst-tz)})
   (info [this info-type]
     (case info-type
-      :src (map info src-tzs)
+      :src (fmap info src-tzs)
       :dst (info dst-tz)
       nil))
   DiamondFactoryProvider
@@ -1629,11 +1629,11 @@
              :topology :concat}))
   Info
   (info [this]
-    {:src (map info src-descs)
+    {:src (fmap info src-descs)
      :dst (info dst-desc)})
   (info [this info-type]
     (case info-type
-      :src (map info src-descs)
+      :src (fmap info src-descs)
       :dst (info dst-desc)
       nil))
   DiamondFactoryProvider
@@ -1896,10 +1896,10 @@
     (str bluep))
   Info
   (info [this]
-    {:src (map info src-tzs)})
+    {:src (fmap info src-tzs)})
   (info [this info-type]
     (case info-type
-      :src (map info src-tzs)
+      :src (fmap info src-tzs)
       nil))
   DiamondFactoryProvider
   (diamond-factory [_]

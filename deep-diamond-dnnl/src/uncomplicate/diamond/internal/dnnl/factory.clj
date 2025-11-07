@@ -13,7 +13,7 @@
              [utils :refer [dragan-says-ex mapped-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal
-             [native :refer [factory-by-type native-float native-int native-byte]]
+             [native :refer [factory-by-type native-float native-double native-int native-byte]]
              [block :refer [create-data-source buffer initialize!]]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider vector-engine]]
             [uncomplicate.neanderthal.internal.cpp.lapack :refer [with-lapack-check]]
@@ -159,6 +159,7 @@ Please contribute towards making it possible, or use on of the supported types."
 (defn dnnl-factory
   ([eng strm]
    (->DnnlFactory eng strm false {:float (vector-engine native-float)
+                                  :double (vector-engine native-double)
                                   :int (vector-engine native-int)
                                   :byte (vector-engine native-byte)
                                   :uint8 (vector-engine native-byte)}))
@@ -166,6 +167,7 @@ Please contribute towards making it possible, or use on of the supported types."
    (let-release [eng (engine)
                  strm (stream eng)]
      (->DnnlFactory eng strm true {:float (vector-engine native-float)
+                                   :double (vector-engine native-double)
                                    :int (vector-engine native-int)
                                    :byte (vector-engine native-byte)
                                    :uint8 (vector-engine native-byte)}))))

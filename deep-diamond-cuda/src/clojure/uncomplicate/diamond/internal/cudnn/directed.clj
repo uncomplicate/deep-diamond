@@ -1732,10 +1732,10 @@
     (str bluep))
   Info
   (info [this]
-    {:src (map info src-tzs)})
+    {:src (fmap info src-tzs)})
   (info [this info-type]
     (case info-type
-      :src (map info src-tzs)
+      :src (fmap info src-tzs)
       nil))
   DiamondFactoryProvider
   (diamond-factory [_]
