@@ -14,7 +14,7 @@
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.protocols :refer [Comonad extract]]
             [uncomplicate.clojure-cpp :refer [pointer byte-pointer capacity position!]]
-            [uncomplicate.clojurecuda.core :refer [memcpy-to-host! cuda-malloc]]
+            [uncomplicate.clojurecuda.core :refer [memcpy-to-host! cuda-malloc cuda-free!]]
             [uncomplicate.neanderthal
              [core :refer [transfer! dim vctr copy! native]]
              [block :refer [entry-width buffer data-accessor create-data-source cast-prim contiguous?]]]
@@ -38,7 +38,7 @@
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :as dnnl]
-             [core :as dnnl-core :refer [memory-desc]]
+             [core :refer [memory-desc]]
              [tensor :refer []]]
             [uncomplicate.diamond.internal.cudnn
              [core :refer [tensor-descriptor equal-desc? dims strides transform-tensor]]
@@ -118,9 +118,12 @@
     (if (or (cudnn-format format)
             (and (sequential? format) (<= 4 (count format)) (= (count format) (count shape))))
       (tensor-descriptor shape dtype format)
-      (with-release [md (memory-desc shape dtype format)]
-        (let [padding-4 (repeat (- 4 (count shape)) 1)]
-          (tensor-descriptor (into shape padding-4) dtype (into (layout md) padding-4)))))))
+      (let [padding-4 (repeat (- 4 (count shape)) 1)]
+        (let [lyout (if (keyword? format)
+                      (with-release [md (memory-desc shape dtype format)]
+                        (layout md))
+                      format)]
+          (tensor-descriptor (into shape padding-4) dtype (into lyout padding-4)))))))
 
 (extend-type CUFilterDescriptor
   TensorDescriptor
@@ -511,8 +514,13 @@
    (cudnn-tensor diamond-fact master buf tdesc 0))
   ([diamond-fact tdesc n-index]
    (let [tdesc (desc tdesc)]
-     (let-release [buf (cuda-malloc (max 1 (bytesize tdesc)) (data-type tdesc))]
-       (cudnn-tensor diamond-fact true buf tdesc n-index))))
+     (let [buf (cuda-malloc (max 1 (bytesize tdesc)) (data-type tdesc))]
+       (try
+         (cudnn-tensor diamond-fact true buf tdesc n-index)
+         (catch Exception e
+           (cuda-free! buf)
+
+           (throw e))))))
   ([diamond-fact tdesc]
    (cudnn-tensor diamond-fact tdesc 0)))
 

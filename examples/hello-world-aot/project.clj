@@ -1,15 +1,15 @@
-(defproject hello-world-aot "0.40.1"
+(defproject hello-world-aot "0.41.0"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.3"]
-                 [uncomplicate/deep-diamond "0.40.1"]]
+                 [uncomplicate/deep-diamond "0.41.0"]]
 
   ;; uncomplicate/deep-diamond is AOT compiled for fast loading and developer convenience, which
   ;; might cause issues since it freezes org.clojure/core.async to the specific version (see ClojureCUDA).
 
   ;; FOR PRODUCTION USE, PLEASE USE org.uncomplicate/deep-diamond-base AND OTHER PARTICULAR DEPENDENCIES
 
-  :profiles {:default [:default/all ~(leiningen.core.utils/get-os)]
+  :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!

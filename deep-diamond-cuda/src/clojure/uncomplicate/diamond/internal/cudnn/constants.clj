@@ -108,8 +108,8 @@
     Float/TYPE 4
     Float 4
     :double 8
-    :float32 8
-    :f32 8
+    :float64 8
+    :f64 8
     Double/TYPE 8
     Double 8
     :half 2
