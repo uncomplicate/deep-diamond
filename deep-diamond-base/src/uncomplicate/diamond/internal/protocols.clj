@@ -22,11 +22,14 @@
   `dtype` (typically a keyword such as `:float`, `:int`, etc.). Most backends are
   supposed to provide these factories for Java primitive types supported by Neanderthal.
 
+  When called without `dtype`, returns the relevant Diamond backend that can treat
+  vectors and matrices as tensors.
+
   Anyway, don't forget to check out both DNNL and cuDNN implementations, AND the relevant **tests**.
   They are the final sources of truth, not these docstrings; if the docs and tests don't match,
   the tests are right, and the docstrings are wrong.
   "
-  (neanderthal-factory [this dtype] "Returns Neanderthal backend factory related to this DD object."))
+  (neanderthal-factory [this dtype] [this] "Returns Neanderthal backend factory related to this DD object."))
 
 ;; ===================== Tensor ========================================
 

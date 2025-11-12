@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-dnnl "0.41.0"
+(defproject org.uncomplicate/deep-diamond-dnnl "0.42.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -23,16 +23,16 @@
                                      *unchecked-math* :warn-on-boxed
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
-                                      [org.uncomplicate/deep-diamond-test "0.39.0"]
-                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]
-                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
-                                            "--enable-native-access=ALL-UNNAMED"]}
+                                      [org.uncomplicate/deep-diamond-test "0.39.0"]]}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]]}
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
+
+  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
+                       "--enable-native-access=ALL-UNNAMED"]
 
   :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 

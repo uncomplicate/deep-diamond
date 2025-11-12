@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-base "0.39.0"
+(defproject org.uncomplicate/deep-diamond-base "0.42.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -15,11 +15,23 @@
   :dependencies [[org.clojure/clojure "1.12.3"]
                  [org.uncomplicate/neanderthal-base "0.57.0"]]
 
-  :profiles {:dev {:global-vars {*warn-on-reflection* true
-                                 *assert* false
-                                 *unchecked-math* :warn-on-boxed
-                                 *print-length* 128}
-                   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
-                                        "--enable-native-access=ALL-UNNAMED"]}}
+  :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
+             :dev/all {:plugins [[lein-midje "3.2.1"]]
+                       :global-vars {*warn-on-reflection* true
+                                     *assert* false
+                                     *unchecked-math* :warn-on-boxed
+                                     *print-length* 128}
+                       :dependencies [[midje "1.10.10"]]
+                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
+                                            "--enable-native-access=ALL-UNNAMED"]}
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
+                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
+                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]]}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.57.0"]
+                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
+
+  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
+                       "--enable-native-access=ALL-UNNAMED"]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])

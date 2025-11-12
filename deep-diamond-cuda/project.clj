@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-cuda "0.41.0"
+(defproject org.uncomplicate/deep-diamond-cuda "0.42.0-SNAPSHOT"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -26,9 +26,7 @@
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
                                       [org.clojure/data.csv "1.1.0"]
-                                      [org.uncomplicate/deep-diamond-test "0.39.0"]]
-                       :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
-                                            "--enable-native-access=ALL-UNNAMED"]}
+                                      [org.uncomplicate/deep-diamond-test "0.39.0"]]}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.57.1"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.bytedeco/cuda-redist "13.0-9.14-1.5.13-20251022.164318-20" :classifier "linux-x86_64"]
@@ -43,6 +41,6 @@
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
 
   :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
-
+  :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "--enable-native-access=ALL-UNNAMED"]
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/device"])

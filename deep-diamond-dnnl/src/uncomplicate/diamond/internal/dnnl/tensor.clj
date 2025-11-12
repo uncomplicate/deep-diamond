@@ -277,7 +277,7 @@
 
 ;; ================================ Tensor ======================================
 
- (deftype DnnlTensor [diamond-fact neand-fact eng master tz-mem vector-view ^long nc ^long n-index]
+(deftype DnnlTensor [diamond-fact neand-fact eng master tz-mem vector-view ^long nc ^long n-index]
   Object
   (hashCode [x]
     (-> (hash :DnnlTensor) (hash-combine (hash tz-mem))))

@@ -7,9 +7,9 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns^{:author "Dragan Djuric"}
-    uncomplicate.diamond.internal.dnnl.constants
-  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
-  (:import org.bytedeco.dnnl.global.dnnl))
+  uncomplicate.diamond.internal.dnnl.constants
+   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
+   (:import org.bytedeco.dnnl.global.dnnl))
 
 (defn dec-status [^long status]
   (case status
@@ -227,7 +227,7 @@
 (defn dec-data-type [^long data-type]
   (case data-type
     1 :float16
-    2 :bf16
+    2 :bfloat16
     3 :float
     4 :int
     5 :byte
@@ -324,6 +324,7 @@
     :float16 2
     :half 2
     :f16 2
+    :bfloat16 2
     :bf16 2
     :int Integer/BYTES
     :byte 1
