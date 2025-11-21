@@ -16,8 +16,9 @@
              [tensor :refer [*diamond-factory* tensor connector transformer
                              desc revert shape input output view-tz batcher]]
              [dnn :refer [sum activation inner-product fully-connected network init! train! cost]]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
+            [uncomplicate.diamond.internal.dnnl
+             [factory :refer [dnnl-factory]]
+             [neanderthal :refer [neanderthal-tz-factory]]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce boston-housing-raw
@@ -82,7 +83,7 @@
 (with-release [fact (dnnl-factory)]
   (test-boston-regression fact))
 
-(with-release [fact (neanderthal-factory)]
+(with-release [fact (neanderthal-tz-factory)]
   (test-boston-regression fact))
 
 (with-release [fact (cudnn-factory)]

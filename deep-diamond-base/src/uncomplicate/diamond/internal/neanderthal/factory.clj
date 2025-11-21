@@ -37,10 +37,11 @@ Please contribute towards making it possible, or use on of the supported types."
 (def ^{:private true :const true} UNSUPPORTED_CONSTRUCT
   "The requested construct is not supported on the Neanderthal tensor factory.")
 
-(defrecord NeanderthalFactory [master native-diamond-fact neand-facts]
+(defrecord VectorFactory [master native-diamond-fact neand-facts]
   Releaseable
   (release [_]
     (when master
+      (release native-diamond-fact)
       (doseq [neand-fact (vals neand-facts)]
         (release neand-fact)))
     true)
@@ -50,7 +51,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (native-diamond-factory [this]
     (or native-diamond-fact this))
   NeanderthalFactoryProvider
-  (neanderthal-factory [_]
+  (neanderthal-factory [this]
     this)
   (neanderthal-factory [_ dtype]
     (or (neand-facts dtype)
@@ -77,7 +78,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-batcher [_ src-tz dst-tz mb-size]
     (dragan-says-ex UNSUPPORTED_CONSTRUCT {:construct :batcher}))
   (tensor-engine [this dtype]
-    (dragan-says-ex UNSUPPORTED_CONSTRUCT {:construct :tensor-engine}))
+    (vector-engine (neand-facts dtype)))
   ;; MappedTensorFactory
   ;; (map-channel [this channel td flag offset-bytes n-index]
   ;;   (let [size (bytesize (desc td))]
@@ -101,10 +102,10 @@ Please contribute towards making it possible, or use on of the supported types."
   ;;   (neanderthal-fc-blueprint this src-desc dst-desc activ alpha beta weights-type))
   )
 
-(defn neanderthal-factory
+(defn vector-factory
   ([master native-diamond-fact neand-facts]
-   (->NeanderthalFactory master native-diamond-fact neand-facts))
+   (->VectorFactory master native-diamond-fact neand-facts))
   ([master neand-facts]
-   (->NeanderthalFactory master nil neand-facts))
+   (->VectorFactory master nil neand-facts))
   ([]
-   (->NeanderthalFactory false nil factory-by-type)))
+   (->VectorFactory false nil factory-by-type)))

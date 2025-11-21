@@ -25,13 +25,14 @@
             [uncomplicate.diamond.tensor :refer [shape data-type layout output]]
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
-                                CostFactory DnnFactory RnnFactory batch-index
+                                neanderthal-factory CostFactory DnnFactory RnnFactory batch-index
                                 inf-desc train-desc diff-desc]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            [uncomplicate.diamond.internal.neanderthal.directed
-             :refer [neanderthal-fc-blueprint ->ActivationLayerBlueprint]]
+            [uncomplicate.diamond.internal.neanderthal
+             [directed :refer [neanderthal-fc-blueprint ->ActivationLayerBlueprint]]
+             [factory :refer [vector-factory]]]
             [uncomplicate.diamond.internal.cudnn
              [protocols :refer [HandleProvider desc]]
              [core :refer [cudnn-context get-cudnn-stream ndims dims
@@ -321,13 +322,12 @@ Please contribute towards making it possible, or use on of the supported types."
 
 (deftype CUDnnFactory [ctx hstream cudnn-hdl master
                        native-diamond-fact
-                       neand-facts tensor-engines]
+                       vect-fact tensor-engines]
   Releaseable
   (release [_]
     (in-context
      ctx
-     (doseq [neand-fact (vals neand-facts)]
-       (release neand-fact))
+     (release vect-fact)
      (doseq [eng (vals tensor-engines)]
        (release eng))
      (release cudnn-hdl))
@@ -348,9 +348,10 @@ Please contribute towards making it possible, or use on of the supported types."
   (handle [_]
     cudnn-hdl)
   NeanderthalFactoryProvider
+  (neanderthal-factory [_]
+    vect-fact)
   (neanderthal-factory [_ dtype]
-    (or (get neand-facts dtype)
-        (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
+    (neanderthal-factory vect-fact dtype))
   TensorFactory
   (create-tensor-desc [this shape dtype format]
     (cudnn-tensor-desc shape dtype format))
@@ -449,6 +450,13 @@ Please contribute towards making it possible, or use on of the supported types."
                   long-fact (cuda-long ctx hstream)
                   int-fact (cuda-int ctx hstream)
                   byte-fact (cuda-byte ctx hstream)
+                  vect-fact (vector-factory true (vector-factory)
+                                            {:float float-fact
+                                             :double double-fact
+                                             :long long-fact
+                                             :int int-fact
+                                             :byte byte-fact
+                                             :uint8 byte-fact})
                   float-engine (->TensorEngine cudnn-hdl float-modl hstream float)
                   double-engine (->TensorEngine cudnn-hdl double-modl hstream double)
                   long-engine (->TensorEngine cudnn-hdl long-modl hstream long)
@@ -456,12 +464,7 @@ Please contribute towards making it possible, or use on of the supported types."
                   byte-engine (->TensorEngine cudnn-hdl byte-modl hstream byte)]
       (->CUDnnFactory ctx hstream cudnn-hdl master
                       native-diamond-fact
-                      {:float float-fact
-                       :double double-fact
-                       :long long-fact
-                       :int int-fact
-                       :byte byte-fact
-                       :uint8 byte-fact}
+                      vect-fact
                       {:float float-engine
                        :double double-engine
                        :int int-engine

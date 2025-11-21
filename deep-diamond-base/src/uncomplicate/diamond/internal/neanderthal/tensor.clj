@@ -9,9 +9,10 @@
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.neanderthal.tensor
   (:require [uncomplicate.commons ;;TODO clean up requires
-             [core :refer [let-release with-release]]
+             [core :refer [let-release with-release view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.neanderthal
+             [core :refer [mrows ncols]]
              [block :refer [column? entry-type stride data-accessor buffer]]]
             [uncomplicate.neanderthal.internal.api
              :refer [factory native-factory create-vector create-ge]]
@@ -28,6 +29,33 @@
   (and (= (shape td1) (shape td2))
        (= (data-type td1) (data-type td2))
        (= (layout td1) (layout td2))))
+
+(defn neanderthal-tensor
+  ([fact shape layout init]
+   (let [fact (factory fact)]
+     (let [[m n k] shape]
+       (cond k (dragan-says-ex "Matrices can't support more than 2 dimensions." {:requested shape})
+             n (cond
+                 (or (not layout) (#{:nc :ab :oi} layout)) (create-ge fact m n false init)
+                 (#{:cn :ba :io} layout) (create-ge fact m n true init)
+                 :default
+                 (let [[sm sn] layout]
+                   (cond
+                     (= 1 sn) (create-ge fact m n false init)
+                     (= m sn) (create-ge fact m n true init)
+                     :default (dragan-says-ex "Matrices do not support non-dense tensor strides." {:requested sn :required m}))))
+             m (if (or (not layout) (#{:x :a [1]} layout))
+                 (create-vector fact (get shape 0) init)
+                 (dragan-says-ex "Vector as a tensor should not be strided." {:requested shape}))
+             :default (dragan-says-ex "Vectors can't support 0 dimensions." {:requested shape})))))
+  ([fact shape init]
+   (let [fact (factory fact)]
+     (case (count shape)
+       1 (create-vector fact (get shape 0) init)
+       2 (create-ge fact (get shape 0) (get shape 1) false init)
+       (dragan-says-ex "Vectors and matrices only support 1 or 2 dimensions." {:requested shape}))))
+  ([fact shape]
+   (neanderthal-tensor fact shape true)))
 
 (extend-type VectorSpace
   Revert
@@ -55,7 +83,12 @@
     0)
   TensorContainer
   (view-tz [this]
-    this))
+    this)
+  ConnectorCreator
+  (connector [in-tz out-desc]
+    (if (equal-desc? in-tz out-desc)
+      (view in-tz)
+      (dragan-says-ex "Heterogeneous connectors are not supported for plain VectorSpaces."))))
 
 (extend-type Vector
   TensorDescriptor
@@ -69,36 +102,10 @@
 (extend-type GEMatrix
   TensorDescriptor
   (shape [this]
-    [(.mrows this) (.ncols this)])
+    [(mrows this) (ncols this)])
   (data-type [this]
     (data-type-dec (entry-type (data-accessor this))))
   (layout [this]
     (if (column? this)
       [1 (stride this)]
       [(stride this) 1])))
-
-(defn neanderthal-tensor
-  ([neand-fact shape layout init]
-   (let [fact (factory neand-fact)]
-     (let [[m n k] shape]
-       (cond k (dragan-says-ex "Matrices can't support more than 2 dimensions." {:requested shape})
-             n (cond
-                 (or (not layout) (#{:nc :ab :oi} layout)) (create-ge neand-fact m n false init)
-                 (#{:cn :ba :io} layout) (create-ge neand-fact m n true init)
-                 :default
-                 (let [[sm sn] layout]
-                   (cond
-                     (= 1 sn) (create-ge neand-fact m n false init)
-                     (= m sn) (create-ge neand-fact m n true init)
-                     :default (dragan-says-ex "Matrices do not support non-dense tensor strides." {:requested sn :required m}))))
-             m (if (or (not layout) (#{:x :a [1]} layout))
-                 (create-vector neand-fact (get shape 0) init)
-                 (dragan-says-ex "Vector as a tensor should not be strided." {:requested shape}))
-             :default (dragan-says-ex "Vectors can't support 0 dimensions." {:requested shape})))))
-  ([neand-fact shape init]
-   (case (count shape)
-     1 (create-vector neand-fact (get shape 0) init)
-     2 (create-ge neand-fact (get shape 0) (get shape 1) false init)
-     (dragan-says-ex "Vectors and matrices only support 1 or 2 dimensions." {:requested shape})))
-  ([neand-fact shape]
-   (neanderthal-tensor neand-fact shape true)))

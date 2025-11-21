@@ -13,19 +13,23 @@
              [utils :refer [dragan-says-ex mapped-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal
-             [native :refer [factory-by-type native-float native-double native-int native-byte]]
+             [native :refer [native-byte]]
              [block :refer [create-data-source buffer initialize!]]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider vector-engine]]
             [uncomplicate.neanderthal.internal.cpp.lapack :refer [with-lapack-check]]
             [uncomplicate.diamond.tensor
              :refer [*diamond-factory* output shape data-type layout]]
             [uncomplicate.diamond.internal
-             [protocols :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider CostFactory
-                                DnnFactory RnnFactory NeanderthalFactoryProvider diamond-factory
+             [protocols :refer [TensorFactory MappedTensorFactory CostFactory DnnFactory RnnFactory
+                                DiamondFactoryProvider diamond-factory tensor-engine
+                                NeanderthalFactoryProvider neanderthal-factory
                                 inf-desc train-desc diff-desc]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
-            [uncomplicate.diamond.internal.neanderthal.directed :refer [->ActivationLayerBlueprint]]
+            [uncomplicate.diamond.internal.neanderthal
+             [directed :refer [neanderthal-fc-blueprint neanderthal-gaussian-dropout-blueprint
+                               ->ActivationLayerBlueprint]]
+             [factory :refer [vector-factory]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [desc DnnlEngineProvider]]
              [core :refer [memory-desc engine stream memory dims primitive-cache-capacity!]]
@@ -43,13 +47,10 @@
   "This operation would be inefficient because it does not use DNNL capabilities.
   Please use dedicated tensor operations.")
 
-(def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
-  "The requested data type is not supported on the DNNL platform.
-Please contribute towards making it possible, or use on of the supported types.")
-
-(deftype DnnlFactory [eng strm master tensor-engines]
+(deftype DnnlFactory [eng strm master vect-fact]
   Releaseable
   (release [_]
+    (release vect-fact)
     (when master
       (release strm)
       (release eng))
@@ -66,8 +67,10 @@ Please contribute towards making it possible, or use on of the supported types."
   (dnnl-engine [_]
     eng)
   NeanderthalFactoryProvider
+  (neanderthal-factory [_]
+    vect-fact)
   (neanderthal-factory [_ dtype]
-    (factory-by-type dtype))
+    (neanderthal-factory vect-fact dtype))
   TensorFactory
   (create-tensor-desc [this shape dtype format]
     (memory-desc shape dtype format))
@@ -90,8 +93,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-batcher [_ src-tz dst-tz mb-size]
     (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
   (tensor-engine [this dtype]
-    (or (get tensor-engines dtype)
-        (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
+    (tensor-engine vect-fact dtype))
   MappedTensorFactory
   (map-channel [this channel td flag offset-bytes n-index]
     (let [size (bytesize (desc td))]
@@ -158,16 +160,8 @@ Please contribute towards making it possible, or use on of the supported types."
 
 (defn dnnl-factory
   ([eng strm]
-   (->DnnlFactory eng strm false {:float (vector-engine native-float)
-                                  :double (vector-engine native-double)
-                                  :int (vector-engine native-int)
-                                  :byte (vector-engine native-byte)
-                                  :uint8 (vector-engine native-byte)}))
+   (->DnnlFactory eng strm false (vector-factory)))
   ([]
    (let-release [eng (engine)
                  strm (stream eng)]
-     (->DnnlFactory eng strm true {:float (vector-engine native-float)
-                                   :double (vector-engine native-double)
-                                   :int (vector-engine native-int)
-                                   :byte (vector-engine native-byte)
-                                   :uint8 (vector-engine native-byte)}))))
+     (->DnnlFactory eng strm true (vector-factory)))))

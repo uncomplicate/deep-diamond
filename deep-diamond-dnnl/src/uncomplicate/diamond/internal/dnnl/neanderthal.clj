@@ -7,28 +7,30 @@
 ;;   You must not remove this notice, or any other, from this software.
 
 (ns ^{:author "Dragan Djuric"}
-    uncomplicate.diamond.internal.neanderthal.factory
+    uncomplicate.diamond.internal.dnnl.neanderthal
   (:require [uncomplicate.commons
              [core :refer [Releaseable release let-release view bytesize]]
              [utils :refer [dragan-says-ex direct-buffer mapped-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal.core :refer [entry!]]
             [uncomplicate.neanderthal
-             [native :refer [factory-by-type native-float native-int native-byte]]
+             [native :refer [native-byte]]
              [block :refer [create-data-source buffer initialize!]]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider vector-engine]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* output data-type]]
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider
                                 CostFactory DnnFactory NeanderthalFactoryProvider
+                                neanderthal-factory tensor-engine
                                 inf-desc train-desc diff-desc]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
-            [uncomplicate.diamond.internal.neanderthal.directed
-             :refer [neanderthal-fc-blueprint neanderthal-gaussian-dropout-blueprint
-                     ->ActivationLayerBlueprint]]
+            [uncomplicate.diamond.internal.neanderthal
+             [directed :refer [neanderthal-fc-blueprint neanderthal-gaussian-dropout-blueprint
+                               ->ActivationLayerBlueprint]]
+             [factory :refer [vector-factory]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :refer [DescProvider desc DnnlEngineProvider]]
-             [core :refer [memory-desc engine stream memory dims]]
+             [core :refer [memory-desc engine stream memory dims primitive-cache-capacity!]]
              [tensor :refer [dnnl-tensor dnnl-tensor* dnnl-transformer dnnl-batcher dnnl-shuffler]]
              [directed :refer [dnnl-sum-blueprint dnnl-activ-blueprint dnnl-inner-product-blueprint
                                dnnl-universal-cost dnnl-custom-cost dnnl-convolution-layer-blueprint
@@ -36,13 +38,10 @@
                                dnnl-batch-norm-layer-blueprint dnnl-pooling-blueprint
                                dnnl-branch-blueprint dnnl-sum-blueprint]]]))
 
-(def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
-  "The requested data type is not supported on the Neanderthal/DNNL platform.
-Please contribute towards making it possible, or use on of the supported types.")
-
-(defrecord NeanderthalFactory [eng strm master tensor-engines]
+(defrecord NeanderthalFactory [eng strm master vect-fact]
   Releaseable
   (release [_]
+    (release vect-fact)
     (when master
       (release strm)
       (release eng))
@@ -59,8 +58,10 @@ Please contribute towards making it possible, or use on of the supported types."
   (dnnl-engine [_]
     eng)
   NeanderthalFactoryProvider
+  (neanderthal-factory [_]
+    vect-fact)
   (neanderthal-factory [_ dtype]
-    (factory-by-type dtype))
+    (neanderthal-factory vect-fact dtype))
   TensorFactory
   (create-tensor-desc [this dims dtype format]
     (memory-desc dims dtype format))
@@ -83,8 +84,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-batcher [_ src-tz dst-tz mb-size]
     (dnnl-batcher eng strm (view src-tz) (view dst-tz) mb-size))
   (tensor-engine [this dtype]
-    (or (get tensor-engines dtype)
-        (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
+    (tensor-engine vect-fact dtype))
   MappedTensorFactory
   (map-channel [this channel td flag offset-bytes n-index]
     (let [size (bytesize (desc td))]
@@ -136,15 +136,12 @@ Please contribute towards making it possible, or use on of the supported types."
                       (partial crossentropy-cost!
                                ((dims (output prev-layer)) 0)))))
 
-(defn neanderthal-factory
+(primitive-cache-capacity! 0)
+
+(defn neanderthal-tz-factory
   ([eng strm]
-   (->NeanderthalFactory eng strm false {:float (vector-engine native-float)
-                                         :int (vector-engine native-int)
-                                         :byte (vector-engine native-byte)
-                                         :uint8 (vector-engine native-byte)}))
+   (->NeanderthalFactory eng strm false (vector-factory)))
   ([]
-   (let-release [eng (engine)]
-     (->NeanderthalFactory eng (stream eng) true {:float (vector-engine native-float)
-                                                  :int (vector-engine native-int)
-                                                  :byte (vector-engine native-byte)
-                                                  :uint8 (vector-engine native-byte)}))))
+   (let-release [eng (engine)
+                 strm (stream eng)]
+     (->NeanderthalFactory eng strm true (vector-factory)))))

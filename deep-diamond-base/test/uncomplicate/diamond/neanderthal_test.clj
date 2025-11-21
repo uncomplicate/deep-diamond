@@ -15,7 +15,7 @@
              [native :refer [factory-by-type]]
              [block :refer [column?]]]
             [uncomplicate.diamond.tensor :refer :all]
-            [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]])
+            [uncomplicate.diamond.internal.neanderthal.factory :refer [vector-factory]])
   (:import clojure.lang.ExceptionInfo))
 
 (defn test-vector [fact dtype]
@@ -25,7 +25,7 @@
            (layout tz-vect) => [1])))
 
 (defn test-matrix [fact dtype]
-  (with-release [tz-ge (tensor fact [20 3])
+  (with-release [tz-ge (tensor fact {:shape [20 3] :data-type dtype})
                  tz-trans (trans tz-ge)
                  tz-ge-stride (tensor fact [20 3] dtype [1 20])]
     (facts "Basic Tensor Descriptor tests for GE matrices."
@@ -42,4 +42,4 @@
     (test-vector fact dtype)
     (test-matrix fact dtype)))
 
-(test-all (neanderthal-factory))
+(test-all (vector-factory))

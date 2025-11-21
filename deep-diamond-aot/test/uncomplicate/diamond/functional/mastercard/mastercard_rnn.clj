@@ -14,7 +14,6 @@
              [dnn :refer [rnn infer! sum activation inner-product dense
                           network init! train! cost train-shuffle! abbreviate]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defonce mastercard-raw

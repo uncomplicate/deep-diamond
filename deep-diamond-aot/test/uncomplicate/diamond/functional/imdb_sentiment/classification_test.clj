@@ -17,8 +17,9 @@
                              desc revert shape input output view-tz batcher]]
              [dnn :refer [fully-connected dropout network init! train! cost]]]
             [uncomplicate.diamond.internal.cost :refer [binary-accuracy!]]
-            [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
-            [uncomplicate.diamond.internal.neanderthal.factory :refer [neanderthal-factory]]
+            [uncomplicate.diamond.internal.dnnl
+             [factory :refer [dnnl-factory]]
+             [neanderthal :refer [neanderthal-tz-factory]]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
 
 (defn read-imdb-master
@@ -104,7 +105,7 @@
 (with-release [fact (dnnl-factory)]
   (test-imdb-classification fact))
 
-(with-release [fact (neanderthal-factory)]
+(with-release [fact (neanderthal-tz-factory)]
   (test-imdb-classification fact))
 
 (with-release [fact (cudnn-factory)]
