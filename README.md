@@ -24,6 +24,7 @@ or
 You also need to add 2 maven central repositories to your project, as in
 this hello-world project example: [hello-world-aot](https://github.com/uncomplicate/deep-diamond/blob/master/examples/hello-world-aot/project.clj)
 
+
 ## License
 
 Copyright © 2019-2025 Dragan Djuric
