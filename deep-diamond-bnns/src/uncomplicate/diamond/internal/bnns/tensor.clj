@@ -267,7 +267,7 @@
                        ((dims dst-tz) (batch-index dst-tz))
                        ((strides dst-sub) (batch-index dst-tz)))))))
 
-(deftype BnnsShuffler [batcher batch-sizeoo mb-size]
+(deftype BnnsShuffler [batcher batch-size mb-size]
   Releaseable
   (release [_]
     (release batcher))

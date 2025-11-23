@@ -72,7 +72,7 @@
 
 (defn rank
   "Queries the rank of a Descriptor."
-  [nd]
+  ^long [nd]
   (rank* (desc nd)))
 
 (defn major-strides? [strd]
@@ -424,7 +424,16 @@
                            (safe (extract (desc (safe-data b-desc))))
                            (safe (extract (desc out-desc)))))
 
-(extend-bnns-parameters bnns$BNNSLayerParametersFullyConnected)
+(extend-type bnns$BNNSLayerParametersFullyConnected
+  Parameters
+  (i-desc [this]
+    (.i_desc ^bnns$BNNSLayerParametersFullyConnected (extract this)))
+  (w-desc [this]
+    (.w_desc ^bnns$BNNSLayerParametersFullyConnected (extract this)))
+  (b-desc [this]
+    (.bias ^bnns$BNNSLayerParametersFullyConnected (extract this)))
+  (o-desc [this]
+    (.o_desc ^bnns$BNNSLayerParametersFullyConnected (extract this))))
 
 ;; ================= Convolution  ===========================
 
@@ -449,4 +458,13 @@
                         (get padding 0 0) (get padding 1 0)
                         (or groups 1) (vec pad))))
 
-(extend-bnns-parameters bnns$BNNSLayerParametersConvolution)
+(extend-type bnns$BNNSLayerParametersConvolution
+  Parameters
+  (i-desc [this]
+    (.i_desc ^bnns$BNNSLayerParametersConvolution (extract this)))
+  (w-desc [this]
+    (.w_desc ^bnns$BNNSLayerParametersConvolution (extract this)))
+  (b-desc [this]
+    (.bias ^bnns$BNNSLayerParametersConvolution (extract this)))
+  (o-desc [this]
+    (.o_desc ^bnns$BNNSLayerParametersConvolution (extract this))))

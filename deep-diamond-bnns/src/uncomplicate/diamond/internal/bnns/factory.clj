@@ -24,12 +24,13 @@
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory MappedTensorFactory DiamondFactoryProvider
                                 CostFactory DnnFactory RnnFactory NeanderthalFactoryProvider
-                                diamond-factory create-tensor-desc
+                                diamond-factory create-tensor-desc tensor-engine
                                 inf-desc train-desc diff-desc]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
-            [uncomplicate.diamond.internal.neanderthal.directed
-             :refer [neanderthal-fc-blueprint ->ActivationLayerBlueprint]]
+            [uncomplicate.diamond.internal.neanderthal
+             [directed :refer [neanderthal-fc-blueprint ->ActivationLayerBlueprint]]
+             [factory :refer [vector-factory]]]
             [uncomplicate.diamond.internal.bnns
              [protocols :refer [desc]]
              [core :refer [nda-desc dims]]
@@ -41,17 +42,18 @@
   "This operation would be inefficient because it does not use BNNS capabilities.
   Please use dedicated tensor operations.")
 
-(def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
-  "The requested data type is not supported on the BNNS platform.
-Please contribute towards making it possible, or use on of the supported types.")
-
-(deftype BnnsFactory [tensor-engines]
+(deftype BnnsFactory [vect-fact]
+  Releaseable
+  (release [_]
+    (release vect-fact))
   DiamondFactoryProvider
   (diamond-factory [this]
     this)
   (native-diamond-factory [this]
     this)
   NeanderthalFactoryProvider
+  (neanderthal-factory [_]
+    vect-fact)
   (neanderthal-factory [_ dtype]
     (factory-by-type dtype))
   TensorFactory
@@ -76,8 +78,7 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-batcher [_ src-tz dst-tz mb-size]
     (bnns-batcher (view src-tz) (view dst-tz) mb-size))
   (tensor-engine [this dtype]
-    (or (get tensor-engines dtype)
-        (dragan-says-ex UNSUPPORTED_DATA_TYPE {:data-type dtype})))
+    (tensor-engine vect-fact dtype))
   MappedTensorFactory
   (map-channel [this channel td flag offset-bytes n-index]
     (let [size (bytesize (desc td))]
@@ -147,7 +148,4 @@ Please contribute towards making it possible, or use on of the supported types."
                                ((dims (output prev-layer)) 0)))))
 
 (defn bnns-factory []
-  (->BnnsFactory {:float (->FloatVectorEngine)
-                  :int (->IntVectorEngine)
-                  :byte (->ByteVectorEngine)
-                  :uint8 (->ByteVectorEngine)}))
+  (->BnnsFactory (vector-factory)))

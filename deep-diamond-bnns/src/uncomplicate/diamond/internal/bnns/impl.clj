@@ -24,7 +24,7 @@
             [uncomplicate.diamond.internal.bnns
              [protocols :refer :all]
              [constants :refer :all]])
-  (:import [org.bytedeco.javacpp PointerPointer LongPointer FloatPointer Pointer]
+  (:import [org.bytedeco.javacpp PointerPointer LongPointer FloatPointer Pointer SizeTPointer]
            [uncomplicate.javacpp.accelerate.global bnns bnns$BNNSTensor bnns$BNNSNDArrayDescriptor
             bnns$BNNSActivation bnns$BNNSLayerParametersActivation bnns$BNNSFilterParameters
             bnns$BNNSFilter bnns$BNNSArithmeticUnary bnns$BNNSArithmeticBinary
@@ -173,7 +173,7 @@
   (dims* [_] nil)
   (rank* [_] 0))
 
-(deftype BnnsNdArrayDescriptorImpl [^bnns$BNNSNDArrayDescriptor td rank master]
+(deftype BnnsNdArrayDescriptorImpl [^bnns$BNNSNDArrayDescriptor td ^long rank master]
   Object
   (hashCode [this]
     (hash td))
@@ -190,22 +190,22 @@
   Descriptor
   (strides* [_]
     (when-not (null? td)
-      (.capacity (.stride ^bnns$BNNSNDArrayDescriptor td) rank)))
+      (.capacity ^SizeTPointer (.stride td) rank)))
   (layout* [_]
     (when-not (null? td)
-      (.layout ^bnns$BNNSNDArrayDescriptor td)))
+      (.layout td)))
   (layout* [this layout]
     (when-not (null? td)
-      (.layout ^bnns$BNNSNDArrayDescriptor td (long layout*))))
+      (.layout td (long layout*))))
   (major* [this]
     (or (null? td)
-        (major? (.layout ^bnns$BNNSNDArrayDescriptor td))))
+        (major? (.layout td))))
   (data-type* [this]
     (when-not (null? td)
-      (.data_type ^bnns$BNNSNDArrayDescriptor td)))
+      (.data_type  td)))
   (dims* [this]
     (when-not (null? td)
-      (.capacity (.size ^bnns$BNNSNDArrayDescriptor td) rank)))
+      (.capacity ^SizeTPointer (.size td) rank)))
   (rank* [_]
     rank)
   (data* [this]
@@ -213,7 +213,7 @@
       (.data ^bnns$BNNSNDArrayDescriptor (extract this))))
   (data* [this p]
     (when-not (null? td)
-      (.data ^bnns$BNNSNDArrayDescriptor td (byte-pointer (extract p)))))
+      (.data td (byte-pointer (extract p)))))
   (clone* [this];;TODO remove in favor of view
     (->BnnsNdArrayDescriptorImpl
      (ndarray-descriptor* (dims* this) (data-type* this) (layout* this) (strides* this))
@@ -395,16 +395,18 @@
     ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
    (with-check bnns-error
      (bnns/BNNSFilterApplyBackwardBatch
-      filter (long n) nil 0 in-delta (quot (size in-delta) n) out (quot (size out) n)
-      out-delta (quot (size out-delta) n) nil nil)
+      filter (long n) nil 0
+      in-delta (quot (size in-delta) (long n)) out (quot (size out) (long n))
+      out-delta (quot (size out-delta) (long n)) nil nil)
      filter))
   ([^bnns$BNNSFilter filter n
     ^Pointer in ^bnns$BNNSNDArrayDescriptor in-delta
     ^Pointer out ^bnns$BNNSNDArrayDescriptor out-delta]
    (with-check bnns-error
      (bnns/BNNSFilterApplyBackwardBatch
-      filter (long n) in (quot (size in) n) in-delta (quot (size in-delta) n)
-      out (quot (size out) n) out-delta (quot (size out-delta) n) nil nil)
+      filter (long n)
+      in (quot (size in) (long n)) in-delta (quot (size in-delta) (long n))
+      out (quot (size out) (long n)) out-delta (quot (size out-delta) (long n)) nil nil)
      filter))
   ([^bnns$BNNSFilter filter n
     ^Pointer in ^bnns$BNNSNDArrayDescriptor in-delta
@@ -413,8 +415,9 @@
     ^bnns$BNNSNDArrayDescriptor bias-delta]
    (with-check bnns-error
      (bnns/BNNSFilterApplyBackwardBatch
-      filter (long n) in (quot (size in) n) in-delta (quot (size in-delta) n)
-      out (quot (size out) n) out-delta (quot (size out-delta) n)
+      filter (long n)
+      in (quot (size in) (long n)) in-delta (quot (size in-delta) (long n))
+      out (quot (size out) (long n)) out-delta (quot (size out-delta) (long n))
       weights-delta bias-delta)
      filter)))
 
@@ -450,13 +453,13 @@
   ([^long function ^double alpha]
    (activation* function alpha 0.0))
   ([^long function ^double alpha ^double beta]
-   (let-release [res (bnns$BNNSActivation.)]
+   (let-release [res ^bnns$BNNSActivation (bnns$BNNSActivation.)]
      (.function res function)
      (.alpha res alpha)
      (.beta res beta)
      res))
   ([function alpha beta iscale ioffset ishift]
-   (let-release [res (activation* function alpha beta)]
+   (let-release [res ^bnns$BNNSActivation (activation* function alpha beta)]
      (.iscale res iscale)
      (.ioffset res ioffset)
      (.ishift res ishift)
@@ -530,7 +533,7 @@
   ([^long function
     ^Pointer fields
     ^bnns$BNNSActivation activation]
-   (let-release [res (arithmetic-params* function fields)]
+   (let-release [res ^bnns$BNNSLayerParametersArithmetic (arithmetic-params* function fields)]
      (when activation (.activation res activation))
      res))
   ([^long function
@@ -543,7 +546,9 @@
 (defn arithmetic-apply*
   ([^bnns$BNNSFilter filter ^PointerPointer in ^Pointer out]
    (with-check bnns-error
-     (bnns/BNNSArithmeticFilterApplyBatch filter 1 (size in) in (size-t-pointer [(size in)]) out (size out))
+     (bnns/BNNSArithmeticFilterApplyBatch filter 1 (size in)
+                                          in (size-t-pointer [(size in)])
+                                          out (size out))
      filter)))
 
 ;; ================= Fully Connected ===========================
@@ -593,7 +598,8 @@
   ([activ in-desc w-desc b-desc out-desc
     x-stride y-stride x-dilation y-dilation
     x-padding y-padding]
-   (let-release [res (convolution-params* activ in-desc w-desc b-desc out-desc)]
+   (let-release [res ^bnns$BNNSLayerParametersConvolution
+                 (convolution-params* activ in-desc w-desc b-desc out-desc)]
      (.x_stride res x-stride)
      (.y_stride res y-stride)
      (.x_dilation_stride res x-dilation)
@@ -604,9 +610,10 @@
   ([activ in-desc w-desc b-desc out-desc
     x-stride y-stride x-dilation y-dilation
     x-padding y-padding groups pad]
-   (let-release [res (convolution-params* activ in-desc w-desc b-desc out-desc
-                                          x-stride y-stride x-dilation y-dilation
-                                          x-padding y-padding)]
+   (let-release [res ^bnns$BNNSLayerParametersConvolution
+                 (convolution-params* activ in-desc w-desc b-desc out-desc
+                                      x-stride y-stride x-dilation y-dilation
+                                      x-padding y-padding)]
      (.groups res groups)
      (dotimes [i 4]
        (.pad res i (get pad i 0)))

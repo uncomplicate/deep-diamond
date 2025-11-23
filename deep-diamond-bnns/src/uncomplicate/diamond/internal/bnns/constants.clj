@@ -137,7 +137,7 @@
    :hgfedcba bnns/BNNSDataLayout8DFirstMajor})
 
 (defn bnns-default-layout
-  ([major? rank]
+  ([major? ^long rank]
    (if major?
      (bnns-default-layout rank)
      (case rank
@@ -150,7 +150,7 @@
        6 :fedcba
        7 :gfedcba
        8 :hgfedcba)))
-  ([rank]
+  ([^long rank]
    (case rank
      0 :a
      1 :a
