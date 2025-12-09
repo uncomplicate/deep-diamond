@@ -13,6 +13,7 @@
   ;; You can use either MKL, OpenBLAS, or Accelerate for CPU computing as you wish (when your hardware supports them)
   ;; For the GPU, choose between CUDA (PC) or OpenCL (PC or MacOS x86_64)
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
+             :dev/all {}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     [org.uncomplicate/deep-diamond-cuda "0.42.0"]

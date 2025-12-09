@@ -10,6 +10,7 @@
   ;; FOR PRODUCTION USE, PLEASE USE org.uncomplicate/deep-diamond-base AND OTHER PARTICULAR DEPENDENCIES
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
+             :dev/all {}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
                                     ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!
