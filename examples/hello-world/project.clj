@@ -1,4 +1,4 @@
-(defproject hello-world-on-the-fly "0.42.2"
+(defproject hello-world-on-the-fly "0.42.3"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.4"]
@@ -16,16 +16,16 @@
              :dev/all {}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.60.0"]
                                     [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]
-                                    [org.uncomplicate/deep-diamond-cuda "0.42.1"]
-                                    [org.bytedeco/cuda-redist "13.1-9.18-1.5.13-20260203.003728-10" :classifier "linux-x86_64"]
-                                    [org.bytedeco/cuda-redist-cublas "13.1-9.18-1.5.13-20260203.003743-10" :classifier "linux-x86_64"]
-                                    [org.bytedeco/cuda-redist-cudnn "13.1-9.18-1.5.13-20260203.003751-10" :classifier "linux-x86_64"]]}
+                                    [org.uncomplicate/deep-diamond-cuda "0.42.3"]
+                                    [org.bytedeco/cuda-redist "13.1-9.19-1.5.13-20260206.134933-4" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13-20260206.135029-4" :classifier "linux-x86_64"]
+                                    [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13-20260206.135209-4" :classifier "linux-x86_64"]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.60.0"]
                                       [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]
-                                      [org.uncomplicate/deep-diamond-cuda "0.42.1"]
-                                      [org.bytedeco/cuda-redist "13.1-9.18-1.5.13-20260203.003728-10" :classifier "windows-x86_64"]
-                                      [org.bytedeco/cuda-redist-cublas "13.1-9.18-1.5.13-20260203.003743-10" :classifier "windows-x86_64"]
-                                      [org.bytedeco/cuda-redist-cudnn "13.1-9.18-1.5.13-20260203.003751-10" :classifier "windows-x86_64"]]}
+                                      [org.uncomplicate/deep-diamond-cuda "0.42.3"]
+                                      [org.bytedeco/cuda-redist "13.1-9.19-1.5.13-20260206.134933-4" :classifier "windows-x86_64"]
+                                      [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13-20260206.135029-4" :classifier "windows-x86_64"]
+                                      [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13-20260206.135209-4" :classifier "windows-x86_64"]]}
              :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.60.0"]
                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]
                                      [org.uncomplicate/deep-diamond-bnns "0.42.0"]]}}
