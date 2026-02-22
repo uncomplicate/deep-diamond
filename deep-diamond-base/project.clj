@@ -6,14 +6,14 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-base "0.42.0"
+(defproject org.uncomplicate/deep-diamond-base "0.43.0"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.3"]
-                 [org.uncomplicate/neanderthal-base "0.60.0"]]
+  :dependencies [[org.clojure/clojure "1.12.4"]
+                 [org.uncomplicate/neanderthal-base "0.61.0"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -24,12 +24,12 @@
                        :dependencies [[midje "1.10.10"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-openblas "0.60.0"]
-                                    [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-openblas "0.60.0"]
-                                      [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "windows-x86_64"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.60.0"]
-                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
+             :linux {:dependencies [[org.uncomplicate/neanderthal-openblas "0.61.0"]
+                                    [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "linux-x86_64"]]}
+             :windows {:dependencies [[org.uncomplicate/neanderthal-openblas "0.61.0"]
+                                      [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "windows-x86_64"]]}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.61.0"]
+                                     [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                        "--enable-native-access=ALL-UNNAMED"]

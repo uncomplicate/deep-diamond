@@ -6,15 +6,15 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-dnnl "0.42.2"
+(defproject org.uncomplicate/deep-diamond-dnnl "0.43.0"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.4"]
-                 [org.uncomplicate/deep-diamond-base "0.42.0"]
-                 [org.bytedeco/dnnl-platform "3.11-1.5.13-20260209.030448-1"]]
+                 [org.uncomplicate/deep-diamond-base "0.43.0"]
+                 [org.bytedeco/dnnl-platform "3.11-1.5.13"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -23,17 +23,17 @@
                                      *unchecked-math* :warn-on-boxed
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
-                                      [org.uncomplicate/deep-diamond-test "0.42.0"]]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.60.0"]
-                                    [org.bytedeco/mkl "2025.2-1.5.12" :classifier "linux-x86_64-redist"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.60.0"]
-                                      [org.bytedeco/mkl "2025.2-1.5.12" :classifier "windows-x86_64-redist"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.60.0"]
-                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]]}}
+                                      [org.uncomplicate/deep-diamond-test "0.43.0"]]}
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.61.0"]
+                                    [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]]}
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.61.0"]
+                                      [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]]}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.61.0"]
+                                     [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                        "--enable-native-access=ALL-UNNAMED"]
 
-  :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
+  ;; :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 
   :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
