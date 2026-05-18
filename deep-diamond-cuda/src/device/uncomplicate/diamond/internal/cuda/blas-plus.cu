@@ -1,5 +1,7 @@
+#include <cuda_fp16.h>
+
 extern "C" {
-    
+
 #ifndef DTYPE
 #define DTYPE float
 #endif
@@ -18,7 +20,7 @@ extern "C" {
             }
         }
     }
-    
+
     __global__ void tensor_2d_equals (const int n, const int c,
                                       const DTYPE* x, const int offset_x, const int n_x, const int c_x,
                                       const DTYPE* y, const int offset_y, const int n_y, const int c_y,

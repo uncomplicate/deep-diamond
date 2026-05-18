@@ -6,21 +6,21 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.43.0"
+(defproject uncomplicate/deep-diamond "0.44.0"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.4"]
-                 [org.uncomplicate/neanderthal-base "0.61.0"]
-                 [org.uncomplicate/neanderthal-mkl "0.61.0"]
-                 [org.uncomplicate/neanderthal-cuda "0.61.0"]
-                 [org.uncomplicate/neanderthal-accelerate "0.61.0"]
-                 [org.uncomplicate/deep-diamond-base "0.43.0"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.43.0"]
-                 [org.uncomplicate/deep-diamond-cuda "0.43.0"]
-                 [org.uncomplicate/deep-diamond-bnns "0.43.0"]]
+  :dependencies [[org.clojure/clojure "1.12.5"]
+                 [org.uncomplicate/neanderthal-base "0.62.0"]
+                 [org.uncomplicate/neanderthal-mkl "0.62.0"]
+                 [org.uncomplicate/neanderthal-cuda "0.62.0"]
+                 [org.uncomplicate/neanderthal-accelerate "0.62.0"]
+                 [org.uncomplicate/deep-diamond-base "0.44.0"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.44.0"]
+                 [org.uncomplicate/deep-diamond-cuda "0.44.0"]
+                 [org.uncomplicate/deep-diamond-bnns "0.44.0"]]
 
   :aot [uncomplicate.neanderthal.internal.cpp.structures
         uncomplicate.neanderthal.internal.cpp.factory

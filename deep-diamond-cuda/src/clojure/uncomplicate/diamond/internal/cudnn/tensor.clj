@@ -43,7 +43,7 @@
             [uncomplicate.diamond.internal.cudnn
              [core :refer [tensor-descriptor equal-desc? dims strides transform-tensor]]
              [protocols :refer [DescProvider desc handle]]
-             [constants :refer [cudnn-format data-type-width]]])
+             [constants :refer [cudnn-format data-type-width cudnn-data-type-pointer]]])
   (:import [clojure.lang IFn ExceptionInfo AFn]
            [uncomplicate.neanderthal.internal.api Block Changeable DataAccessor VectorSpace CUVector]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
@@ -495,7 +495,7 @@
       (let-release [out-tz (cudnn-tensor diamond-fact out-desc (batch-index in-tz))]
         (cudnn-transformer (handle diamond-fact) (view in-tz) out-tz)))))
 
-(defn cudnn-tensor ;;TODO synchronize with bnns-tensor and, if possible, dnnl-tensor
+(defn cudnn-tensor
   ([diamond-fact master buf tdesc n-index]
    (let [tdesc (desc tdesc)
          neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
@@ -514,7 +514,8 @@
    (cudnn-tensor diamond-fact master buf tdesc 0))
   ([diamond-fact tdesc n-index]
    (let [tdesc (desc tdesc)]
-     (let [buf (cuda-malloc (max 1 (bytesize tdesc)) (data-type tdesc))]
+     (let [buf ((cudnn-data-type-pointer (data-type tdesc)) ;;TODO synchronize with bnns-tensor and, if possible, dnnl-tensor
+                (cuda-malloc (max 1 (bytesize tdesc))))]
        (try
          (cudnn-tensor diamond-fact true buf tdesc n-index)
          (catch Exception e

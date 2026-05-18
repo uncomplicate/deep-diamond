@@ -8,7 +8,9 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.cudnn.constants
-  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]])
+  (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
+            [uncomplicate.clojure-cpp :refer [ptr* type-pointer byte-pointer short-pointer
+                                              int-pointer float-pointer double-pointer]])
   (:import org.bytedeco.cuda.global.cudnn))
 
 (def ^{:const true
@@ -85,6 +87,22 @@
    :u8 cudnn/CUDNN_DATA_UINT8
    :uint8x4 cudnn/CUDNN_DATA_UINT8x4
    :int8x32 cudnn/CUDNN_DATA_INT8x32})
+
+(def cudnn-data-type-pointer
+  (merge type-pointer
+         {:float32 float-pointer
+          :f32 float-pointer
+          :double double-pointer
+          :float64 double-pointer
+          :f64 double-pointer
+          :float16 short-pointer
+          :f16 short-pointer
+          :half short-pointer
+          :int8 byte-pointer
+          :int8x4 int-pointer
+          :uint8 byte-pointer
+          :u8 byte-pointer
+          :uint8x4 int-pointer}))
 
 (defn dec-data-type [^long data-type]
   (case data-type

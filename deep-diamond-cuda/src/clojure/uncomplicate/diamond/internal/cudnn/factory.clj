@@ -19,7 +19,7 @@
              [core :refer :all]
              [toolbox :refer [read-int]]]
             [uncomplicate.neanderthal
-             [cuda :refer [cuda-float cuda-double cuda-long cuda-int cuda-byte]]
+             [cuda :refer [cuda-float cuda-double cuda-long cuda-int cuda-short cuda-byte]]
              [block :refer [buffer offset]]]
             [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
             [uncomplicate.diamond.tensor :refer [shape data-type layout output]]
@@ -433,32 +433,39 @@ Please contribute towards making it possible, or use on of the supported types."
     (cudnn-custom-cost prev-layer train-tz
                        (partial crossentropy-cost! ((dims train-tz) (batch-index train-tz))))))
 
-(defn ^:private create-module [src dtype]
-  (with-release [prog (compile! (program src) [(str "-DTYPE=" dtype) "-default-device"])]
+(defn ^:private create-module [src cudart-headers dtype]
+  (with-release [prog (compile! (program src cudart-headers)
+                                [(str "-DTYPE=" dtype) "-default-device"])]
     (module prog)))
 
-(let [src (slurp (io/resource "uncomplicate/diamond/internal/cuda/blas-plus.cu"))]
+(let [src (slurp (io/resource "uncomplicate/diamond/internal/cuda/blas-plus.cu"))
+      cudart-headers {"cuda_fp16.h" (slurp (io/resource "uncomplicate/clojurecuda/include/cudart/cuda_fp16.h"))}]
   (defn ^:private create-cudnn-factory [ctx hstream cudnn-hdl master]
-    (let-release [float-modl (create-module src "float")
-                  double-modl (create-module src "double")
-                  long-modl (create-module src "long")
-                  int-modl (create-module src "int")
-                  byte-modl (create-module src "char")
+    (let-release [float-modl (create-module src cudart-headers "float")
+                  double-modl (create-module src cudart-headers "double")
+                  half-modl (create-module src cudart-headers "half")
+                  long-modl (create-module src cudart-headers "long")
+                  int-modl (create-module src cudart-headers "int")
+                  byte-modl (create-module src cudart-headers "char")
                   native-diamond-fact (dnnl-factory)
                   float-fact (cuda-float ctx hstream)
                   double-fact (cuda-double ctx hstream)
                   long-fact (cuda-long ctx hstream)
                   int-fact (cuda-int ctx hstream)
+                  short-fact (cuda-short ctx hstream)
                   byte-fact (cuda-byte ctx hstream)
                   vect-fact (vector-factory true (vector-factory)
                                             {:float float-fact
                                              :double double-fact
+                                             :half short-fact
                                              :long long-fact
                                              :int int-fact
+                                             :short short-fact
                                              :byte byte-fact
                                              :uint8 byte-fact})
                   float-engine (->TensorEngine cudnn-hdl float-modl hstream float)
                   double-engine (->TensorEngine cudnn-hdl double-modl hstream double)
+                  half-engine (->TensorEngine cudnn-hdl half-modl hstream short)
                   long-engine (->TensorEngine cudnn-hdl long-modl hstream long)
                   int-engine (->TensorEngine cudnn-hdl int-modl hstream int)
                   byte-engine (->TensorEngine cudnn-hdl byte-modl hstream byte)]
@@ -467,6 +474,7 @@ Please contribute towards making it possible, or use on of the supported types."
                       vect-fact
                       {:float float-engine
                        :double double-engine
+                       :half half-engine
                        :int int-engine
                        :long long-engine
                        :byte byte-engine

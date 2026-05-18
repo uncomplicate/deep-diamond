@@ -13,7 +13,7 @@
              [utils :refer [dragan-says-ex mapped-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal
-             [native :refer [native-byte]]
+             [native :refer [native-byte native-short native-long native-int native-float native-double]]
              [block :refer [create-data-source buffer initialize!]]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider vector-engine]]
             [uncomplicate.neanderthal.internal.cpp.lapack :refer [with-lapack-check]]
@@ -160,8 +160,24 @@
 
 (defn dnnl-factory
   ([eng strm]
-   (->DnnlFactory eng strm false (vector-factory)))
+   (->DnnlFactory eng strm false (vector-factory false nil
+                                                 {:float native-float
+                                                  :double native-double
+                                                  :half native-short
+                                                  :long native-long
+                                                  :int native-int
+                                                  :short native-short
+                                                  :byte native-byte
+                                                  :uint8 native-byte})))
   ([]
    (let-release [eng (engine)
                  strm (stream eng)]
-     (->DnnlFactory eng strm true (vector-factory)))))
+     (->DnnlFactory eng strm true (vector-factory false nil
+                                                  {:float native-float
+                                                   :double native-double
+                                                   :half native-short
+                                                   :long native-long
+                                                   :int native-int
+                                                   :short native-short
+                                                   :byte native-byte
+                                                   :uint8 native-byte})))))

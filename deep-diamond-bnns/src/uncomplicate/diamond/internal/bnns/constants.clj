@@ -11,7 +11,7 @@
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
             [uncomplicate.clojure-cpp
              :refer [ptr* byte-pointer short-pointer int-pointer float-pointer
-                     type-pointer]])
+                     type-pointer])]
   (:import [uncomplicate.javacpp.accelerate.global bnns bnns$BNNSArithmeticUnary
             bnns$BNNSArithmeticBinary bnns$BNNSArithmeticTernary]))
 
@@ -73,32 +73,26 @@
    bnns/BNNSDataTypeUInt16 2
    bnns/BNNSDataTypeUInt32 4})
 
-(defn bnns-data-type-pointer [t]
-  (or (type-pointer t)
-      (case t
-        65568 float-pointer
-        :float float-pointer
-        :float32 float-pointer
-        :half short-pointer
-        :float16 short-pointer
-        65552 short-pointer
-        :f16 short-pointer
-        :bf16 short-pointer
-        131104 int-pointer
-        Integer int-pointer
-        131080 byte-pointer
-        Byte/TYPE byte-pointer
-        Byte byte-pointer
-        :u8 byte-pointer
-        262152 byte-pointer
-        :uint8 byte-pointer
-        :u16 short-pointer
-        262160 short-pointer
-        :uint16 short-pointer
-        :u32 int-pointer
-        262176 int-pointer
-        :uint32 int-pointer
-        ptr*)))
+(def bnns-data-type-pointer
+  (merge type-pointer
+         {65568 float-pointer
+          :float32 float-pointer
+          :half short-pointer
+          :float16 short-pointer
+          65552 short-pointer
+          :f16 short-pointer
+          :bf16 short-pointer
+          131104 int-pointer
+          131080 byte-pointer
+          :u8 byte-pointer
+          262152 byte-pointer
+          :uint8 byte-pointer
+          :u16 short-pointer
+          262160 short-pointer
+          :uint16 short-pointer
+          :u32 int-pointer
+          262176 int-pointer
+          :uint32 int-pointer}))
 
 (def ^:const bnns-data-layout
   {:a bnns/BNNSDataLayoutVector

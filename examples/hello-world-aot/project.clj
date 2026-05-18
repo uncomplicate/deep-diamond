@@ -1,8 +1,8 @@
-(defproject hello-world-aot "0.43.0"
+(defproject hello-world-aot "0.44.0"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.12.4"]
-                 [uncomplicate/deep-diamond "0.43.0"]]
+  :dependencies [[org.clojure/clojure "1.12.5"]
+                 [uncomplicate/deep-diamond "0.44.0"]]
 
   ;; uncomplicate/deep-diamond is AOT compiled for fast loading and developer convenience, which
   ;; might cause issues since it freezes org.clojure/core.async to the specific version (see ClojureCUDA).
@@ -11,19 +11,19 @@
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.61.0"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.62.0"]
                                     [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]
                                     ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!
                                     [org.bytedeco/cuda-redist "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.61.0"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.62.0"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]
                                       ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!
                                       [org.bytedeco/cuda-redist "13.1-9.19-1.5.13" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "windows-x86_64"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.61.0"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.62.0"]
                                      [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
 
   ;; Wee need this for the DNNL binaries, for the latest version is not available in the Maven Central yet
