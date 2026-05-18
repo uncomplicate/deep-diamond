@@ -2,7 +2,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [org.uncomplicate/neande5rthal-base "0.62.0"]
+                 [org.uncomplicate/neanderthal-base "0.62.0"]
                  [org.uncomplicate/deep-diamond-base "0.44.0"]
                  [org.uncomplicate/deep-diamond-dnnl "0.44.0"]]
 
