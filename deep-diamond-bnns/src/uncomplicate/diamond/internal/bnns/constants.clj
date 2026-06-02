@@ -11,7 +11,7 @@
   (:require [uncomplicate.commons.utils :refer [dragan-says-ex]]
             [uncomplicate.clojure-cpp
              :refer [ptr* byte-pointer short-pointer int-pointer float-pointer
-                     type-pointer])]
+                     type-pointer]])
   (:import [uncomplicate.javacpp.accelerate.global bnns bnns$BNNSArithmeticUnary
             bnns$BNNSArithmeticBinary bnns$BNNSArithmeticTernary]))
 

@@ -572,20 +572,29 @@
 
 (defmethod transfer! [Object CUDnnTensor]
   [source destination]
-  (if (contiguous? destination)
-    (transfer! source (view-vctr destination))
-    (with-release [connect (connector (default-desc destination) destination)]
-      (transfer! source (view-vctr (input connect)))
-      (connect)))
+  (if (= :half (data-type destination))
+    (with-release [native-destination (native destination)]
+      (transfer! source native-destination)
+      (transfer! native-destination destination))
+    (if (and (contiguous? destination))
+      (transfer! source (view-vctr destination))
+      (with-release [connect (connector (default-desc destination) destination)]
+        (transfer! source (view-vctr (input connect)))
+        (connect))))
   destination)
 
 (defmethod transfer! [CUDnnTensor Object]
   [source destination]
-  (if (contiguous? source)
-    (transfer! (view-vctr source) destination)
-    (with-release [connect (connector source (default-desc destination))]
-      (connect)
-      (transfer! (view-vctr (output connect)) destination))))
+  (if (= :half (data-type source))
+    (with-release [native-source (native source)]
+      (transfer! source native-source)
+      (transfer! native-source destination))
+    (if (contiguous? source)
+      (transfer! (view-vctr source) destination)
+      (with-release [connect (connector source (default-desc destination))]
+        (connect)
+        (transfer! (view-vctr (output connect)) destination))))
+  destination)
 
 (defmethod transfer! [Object CUDnnTransformer]
   [source destination]

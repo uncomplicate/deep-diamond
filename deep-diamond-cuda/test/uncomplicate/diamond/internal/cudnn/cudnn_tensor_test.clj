@@ -44,12 +44,34 @@
            (seq (native cuda-v)) => [1.0 10.0 55.0 55.0]
            (seq (native cuda-t)) => [1.0 10.0 33.0 33.0])))
 
+(defn test-cudnn-half [fact]
+  (facts
+   "Test basic cuDNN float16 transfer."
+   (with-release [t0 (tensor fact [2] :float :x)
+                  t1 (tensor fact [2] :half :x)
+                  t2 (tensor fact [2] :float :x)
+                  t3 (tensor fact [1] :half :x)]
+     (seq (transfer! (transfer! [10] t3) (float-array 1))) => [10.0]
+     ;; TODO half/float inner transfer does not work, probably because cuDNN functions can't handle this type combination (but I need to investigate). Not high priority, since it's unlikely to be used as such in practice.
+     ;; (transfer! [100 100] t0)
+     ;; (transfer! t0 t1)
+     ;; (transfer! t1 t2)
+     ;; (seq (transfer! t2 (float-array 2))) => [100.0 100.0]
+     ;; (transfer! [200 200] t1)
+     ;; (transfer! t1 t2)
+     ;; (seq (transfer! t2 (float-array 2))) => [200.0 200.0]
+     (transfer! [300 300] t0)
+     (transfer! t0 t1)
+     (seq (transfer! t1 (float-array 2))) => [300.0 300.0]
+     (seq (transfer! (transfer! [400 400] t1) (double-array 2))) => [400.0 400.0])))
+
 (with-release [dnnl-fact (dnnl-factory)]
   (with-diamond cudnn-factory []
     (test-tensor *diamond-factory*)
     (test-zero *diamond-factory*)
     (test-create *diamond-factory*)
     (test-cudnn-create *diamond-factory*)
+    (test-cudnn-half *diamond-factory*)
     (test-equality *diamond-factory*)
     (test-release *diamond-factory*)
     (test-transfer *diamond-factory* dnnl-fact)

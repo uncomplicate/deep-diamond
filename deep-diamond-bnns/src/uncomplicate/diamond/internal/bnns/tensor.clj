@@ -39,6 +39,7 @@
                       native-diamond-factory Offset offset DiffTransfer
                       diff-input diff-output create-tensor-desc parameters
                       DescriptorProvider BatchDescriptor batch-index]]
+             [common :refer [transfer-tensor-object transfer-object-tensor]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.bnns
              [core :as bnns
@@ -641,20 +642,12 @@
 
 (defmethod transfer! [Object BnnsTensor]
   [src dst]
-  (if (contiguous? dst)
-    (transfer! src (view-vctr dst))
-    (with-release [connect (connector (bnns-default-desc dst) dst)]
-      (transfer! src (view-vctr (input connect)))
-      (connect)))
+  (transfer-object-tensor source destination)
   dst)
 
 (defmethod transfer! [BnnsTensor Object]
   [src dst]
-  (if (contiguous? src)
-    (transfer! (view-vctr src) dst)
-    (with-release [connect (connector src (bnns-default-desc src))]
-      (connect)
-      (transfer! (view-vctr (output connect)) dst))))
+  (transfer-tensor-object source destination))
 
 (defmethod transfer! [Object BnnsTransformer]
   [src dst]

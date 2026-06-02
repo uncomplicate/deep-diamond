@@ -32,6 +32,24 @@
      (tensor fact [2 3] :int :nc) => truthy
      (tensor fact [2 3] :long :nc) => (throws ExceptionInfo))))
 
+(defn test-dnnl-half [fact]
+  (facts
+   "Test basic float16 transfer."
+   (with-release [t0 (tensor fact [1] :float :x)
+                  t1 (tensor fact [1] :half :x)
+                  t2 (tensor fact [1] :float :x)]
+     (transfer! [100] t0)
+     (transfer! t0 t1)
+     (transfer! t1 t2)
+     (seq (transfer! t2 (float-array 1))) => [100.0]
+     (transfer! [200] t1)
+     (transfer! t1 t2)
+     (seq (transfer! t2 (float-array 1))) => [200.0]
+     (transfer! [300] t0)
+     (transfer! t0 t1)
+     (seq (transfer! t1 (float-array 1))) => [300.0]
+     (seq (transfer! (transfer! [400] t1) (double-array 1))) => [400.0])))
+
 (with-release [eng (engine)
                strm (stream eng)
                diamond-factory (dnnl-factory eng strm)
@@ -43,6 +61,7 @@
   (test-zero diamond-factory)
   (test-create diamond-factory)
   (test-dnnl-create diamond-factory)
+  (test-dnnl-half diamond-factory)
   (test-equality diamond-factory)
   (test-release diamond-factory)
   (test-transfer diamond-factory diamond-factory)

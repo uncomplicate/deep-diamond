@@ -50,7 +50,6 @@ Please use a copy or create a transformer."
    (check-contiguous z)
    (check-contiguous w)))
 
-
 (defn default-strides
   "Creates the first major (in Apple parlance) strides vector
   (entries are in descending order)."

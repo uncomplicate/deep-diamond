@@ -34,12 +34,12 @@
                       neanderthal-factory tensor-engine native-diamond-factory Offset offset
                       DiffTransfer diff-input diff-output create-tensor-desc parameters
                       DescriptorProvider BatchDescriptor batch-index]]
+             [common :refer [transfer-tensor-object transfer-object-tensor]]
              [utils :refer [check-contiguous default-strides]]]
             [uncomplicate.diamond.internal.dnnl
              [core :refer [memory-desc dims data-type memory strides submemory-desc
                            equal-desc? execute! reorder primitive fwd-args offset! ndims]
               :as dnnl-core]
-             [constants :refer [entry-bytes]]
              [protocols :refer [DescProvider desc dnnl-engine]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn AFn]
@@ -582,21 +582,11 @@
 
 (defmethod transfer! [Object DnnlTensor]
   [source destination]
-  (if (contiguous? destination)
-    (transfer! source (view-vctr destination))
-    (with-release [connect (connector (default-desc destination) destination)]
-      (transfer! source (view-vctr (input connect)))
-      (connect)))
-  destination)
+  (transfer-object-tensor source destination))
 
 (defmethod transfer! [DnnlTensor Object]
   [source destination]
-  (if (contiguous? source)
-    (transfer! (view-vctr source) destination)
-    (with-release [connect (connector source (default-desc destination))]
-      (connect)
-      (transfer! (view-vctr (output source)) destination)))
-  (transfer! (view-vctr source) destination))
+  (transfer-tensor-object source destination))
 
 (defmethod transfer! [Object DnnlTransformer]
   [source destination]
