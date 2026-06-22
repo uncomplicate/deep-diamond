@@ -51,7 +51,7 @@
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn AFn]
            [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable
-            Vector]
+            Vector RealVector]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
            [uncomplicate.diamond.internal.bnns.impl BnnsTensorDescriptorImpl
             BnnsNdArrayDescriptorImpl BnnsTensorImpl]))
@@ -485,6 +485,9 @@
   Vector
   (boxedEntry [_ i]
     (.boxedEntry ^Vector vector-view i))
+  RealVector
+  (entry [_ i]
+    (.entry ^RealVector vector-view i))
   Block
   (buffer [_]
     (capacity! (data tz-desc) (capacity buf)))

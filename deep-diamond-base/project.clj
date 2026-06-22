@@ -13,7 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [org.uncomplicate/neanderthal-base "0.62.0"]]
+                 [org.uncomplicate/neanderthal-base "0.63.0-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]
@@ -24,14 +24,14 @@
                        :dependencies [[midje "1.10.10"]]
                        :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                                             "--enable-native-access=ALL-UNNAMED"]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-openblas "0.62.0"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-openblas "0.63.0-SNAPSHOT"]
                                     [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-openblas "0.62.0"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-openblas "0.63.0-SNAPSHOT"]
                                       [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "windows-x86_64"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.62.0"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.63.0-SNAPSHOT"]
                                      [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                        "--enable-native-access=ALL-UNNAMED"]
 
-  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
+  :javac-options ["--release" "21" "-Xlint:-options"])

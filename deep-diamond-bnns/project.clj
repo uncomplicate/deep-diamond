@@ -13,7 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [org.uncomplicate/neanderthal-accelerate "0.62.0"]
+                 [org.uncomplicate/neanderthal-accelerate "0.63.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-base "0.45.0-SNAPSHOT"]
                  [org.uncomplicate/accelerate-platform "0.2.0-1.5.13"]]
 
@@ -28,4 +28,4 @@
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
                        "--enable-native-access=ALL-UNNAMED"]
-  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
+  :javac-options ["--release" "21" "-Xlint:-options"])

@@ -24,11 +24,11 @@
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
                                       [org.uncomplicate/deep-diamond-test "0.45.0-SNAPSHOT"]]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.62.0"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0-SNAPSHOT"]
                                     [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.62.0"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0-SNAPSHOT"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.62.0"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.63.0-SNAPSHOT"]
                                      [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"
@@ -36,4 +36,4 @@
 
   ;; :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
 
-  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
+  :javac-options ["--release" "21" "-Xlint:-options"])

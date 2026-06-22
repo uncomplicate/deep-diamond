@@ -14,7 +14,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
                  [uncomplicate/clojurecuda "0.28.0"]
-                 [org.uncomplicate/neanderthal-cuda  "0.62.0"]
+                 [org.uncomplicate/neanderthal-cuda  "0.63.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-base "0.45.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-dnnl "0.45.0-SNAPSHOT"]]
 
@@ -28,20 +28,20 @@
                        :dependencies [[midje "1.10.10"]
                                       [org.clojure/data.csv "1.1.1"]
                                       [org.uncomplicate/deep-diamond-test "0.45.0-SNAPSHOT"]]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.62.0"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0-SNAPSHOT"]
                                     [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]
                                     [org.bytedeco/cuda-redist "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.62.0"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0-SNAPSHOT"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]
                                       [org.bytedeco/cuda-redist "13.1-9.19-1.5.13" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "windows-x86_64"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.62.0"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.63.0-SNAPSHOT"]
                                      [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
 
   ;; :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true" "--enable-native-access=ALL-UNNAMED"]
-  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"]
+  :javac-options ["--release" "21" "-Xlint:-options"]
   :source-paths ["src/clojure" "src/device"])

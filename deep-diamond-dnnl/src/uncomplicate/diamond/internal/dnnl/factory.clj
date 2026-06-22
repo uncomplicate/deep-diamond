@@ -13,7 +13,8 @@
              [utils :refer [dragan-says-ex mapped-buffer]]]
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal
-             [native :refer [native-byte native-short native-long native-int native-float native-double]]
+             [native :refer [native-byte native-short native-long native-int
+                             native-float native-double native-half]]
              [block :refer [create-data-source buffer initialize!]]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider vector-engine]]
             [uncomplicate.neanderthal.internal.cpp.lapack :refer [with-lapack-check]]
@@ -163,7 +164,7 @@
    (->DnnlFactory eng strm false (vector-factory false nil
                                                  {:float native-float
                                                   :double native-double
-                                                  :half native-short
+                                                  :half native-half
                                                   :long native-long
                                                   :int native-int
                                                   :short native-short
@@ -175,7 +176,7 @@
      (->DnnlFactory eng strm true (vector-factory false nil
                                                   {:float native-float
                                                    :double native-double
-                                                   :half native-short
+                                                   :half native-half
                                                    :long native-long
                                                    :int native-int
                                                    :short native-short

@@ -13,7 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [org.uncomplicate/neanderthal-base "0.62.0"]
+                 [org.uncomplicate/neanderthal-base "0.63.0-SNAPSHOT"]
                  [org.uncomplicate/deep-diamond-base "0.45.0-SNAPSHOT"]]
 
   :profiles {:dev {:plugins [[lein-midje "3.2.1"]]
@@ -23,4 +23,4 @@
                                  *print-length* 128}
                    :dependencies [[midje "1.10.10"]]}}
 
-  :javac-options ["-target" "1.8" "-source" "1.8" "-Xlint:-options"])
+  :javac-options ["--release" "21" "-Xlint:-options"])

@@ -19,7 +19,7 @@
              [core :refer :all]
              [toolbox :refer [read-int]]]
             [uncomplicate.neanderthal
-             [cuda :refer [cuda-float cuda-double cuda-long cuda-int cuda-short cuda-byte]]
+             [cuda :refer [cuda-float cuda-double cuda-half cuda-long cuda-int cuda-short cuda-byte]]
              [block :refer [buffer offset]]]
             [uncomplicate.neanderthal.internal.api :refer :all :exclude [device]]
             [uncomplicate.diamond.tensor :refer [shape data-type layout output]]
@@ -450,6 +450,7 @@ Please contribute towards making it possible, or use on of the supported types."
                   native-diamond-fact (dnnl-factory)
                   float-fact (cuda-float ctx hstream)
                   double-fact (cuda-double ctx hstream)
+                  half-fact (cuda-half ctx hstream)
                   long-fact (cuda-long ctx hstream)
                   int-fact (cuda-int ctx hstream)
                   short-fact (cuda-short ctx hstream)
@@ -457,7 +458,7 @@ Please contribute towards making it possible, or use on of the supported types."
                   vect-fact (vector-factory true (vector-factory)
                                             {:float float-fact
                                              :double double-fact
-                                             :half short-fact
+                                             :half half-fact
                                              :long long-fact
                                              :int int-fact
                                              :short short-fact
@@ -465,7 +466,7 @@ Please contribute towards making it possible, or use on of the supported types."
                                              :uint8 byte-fact})
                   float-engine (->TensorEngine cudnn-hdl float-modl hstream float)
                   double-engine (->TensorEngine cudnn-hdl double-modl hstream double)
-                  half-engine (->TensorEngine cudnn-hdl half-modl hstream short)
+                  half-engine (->TensorEngine cudnn-hdl half-modl hstream float)
                   long-engine (->TensorEngine cudnn-hdl long-modl hstream long)
                   int-engine (->TensorEngine cudnn-hdl int-modl hstream int)
                   byte-engine (->TensorEngine cudnn-hdl byte-modl hstream byte)]

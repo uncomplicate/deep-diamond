@@ -14,7 +14,7 @@
             [uncomplicate.clojure-cpp :refer [byte-pointer type-pointer]]
             [uncomplicate.neanderthal.core :refer [entry!]]
             [uncomplicate.neanderthal
-             [native :refer [factory-by-type native-float native-int native-byte]]
+             [native :refer [factory-by-type]]
              [block :refer [create-data-source buffer initialize!]]]
             [uncomplicate.neanderthal.internal.api :refer [FlowProvider vector-engine]]
             [uncomplicate.diamond.tensor :refer [*diamond-factory* desc output shape data-type layout]]
@@ -79,7 +79,7 @@ Please contribute towards making it possible, or use on of the supported types."
     (dragan-says-ex UNSUPPORTED_CONSTRUCT {:construct :batcher}))
   (tensor-engine [this dtype]
     (vector-engine (neand-facts dtype)))
-  ;; MappedTensorFactory
+  ;; MappedTensorFactory ;;TODO
   ;; (map-channel [this channel td flag offset-bytes n-index]
   ;;   (let [size (bytesize (desc td))]
   ;;     (let-release [buf ((type-pointer (data-type td)) (mapped-buffer channel offset-bytes size flag))]

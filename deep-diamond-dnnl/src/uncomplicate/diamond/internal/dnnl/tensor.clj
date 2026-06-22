@@ -43,7 +43,7 @@
              [protocols :refer [DescProvider desc dnnl-engine]]])
   (:import org.bytedeco.javacpp.Pointer
            [clojure.lang Seqable IFn AFn]
-           [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable Vector]
+           [uncomplicate.neanderthal.internal.api Block VectorSpace Changeable Vector RealVector]
            uncomplicate.diamond.tensor.TensorDescriptorImpl
            uncomplicate.diamond.internal.dnnl.impl.MemoryDescImpl))
 
@@ -437,6 +437,9 @@
   Vector
   (boxedEntry [_ i]
     (.boxedEntry ^Vector vector-view i))
+  RealVector
+  (entry [_ i]
+    (.entry ^RealVector vector-view i))
   Block
   (buffer [_]
     (pointer tz-mem))
