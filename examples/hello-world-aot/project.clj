@@ -20,11 +20,12 @@
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.62.0"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]
                                       ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!
-                                      [org.bytedeco/cuda-redist "13.1-9.19-1.5.13" :classifier "windows-x86_64"]
-                                      [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "windows-x86_64"]
-                                      [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "windows-x86_64"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.62.0"]
-                                     [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
+                                      [org.bytedeco/cuda-redist "13.0-9.14-1.5.13-20251022.164318-20" :classifier "windows-x86_64"]
+                                      [org.bytedeco/cuda-redist-cublas "13.0-9.14-1.5.13-20251022.164318-20" :classifier "windows-x86_64"]
+                                      [org.bytedeco/cuda-redist-cudnn "13.0-9.14-1.5.13-20251022.164345-20" :classifier "windows-x86_64"]]}
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.60.0"]
+                                     [org.bytedeco/openblas "0.3.30-1.5.12" :classifier "macosx-arm64"]
+                                     [org.uncomplicate/deep-diamond-bnns "0.42.0"]]}}
 
   ;; Wee need this for the DNNL binaries, for the latest version is not available in the Maven Central yet
   ;; :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]

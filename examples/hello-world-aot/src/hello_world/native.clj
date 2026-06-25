@@ -12,12 +12,8 @@
              [tensor :refer [tensor]]
              [native :refer []]]))
 
-;; We create a tensor in main memory....
-(def t (tensor [2 3] :float :nc))
-(transfer! (range) t)
-;; ... and compute an absolute sum of its entries
-(asum t)
-
-;; If you see something like this:
-;; 15.0
-;; It means that everything is set up and you can enjoy programming with Deep Diamond :)
+(defn yeah []
+  (let [t (tensor [2 3] :float :nc)]
+    (transfer! (range) t)
+  ;; ... and compute an absolute sum of its entries
+    (asum t)))
