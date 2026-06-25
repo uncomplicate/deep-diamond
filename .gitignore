@@ -23,3 +23,8 @@ data
 /network.trained.2
 /network2.trained
 .nrepl-port
+.aider*
+examples/hello-world-aot/.lsp/
+examples/hello-world-aot/.clj-kondo/
+.clj-kondo/
+.lsp/
