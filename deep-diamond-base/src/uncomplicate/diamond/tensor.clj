@@ -51,7 +51,7 @@
   Tensors support typical core Fluokitten functions.
   "
   (:require [uncomplicate.commons
-             [core :refer [release let-release Info view]]
+             [core :refer [release let-release Info view Bytes bytesize* types-size]]
              [utils :refer [dragan-says-ex cond-into]]]
             [uncomplicate.fluokitten.protocols :refer [Magma Monoid Applicative Functor pure]]
             [uncomplicate.diamond.internal
@@ -169,6 +169,18 @@
      :shape shape
      :data-type data-type
      :layout layout})
+  Bytes
+  (bytesize* [_]
+    (* (long (types-size data-type))
+       (long (cond
+               (nil? layout) (apply * shape)
+               (sequential? layout) (inc (long (apply + (map (fn [^long shape ^long stride]
+                                                               (* (dec shape) stride))
+                                                             shape layout))))
+               :default
+               (if (some zero? shape)
+                 0
+                 (dragan-says-ex "Please transform this general tensor descriptor into a technology speicfic version to be able to calculate bytesize."))))))
   Monoid
   (id [_]
     (let [zero-vec (vec (repeat (count shape) 0))]

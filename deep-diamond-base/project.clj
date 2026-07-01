@@ -13,6 +13,7 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
+                 [uncomplicate/commons "0.22.0"];;TODO remove
                  [org.uncomplicate/neanderthal-base "0.63.0-SNAPSHOT"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]

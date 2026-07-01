@@ -18,7 +18,7 @@
 (defn dec-data-type [^long data-type]
   (case data-type
     65568 :float
-    65552 :float16
+    65552 :half
     98320 :bf16
     131104 :int
     131080 :byte

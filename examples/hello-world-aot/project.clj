@@ -1,4 +1,4 @@
-(defproject hello-world-aot "0.44.0"
+(defproject hello-world-aot "0.45.0"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]

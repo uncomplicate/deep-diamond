@@ -12,7 +12,7 @@
             [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.neanderthal.core :refer [dim asum native transfer! ge entry! view-vctr vctr]]
             [uncomplicate.neanderthal.internal.api :refer [native-factory factory]]
-            [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor offset! view-tz]]
+            [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor offset! view-tz shape]]
             [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
             [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
@@ -22,7 +22,8 @@
 (defn test-cudnn-create [fact]
   (facts
     "Test cuDNN specific constraints."
-    (tensor fact [0 1 1 1] :float :nchw) => (throws ExceptionInfo)
+    (shape (tensor fact [0 1 1 1] :float :nchw)) => [0 1 1 1]
+    (shape (tensor fact [0 1 1] :float nil)) => [0 1 1]
     (tensor fact [2 3] :int :nc) => (throws ExceptionInfo)
     (tensor fact [2 3] :long :nc) => (throws ExceptionInfo)
     (with-release [t1 (tensor fact [2 3 2 2] :double :nchw)]

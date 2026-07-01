@@ -17,6 +17,7 @@
             [uncomplicate.clojure-cpp :refer [byte-pointer]]
             [uncomplicate.clojurecuda
              [core :refer :all]
+             [info :refer [stream-ctx]]
              [toolbox :refer [read-int]]]
             [uncomplicate.neanderthal
              [cuda :refer [cuda-float cuda-double cuda-half cuda-long cuda-int cuda-short cuda-byte]]
@@ -26,7 +27,7 @@
             [uncomplicate.diamond.internal
              [protocols :refer [TensorFactory DiamondFactoryProvider NeanderthalFactoryProvider
                                 neanderthal-factory CostFactory DnnFactory RnnFactory batch-index
-                                inf-desc train-desc diff-desc]]
+                                inf-desc train-desc diff-desc create-tensor]]
              [utils :refer [check-contiguous]]
              [cost :refer [quadratic-cost! mean-absolute-cost! crossentropy-cost!]]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
@@ -52,7 +53,7 @@
 
 (def ^{:private true :const true} UNSUPPORTED_DATA_TYPE
   "The requested data type is not supported on the CUDA platform.
-Please contribute towards making it possible, or use on of the supported types.")
+Please contribute towards making it possible, or use one of the supported types.")
 
 (defn ^:private tensor-1d-equals [modl hstream x y]
   (with-release [equals-kernel (function modl "tensor_1d_equals")
@@ -358,13 +359,10 @@ Please contribute towards making it possible, or use on of the supported types."
   (create-tensor-desc [this tz-desc]
     (cudnn-tensor-desc (shape tz-desc) (data-type tz-desc) (layout tz-desc)))
   (create-tensor [this tensor-desc init]
-    (let-release [res (cudnn-tensor this tensor-desc)]
-      (when init
-        (set-all (engine res) 0 res))
-      res))
+    (create-tensor this tensor-desc 0 init))
   (create-tensor [this tensor-desc batch-index init]
     (let-release [res (cudnn-tensor this tensor-desc batch-index)]
-      (when init
+      (when (and init (not (some zero? (shape res))));;TODO remove when zero-size is added through backend api.
         (set-all (engine res) 0 res))
       res))
   (create-transformer [_ in-tz out-tz]
@@ -483,18 +481,12 @@ Please contribute towards making it possible, or use on of the supported types."
 
 (defn cudnn-factory
   ([ctx hstream]
-   (in-context
-    ctx
-    (let-release [cudnn-hdl (cudnn-context hstream)
-                  hstream (get-cudnn-stream cudnn-hdl)]
-      (create-cudnn-factory ctx hstream cudnn-hdl false))))
-  ([hstream]
    (let-release [cudnn-hdl (cudnn-context hstream)]
-     (create-cudnn-factory (current-context) default-stream cudnn-hdl true)))
+     (create-cudnn-factory ctx hstream cudnn-hdl false)))
+  ([hstream]
+   (cudnn-factory (stream-ctx hstream) hstream))
   ([]
    (init)
    (let-release [ctx (context (device))]
-     (in-context
-      ctx
-      (let-release [cudnn-hdl (cudnn-context default-stream)]
-        (create-cudnn-factory ctx default-stream cudnn-hdl true))))))
+     (in-context ctx
+       (cudnn-factory ctx default-stream)))))

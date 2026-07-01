@@ -8,11 +8,13 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.internal.common
-  (:require [uncomplicate.commons.core :refer [with-release]]
+  (:require [uncomplicate.commons.core :refer [with-release Releaseable release Viewable view]]
             [uncomplicate.neanderthal
              [core :refer [transfer! view-vctr]]
              [block :refer [contiguous?]]]
-            [uncomplicate.diamond.tensor :refer [input output shape data-type default-desc connector]]))
+            [uncomplicate.diamond.tensor :refer [input output shape data-type layout default-desc
+                                                 connector Transfer Revert ConnectorCreator]])
+  (:import [clojure.lang IFn AFn]))
 
 (defn transfer-object-tensor [src dst]
   (if (= :half (data-type dst))
@@ -38,3 +40,50 @@
         (connect)
         (transfer! (view-vctr (output src)) dst))))
   dst)
+
+(defn equal-desc? [td1 td2]
+  (and (= (shape td1) (shape td2))
+       (= (data-type td1) (data-type td2))
+       (= (layout td1) (layout td2))))
+
+(deftype NoOpTransformer [in-tz out-tz]
+  Releaseable
+  (release [_]
+    (release in-tz)
+    (release out-tz))
+  Object
+  (hashCode [_]
+    (-> (hash :transformer)
+        (hash-combine (shape in-tz))
+        (hash-combine (shape out-tz))))
+  (equals [this other]
+    (or (identical? this other)
+        (and (instance? NoOpTransformer other)
+             (= (shape in-tz) (shape (.in-tz ^NoOpTransformer other)))
+             (= out-tz (.out-tz ^NoOpTransformer other)))))
+  (toString [this]
+    (str {:input in-tz
+          :output out-tz}))
+  Revert
+  (revert [_]
+    (NoOpTransformer. (view out-tz) (view in-tz)))
+  Viewable
+  (view [_]
+    (NoOpTransformer. (view in-tz) (view out-tz)))
+  Transfer
+  (input [_]
+    in-tz)
+  (output [_]
+    out-tz)
+  IFn
+  (invoke [this]
+    out-tz)
+  (invoke [_ _]
+    out-tz)
+  (applyTo [this xs]
+    (AFn/applyToHelper this xs))
+  ConnectorCreator
+  (connector [this out-desc]
+    (if (equal-desc? out-tz out-desc)
+      this
+      (connector in-tz out-desc))))

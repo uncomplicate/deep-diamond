@@ -35,7 +35,8 @@
                       diamond-factory neanderthal-factory tensor-engine native-diamond-factory
                       Offset offset DiffTransfer diff-input diff-output DescriptorProvider
                       BatchDescriptor batch-index]]
-             [utils :refer [check-contiguous default-strides]]]
+             [utils :refer [check-contiguous default-strides]]
+             [common :refer [->NoOpTransformer]]]
             [uncomplicate.diamond.internal.dnnl
              [protocols :as dnnl]
              [core :refer [memory-desc]]
@@ -83,7 +84,9 @@
 (extend-type TensorDescriptorImpl
   DescProvider
   (desc [this]
-    (cudnn-tensor-desc (.shape this) (or (.data-type this) :float) (layout this))))
+    (if (some zero? (.shape this))
+      this
+      (cudnn-tensor-desc (.shape this) (or (.data-type this) :float) (layout this)))))
 
 (extend-type Object
   DescProvider
@@ -115,15 +118,17 @@
 
 (defn cudnn-tensor-desc [shape dtype format]
   (let [format (or format (default-strides shape))]
-    (if (or (cudnn-format format)
-            (and (sequential? format) (<= 4 (count format)) (= (count format) (count shape))))
-      (tensor-descriptor shape dtype format)
-      (let [padding-4 (repeat (- 4 (count shape)) 1)]
-        (let [lyout (if (keyword? format)
-                      (with-release [md (memory-desc shape dtype format)]
-                        (layout md))
-                      format)]
-          (tensor-descriptor (into shape padding-4) dtype (into lyout padding-4)))))))
+    (if (some zero? shape)
+      (diamond/desc shape dtype format);;TODO temporary solution to support zero-sized cuDNN tensors. Implement backend api.
+      (if (or (cudnn-format format)
+              (and (sequential? format) (<= 4 (count format)) (= (count format) (count shape))))
+        (tensor-descriptor shape dtype format)
+        (let [padding-4 (repeat (- 4 (count shape)) 1)]
+          (let [lyout (if (keyword? format)
+                        (with-release [md (memory-desc shape dtype format)]
+                          (layout md))
+                        format)]
+            (tensor-descriptor (into shape padding-4) dtype (into lyout padding-4))))))))
 
 (extend-type CUFilterDescriptor
   TensorDescriptor
@@ -197,7 +202,9 @@
       (connector in-tz out-desc))))
 
 (defn cudnn-transformer [cudnn-hdl in-tz out-tz]
-  (->CUDnnTransformer cudnn-hdl in-tz out-tz (data-accessor in-tz) (data-accessor out-tz)))
+  (if (not (and (some zero? (shape in-tz)) (some zero? (shape out-tz))))
+    (->CUDnnTransformer cudnn-hdl in-tz out-tz (data-accessor in-tz) (data-accessor out-tz))
+    (->NoOpTransformer in-tz out-tz)))
 
 ;; =================== Batcher ==================================================
 
@@ -332,24 +339,24 @@
              (.isContiguous x) (.isContiguous ^CUDnnTensor y)
              (= vect-buf (.-vect-buf ^CUDnnTensor y)))))
   (toString [this]
-    (pr-str {:shape (.dims cu-desc) :data-type (.data-type cu-desc)
-             :layout (.layout cu-desc)}))
+    (pr-str {:shape (shape cu-desc) :data-type (data-type cu-desc)
+             :layout (layout cu-desc)}))
   Info
   (info [x]
-    {:data-type (.data-type cu-desc)
+    {:data-type (data-type cu-desc)
      :class (class x)
      :device :cuda
-     :shape (.dims cu-desc)
-     :strides (.layout cu-desc)
+     :shape (shape cu-desc)
+     :strides (layout cu-desc)
      :master (info vect-buf :master)
      :engine eng})
   (info [x info-type]
     (case info-type
-      :data-type (.data-type cu-desc)
+      :data-type (data-type cu-desc)
       :class (class x)
       :device :cuda
-      :shape (.dims cu-desc)
-      :strides (.layout cu-desc)
+      :shape (shape cu-desc)
+      :strides (layout cu-desc)
       :master (info vect-buf :master)
       :engine eng
       nil))
@@ -396,7 +403,7 @@
   (compatible? [_ y]
     (compatible? (factory vect-buf) (factory y)))
   (fits? [_ y]
-    (= (.dims cu-desc) (cudnn-shape-padding (shape y))))
+    (= (shape cu-desc) (cudnn-shape-padding (shape y))))
   (device [_]
     :cuda)
   VectorSpace
@@ -451,11 +458,11 @@
     cu-desc)
   TensorDescriptor
   (shape [_]
-    (.dims cu-desc))
+    (shape cu-desc))
   (data-type [_]
-    (.data-type cu-desc))
+    (data-type cu-desc))
   (layout [_]
-    (.layout cu-desc))
+    (layout cu-desc))
   BatchDescriptor
   (batch-index [_]
     n-index)
@@ -471,11 +478,11 @@
   (view-tz [_ sub]
     (let-release [sub-desc (if (number? sub)
                              (cudnn-tensor-desc (assoc (dims cu-desc) n-index sub)
-                                                (.data-type cu-desc)
-                                                (.layout cu-desc))
+                                                (data-type cu-desc)
+                                                (layout cu-desc))
                              (cudnn-tensor-desc (shape sub)
-                                                (or (data-type sub) (.data-type cu-desc))
-                                                (cudnn-shape-padding (or (layout sub) (.layout cu-desc)))))
+                                                (or (data-type sub) (data-type cu-desc))
+                                                (cudnn-shape-padding (or (layout sub) (layout cu-desc)))))
                   sub-buf (cu-block-vector (neanderthal-factory diamond-fact (data-type sub-desc))
                                            false (pointer (buffer vect-buf) 0)
                                            (quot (bytesize sub-desc) (data-type-width (data-type sub-desc)))
@@ -499,7 +506,7 @@
   ([diamond-fact master buf tdesc n-index]
    (let [tdesc (desc tdesc)
          neand-fact (neanderthal-factory diamond-fact (data-type tdesc))
-         nc (apply * (dims tdesc))
+         nc (apply * (shape tdesc))
          tz-bytesize (bytesize tdesc)]
      (if (<= 0 tz-bytesize (bytesize buf))
        (let-release [vect-buf (cu-block-vector neand-fact master buf
@@ -541,6 +548,7 @@
   (if (fits? dest src)
     (if (and (contiguous? src) (contiguous? dest)
              (= (data-type src) (data-type dest))
+             (not (some zero? (shape dest)))
              (= (cudnn-shape-padding (layout src)) (strides dest)))
       (set-vector! (view-vctr src) (view-vctr dest))
       (with-release [dnnl-connect (connector src (default-desc dest))
@@ -558,6 +566,7 @@
   (if (fits? src dest)
     (if (and (contiguous? src) (contiguous? dest)
              (= (data-type src) (data-type dest))
+             (not (some zero? (shape src)))
              (= (strides src) (cudnn-shape-padding (layout dest))))
       (get-vector! (view-vctr src) (view-vctr dest))
       (with-release [cudnn-connect (connector src (default-desc src))
@@ -572,28 +581,30 @@
 
 (defmethod transfer! [Object CUDnnTensor]
   [source destination]
-  (if (= :half (data-type destination))
-    (with-release [native-destination (native destination)]
-      (transfer! source native-destination)
-      (transfer! native-destination destination))
-    (if (and (contiguous? destination))
-      (transfer! source (view-vctr destination))
-      (with-release [connect (connector (default-desc destination) destination)]
-        (transfer! source (view-vctr (input connect)))
-        (connect))))
+  (when (not (some zero? (shape destination)))
+    (if (= :half (data-type destination))
+      (with-release [native-destination (native destination)]
+        (transfer! source native-destination)
+        (transfer! native-destination destination))
+      (if (and (contiguous? destination))
+        (transfer! source (view-vctr destination))
+        (with-release [connect (connector (default-desc destination) destination)]
+          (transfer! source (view-vctr (input connect)))
+          (connect)))))
   destination)
 
 (defmethod transfer! [CUDnnTensor Object]
   [source destination]
-  (if (= :half (data-type source))
-    (with-release [native-source (native source)]
-      (transfer! source native-source)
-      (transfer! native-source destination))
-    (if (contiguous? source)
-      (transfer! (view-vctr source) destination)
-      (with-release [connect (connector source (default-desc destination))]
-        (connect)
-        (transfer! (view-vctr (output connect)) destination))))
+  (when (not (some zero? (shape source)))
+    (if (= :half (data-type source))
+      (with-release [native-source (native source)]
+        (transfer! source native-source)
+        (transfer! native-source destination))
+      (if (contiguous? source)
+        (transfer! (view-vctr source) destination)
+        (with-release [connect (connector source (default-desc destination))]
+          (connect)
+          (transfer! (view-vctr (output connect)) destination)))))
   destination)
 
 (defmethod transfer! [Object CUDnnTransformer]
