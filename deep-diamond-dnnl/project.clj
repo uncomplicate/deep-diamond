@@ -6,14 +6,14 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject org.uncomplicate/deep-diamond-dnnl "0.45.0-SNAPSHOT"
+(defproject org.uncomplicate/deep-diamond-dnnl "0.45.0"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [org.uncomplicate/deep-diamond-base "0.45.0-SNAPSHOT"]
+                 [org.uncomplicate/deep-diamond-base "0.45.0"]
                  [org.bytedeco/dnnl-platform "3.11-1.5.13"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
@@ -23,12 +23,12 @@
                                      *unchecked-math* :warn-on-boxed
                                      *print-length* 128}
                        :dependencies [[midje "1.10.10"]
-                                      [org.uncomplicate/deep-diamond-test "0.45.0-SNAPSHOT"]]}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0-SNAPSHOT"]
+                                      [org.uncomplicate/deep-diamond-test "0.45.0"]]}
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0"]
                                     [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0-SNAPSHOT"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.63.0-SNAPSHOT"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.63.0"]
                                      [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]]}}
 
   :jvm-opts ^:replace ["-Dclojure.compiler.direct-linking=true"

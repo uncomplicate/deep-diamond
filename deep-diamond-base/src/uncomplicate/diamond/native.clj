@@ -7,21 +7,15 @@
 
 (ns ^{:author "Dragan Djuric"}
     uncomplicate.diamond.native
-  "Entry point to Deep Diamond's CPU engine (currently based on Intel's OneDNNL).
+  "Entry point to Deep Diamond's CPU engine (currently based on Intel's OneDNNL or Apple's BNNS).
   By evaluating this namespace, you're altering [[uncomplicate.diamond.tensor/*diamond-factory*]]
   var root to the engine produced by [[uncomplicate.diamond.internal.dnnl.factory/dnnl-factory]].
   "
   (:require [clojure.string :refer [includes? lower-case]]
-            [clojure.tools.logging :refer [warn error info]]
-            [uncomplicate.commons.utils :refer [dragan-says-ex channel]]
+            [clojure.tools.logging :refer [error info]]
+            [uncomplicate.commons.utils :refer [dragan-says-ex channel load-class]]
             [uncomplicate.diamond.internal.protocols :refer [map-channel create-tensor-desc]])
   (:import java.nio.channels.FileChannel))
-
-(defn load-class [^String classname]
-  (try (.loadClass (clojure.lang.DynamicClassLoader.) classname)
-       (catch Exception e
-         (info (format "Class %s is not available." classname))
-         nil)))
 
 (defmacro load-dnnl []
   `(do (require 'uncomplicate.diamond.internal.dnnl.factory)

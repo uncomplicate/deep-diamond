@@ -10,9 +10,9 @@
   (:require [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.neanderthal.core :refer [transfer! asum]]
             [uncomplicate.diamond.tensor :refer [tensor with-diamond]]
-            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+            [uncomplicate.diamond.cuda :refer [cuda-factory]]))
 
-(with-release [cudnn (cudnn-factory)
+(with-release [cudnn (cuda-factory)
                t (tensor cudnn [2 3] :float :nc)]
   (transfer! (range) t)
   (asum t))
@@ -23,7 +23,7 @@
 
 ;; Alternatively, you can also use:
 
-(with-diamond cudnn-factory []
+(with-diamond cuda-factory []
   (with-release [t (tensor [2 3] :float :nc)]
     (transfer! (range) t)
     (asum t)))
