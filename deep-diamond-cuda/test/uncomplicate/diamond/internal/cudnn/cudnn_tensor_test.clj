@@ -12,9 +12,10 @@
             [uncomplicate.commons.core :refer [with-release]]
             [uncomplicate.neanderthal.core :refer [dim asum native transfer! ge entry! view-vctr vctr]]
             [uncomplicate.neanderthal.internal.api :refer [native-factory factory]]
-            [uncomplicate.diamond.tensor :refer [with-diamond *diamond-factory* tensor offset! view-tz shape]]
+            [uncomplicate.diamond
+             [tensor :refer [with-diamond *diamond-factory* tensor offset! view-tz shape]]
+             [cuda :refer [cuda-factory]]]
             [uncomplicate.diamond.internal.protocols :refer [neanderthal-factory]]
-            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]
             [uncomplicate.diamond.internal.dnnl.factory :refer [dnnl-factory]]
             [uncomplicate.diamond.tensor-test :refer :all])
   (:import clojure.lang.ExceptionInfo))
@@ -67,7 +68,7 @@
      (seq (transfer! (transfer! [400 400] t1) (double-array 2))) => [400.0 400.0])))
 
 (with-release [dnnl-fact (dnnl-factory)]
-  (with-diamond cudnn-factory []
+  (with-diamond cuda-factory []
     (test-tensor *diamond-factory*)
     (test-zero *diamond-factory*)
     (test-create *diamond-factory*)

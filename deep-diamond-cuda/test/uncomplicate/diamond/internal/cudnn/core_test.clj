@@ -393,7 +393,7 @@
                host-x (float-pointer (range -1 7))
                desc-param (batch-norm-descriptor desc-x :spatial)
                gpu-gamma (mem-alloc-runtime (bytesize desc-param))
-               gpu-gamma-diff (mem-alloc-runtime (bytesize desc-param))
+               gpu-gamma-diff (memset! (mem-alloc-runtime (bytesize desc-param)) 0)
                gpu-beta (mem-alloc-runtime (bytesize desc-param))
                gpu-beta-diff (mem-alloc-runtime (bytesize desc-param))
                gpu-mean (mem-alloc-runtime (bytesize desc-param))
@@ -458,7 +458,7 @@
 
                    ;;desc-h (tensor-descriptor src-iter-dim :float :nchw)
                    desc-h1 (tensor-descriptor [L N C] :float [(* N C) C 1])
-                   gpu-hx (mem-alloc-runtime (bytesize desc-h1))
+                   gpu-hx (memset! (mem-alloc-runtime (bytesize desc-h1)) 0)
                    host-hx (float-pointer (apply * src-iter-dim))
                    gpu-hy (mem-alloc-runtime (bytesize desc-h1))
 
@@ -480,7 +480,7 @@
                    weight-iter-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 (pointer gpu-w) 1)
                    weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 0)
                    weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 1)
-                   gpu-y (mem-alloc-runtime (bytesize desc-x))]
+                   gpu-y (memset! (mem-alloc-runtime (bytesize desc-x)) 0)]
       ;;(build-rnn-dynamic! cudnn-hdl rnn-desc N) ;;TODO it seems it's no longer supported, or JCuda just didn't complain before
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
@@ -534,12 +534,12 @@
     (with-release [cudnn-hdl (cudnn-context default-stream)
 
                    desc-x (tensor-descriptor src-dim :float :nchw)
-                   gpu-x (mem-alloc-runtime (bytesize desc-x))
+                   gpu-x (memset! (mem-alloc-runtime (bytesize desc-x)) 0)
                    host-x (float-pointer [2 3 0.2 0.3])
 
                    ;;desc-h (tensor-descriptor src-iter-dim :float :nchw)
                    desc-h1 (tensor-descriptor [L N DC] :float [(* N DC) DC 1])
-                   gpu-hx (mem-alloc-runtime (bytesize desc-h1))
+                   gpu-hx (memset! (mem-alloc-runtime (bytesize desc-h1)) 0)
                    ;;host-hx (float-pointer (apply * src-iter-dim))
                    gpu-hy (mem-alloc-runtime (bytesize desc-h1))
 
@@ -549,7 +549,7 @@
                    rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
                                             :float :float :default SC DC DC L nil :padded-io-disabled)
                    weights-size (rnn-weights-space-size cudnn-hdl rnn-desc)
-                   gpu-w (mem-alloc-runtime weights-size)
+                   gpu-w (memset! (mem-alloc-runtime weights-size) 0)
                    ;; desc-w (tensor-descriptor weights-dim :float weights-strides)
                    host-w (float-pointer [0.1 0.3 0.2 0.4 100 300 200 400
                                           0.3 0.5 0.4 0.6 0.01 0.03 0.02 0.04 0.3 0.7 1 2])
@@ -563,7 +563,7 @@
                    weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 0)
                    weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 1)
                    desc-y (tensor-descriptor dst-dim :float :nchw)
-                   gpu-y (mem-alloc-runtime (bytesize desc-y))]
+                   gpu-y (memset! (mem-alloc-runtime (bytesize desc-y)) 0)]
       (build-rnn-dynamic! cudnn-hdl rnn-desc N)
       (memcpy-host! host-x gpu-x)
       (memcpy-host! host-w gpu-w)
@@ -614,7 +614,7 @@
                    desc-h1 (tensor-descriptor [L N C] :float [(* N C) C 1])
                    gpu-hx (mem-alloc-runtime (bytesize desc-h1))
                    host-hx (float-pointer (apply * src-iter-dim))
-                   gpu-hy (mem-alloc-runtime (bytesize desc-h1))
+                   gpu-hy (memset! (mem-alloc-runtime (bytesize desc-h1)) 0)
 
                    rnn-desc (rnn-descriptor :standard :relu :single :unidirectional :linear
                                             :float :float :default C C C L nil :padded-io-enabled)
@@ -631,7 +631,7 @@
                    weight-iter-params-0 (rnn-weight-params cudnn-hdl rnn-desc 0 (pointer gpu-w) 1)
                    weight-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 0)
                    weight-iter-params-1 (rnn-weight-params cudnn-hdl rnn-desc 1 (pointer gpu-w) 1)
-                   gpu-y (mem-alloc-runtime (bytesize desc-x))
+                   gpu-y (memset! (mem-alloc-runtime (bytesize desc-x)) 0)
                    gpu-dy (mem-alloc-runtime (bytesize desc-x))
                    host-dy (float-pointer [1.1 -2.2 3.3 -4.4])
                    gpu-dx (mem-alloc-runtime (bytesize desc-x))

@@ -14,7 +14,7 @@
              [core :refer [Releaseable release let-release with-release view]]
              [utils :refer [dragan-says-ex]]]
             [uncomplicate.fluokitten.core :refer [op extract]]
-            [uncomplicate.clojure-cpp :refer [byte-pointer]]
+            [uncomplicate.clojure-cpp :refer [byte-pointer null?]]
             [uncomplicate.clojurecuda
              [core :refer :all]
              [info :refer [stream-ctx]]
@@ -326,12 +326,11 @@ Please contribute towards making it possible, or use one of the supported types.
                        vect-fact tensor-engines]
   Releaseable
   (release [_]
-    (in-context
-     ctx
-     (release vect-fact)
-     (doseq [eng (vals tensor-engines)]
-       (release eng))
-     (release cudnn-hdl))
+    (in-context ctx
+      (release vect-fact)
+      (doseq [eng (vals tensor-engines)]
+        (release eng))
+      (release cudnn-hdl))
     (when master
       (when-not (= default-stream hstream)
         (release hstream))
@@ -412,8 +411,8 @@ Please contribute towards making it possible, or use one of the supported types.
     (cudnn-sum-blueprint this src-descs))
   (create-workspace [_ byte-size]
     (in-context
-     ctx
-     (cuda-malloc (max 1 (long byte-size)))))
+        ctx
+      (cuda-malloc (max 1 (long byte-size)))))
   RnnFactory
   (rnn-op-blueprint [this src-desc dst-desc weights-type activ dir lrs src-iter? dst-iter?]
     (cudnn-rnn-op-blueprint this cudnn-hdl src-desc dst-desc weights-type
@@ -481,12 +480,15 @@ Please contribute towards making it possible, or use one of the supported types.
 
 (defn cudnn-factory
   ([ctx hstream]
-   (let-release [cudnn-hdl (cudnn-context hstream)]
-     (create-cudnn-factory ctx hstream cudnn-hdl false)))
+   (in-context ctx
+     (let-release [cudnn-hdl (cudnn-context hstream)]
+       (create-cudnn-factory ctx hstream cudnn-hdl false))))
   ([hstream]
    (cudnn-factory (stream-ctx hstream) hstream))
   ([]
    (init)
-   (let-release [ctx (context (device))]
-     (in-context ctx
-       (cudnn-factory ctx default-stream)))))
+   (if (null? (current-context))
+     (let-release [ctx (push-context! (context))]
+       (let-release [cudnn-hdl (cudnn-context default-stream)]
+         (create-cudnn-factory ctx default-stream cudnn-hdl true)))
+     (cudnn-factory (current-context) default-stream))))

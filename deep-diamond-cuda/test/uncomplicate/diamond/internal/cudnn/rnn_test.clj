@@ -12,10 +12,10 @@
             [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.diamond.dnn-test :refer :all]
             [uncomplicate.diamond.internal.protocols :refer [create-workspace *workspace*]]
-            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]])
+            [uncomplicate.diamond.cuda :refer [cuda-factory]])
   (:import clojure.lang.ExceptionInfo))
 
-(with-release [fact (cudnn-factory)]
+(with-release [fact (cuda-factory)]
   (test-vanilla-rnn-inference fact)
   (test-vanilla-rnn-training fact)
   (test-rnn-inference fact)

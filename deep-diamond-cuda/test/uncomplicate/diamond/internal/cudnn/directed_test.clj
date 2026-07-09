@@ -11,9 +11,9 @@
   (:require [uncomplicate.commons [core :refer [with-release]]]
             [uncomplicate.diamond.dnn-test :refer :all]
             [uncomplicate.diamond.internal.protocols :refer [create-workspace *workspace*]]
-            [uncomplicate.diamond.internal.cudnn.factory :refer [cudnn-factory]]))
+            [uncomplicate.diamond.cuda :refer [cuda-factory]]))
 
-(with-release [fact (cudnn-factory)]
+(with-release [fact (cuda-factory)]
   (test-activation-relu fact)
   (test-activation-sigmoid fact)
   (test-fully-connected-inference fact)
