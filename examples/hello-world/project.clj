@@ -1,10 +1,10 @@
-(defproject hello-world-on-the-fly "0.45.0"
+(defproject hello-world-on-the-fly "0.46.0"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [org.uncomplicate/neanderthal-base "0.63.0"]
-                 [org.uncomplicate/deep-diamond-base "0.45.0"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.45.0"]]
+                 [org.uncomplicate/neanderthal-base "0.64.0"]
+                 [org.uncomplicate/deep-diamond-base "0.46.0"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.46.0"]]
 
   ;; If you'd like AOT compiled Deep Diamond for fast namespace loading (1-2 seconds instead of 20),
   ;; see hello-world-aot example for reference.
@@ -14,21 +14,21 @@
   ;; For the GPU, choose between CUDA (PC) or OpenCL (PC or MacOS x86_64)
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {}
-             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0"]
+             :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.64.0"]
                                     [org.bytedeco/mkl "2025.3-1.5.13" :classifier "linux-x86_64-redist"]
-                                    [org.uncomplicate/deep-diamond-cuda "0.45.0"]
+                                    [org.uncomplicate/deep-diamond-cuda "0.46.0"]
                                     [org.bytedeco/cuda-redist "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "linux-x86_64"]]}
-             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.63.0"]
+             :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.64.0"]
                                       [org.bytedeco/mkl "2025.3-1.5.13" :classifier "windows-x86_64-redist"]
-                                      [org.uncomplicate/deep-diamond-cuda "0.45.0"]
+                                      [org.uncomplicate/deep-diamond-cuda "0.46.0"]
                                       [org.bytedeco/cuda-redist "13.1-9.19-1.5.13" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cublas "13.1-9.19-1.5.13" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cudnn "13.1-9.19-1.5.13" :classifier "windows-x86_64"]]}
-             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.63.0"]
+             :macosx {:dependencies [[org.uncomplicate/neanderthal-accelerate "0.64.0"]
                                      [org.bytedeco/openblas "0.3.31-1.5.13" :classifier "macosx-arm64"]
-                                     [org.uncomplicate/deep-diamond-bnns "0.45.0"]]}}
+                                     [org.uncomplicate/deep-diamond-bnns "0.46.0"]]}}
 
   ;; Wee need this for the DNNL binaries, for the latest version is not available in the Maven Central yet
   ;; :repositories [["maven-central-snapshots" "https://central.sonatype.com/repository/maven-snapshots"]]
