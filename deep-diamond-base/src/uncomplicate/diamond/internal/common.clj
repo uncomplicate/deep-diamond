@@ -36,7 +36,7 @@
       (transfer! (view-vctr (output float-connect)) dst))
     (if (contiguous? src)
       (transfer! (view-vctr src) dst)
-      (with-release [connect (connector src (default-desc dst))]
+      (with-release [connect (connector src (default-desc src))]
         (connect)
         (transfer! (view-vctr (output src)) dst))))
   dst)

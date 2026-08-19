@@ -6,7 +6,7 @@
 ;;   the terms of this license.
 ;;   You must not remove this notice, or any other, from this software.
 
-(defproject uncomplicate/deep-diamond "0.47.0"
+(defproject uncomplicate/deep-diamond "0.47.1"
   :description "Fast Clojure Deep Learning Library"
   :author "Dragan Djuric"
   :url "http://github.com/uncomplicate/deep-diamond"
@@ -17,10 +17,10 @@
                  [org.uncomplicate/neanderthal-mkl "0.66.1"]
                  [org.uncomplicate/neanderthal-cuda "0.66.1"]
                  [org.uncomplicate/neanderthal-accelerate "0.66.1"]
-                 [org.uncomplicate/deep-diamond-base "0.47.0"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.47.0"]
-                 [org.uncomplicate/deep-diamond-cuda "0.47.0"]
-                 [org.uncomplicate/deep-diamond-bnns "0.47.0"]]
+                 [org.uncomplicate/deep-diamond-base "0.47.1"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.47.1"]
+                 [org.uncomplicate/deep-diamond-cuda "0.47.1"]
+                 [org.uncomplicate/deep-diamond-bnns "0.47.1"]]
 
   :aot [uncomplicate.neanderthal.internal.cpp.structures
         uncomplicate.neanderthal.internal.cpp.factory

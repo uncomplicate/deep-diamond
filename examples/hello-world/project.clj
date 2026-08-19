@@ -1,10 +1,10 @@
-(defproject hello-world-on-the-fly "0.47.0"
+(defproject hello-world-on-the-fly "0.47.1"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
                  [org.uncomplicate/neanderthal-base "0.66.1"]
-                 [org.uncomplicate/deep-diamond-base "0.47.0"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.47.0"]]
+                 [org.uncomplicate/deep-diamond-base "0.47.1"]
+                 [org.uncomplicate/deep-diamond-dnnl "0.47.1"]]
 
   ;; If you'd like AOT compiled Deep Diamond for fast namespace loading (1-2 seconds instead of 20),
   ;; see hello-world-aot example for reference.
@@ -17,14 +17,14 @@
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.66.1"]
                                     [org.bytedeco/mkl "13.3-9.25-1.5.14" :classifier "linux-x86_64-redist"]
                                     ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!
-                                    [org.uncomplicate/deep-diamond-cuda "0.47.0"]
+                                    [org.uncomplicate/deep-diamond-cuda "0.47.1"]
                                     [org.bytedeco/cuda-redist "13.3-9.25-1.5.14" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cublas "13.3-9.25-1.5.14" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cudnn "13.3-9.25-1.5.14" :classifier "linux-x86_64"]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.66.1"]
                                       [org.bytedeco/mkl "13.3-9.25-1.5.14" :classifier "windows-x86_64-redist"]
                                       ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!
-                                      [org.uncomplicate/deep-diamond-cuda "0.47.0"]
+                                      [org.uncomplicate/deep-diamond-cuda "0.47.1"]
                                       [org.bytedeco/cuda-redist "13.3-9.25-1.5.14" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cublas "13.3-9.25-1.5.14" :classifier "windows-x86_64"]
                                       [org.bytedeco/cuda-redist-cudnn "13.3-9.25-1.5.14" :classifier "windows-x86_64"]]}

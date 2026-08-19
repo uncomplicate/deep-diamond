@@ -1,8 +1,8 @@
-(defproject hello-world-aot "0.47.0"
+(defproject hello-world-aot "0.47.1"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [uncomplicate/deep-diamond "0.47.0"]]
+                 [uncomplicate/deep-diamond "0.47.1"]]
 
   ;; uncomplicate/deep-diamond is AOT compiled for fast loading and developer convenience, which
   ;; might cause issues since it freezes org.clojure/core.async to the specific version (see ClojureCUDA).
