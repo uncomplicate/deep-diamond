@@ -13,9 +13,10 @@
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.12.5"]
-                 [org.uncomplicate/neanderthal-cuda  "0.66.1"]
                  [org.uncomplicate/deep-diamond-base "0.47.1"]
-                 [org.uncomplicate/deep-diamond-dnnl "0.47.1"]]
+                 [org.uncomplicate/deep-diamond-dnnl "0.47.1"]
+                 [org.bytedeco/opencl-platform "3.0-1.5.13"]
+                 [org.uncomplicate/neanderthal-cuda  "0.66.1"]]
 
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {:plugins [[lein-midje "3.2.1"]]

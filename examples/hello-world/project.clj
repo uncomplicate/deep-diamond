@@ -15,14 +15,14 @@
   :profiles {:dev [:dev/all ~(leiningen.core.utils/get-os)]
              :dev/all {}
              :linux {:dependencies [[org.uncomplicate/neanderthal-mkl "0.66.1"]
-                                    [org.bytedeco/mkl "13.3-9.25-1.5.14" :classifier "linux-x86_64-redist"]
+                                    [org.bytedeco/mkl "2026.1-1.5.14" :classifier "linux-x86_64-redist"]
                                     ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!
                                     [org.uncomplicate/deep-diamond-cuda "0.47.1"]
                                     [org.bytedeco/cuda-redist "13.3-9.25-1.5.14" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cublas "13.3-9.25-1.5.14" :classifier "linux-x86_64"]
                                     [org.bytedeco/cuda-redist-cudnn "13.3-9.25-1.5.14" :classifier "linux-x86_64"]]}
              :windows {:dependencies [[org.uncomplicate/neanderthal-mkl "0.66.1"]
-                                      [org.bytedeco/mkl "13.3-9.25-1.5.14" :classifier "windows-x86_64-redist"]
+                                      [org.bytedeco/mkl "2026.1-1.5.14" :classifier "windows-x86_64-redist"]
                                       ;; optional, if you want GPU computing with CUDA. Beware: the cuda redist jars are very large!
                                       [org.uncomplicate/deep-diamond-cuda "0.47.1"]
                                       [org.bytedeco/cuda-redist "13.3-9.25-1.5.14" :classifier "windows-x86_64"]
