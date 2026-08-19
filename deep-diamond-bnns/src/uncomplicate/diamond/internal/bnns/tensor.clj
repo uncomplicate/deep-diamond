@@ -645,12 +645,12 @@
 
 (defmethod transfer! [Object BnnsTensor]
   [src dst]
-  (transfer-object-tensor source destination)
+  (transfer-object-tensor src dst)
   dst)
 
 (defmethod transfer! [BnnsTensor Object]
   [src dst]
-  (transfer-tensor-object source destination))
+  (transfer-tensor-object src dst))
 
 (defmethod transfer! [Object BnnsTransformer]
   [src dst]
