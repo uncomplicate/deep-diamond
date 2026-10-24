@@ -47,7 +47,7 @@
            (entry! cm i j (inc (double (entry cm i j))))))
        cm)))
   ([real pred]
-   (confusion-matrix real pred (inc (double (amax real))))))
+   (confusion-matrix real pred (inc (double (amax (view-vctr real)))))))
 
 (defn contingency-totals
   "Calculates true positives, false positives, and false negatives from the confusion matrix `cm`.
